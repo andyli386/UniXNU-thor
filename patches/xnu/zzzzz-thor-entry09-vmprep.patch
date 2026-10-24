@@ -1,0 +1,2266 @@
+diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -38,6 +38,21 @@
+ #endif
+ #include <arm64/exception_asm.h>
+ 
++#if XNU_THOR_EARLY_C && XNU_THOR_ENTRY_STOP
++#error ENTRY06 stop and ENTRY09 early C are mutually exclusive
++#endif
++#if XNU_THOR_EARLY_C
++#if ARM_PGSHIFT != 12 || BOOTSTRAP_TABLE_BYTES != 65536 || __ARM_KERNEL_PROTECT__
++#error ENTRY09 requires the reviewed native 4K, 16-page bootstrap pool
++#endif
++#if T0SZ_BOOT != 26 || T1SZ_BOOT != 26 || ARM_TT_L1_INDEX_MASK != 0x0000003fc0000000ULL || HAS_APPLE_PAC || KASAN
++#error ENTRY09 requires two reviewed 38-bit level-1 roots, no PAC and no KASAN
++#endif
++#if !XNU_NATIVE_ARCH_TIMER
++#error ENTRY09 must not access BCM2837 timer MMIO
++#endif
++#endif
++
+ #if __ARM_KERNEL_PROTECT__
+ #include <arm/pmap.h>
+ #endif /* __ARM_KERNEL_PROTECT__ */
+@@ -224,7 +239,9 @@
+ 	.align	3
+ 	.globl EXT(_start)
+ LEXT(_start)
+-#if defined(XNU_THOR_ENTRY_STOP) && XNU_THOR_ENTRY_STOP
++#if XNU_THOR_EARLY_C
++	b EXT(thor_entry09_enter)
++#elif defined(XNU_THOR_ENTRY_STOP) && XNU_THOR_ENTRY_STOP
+ 	b	EXT(thor_entry_stop_begin)
+ #include "thor_entry_stop.inc.S"
+ #else
+@@ -241,6 +258,13 @@
+ 	.align 12, 0
+ 	.global	EXT(LowExceptionVectorBase)
+ LEXT(LowExceptionVectorBase)
++#if XNU_THOR_EARLY_C
++	/* Kept at its owned physical identity address before and after M=1. */
++	.rept 16
++	b EXT(thor_entry09_exception)
++	.space 124, 0
++	.endr
++#else
+ 	/* EL1 SP 0 */
+ 	b		.
+ 	.align	7
+@@ -276,6 +300,7 @@
+ 	b		.
+ 	.align	7
+ 	b		.
++#endif
+ 	.align 12, 0
+ 
+ #if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+@@ -534,6 +559,7 @@
+ 	 *	Page 4 - KVA L2 table
+ 	 */
+ 
++#if !XNU_THOR_EARLY_C
+ 	// Invalidate all entries in the bootstrap page tables
+ 	mov		x0, #(ARM_TTE_EMPTY)				// Load invalid entry template
+ 	mov		x1, x25								// Start at V=P pagetable root
+@@ -544,6 +570,8 @@
+ 	str		x0, [x1], #(1 << TTE_SHIFT)			//   Invalidate and advance
+ 	subs	x2, x2, #1							//   entries--
+ 	b.ne	Linvalidate_bootstrap				// } while (entries != 0)
++
++#endif
+ 
+ 	/*
+ 	 * In order to reclaim memory on targets where TZ0 (or some other entity)
+@@ -586,6 +614,22 @@
+ 	add		x22, x22, x18
+ 	add		x23, x23, x18
+ 
++#if XNU_THOR_EARLY_C
++	/* No header prefix is permitted by the ENTRY09 exact-grant contract. */
++	cbnz x18, EXT(thor_entry09_reset)
++	mov x28, lr
++	mov x0, x23
++	mov x1, x22
++	mov x2, x24
++	mov x3, x25
++	mov x4, #BOOTSTRAP_TABLE_BYTES
++	bl EXT(thor_entry09_build_tables)
++	/* Second persistent band: all ten page-table pages constructed. */
++	mov x0, #1
++	mov w1, #0xffff
++	bl EXT(thor_entry09_mark)
++	mov lr, x28
++#else
+ 	/*
+ 	 * x0  - V=P virtual cursor
+ 	 * x4  - V=P physical cursor
+@@ -621,6 +665,8 @@
+ 	/* Setup the KVA bootstrap mapping */
+ 	lsr		x5,  x24, #(ARM_TT_L2_SHIFT)
+ 	create_bootstrap_mapping x14, x15, x5, x3, x2, x9, x10, x11, x12, x13
++
++#endif
+ 
+ 	b Lbootstrap_tables_ready
+ Lbootstrap_tables_exhausted:
+@@ -731,6 +777,11 @@
+ 	 */
+ 	tlbi	vmalle1
+ 	ic		iallu
++#if XNU_THOR_EARLY_C
++	/* Complete the final TLB/I-cache invalidation before enabling M/C/I. */
++	dsb sy
++	isb
++#endif
+ #endif
+ 
+ 	/* If x21 is not 0, then this is either the start_cpu path or
+@@ -745,6 +796,10 @@
+ 	MSR_TTBR1_EL1_X0
+ 1:
+ 
++#if XNU_THOR_EARLY_C
++	/* Physical LowExceptionVectorBase remains valid across M=0 -> M=1.
++	 * The full ordinary XNU exception machinery is not initialized yet. */
++#else
+ 	// Set up the exception vectors
+ #if __ARM_KERNEL_PROTECT__
+ 	/* If this is not the first reset of the boot CPU, the alternate mapping
+@@ -762,6 +817,8 @@
+ 1:
+ 	MSR_VBAR_EL1_X0
+ 
++#endif
++
+ #if HAS_APPLE_PAC
+ 	PAC_INIT_KEY_STATE tmp=x0, tmp2=x1
+ #endif /* HAS_APPLE_PAC */
+@@ -787,6 +844,10 @@
+ 	// Enable NEON
+ 	mov		x0, #(CPACR_FPEN_ENABLE)
+ 	msr		CPACR_EL1, x0
++#if XNU_THOR_EARLY_C
++	/* C and SecureDT use SIMD: complete FPEN before any C instruction. */
++	isb
++#endif
+ #endif
+ 
+ 	// Clear thread pointer
+@@ -895,6 +956,10 @@
+ 	/* Return to arm_init() */
+ 	ret
+ 
++#if XNU_THOR_EARLY_C
++#include "thor_entry09_early.inc.S"
++#endif
++
+ //#include	"globals_asm.h"
+ 
+ /* vim: set ts=4: */
+diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -342,6 +342,10 @@
+  *		Function:		Runs on the boot CPU, once, on entry from iBoot.
+  */
+ 
++#if XNU_THOR_EARLY_C
++#include "thor_entry09_early.inc.c"
++#endif
++
+ __startup_func
+ void
+ arm_init(
+@@ -354,6 +358,9 @@
+ 	DTEntry chosen = NULL;
+ 	unsigned int dt_entry_size = 0;
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_c_enter(args);
++#endif
+ 	arm_setup_pre_sign();
+ 
+ 	arm_slide_rebase_and_sign_image();
+@@ -370,6 +377,9 @@
+ #endif /* defined(HAS_APPLE_PAC) */
+ 
+ 	PE_init_platform(FALSE, args); /* Get platform expert set up */
++#if XNU_THOR_EARLY_C
++	thor_entry09_c_pe_check(args);
++#endif
+ 	boot_progress_init();
+ 
+ #if __arm64__
+@@ -441,7 +451,13 @@
+ 	}
+ #endif
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_before_topology();
++#endif
+ 	ml_parse_cpu_topology();
++#if XNU_THOR_EARLY_C
++	thor_entry09_topology_check(args);
++#endif
+ 
+ 
+ 	master_cpu = ml_get_boot_cpu_number();
+@@ -472,7 +488,17 @@
+ 	thread->machine.preemption_count = 0;
+ 	cpu_bootstrap();
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_thread_check(args, thread);
++	if (rtclock_timebase_const.numer != 0 || rtclock_timebase_const.denom != 0 ||
++	    rtclock_sec_divisor != 0 || rtclock_usec_divisor != 0) {
++		thor_entry09_fail();
++	}
++#endif
+ 	rtclock_early_init();
++#if XNU_THOR_EARLY_C
++	thor_entry09_rtclock_done(args, thread);
++#endif
+ 
+ 	kernel_debug_string_early("kernel_startup_bootstrap");
+ 	kernel_startup_bootstrap();
+@@ -482,6 +508,9 @@
+ 	 */
+ 	timer_call_init();
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_before_cpu(args);
++#endif
+ 	cpu_init();
+ 
+ 	processor_bootstrap();
+@@ -531,6 +560,9 @@
+ 	__builtin_arm_wsr("pan", 1);
+ #endif  /* __ARM_PAN_AVAILABLE__ */
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_prevm_done(args);
++#endif
+ 	boot_progress_stage("arm_vm_init enter");
+ 	arm_vm_init(xmaxmem, args);
+ 	boot_progress_stage("arm_vm_init returned");
+diff --git a/osfmk/arm64/thor_entry09_early.inc.S b/osfmk/arm64/thor_entry09_early.inc.S
+new file mode 100644
+--- /dev/null
++++ b/osfmk/arm64/thor_entry09_early.inc.S
+@@ -0,0 +1,621 @@
++/* ENTRY09: fixed-grant normal bootstrap and bounded VM-preparation diagnostic.
++ * All pre-MMU helpers are stackless. Only 64MiB owned RAM and the previously
++ * proved framebuffer rows64..127 are addressed. No firmware service is used.
++ */
++        .align 2
++        .globl EXT(thor_entry09_enter)
++LEXT(thor_entry09_enter)
++        mrs     x9, CurrentEL
++        cmp     x9, #4
++        b.ne    EXT(thor_entry09_park)
++        msr     daifset, #15
++
++        /* Exact 64 MiB grant, wholly inside the published low DXE heap. */
++        movz    x9, #0x0400, lsl #16
++        cmp     x3, x9
++        b.ne    EXT(thor_entry09_park)
++        movz    x9, #0xf800, lsl #16
++        cmp     x2, x9
++        b.lo    EXT(thor_entry09_park)
++        movz    x9, #0xfbc0, lsl #16 /* 0xffc00000 - 64 MiB */
++        cmp     x2, x9
++        b.hi    EXT(thor_entry09_park)
++        and     x9, x2, #0x1fffff
++        movz    x10, #0x4000
++        cmp     x9, x10
++        b.ne    EXT(thor_entry09_park)
++
++        /* The actual branch destination must be this image's real __start. */
++        adr     x9, EXT(_start)
++        cmp     x1, x9
++        b.ne    EXT(thor_entry09_park)
++        cmp     x1, x2
++        b.lo    EXT(thor_entry09_park)
++        sub     x10, x1, x2
++        cmp     x10, x3
++        b.hs    EXT(thor_entry09_park)
++
++        /* Install only after proving the whole 2 KiB vector span is owned. */
++        adr     x9, EXT(LowExceptionVectorBase)
++        tst     x9, #0x7ff
++        b.ne    EXT(thor_entry09_park)
++        cmp     x9, x2
++        b.lo    EXT(thor_entry09_park)
++        sub     x10, x9, x2
++        cmp     x10, x3
++        b.hs    EXT(thor_entry09_park)
++        sub     x10, x3, x10
++        cmp     x10, #0x800
++        b.lo    EXT(thor_entry09_park)
++        msr     VBAR_EL1, x9
++        isb
++
++        /* Require EL1 stage-1 translation and data/instruction caching off. */
++        mrs     x9, SCTLR_EL1
++        movz    x10, #0x1005       /* M | C | I */
++        tst     x9, x10
++        b.ne    EXT(thor_entry09_reset)
++        tbnz    x9, #25, EXT(thor_entry09_reset) /* reject big-endian EL1 data */
++
++        /* Full 0x480-byte ARM64 boot_args must fit before the first load. */
++        tst     x0, #0x3fff        /* caller places Args on a 16 KiB boundary */
++        b.ne    EXT(thor_entry09_reset)
++        cmp     x0, x2
++        b.lo    EXT(thor_entry09_reset)
++        sub     x9, x0, x2
++        sub     x10, x3, #0x480
++        cmp     x9, x10
++        b.hi    EXT(thor_entry09_reset)
++
++        ldr     w9, [x0, #0]
++        movz    w10, #2
++        movk    w10, #2, lsl #16  /* Revision 2, Version 2, little endian */
++        cmp     w9, w10
++        b.ne    EXT(thor_entry09_reset)
++        ldr     x9, [x0, #0x8]
++        movz    x10, #0x4000
++        movk    x10, #0x0700, lsl #16
++        movk    x10, #0xfff0, lsl #32
++        movk    x10, #0xffff, lsl #48
++        cmp     x9, x10           /* fixed mainline VirtualBase */
++        b.ne    EXT(thor_entry09_reset)
++        ldr     x9, [x0, #0x10]
++        cmp     x9, x2
++        b.ne    EXT(thor_entry09_reset)
++        ldr     x9, [x0, #0x18]
++        cmp     x9, x3
++        b.ne    EXT(thor_entry09_reset)
++        ldr     x9, [x0, #0x478]
++        cmp     x9, x3
++        b.ne    EXT(thor_entry09_reset)
++
++        /* Truthful Top: aligned, covers Args, and keeps the 2 MiB tail. */
++        ldr     x9, [x0, #0x20]
++        tst     x9, #0x3fff
++        b.ne    EXT(thor_entry09_reset)
++        add     x10, x0, #0x480
++        cmp     x9, x10
++        b.lo    EXT(thor_entry09_reset)
++        sub     x9, x9, x2
++        movz    x10, #0x20, lsl #16
++        sub     x10, x3, x10
++        cmp     x9, x10
++        b.hi    EXT(thor_entry09_reset)
++        ldr     w9, [x0, #0x58]    /* machineType */
++        cbnz    w9, EXT(thor_entry09_reset)
++        /* ADT is an owned KVA pointer; validate its entire fixed 800 bytes. */
++        ldr     x9, [x0, #0x60]
++        tst     x9, #3
++        b.ne    EXT(thor_entry09_reset)
++        MOV64   x10, VM_KERNEL_LINK_ADDRESS
++        cmp     x9, x10
++        b.lo    EXT(thor_entry09_reset)
++        sub     x9, x9, x10
++        sub     x10, x3, #800
++        cmp     x9, x10
++        b.hi    EXT(thor_entry09_reset)
++        add     x9, x9, x2
++        add     x9, x9, #800
++        ldr     x10, [x0, #0x20]
++        cmp     x9, x10
++        b.hi    EXT(thor_entry09_reset)
++        ldr     w9, [x0, #0x68]
++        cmp     w9, #800
++        b.ne    EXT(thor_entry09_reset)
++        ldrb    w9, [x0, #0x6c]    /* empty command line */
++        cbnz    w9, EXT(thor_entry09_reset)
++        ldr     x9, [x0, #0x470]   /* bootFlags */
++        cbnz    x9, EXT(thor_entry09_reset)
++
++        /* Exact observed GOP contract; compare full 64-bit Video fields. */
++        ldr     x19, [x0, #0x28]
++        movz    x9, #0xb800, lsl #16
++        cmp     x19, x9
++        b.ne    EXT(thor_entry09_reset)
++        ldr     x9, [x0, #0x30]
++        cmp     x9, #1
++        b.ne    EXT(thor_entry09_reset)
++        ldr     x20, [x0, #0x38]
++        movz    x9, #5760
++        cmp     x20, x9
++        b.ne    EXT(thor_entry09_reset)
++        ldr     x9, [x0, #0x40]
++        cmp     x9, #1440
++        b.ne    EXT(thor_entry09_reset)
++        ldr     x9, [x0, #0x48]
++        cmp     x9, #3200
++        b.ne    EXT(thor_entry09_reset)
++        ldr     x9, [x0, #0x50]
++        cmp     x9, #32
++        b.ne    EXT(thor_entry09_reset)
++
++        /* Actual header, full pool and both stack spans must be owned.
++         * These checks precede the first pool store or virtual SP assignment. */
++        adrp    x9, EXT(_mh_execute_header)@page
++        add     x9, x9, EXT(_mh_execute_header)@pageoff
++        cmp     x9, x2
++        b.ne    EXT(thor_entry09_reset)
++        adrp    x9, EXT(bootstrap_pagetables)@page
++        cmp     x9, x2
++        b.lo    EXT(thor_entry09_reset)
++        add     x10, x9, #16, lsl #12
++        add     x11, x2, x3
++        cmp     x10, x11
++        b.hi    EXT(thor_entry09_reset)
++        adrp    x9, EXT(intstack)@page
++        add     x9, x9, EXT(intstack)@pageoff
++        cmp     x9, x2
++        b.lo    EXT(thor_entry09_reset)
++        add     x10, x9, #4, lsl #12
++        cmp     x10, x11
++        b.hi    EXT(thor_entry09_reset)
++        adrp    x12, EXT(intstack_top)@page
++        add     x12, x12, EXT(intstack_top)@pageoff
++        cmp     x10, x12
++        b.ne    EXT(thor_entry09_reset)
++        adrp    x9, EXT(excepstack)@page
++        add     x9, x9, EXT(excepstack)@pageoff
++        cmp     x9, x2
++        b.lo    EXT(thor_entry09_reset)
++        add     x10, x9, #4, lsl #12
++        cmp     x10, x11
++        b.hi    EXT(thor_entry09_reset)
++        adrp    x12, EXT(excepstack_top)@page
++        add     x12, x12, EXT(excepstack_top)@pageoff
++        cmp     x10, x12
++        b.ne    EXT(thor_entry09_reset)
++
++        /* Counter is independently checked at the real kernel entry. */
++        mrs     x22, CNTFRQ_EL0
++        movz    x9, #0xf800
++        movk    x9, #0x0124, lsl #16 /* 19,200,000 Hz */
++        cmp     x22, x9
++        b.ne    EXT(thor_entry09_reset)
++        isb
++        mrs     x23, CNTVCT_EL0
++        movz    w12, #4096
++L_entry09_counter_probe:
++        isb
++        mrs     x9, CNTVCT_EL0
++        cmp     x9, x23
++        b.ne    L_entry09_enter_mark
++        subs    w12, w12, #1
++        b.ne    L_entry09_counter_probe
++        b       EXT(thor_entry09_reset)
++
++L_entry09_enter_mark:
++        mov     x27, x0
++        mov     x0, #0
++        movz    w1, #0x00ff
++        movk    w1, #0x00ff, lsl #16
++        bl      EXT(thor_entry09_mark)
++        mov     x0, x27
++        b       EXT(start_first_cpu)
++
++/* Fixed geometry, freshly zeroed entire 16-page pool, ten pages used.
++ * Inputs: x0=owned PA, x1=KVA, x2=64MiB, x3=pool PA, x4=pool bytes.
++ * x19..x30 and SP are untouched. All failures precede ordinary startup.
++ * Pool: 0/1 roots; 2,3,4 identity L2/edge L3; 5,6,7 KVA;
++ * 8,9 framebuffer L2/L3. No leaf extends beyond either allowed range.
++ */
++.align 2
++.globl EXT(thor_entry09_build_tables)
++LEXT(thor_entry09_build_tables)
++        mov     x5, #0x04000000
++        cmp     x2, x5
++        b.ne    EXT(thor_entry09_reset)
++        MOV64   x5, VM_KERNEL_LINK_ADDRESS
++        cmp     x1, x5
++        b.ne    EXT(thor_entry09_reset)
++        mov     x5, #0xf8000000
++        cmp     x0, x5
++        b.lo    EXT(thor_entry09_reset)
++        mov     x5, #0xfbc00000
++        cmp     x0, x5
++        b.hi    EXT(thor_entry09_reset)
++        and     x5, x0, #0x1fffff
++        cmp     x5, #0x4000
++        b.ne    EXT(thor_entry09_reset)
++        cmp     x4, #16, lsl #12
++        b.ne    EXT(thor_entry09_reset)
++        tst     x3, #0xfff
++        b.ne    EXT(thor_entry09_reset)
++        cmp     x3, x0
++        b.lo    EXT(thor_entry09_reset)
++        add     x5, x3, x4
++        add     x6, x0, x2
++        cmp     x5, x6
++        b.hi    EXT(thor_entry09_reset)
++        ubfx    x5, x0, #21, #9
++        cmp     x5, #479
++        b.hi    EXT(thor_entry09_reset)
++        ubfx    x5, x1, #21, #9
++        cmp     x5, #479
++        b.hi    EXT(thor_entry09_reset)
++
++        /* Zero precedes every install, including all unused root entries. */
++        mov     x5, x3
++        mov     x6, #8192
++L_entry09_zero:
++        str     xzr, [x5], #8
++        subs    x6, x6, #1
++        b.ne    L_entry09_zero
++
++        mov     x5, x3
++        add     x6, x3, #2, lsl #12
++        mov     x9, x0
++        mov     w11, #2
++L_entry09_map:
++        and     x12, x9, #ARM_TT_L1_INDEX_MASK
++        lsr     x12, x12, #ARM_TT_L1_SHIFT
++        add     x12, x5, x12, lsl #3
++        orr     x13, x6, #3
++        str     x13, [x12]
++        ubfx    x12, x9, #21, #9
++        add     x12, x6, x12, lsl #3
++        add     x7, x6, #1, lsl #12
++        add     x8, x6, #2, lsl #12
++        orr     x13, x7, #3
++        str     x13, [x12], #8
++        add     x14, x7, #32
++        mov     x10, x0
++        mov     x15, #ARM_PTE_BOOT_PAGE
++        orr     x13, x10, x15
++        mov     w16, #508
++L_entry09_first_pages:
++        str     x13, [x14], #8
++        add     x13, x13, #1, lsl #12
++        add     x10, x10, #1, lsl #12
++        subs    w16, w16, #1
++        b.ne    L_entry09_first_pages
++        mov     x15, #ARM_TTE_BOOT_BLOCK
++        orr     x13, x10, x15
++        mov     w16, #31
++L_entry09_middle_blocks:
++        str     x13, [x12], #8
++        add     x13, x13, #512, lsl #12
++        add     x10, x10, #512, lsl #12
++        subs    w16, w16, #1
++        b.ne    L_entry09_middle_blocks
++        orr     x13, x8, #3
++        str     x13, [x12]
++        mov     x14, x8
++        mov     x15, #ARM_PTE_BOOT_PAGE
++        orr     x13, x10, x15
++        mov     w16, #4
++L_entry09_last_pages:
++        str     x13, [x14], #8
++        add     x13, x13, #1, lsl #12
++        subs    w16, w16, #1
++        b.ne    L_entry09_last_pages
++        subs    w11, w11, #1
++        b.eq    L_entry09_map_fb
++        add     x5, x5, #1, lsl #12
++        add     x6, x6, #3, lsl #12
++        mov     x9, x1
++        b       L_entry09_map
++
++L_entry09_map_fb:
++        add     x6, x3, #8, lsl #12
++        add     x7, x3, #9, lsl #12
++        movz    x9, #0xa000
++        movk    x9, #0xb805, lsl #16
++        and     x12, x9, #ARM_TT_L1_INDEX_MASK
++        lsr     x12, x12, #ARM_TT_L1_SHIFT
++        add     x12, x3, x12, lsl #3
++        orr     x13, x6, #3
++        str     x13, [x12]
++        ubfx    x12, x9, #21, #9
++        add     x12, x6, x12, lsl #3
++        orr     x13, x7, #3
++        str     x13, [x12]
++        ubfx    x12, x9, #12, #9
++        add     x12, x7, x12, lsl #3
++        MOV64   x15, (ARM_PTE_TYPE_VALID | ARM_PTE_AF | ARM_PTE_SH(SH_INNER_MEMORY) | ARM_PTE_ATTRINDX(CACHE_ATTRINDX_WRITETHRU) | ARM_PTE_PNX | ARM_PTE_NX)
++        orr     x13, x9, x15
++        mov     w16, #90
++L_entry09_fb_pages:
++        str     x13, [x12], #8
++        add     x13, x13, #1, lsl #12
++        subs    w16, w16, #1
++        b.ne    L_entry09_fb_pages
++        dsb     sy
++        ret
++.globl EXT(thor_entry09_build_tables_end)
++LEXT(thor_entry09_build_tables_end)
++
++/* AAPCS leaf: x0 is band 0..7, w1 is a fixed 24-bit RGB word.
++ * Each band is six rows, beginning at y=64. Eighth band means rejection.
++ * Only x0..x9, flags are clobbered. The original physical and KVA callers
++ * use the same explicitly mapped framebuffer address. */
++.align 2
++.globl EXT(thor_entry09_mark)
++LEXT(thor_entry09_mark)
++        cmp     x0, #7
++        b.hi    EXT(thor_entry09_reset)
++        mov     x2, #34560
++        mul     x3, x0, x2
++        movz    x4, #0xa000
++        movk    x4, #0xb805, lsl #16
++        add     x3, x3, x4
++        mov     x5, x3
++        add     x6, x3, x2
++        mov     x7, #8640
++L_entry09_mark_pixels:
++        str     w1, [x5], #4
++        subs    x7, x7, #1
++        b.ne    L_entry09_mark_pixels
++        mrs     x7, sctlr_el1
++        tbz     x7, #0, L_entry09_mark_done
++        mrs     x7, ctr_el0
++        ubfx    x7, x7, #16, #4
++        cmp     x7, #10
++        b.hi    EXT(thor_entry09_reset)
++        mov     x8, #4
++        lsl     x8, x8, x7
++        sub     x9, x8, #1
++        bic     x3, x3, x9
++L_entry09_mark_clean:
++        dc      cvac, x3
++        add     x3, x3, x8
++        cmp     x3, x6
++        b.lo    L_entry09_mark_clean
++L_entry09_mark_done:
++        dsb     sy
++        ret
++.globl EXT(thor_entry09_mark_end)
++LEXT(thor_entry09_mark_end)
++
++/* Return 1 only at the linked KVA, with the real native virtual stack and
++ * the exact roots made above. No AT, page-table write, or firmware calls.
++ * x0 is already the KVA boot_args from normal common_start (or its kernel
++ * const copy on the second call). Only x0..x12 and flags are clobbered. */
++.align 2
++.globl EXT(thor_entry09_c_state)
++LEXT(thor_entry09_c_state)
++        mrs     x9, CurrentEL
++        cmp     x9, #4
++        b.ne    L_entry09_state_no
++        MOV64   x10, VM_KERNEL_LINK_ADDRESS
++        cmp     x0, x10
++        b.lo    L_entry09_state_no
++        sub     x9, x0, x10
++        mov     x11, #0x4000000
++        sub     x11, x11, #0x480
++        cmp     x9, x11
++        b.hi    L_entry09_state_no
++        adr     x9, EXT(thor_entry09_c_state)
++        cmp     x9, x10
++        b.lo    L_entry09_state_no
++        sub     x9, x9, x10
++        cmp     x9, x11
++        b.hi    L_entry09_state_no
++        cmp     lr, x10
++        b.lo    L_entry09_state_no
++        sub     x9, lr, x10
++        cmp     x9, x11
++        b.hi    L_entry09_state_no
++        mrs     x9, spsel
++        cbnz    x9, L_entry09_state_no
++        mov     x9, sp
++        tst     x9, #15
++        b.ne    L_entry09_state_no
++        adrp    x11, EXT(intstack)@page
++        add     x11, x11, EXT(intstack)@pageoff
++        add     x11, x11, #1, lsl #12
++        cmp     x9, x11
++        b.lo    L_entry09_state_no
++        adrp    x11, EXT(intstack_top)@page
++        add     x11, x11, EXT(intstack_top)@pageoff
++        cmp     x9, x11
++        b.hi    L_entry09_state_no
++        mrs     x9, sctlr_el1
++        mov     x11, #0x1005
++        and     x12, x9, x11
++        cmp     x12, x11
++        b.ne    L_entry09_state_no
++        tbnz    x9, #19, L_entry09_state_no
++        tbnz    x9, #25, L_entry09_state_no
++        mrs     x9, daif
++        and     x9, x9, #0x3c0
++        cmp     x9, #0x3c0
++        b.ne    L_entry09_state_no
++        mrs     x9, cpacr_el1
++        ubfx    x9, x9, #20, #2
++        cmp     x9, #3
++        b.ne    L_entry09_state_no
++        mrs     x9, tcr_el1
++        MOV64   x11, TCR_EL1_BOOT
++        cmp     x9, x11
++        b.ne    L_entry09_state_no
++        mrs     x9, mair_el1
++        and     x11, x9, #255
++        cmp     x11, #MAIR_WRITEBACK
++        b.ne    L_entry09_state_no
++        ubfx    x11, x9, #16, #8
++        cmp     x11, #MAIR_WRITETHRU
++        b.ne    L_entry09_state_no
++        ldr     x1, [x0, #0x10]
++        mov     x11, #0xf8000000
++        cmp     x1, x11
++        b.lo    L_entry09_state_no
++        mov     x11, #0xfbc00000
++        cmp     x1, x11
++        b.hi    L_entry09_state_no
++        and     x11, x1, #0x1fffff
++        cmp     x11, #0x4000
++        b.ne    L_entry09_state_no
++        adrp    x11, EXT(bootstrap_pagetables)@page
++        sub     x11, x11, x10
++        add     x11, x11, x1
++        mrs     x9, ttbr0_el1
++        cmp     x9, x11
++        b.ne    L_entry09_state_no
++        add     x11, x11, #1, lsl #12
++        mrs     x9, ttbr1_el1
++        cmp     x9, x11
++        b.ne    L_entry09_state_no
++        adrp    x11, EXT(LowExceptionVectorBase)@page
++        add     x11, x11, EXT(LowExceptionVectorBase)@pageoff
++        sub     x11, x11, x10
++        add     x11, x11, x1
++        mrs     x9, vbar_el1
++        cmp     x9, x11
++        b.ne    L_entry09_state_no
++        mrs     x9, cntfrq_el0
++        movz    x11, #0xf800
++        movk    x11, #0x0124, lsl #16
++        cmp     x9, x11
++        b.ne    L_entry09_state_no
++        mov     w0, #1
++        ret
++L_entry09_state_no:
++        mov     w0, #0
++        ret
++.globl EXT(thor_entry09_c_state_end)
++LEXT(thor_entry09_c_state_end)
++
++/* C-level contract failures retain all completed bands, add red at y106,
++ * then use the same bounded display. Architectural exceptions skip stores. */
++.align 2
++.globl EXT(thor_entry09_fail)
++LEXT(thor_entry09_fail)
++        mov     x0, #7
++        mov     w1, #0x00ff0000
++        bl      EXT(thor_entry09_mark)
++        b       EXT(thor_entry09_stop)
++
++.align 2
++.globl EXT(thor_entry09_stop)
++LEXT(thor_entry09_stop)
++        msr     daifset, #15
++        mrs     x22, CNTFRQ_EL0
++        movz    x9, #0xf800
++        movk    x9, #0x0124, lsl #16
++        cmp     x22, x9
++        b.ne    EXT(thor_entry09_reset)
++        mrs     x9, ctr_el0
++        ubfx    x9, x9, #16, #4
++        cmp     x9, #10
++        b.hi    EXT(thor_entry09_reset)
++        mov     x28, #4
++        lsl     x28, x28, x9
++        movz    x19, #0xd800
++        movk    x19, #0xb809, lsl #16
++        mov     x20, #5760
++        mov     x12, x19
++        mov     w14, #16
++        movz    w16, #0xffff
++        movk    w16, #0x00ff, lsl #16
++L_entry09_gauge_row:
++        mov     x13, x12
++        mov     w15, #1280
++L_entry09_gauge_pixel:
++        str     w16, [x13], #4
++        subs    w15, w15, #1
++        b.ne    L_entry09_gauge_pixel
++        add     x12, x12, x20
++        subs    w14, w14, #1
++        b.ne    L_entry09_gauge_row
++        bl      L_entry09_clean_gauge
++        mov     x10, #20
++        mul     x24, x22, x10
++        isb
++        mrs     x23, CNTVCT_EL0
++        mov     x17, x23
++        mov     w18, #4096
++        mov     x25, #20
++        mov     x26, #0x40000000
++L_entry09_poll:
++        subs    x26, x26, #1
++        b.eq    EXT(thor_entry09_reset)
++        isb
++        mrs     x9, CNTVCT_EL0
++        cmp     x9, x17
++        b.ne    L_entry09_advanced
++        subs    w18, w18, #1
++        b.eq    EXT(thor_entry09_reset)
++        b       L_entry09_elapsed
++L_entry09_advanced:
++        mov     x17, x9
++        mov     w18, #4096
++L_entry09_elapsed:
++        sub     x11, x9, x23
++        cmp     x11, x24
++        b.hs    EXT(thor_entry09_reset)
++        udiv    x10, x11, x22
++        mov     x11, #20
++        sub     x10, x11, x10
++        cmp     x10, x25
++        b.eq    L_entry09_poll
++        b.hi    EXT(thor_entry09_reset)
++        sub     x27, x25, x10
++        lsl     x27, x27, #6
++        mov     x25, x10
++        add     x12, x19, x10, lsl #8
++        mov     w14, #16
++L_entry09_erase_row:
++        mov     x13, x12
++        mov     x15, x27
++L_entry09_erase_pixel:
++        str     wzr, [x13], #4
++        subs    x15, x15, #1
++        b.ne    L_entry09_erase_pixel
++        add     x12, x12, x20
++        subs    w14, w14, #1
++        b.ne    L_entry09_erase_row
++        bl      L_entry09_clean_gauge
++        b       L_entry09_poll
++L_entry09_clean_gauge:
++        sub     x9, x28, #1
++        bic     x12, x19, x9
++        movz    x13, #0x4000
++        movk    x13, #0xb80b, lsl #16
++L_entry09_gauge_clean_loop:
++        dc      cvac, x12
++        add     x12, x12, x28
++        cmp     x12, x13
++        b.lo    L_entry09_gauge_clean_loop
++        dsb     sy
++        ret
++
++.align 2
++.globl EXT(thor_entry09_exception)
++LEXT(thor_entry09_exception)
++        /* All 16 early vector slots enter here; no stack or data accesses. */
++        b       EXT(thor_entry09_reset)
++.globl EXT(thor_entry09_reset)
++LEXT(thor_entry09_reset)
++        msr     daifset, #15
++        dsb     sy
++        movz    w0, #9
++        movk    w0, #0x8400, lsl #16
++        mov     x1, xzr
++        mov     x2, xzr
++        mov     x3, xzr
++        smc     #0
++.globl EXT(thor_entry09_park)
++LEXT(thor_entry09_park)
++        b       EXT(thor_entry09_park)
++.globl EXT(thor_entry09_asm_end)
++LEXT(thor_entry09_asm_end)
+diff --git a/osfmk/arm/thor_entry09_early.inc.c b/osfmk/arm/thor_entry09_early.inc.c
+new file mode 100644
+--- /dev/null
++++ b/osfmk/arm/thor_entry09_early.inc.c
+@@ -0,0 +1,376 @@
++/* Included only in the actual arm_init.c under XNU_THOR_EARLY_C=1.
++ * The real VM preparation runs in arm_vm_init; diagnostic code only observes it.
++ */
++#include "../../pexpert/arm/thor_entry09_clock.h"
++
++extern void thor_entry09_mark(uint64_t band, uint32_t rgb);
++extern uint32_t thor_entry09_c_state(const boot_args *args);
++extern void thor_entry09_fail(void) __attribute__((noreturn));
++extern void thor_entry09_stop(void) __attribute__((noreturn));
++extern void thor_entry09_reset(void) __attribute__((noreturn));
++
++static void
++thor_entry09_c_enter(const boot_args *args)
++{
++    if (thor_entry09_c_state(args) != 1) {
++        thor_entry09_reset();
++    }
++    /* A fixed, unslid MH_EXECUTE with no threaded starts takes the real
++     * normal rebase function's minimal branch. Other formats are refused. */
++    if ((uintptr_t)&_mh_execute_header != (uintptr_t)VM_KERNEL_LINK_ADDRESS ||
++        _mh_execute_header.magic != MH_MAGIC_64 ||
++        _mh_execute_header.filetype != MH_EXECUTE ||
++        (_mh_execute_header.flags & MH_DYLIB_IN_CACHE) != 0 ||
++        &__thread_starts_sect_start[0] != &__thread_starts_sect_end[0]) {
++        thor_entry09_fail();
++    }
++    thor_entry09_mark(2, 0x00ffff00U);
++}
++
++static void
++thor_entry09_c_pe_check(boot_args *args)
++{
++    DTEntry chosen = NULL;
++    void const *property = NULL;
++    unsigned int size = 0;
++    const unsigned char *bytes;
++    uint64_t unknown_frequencies;
++
++    if (thor_entry09_c_state(args) != 1) {
++        thor_entry09_reset();
++    }
++    if (BootArgs != args || args != &const_boot_args || vm_kernel_slide != 0 ||
++        static_kernelcache || PE_state.initialized != TRUE ||
++        PE_state.bootArgs != args || PE_state.deviceTreeHead != args->deviceTreeP ||
++        PE_state.deviceTreeSize != 800 || args->deviceTreeLength != 800 ||
++        PE_state.video.v_baseAddr != 0xb8000000ULL ||
++        PE_state.video.v_rowBytes != 5760 || PE_state.video.v_width != 1440 ||
++        PE_state.video.v_height != 3200 || PE_state.video.v_depth != 32 ||
++        PE_state.video.v_display != 1) {
++        thor_entry09_fail();
++    }
++    if (gThorEntry09ClockReport.version != 1 ||
++        gThorEntry09ClockReport.status != 1 ||
++        gThorEntry09ClockReport.valid_mask != 3 ||
++        gThorEntry09ClockReport.cpu_count != 1 ||
++        gThorEntry09ClockReport.counter_hz != 19200000 ||
++        gThorEntry09ClockReport.dt_timebase_hz != 19200000 ||
++        gThorEntry09ClockReport.reserved != 0) {
++        thor_entry09_fail();
++    }
++    unknown_frequencies = gPEClockFrequencyInfo.bus_clock_rate_hz |
++        gPEClockFrequencyInfo.cpu_clock_rate_hz |
++        gPEClockFrequencyInfo.bus_clock_rate_num |
++        gPEClockFrequencyInfo.bus_clock_rate_den |
++        gPEClockFrequencyInfo.bus_to_cpu_rate_num |
++        gPEClockFrequencyInfo.bus_to_cpu_rate_den |
++        gPEClockFrequencyInfo.bus_to_dec_rate_num |
++        gPEClockFrequencyInfo.bus_to_dec_rate_den |
++        gPEClockFrequencyInfo.timebase_frequency_num |
++        gPEClockFrequencyInfo.timebase_frequency_den |
++        gPEClockFrequencyInfo.bus_frequency_hz |
++        gPEClockFrequencyInfo.bus_frequency_min_hz |
++        gPEClockFrequencyInfo.bus_frequency_max_hz |
++        gPEClockFrequencyInfo.cpu_frequency_hz |
++        gPEClockFrequencyInfo.cpu_frequency_min_hz |
++        gPEClockFrequencyInfo.cpu_frequency_max_hz |
++        gPEClockFrequencyInfo.prf_frequency_hz |
++        gPEClockFrequencyInfo.prf_frequency_min_hz |
++        gPEClockFrequencyInfo.prf_frequency_max_hz |
++        gPEClockFrequencyInfo.mem_frequency_hz |
++        gPEClockFrequencyInfo.mem_frequency_min_hz |
++        gPEClockFrequencyInfo.mem_frequency_max_hz |
++        gPEClockFrequencyInfo.fix_frequency_hz;
++    if (unknown_frequencies != 0 ||
++        gPEClockFrequencyInfo.dec_clock_rate_hz != 19200000 ||
++        gPEClockFrequencyInfo.timebase_frequency_hz != 19200000) {
++        thor_entry09_fail();
++    }
++    if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess ||
++        SecureDTGetProperty(chosen, "entry09-diagnostic", &property, &size) != kSuccess ||
++        size != 4 || property == NULL) {
++        thor_entry09_fail();
++    }
++    bytes = (const unsigned char *)property;
++    if (bytes[0] != 1 || bytes[1] != 0 || bytes[2] != 0 || bytes[3] != 0) {
++        thor_entry09_fail();
++    }
++    /* Return only after the real initial PE result is checked. */
++}
++
++/* ENTRY09 permits only the one actually executing CPU.  Never infer reg=0. */
++static uint64_t thor_entry09_boot_mpidr;
++
++static uint64_t
++thor_entry09_mpidr(void)
++{
++    uint64_t value;
++    __asm__ volatile ("mrs %0, mpidr_el1" : "=r" (value));
++    return value;
++}
++
++static void
++thor_entry09_before_topology(void)
++{
++    DTEntry cpus = NULL, cpu = NULL, other = NULL;
++    OpaqueDTEntryIterator iter;
++    const void *property = NULL;
++    unsigned int size = 0;
++    uint64_t reg = 0, raw = thor_entry09_mpidr();
++    const uint8_t *bytes;
++    unsigned int i;
++
++    if ((raw & 0xff00ff0000ULL) != 0 ||
++        SecureDTLookupEntry(NULL, "/cpus", &cpus) != kSuccess ||
++        SecureDTInitEntryIterator(cpus, &iter) != kSuccess ||
++        SecureDTIterateEntries(&iter, &cpu) != kSuccess ||
++        SecureDTIterateEntries(&iter, &other) == kSuccess ||
++        SecureDTGetProperty(cpu, "reg", &property, &size) != kSuccess ||
++        property == NULL || size != 8) {
++        thor_entry09_fail();
++    }
++    bytes = (const uint8_t *)property;
++    for (i = 0; i != 8; ++i) {
++        reg |= (uint64_t)bytes[i] << (8 * i);
++    }
++    if (reg != (raw & 0xffffULL)) {
++        thor_entry09_fail();
++    }
++    /* Clock/PE validation already required the sole cpu0 state="running".
++     * Recheck immediately before the real topology consumer as well. */
++    if (SecureDTGetProperty(cpu, "state", &property, &size) != kSuccess ||
++        property == NULL || size != sizeof("running") ||
++        memcmp(property, "running", sizeof("running")) != 0) {
++        thor_entry09_fail();
++    }
++    thor_entry09_boot_mpidr = raw;
++}
++
++static int
++thor_entry09_owned_object(const boot_args *args, const void *object, uint64_t bytes)
++{
++    uint64_t base = args->virtBase, address = (uintptr_t)object;
++    uint64_t used = args->topOfKernelData - args->physBase;
++    return address >= base && address - base <= used &&
++        bytes <= used - (address - base);
++}
++
++static void
++thor_entry09_topology_check(boot_args *args)
++{
++    const ml_topology_info_t *info = ml_get_topology_info();
++    const ml_topology_cpu_t *cpu;
++    const ml_topology_cluster_t *cluster;
++    uint64_t tpidr, tpidrro;
++    __asm__ volatile ("mrs %0, tpidr_el0" : "=r" (tpidr));
++    __asm__ volatile ("mrs %0, tpidrro_el0" : "=r" (tpidrro));
++
++    if (thor_entry09_mpidr() != thor_entry09_boot_mpidr ||
++        !thor_entry09_owned_object(args, info, sizeof(*info)) ||
++        info->version != CPU_TOPOLOGY_VERSION || info->num_cpus != 1 ||
++        info->max_cpu_id != 0 || info->num_clusters != 1 ||
++        info->max_cluster_id != 0 || info->max_die_id != 0 ||
++        !thor_entry09_owned_object(args, info->cpus, sizeof(*info->cpus)) ||
++        !thor_entry09_owned_object(args, info->clusters, sizeof(*info->clusters)) ||
++        info->boot_cpu != info->cpus || info->boot_cluster != info->clusters ||
++        info->cluster_types != (1U << CLUSTER_TYPE_SMP) ||
++        info->cluster_type_num_cpus[CLUSTER_TYPE_SMP] != 1 ||
++        info->cluster_type_num_clusters[CLUSTER_TYPE_SMP] != 1 ||
++        ml_get_boot_cpu_number() != 0 || ml_get_max_cpu_number() != 0 ||
++        tpidr != 0 || tpidrro != 0 || PAGE_SHIFT_CONST != 12 ||
++        page_shift_user32 != 12) {
++        thor_entry09_fail();
++    }
++    cpu = info->boot_cpu;
++    cluster = info->boot_cluster;
++    if (cpu->cpu_id != 0 || cpu->cluster_id != 0 || cpu->die_id != 0 ||
++        cpu->phys_id != (uint32_t)(thor_entry09_boot_mpidr & 0xffffULL) ||
++        cpu->cluster_type != CLUSTER_TYPE_SMP ||
++        (cpu->l2_access_penalty | cpu->l2_cache_size | cpu->l2_cache_id |
++         cpu->l3_cache_size | cpu->l3_cache_id) != 0 ||
++        (cpu->cpu_IMPL_regs | cpu->cpu_IMPL_pa | cpu->cpu_IMPL_len |
++         cpu->cpu_UTTDBG_regs | cpu->cpu_UTTDBG_pa | cpu->cpu_UTTDBG_len |
++         cpu->coresight_regs | cpu->coresight_pa | cpu->coresight_len) != 0 ||
++        cluster->cluster_id != 0 || cluster->cluster_type != CLUSTER_TYPE_SMP ||
++        cluster->num_cpus != 1 || cluster->first_cpu_id != 0 ||
++        cluster->cpu_mask != 1 ||
++        (cluster->acc_IMPL_regs | cluster->acc_IMPL_pa | cluster->acc_IMPL_len |
++         cluster->cpm_IMPL_regs | cluster->cpm_IMPL_pa | cluster->cpm_IMPL_len) != 0) {
++        thor_entry09_fail();
++    }
++}
++
++extern volatile uint64_t gThorEntry09CntkctlBefore;
++extern volatile uint64_t gThorEntry09CntkctlAfter;
++extern volatile uint32_t gThorEntry09CntkctlStatus;
++
++static void
++thor_entry09_thread_check(boot_args *args, thread_t thread)
++{
++    uint64_t tpidr, tpidrro, current, context, cntkctl;
++    __asm__ volatile ("mrs %0, tpidr_el0" : "=r" (tpidr));
++    __asm__ volatile ("mrs %0, tpidrro_el0" : "=r" (tpidrro));
++    __asm__ volatile ("mrs %0, tpidr_el1" : "=r" (current));
++    __asm__ volatile ("mrs %0, contextidr_el1" : "=r" (context));
++    __asm__ volatile ("mrs %0, cntkctl_el1" : "=r" (cntkctl));
++    if (thor_entry09_c_state(args) != 1) {
++        thor_entry09_reset();
++    }
++    if (!thor_entry09_owned_object(args, thread, sizeof(*thread)) ||
++        master_cpu != 0 || BootCpuData.cpu_number != 0 ||
++        BootCpuData.intstack_top != (vm_offset_t)&intstack_top ||
++        BootCpuData.istackptr != &intstack_top ||
++        BootCpuData.excepstack_top != (vm_offset_t)&excepstack_top ||
++        CpuDataEntries[0].cpu_data_vaddr != &BootCpuData ||
++        CpuDataEntries[0].cpu_data_paddr != (void *)(args->physBase +
++            (uintptr_t)&BootCpuData - args->virtBase) ||
++        BootCpuData.cpu_active_thread != thread ||
++        BootCpuData.cpu_tpidr_el0 != 0 || BootCpuData.rtclock_datap != &RTClockData ||
++        thread->machine.CpuDatap != &BootCpuData ||
++        thread->machine.pcpu_data_base != 0 || thread->machine.preemption_count != 0 ||
++        thread->machine.cthread_self != 0 || thread->thread_id != 0 ||
++        thread->ctid != ((1U << 20) - 1) || thread->sched_pri != MAXPRI_KERNEL ||
++        current != (uintptr_t)thread || tpidr != 0 || tpidrro != 0 || context != 0 ||
++        gThorEntry09CntkctlStatus != 1 || cntkctl != gThorEntry09CntkctlAfter ||
++        (cntkctl & 0x200ffULL) != 0x4fULL ||
++        ((cntkctl ^ gThorEntry09CntkctlBefore) & ~0x200ffULL) != 0) {
++        thor_entry09_fail();
++    }
++}
++
++static void
++thor_entry09_rtclock_check(boot_args *args, thread_t thread)
++{
++    thor_entry09_c_pe_check(args);
++    thor_entry09_topology_check(args);
++    thor_entry09_thread_check(args, thread);
++    if (rtclock_timebase_const.numer != 625 || rtclock_timebase_const.denom != 12 ||
++        rtclock_sec_divisor != 19200000 || rtclock_usec_divisor != 19 ||
++        RTClockData.rtc_base.abstime != 0 || RTClockData.rtc_adj.abstime != 0 ||
++        RTClockData.rtc_timebase_addr != 0 || RTClockData.rtc_timebase_val != 0) {
++        thor_entry09_fail();
++    }
++    /* The original ENTRY08 result is preserved as a returning check. */
++}
++
++/* ENTRY09 preserves the ENTRY08 contract and checks the new native consumers. */
++#include <arm/cpuid.h>
++#include <arm/cpuid_internal.h>
++#include "thor_entry09_adt.h"
++
++static thread_t thor_entry09_boot_thread;
++static uint32_t thor_entry09_cpu_prechecked;
++extern uint32_t thor_entry09_timer_ready(void);
++extern vm_offset_t segLOWESTTEXT;
++void thor_entry09_adt_check(const boot_args *args, int consumed);
++void thor_entry09_post_cpu_check(boot_args *args);
++
++void
++thor_entry09_adt_check(const boot_args *args, int consumed)
++{
++    const uint8_t *adt = (const uint8_t *)args->deviceTreeP;
++    uint64_t reg = 0;
++    uint64_t raw = thor_entry09_mpidr();
++    unsigned seed_or = 0;
++    if (args->deviceTreeLength != sizeof(thor_entry09_canonical_adt) ||
++        !thor_entry09_owned_object(args, adt, sizeof(thor_entry09_canonical_adt)) ||
++        (raw & 0xff00ff0000ULL) != 0) {
++        thor_entry09_fail();
++    }
++    for (unsigned i = 0; i < sizeof(thor_entry09_canonical_adt); ++i) {
++        if (i >= 352 && i < 416) {
++            seed_or |= adt[i];
++        } else if (i >= 656 && i < 664) {
++            reg |= (uint64_t)adt[i] << ((i - 656) * 8);
++        } else if (adt[i] != thor_entry09_canonical_adt[i]) {
++            thor_entry09_fail();
++        }
++    }
++    if (reg != (raw & 0xffffULL) || (consumed ? seed_or != 0 : seed_or == 0)) {
++        thor_entry09_fail();
++    }
++}
++
++static void
++thor_entry09_rtclock_done(boot_args *args, thread_t thread)
++{
++    /* The old finish checks now return, after the same real rtclock call. */
++    thor_entry09_rtclock_check(args, thread);
++    thor_entry09_adt_check(args, 0);
++    thor_entry09_boot_thread = thread;
++    thor_entry09_mark(3, 0x000000ffU);
++}
++
++static void
++thor_entry09_before_cpu(boot_args *args)
++{
++    uint64_t raw = thor_entry09_mpidr();
++    if (thor_entry09_c_state(args) != 1) {
++        thor_entry09_reset();
++    }
++    if (thor_entry09_cpu_prechecked != 0 || raw != thor_entry09_boot_mpidr ||
++        (raw & 0xff00ff0000ULL) != 0 || ml_get_cpu_number_local() != 0 ||
++        ml_get_topology_info()->boot_cpu->phys_id != (uint32_t)(raw & 0xffffULL) ||
++        BootCpuData.cpu_type != 0 || cache_info() != NULL ||
++        processor_count != 0 || startup_phase != STARTUP_SUB_LOCKS ||
++        thor_entry09_timer_ready() != 1 || segLOWESTTEXT != 0 ||
++        !disable_serial_output || !disable_kprintf_output) {
++        thor_entry09_fail();
++    }
++    thor_entry09_cpu_prechecked = 1;
++}
++
++void
++thor_entry09_post_cpu_check(boot_args *args)
++{
++    uint64_t selector;
++    uint32_t clidr = machine_read_clidr();
++    uint32_t l1 = clidr & 7, l2 = (clidr >> 3) & 7, l3 = (clidr >> 6) & 7;
++    uint32_t expected_selector = l1 == 3 ? 1 : (l3 == 4 ? 4 : (l2 == 4 || l2 == 2 ? 2 : 0));
++    cache_info_t *cache = cache_info();
++    arm_cpu_info_t *cpuinfo = cpuid_info();
++    __asm__ volatile ("mrs %0, csselr_el1" : "=r" (selector));
++    thor_entry09_rtclock_check(args, thor_entry09_boot_thread);
++    if (thor_entry09_cpu_prechecked != 1 || startup_phase != STARTUP_SUB_LOCKS ||
++        thor_entry09_timer_ready() != 1 || ml_get_cpu_number_local() != 0 ||
++        !thor_entry09_owned_object(args, cache, sizeof(*cache)) ||
++        !thor_entry09_owned_object(args, cpuinfo, sizeof(*cpuinfo)) ||
++        !cache->c_valid || cache->c_dsize == 0 || cache->c_linesz == 0 ||
++        cache->c_assoc == 0 || selector != expected_selector ||
++        BootCpuData.cpu_type != CPU_TYPE_ARM64 ||
++        BootCpuData.cpu_subtype != (cpuinfo->arm_info.arm_arch == CPU_ARCH_ARMv8 ?
++            CPU_SUBTYPE_ARM64_V8 : CPU_SUBTYPE_ARM64E) ||
++        (cpuinfo->arm_info.arm_arch != CPU_ARCH_ARMv8 &&
++            cpuinfo->arm_info.arm_arch != CPU_ARCH_ARMv8E) ||
++        BootCpuData.cpu_threadtype != CPU_THREADTYPE_NONE ||
++        BootCpuData.cpu_running != TRUE || BootCpuData.cpu_sleep_token != 0 ||
++        BootCpuData.cpu_sleep_token_last != ARM_CPU_ON_SLEEP_PATH ||
++        BootCpuData.rtclock_timer.deadline != EndOfAllTime ||
++        !queue_empty(&BootCpuData.rtclock_timer.queue.head) ||
++        BootCpuData.rtclock_timer.queue.count != 0 ||
++        !thor_entry09_owned_object(args, master_processor, sizeof(*master_processor)) ||
++        processor_count != 1 || processor_list != master_processor ||
++        processor_array[0] != master_processor ||
++        master_processor->cpu_id != 0 || master_processor->state != PROCESSOR_OFF_LINE ||
++        master_processor->processor_set != &pset0 ||
++        master_processor->processor_primary != master_processor ||
++        master_processor->processor_secondary != NULL ||
++        master_processor->processor_list != NULL ||
++        master_processor->active_thread != THREAD_NULL ||
++        master_processor->startup_thread != THREAD_NULL ||
++        master_processor->idle_thread != THREAD_NULL ||
++        pset0.cpu_set_count != 1 || pset0.cpu_set_low != 0 || pset0.cpu_set_hi != 0 ||
++        pset0.cpu_bitmask != 1 || pset0.recommended_bitmask != 1 ||
++        pset0.primary_map != 1 || pset0.cpu_state_map[PROCESSOR_OFF_LINE] != 1 ||
++        pset0.cpu_available_map != 0 || pset0.realtime_map != 0) {
++        thor_entry09_fail();
++    }
++}
++
++static void
++thor_entry09_prevm_done(boot_args *args)
++{
++    thor_entry09_post_cpu_check(args);
++    thor_entry09_adt_check(args, 0);
++    thor_entry09_mark(4, 0x00ff8000U);
++}
+diff --git a/pexpert/arm/pe_identify_machine.c b/pexpert/arm/pe_identify_machine.c
+--- a/pexpert/arm/pe_identify_machine.c
++++ b/pexpert/arm/pe_identify_machine.c
+@@ -26,6 +26,167 @@
+ static uint32_t pe_arm_init_timer(void *args);
+ 
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++#include "thor_entry09_clock.h"
++
++volatile thor_entry09_clock_report_t gThorEntry09ClockReport;
++
++static int
++thor_entry09_property_matches(DTEntry entry, const char *key,
++    const void *expected, unsigned int expected_size)
++{
++	const void *value = NULL;
++	unsigned int size = 0;
++	return SecureDTGetProperty(entry, key, &value, &size) == kSuccess &&
++	       size == expected_size && memcmp(value, expected, expected_size) == 0;
++}
++
++static int
++thor_entry09_property_absent(DTEntry entry, const char *key)
++{
++	const void *value = NULL;
++	unsigned int size = 0;
++	return SecureDTGetProperty(entry, key, &value, &size) != kSuccess;
++}
++
++static int
++thor_entry09_seed_present(DTEntry entry)
++{
++    const void *value = NULL;
++    unsigned int size = 0, bits = 0;
++    if (SecureDTGetProperty(entry, "random-seed", &value, &size) != kSuccess ||
++        value == NULL || size != 64) {
++        return 0;
++    }
++    for (unsigned int i = 0; i < 64; ++i) {
++        bits |= ((const uint8_t *)value)[i];
++    }
++    return bits != 0;
++}
++
++static uint32_t
++thor_entry09_read_le32(const void *value)
++{
++	const uint8_t *p = (const uint8_t *)value;
++	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
++	       ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
++}
++
++static uint64_t
++thor_entry09_counter_frequency(void)
++{
++#if defined(THOR_ENTRY09_HOST_TEST)
++	extern uint64_t thor_entry09_host_counter_hz(void);
++	return thor_entry09_host_counter_hz();
++#elif defined(__arm64__) || defined(__aarch64__)
++	uint64_t value;
++	__asm__ volatile ("mrs %0, cntfrq_el0" : "=r" (value));
++	return value;
++#else
++#error ENTRY09 kernel clock shim requires AArch64
++#endif
++}
++
++/*
++ * This branch deliberately has no Apple SoC/MMIO prerequisite or default
++ * CPU/bus frequency. Only the generic counter has evidence. The caller must
++ * check this report after PE(FALSE). ENTRY09 executes real VM preparation
++ * and stops after arm_vm_physmap_init, before installing the new TTBR1.
++ * An error returns with all global clock fields zero, never using panic/serial.
++ */
++static void
++thor_entry09_identify_counter(boot_args *bootArgs)
++{
++	DTEntry root, chosen, cpus, cpu, other;
++	OpaqueDTEntryIterator iter;
++	const void *value = NULL;
++	unsigned int size = 0;
++	uint32_t timebase;
++	uint64_t counter;
++	static const uint8_t diagnostic_version[4] = { 1, 0, 0, 0 };
++	static const char *const unavailable[] = {
++		"bus-frequency", "clock-frequency", "memory-frequency",
++		"peripheral-frequency", "fixed-frequency"
++	};
++	unsigned int i;
++
++	bzero(&gPEClockFrequencyInfo, sizeof(gPEClockFrequencyInfo));
++	if (gThorEntry09ClockReport.status != THOR_ENTRY09_CLOCK_UNSET) {
++		gThorEntry09ClockReport.valid_mask = 0;
++		gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_REENTERED;
++		return;
++	}
++	gThorEntry09ClockReport.version = THOR_ENTRY09_CLOCK_VERSION;
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_BOOTARGS;
++	if (bootArgs == NULL || bootArgs->deviceTreeP == NULL ||
++	    bootArgs->deviceTreeLength < 8 || bootArgs->deviceTreeLength > 16384) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_ROOT;
++	if (SecureDTLookupEntry(NULL, "/", &root) != kSuccess ||
++	    !thor_entry09_property_matches(root, "name", "device-tree", sizeof("device-tree")) ||
++	    !thor_entry09_property_matches(root, "compatible", "xnu,thor-entry09", sizeof("xnu,thor-entry09")) ||
++	    !thor_entry09_property_matches(root, "model", "Xiaomi thor ENTRY09 diagnostic", sizeof("Xiaomi thor ENTRY09 diagnostic")) ||
++	    !thor_entry09_property_matches(root, "target-type", "thor", sizeof("thor"))) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_CHOSEN;
++	if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess ||
++	    !thor_entry09_property_matches(chosen, "entry09-diagnostic", diagnostic_version, sizeof(diagnostic_version)) ||
++	    !thor_entry09_property_absent(chosen, "dram-base") ||
++	    !thor_entry09_property_absent(chosen, "dram-size") ||
++	    !thor_entry09_seed_present(chosen) ||
++	    SecureDTLookupEntry(NULL, "/arm-io", &other) == kSuccess) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_CPUS;
++	if (SecureDTLookupEntry(NULL, "/cpus", &cpus) != kSuccess ||
++	    SecureDTInitEntryIterator(cpus, &iter) != kSuccess ||
++	    SecureDTIterateEntries(&iter, &cpu) != kSuccess) {
++		return;
++	}
++	gThorEntry09ClockReport.cpu_count = 1;
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_TOPOLOGY;
++	if (SecureDTIterateEntries(&iter, &other) == kSuccess) {
++		gThorEntry09ClockReport.cpu_count = 2;
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_CPU_STATE;
++	if (!thor_entry09_property_matches(cpu, "name", "cpu0", sizeof("cpu0")) ||
++	    !thor_entry09_property_matches(cpu, "state", "running", sizeof("running")) ||
++	    !thor_entry09_property_matches(cpu, "device_type", "cpu", sizeof("cpu"))) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_UNSUPPORTED_FREQUENCY;
++	for (i = 0; i < sizeof(unavailable) / sizeof(unavailable[0]); i++) {
++		if (!thor_entry09_property_absent(cpu, unavailable[i])) {
++			return;
++		}
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_TIMEBASE;
++	if (SecureDTGetProperty(cpu, "timebase-frequency", &value, &size) != kSuccess || size != 4) {
++		return;
++	}
++	timebase = thor_entry09_read_le32(value);
++	gThorEntry09ClockReport.dt_timebase_hz = timebase;
++	if (timebase != THOR_ENTRY09_COUNTER_HZ) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_COUNTER;
++	counter = thor_entry09_counter_frequency();
++	gThorEntry09ClockReport.counter_hz = counter;
++	if (counter != timebase) {
++		return;
++	}
++
++	/* Unknown physical rates and all legacy ratios remain explicitly zero. */
++	gPEClockFrequencyInfo.timebase_frequency_hz = timebase;
++	gPEClockFrequencyInfo.dec_clock_rate_hz = timebase;
++	gThorEntry09ClockReport.valid_mask = THOR_ENTRY09_CLOCK_VALID_TIMEBASE | THOR_ENTRY09_CLOCK_VALID_DEC;
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_OK;
++}
++#endif
++
+ /*
+  * pe_identify_machine:
+  *
+@@ -34,6 +195,10 @@
+ void
+ pe_identify_machine(boot_args * bootArgs)
+ {
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_identify_counter(bootArgs);
++	return;
++#endif
+ 	OpaqueDTEntryIterator iter;
+ 	DTEntry         cpus, cpu;
+ 	void const     *value;
+diff --git a/pexpert/arm/thor_entry09_clock.h b/pexpert/arm/thor_entry09_clock.h
+new file mode 100644
+--- /dev/null
++++ b/pexpert/arm/thor_entry09_clock.h
+@@ -0,0 +1,40 @@
++/* ENTRY09-only generic-counter identification. Not a normal-platform clock policy. */
++#ifndef THOR_ENTRY09_CLOCK_H
++#define THOR_ENTRY09_CLOCK_H
++
++#include <stdint.h>
++
++#define THOR_ENTRY09_CLOCK_VERSION 1u
++#define THOR_ENTRY09_COUNTER_HZ 19200000u
++#define THOR_ENTRY09_CLOCK_VALID_TIMEBASE 1u
++#define THOR_ENTRY09_CLOCK_VALID_DEC 2u
++
++enum thor_entry09_clock_status {
++	THOR_ENTRY09_CLOCK_UNSET = 0,
++	THOR_ENTRY09_CLOCK_OK = 1,
++	THOR_ENTRY09_CLOCK_REENTERED = 2,
++	THOR_ENTRY09_CLOCK_BOOTARGS = 3,
++	THOR_ENTRY09_CLOCK_ROOT = 4,
++	THOR_ENTRY09_CLOCK_CHOSEN = 5,
++	THOR_ENTRY09_CLOCK_CPUS = 6,
++	THOR_ENTRY09_CLOCK_CPU_STATE = 7,
++	THOR_ENTRY09_CLOCK_TIMEBASE = 8,
++	THOR_ENTRY09_CLOCK_COUNTER = 9,
++	THOR_ENTRY09_CLOCK_UNSUPPORTED_FREQUENCY = 10,
++	THOR_ENTRY09_CLOCK_TOPOLOGY = 11
++};
++
++typedef struct thor_entry09_clock_report {
++	uint32_t version;
++	uint32_t status;
++	uint32_t valid_mask;
++	uint32_t cpu_count;
++	uint64_t counter_hz;
++	uint32_t dt_timebase_hz;
++	uint32_t reserved;
++} thor_entry09_clock_report_t;
++
++/* A separate report makes zero-valued unavailable Apple clock fields explicit. */
++extern volatile thor_entry09_clock_report_t gThorEntry09ClockReport;
++
++#endif
+diff --git a/osfmk/arm64/machine_routines.c b/osfmk/arm64/machine_routines.c
+--- a/osfmk/arm64/machine_routines.c
++++ b/osfmk/arm64/machine_routines.c
+@@ -2358,6 +2358,13 @@
+ 	thread_exception_return();
+ }
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++volatile uint64_t gThorEntry09CntkctlBefore;
++volatile uint64_t gThorEntry09CntkctlAfter;
++volatile uint32_t gThorEntry09CntkctlStatus;
++extern void thor_entry09_fail(void) __attribute__((noreturn));
++#endif
++
+ static void
+ _enable_timebase_event_stream(uint32_t bit_index)
+ {
+@@ -2369,6 +2376,15 @@
+ 
+ 	__asm__ volatile ("mrs	%0, CNTKCTL_EL1" : "=r"(cntkctl));
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	if (bit_index != 4 || gThorEntry09CntkctlStatus != 0) {
++		thor_entry09_fail();
++	}
++	gThorEntry09CntkctlBefore = cntkctl;
++	/* EVNTIS=0 keeps EVENTI in bits0..15.  Its zero is RES0-compatible
++	 * when FEAT_ECV is absent.  Preserve every unrelated register bit. */
++	cntkctl &= ~((uint64_t)CNTKCTL_EL1_EVENTI_MASK | (1ULL << 17));
++#endif
+ 	cntkctl |= (bit_index << CNTKCTL_EL1_EVENTI_SHIFT);
+ 	cntkctl |= CNTKCTL_EL1_EVNTEN;
+ 	cntkctl |= CNTKCTL_EL1_EVENTDIR; /* 1->0; why not? */
+@@ -2382,6 +2398,14 @@
+ 	}
+ 
+ 	__builtin_arm_wsr64("CNTKCTL_EL1", cntkctl);
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	__asm__ volatile ("isb" ::: "memory");
++	gThorEntry09CntkctlAfter = __builtin_arm_rsr64("CNTKCTL_EL1");
++	if (gThorEntry09CntkctlAfter != cntkctl) {
++		thor_entry09_fail();
++	}
++	gThorEntry09CntkctlStatus = 1;
++#endif
+ }
+ 
+ /*
+diff --git a/osfmk/arm64/arm_vm_init.c b/osfmk/arm64/arm_vm_init.c
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -370,6 +370,14 @@
+ SECURITY_READ_ONLY_LATE(static ptov_table_entry)        ptov_table[PTOV_TABLE_SIZE];
+ SECURITY_READ_ONLY_LATE(static boolean_t)               kva_active = FALSE;
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++static void thor_entry09_vm_enter(uint64_t memory_size, boot_args *args);
++static void thor_entry09_vm_allocate(boolean_t map_static);
++static void thor_entry09_vm_prot_done(boot_args *args);
++static void thor_entry09_vm_finish(boot_args *args, vm_map_address_t dynamic_memory_begin) __attribute__((noreturn));
++#endif
++
++
+ 
+ vm_map_address_t
+ phystokv(pmap_paddr_t pa)
+@@ -455,6 +463,9 @@
+ 
+ #if !(defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR))
+ 	map_static = FALSE;
++#endif
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_vm_allocate(map_static);
+ #endif
+ 
+ 	if (!ropage_next) {
+@@ -1817,6 +1828,10 @@
+ #define ARM64_PHYSMAP_SLIDE_RANGE (1ULL << 30) // 1 GB
+ #define ARM64_PHYSMAP_SLIDE_MASK  (ARM64_PHYSMAP_SLIDE_RANGE - 1)
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++#include "thor_entry09_vm.inc.c"
++#endif
++
+ void
+ arm_vm_init(uint64_t memory_size, boot_args * args)
+ {
+@@ -1829,6 +1844,10 @@
+ 	uint64_t         mem_segments;
+ 	vm_offset_t      ptpage_vaddr;
+ 	vm_map_address_t dynamic_memory_begin;
++
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_vm_enter(memory_size, args);
++#endif
+ 
+ 	/*
+ 	 * Get the virtual and physical kernel-managed memory base from boot_args.
+@@ -2102,6 +2121,9 @@
+ 	vm_prelink_edata = segPRELINKDATAB + segSizePRELINKDATA;
+ 
+ 	arm_vm_prot_init(args);
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_vm_prot_done(args);
++#endif
+ 
+ 	/*
+ 	 * Initialize the page tables for the low globals:
+@@ -2148,6 +2170,9 @@
+ 	arm_set_user_tbi();
+ 
+ 	arm_vm_physmap_init(args);
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_vm_finish(args, dynamic_memory_begin); /* noreturn before TTBR1 */
++#endif
+ 	set_mmu_ttb_alternate(cpu_ttep & TTBR_BADDR_MASK);
+ 
+ #if XNU_MONITOR
+diff --git a/osfmk/arm64/thor_entry09_vm.inc.c b/osfmk/arm64/thor_entry09_vm.inc.c
+new file mode 100644
+--- /dev/null
++++ b/osfmk/arm64/thor_entry09_vm.inc.c
+@@ -0,0 +1,351 @@
++/* ENTRY09 diagnostic only: observe original VM preparation, never install it.
++ * After arm_vm_physmap_init, phystokv already selects the future aperture.
++ * Every table access below deliberately uses the still-active old alias.
++ */
++extern uint32_t thor_entry09_c_state(const boot_args *args);
++extern void thor_entry09_mark(uint64_t band, uint32_t rgb);
++extern void thor_entry09_fail(void) __attribute__((noreturn));
++extern void thor_entry09_reset(void) __attribute__((noreturn));
++extern void thor_entry09_stop(void) __attribute__((noreturn));
++extern void thor_entry09_adt_check(const boot_args *args, int consumed);
++extern void thor_entry09_post_cpu_check(boot_args *args);
++
++#define THOR_ENTRY09_VM_MAX_PAGES 64U
++#define THOR_ENTRY09_VM_WINDOW (64ULL << 20)
++#define THOR_ENTRY09_TABLE_PA 0x0000fffffffff000ULL
++
++struct thor_entry09_vm_report {
++    uint32_t version, status, pages, prot_returned;
++    uint64_t first, limit, final_avail, table_pages_seen;
++    uint64_t l2_tables, l3_tables, block_leaves, page_leaves;
++    uint64_t future_root, invalid_root, aperture, slide;
++};
++volatile struct thor_entry09_vm_report gThorEntry09VmReport;
++static const boot_args *thor_entry09_vm_args;
++
++static void
++thor_entry09_vm_enter(uint64_t memory_size, boot_args *args)
++{
++    if (thor_entry09_c_state(args) != 1) {
++        thor_entry09_reset();
++    }
++    if (gThorEntry09VmReport.version != 0 || memory_size != 0 ||
++        args->virtBase != VM_KERNEL_LINK_ADDRESS ||
++        args->memSize != THOR_ENTRY09_VM_WINDOW ||
++        args->memSizeActual != THOR_ENTRY09_VM_WINDOW ||
++        args->topOfKernelData <= args->physBase ||
++        args->topOfKernelData - args->physBase >= THOR_ENTRY09_VM_WINDOW ||
++        (args->topOfKernelData & (ARM_PGBYTES - 1)) != 0 ||
++        THOR_ENTRY09_VM_MAX_PAGES * ARM_PGBYTES >
++            THOR_ENTRY09_VM_WINDOW - (args->topOfKernelData - args->physBase) ||
++        kva_active || ptov_index != 0 || cpu_tte != NULL || invalid_tte != NULL) {
++        thor_entry09_fail();
++    }
++    for (unsigned i = 0; i < PTOV_TABLE_SIZE; ++i) {
++        if (ptov_table[i].pa != 0 || ptov_table[i].va != 0 || ptov_table[i].len != 0) {
++            thor_entry09_fail();
++        }
++    }
++    thor_entry09_post_cpu_check(args);
++    thor_entry09_adt_check(args, 0);
++    thor_entry09_vm_args = args;
++    gThorEntry09VmReport.version = 1;
++    gThorEntry09VmReport.first = args->topOfKernelData;
++    gThorEntry09VmReport.limit = args->physBase + args->memSize;
++}
++
++static void
++thor_entry09_vm_allocate(boolean_t map_static)
++{
++    uint64_t first = gThorEntry09VmReport.first;
++    uint64_t limit = gThorEntry09VmReport.limit;
++    uint32_t pages = gThorEntry09VmReport.pages;
++    /* This precedes the first real page allocation and every bzero/store.
++     * Original avail_end is deliberately not used before its assignment. */
++    if (gThorEntry09VmReport.version != 1 || map_static || kva_active ||
++        pages >= THOR_ENTRY09_VM_MAX_PAGES ||
++        avail_start != first + (uint64_t)pages * ARM_PGBYTES ||
++        (avail_start & (ARM_PGBYTES - 1)) != 0 ||
++        avail_start < first || avail_start > limit ||
++        limit - avail_start < ARM_PGBYTES || (ptov_index != 0 && ptov_index != 1)) {
++        thor_entry09_fail();
++    }
++    gThorEntry09VmReport.pages = pages + 1;
++}
++
++static tt_entry_t *
++thor_entry09_vm_table(uint64_t pa)
++{
++    if ((pa & (ARM_PGBYTES - 1)) != 0 ||
++        pa < gThorEntry09VmReport.first || pa >= avail_start ||
++        avail_start - pa < ARM_PGBYTES ||
++        avail_start > gThorEntry09VmReport.limit) {
++        thor_entry09_fail();
++    }
++    return (tt_entry_t *)(uintptr_t)(gVirtBase + pa - gPhysBase);
++}
++
++static void
++thor_entry09_vm_seen(uint64_t pa)
++{
++    (void)thor_entry09_vm_table(pa);
++    uint64_t index = (pa - gThorEntry09VmReport.first) / ARM_PGBYTES;
++    if (index >= THOR_ENTRY09_VM_MAX_PAGES ||
++        (gThorEntry09VmReport.table_pages_seen & (1ULL << index)) != 0) {
++        thor_entry09_fail();
++    }
++    gThorEntry09VmReport.table_pages_seen |= 1ULL << index;
++}
++
++/* A local read-only walk of future TTBR1. No MMU AT instruction or phystokv. */
++static uint64_t
++thor_entry09_vm_walk(uint64_t va, uint64_t *descriptor, uint64_t *parents)
++{
++    uint64_t e, inherited;
++    tt_entry_t *table;
++    if ((va >> 38) != (VM_KERNEL_LINK_ADDRESS >> 38)) {
++        return 0;
++    }
++    table = thor_entry09_vm_table(cpu_ttep);
++    e = table[(va >> ARM_TT_L1_SHIFT) & 255];
++    if ((e & 3) != 3) {
++        return 0;
++    }
++    inherited = e;
++    table = thor_entry09_vm_table(e & THOR_ENTRY09_TABLE_PA);
++    e = table[(va >> ARM_TT_L2_SHIFT) & 511];
++    if ((e & 3) == 1) {
++        *descriptor = e;
++        *parents = inherited;
++        return (e & ARM_TTE_BLOCK_L2_MASK) | (va & ARM_TT_L2_OFFMASK);
++    }
++    if ((e & 3) != 3) {
++        return 0;
++    }
++    inherited |= e;
++    table = thor_entry09_vm_table(e & THOR_ENTRY09_TABLE_PA);
++    e = table[(va >> ARM_TT_L3_SHIFT) & 511];
++    if ((e & 3) != 3) {
++        return 0;
++    }
++    *descriptor = e;
++    *parents = inherited;
++    return (e & THOR_ENTRY09_TABLE_PA) | (va & (ARM_PGBYTES - 1));
++}
++
++static void
++thor_entry09_vm_leaf(uint64_t e, int block)
++{
++    uint64_t mask = block ? ARM_TTE_BLOCK_L2_MASK : THOR_ENTRY09_TABLE_PA;
++    uint64_t size = block ? ARM_TT_L2_SIZE : ARM_PGBYTES;
++    uint64_t attributes = e & ~mask;
++    uint64_t common = ARM_PTE_AF | ARM_PTE_SH(SH_OUTER_MEMORY) | ARM_PTE_NX;
++    uint64_t optional = ARM_PTE_PNX | ARM_PTE_AP(AP_RONA) |
++        (block ? 0 : ARM_PTE_HINT);
++    uint64_t type = block ? 1 : 3;
++    uint64_t pa = e & mask;
++    if ((attributes & ~optional) != (common | type) ||
++        ((e & ARM_PTE_APMASK) != ARM_PTE_AP(AP_RWNA) &&
++            (e & ARM_PTE_APMASK) != ARM_PTE_AP(AP_RONA)) ||
++        ((e & ARM_PTE_PNX) == 0 && (e & ARM_PTE_APMASK) != ARM_PTE_AP(AP_RONA)) ||
++        pa < gPhysBase || pa > real_avail_end || real_avail_end - pa < size) {
++        thor_entry09_fail();
++    }
++}
++
++static void
++thor_entry09_vm_all_tables(void)
++{
++    uint64_t base_attrs = ARM_TTE_VALID | ARM_TTE_TYPE_TABLE |
++        ARM_TTE_TABLE_AP(ARM_TTE_TABLE_AP_USER_NA);
++    tt_entry_t *root = thor_entry09_vm_table(cpu_ttep);
++    tt_entry_t *invalid = thor_entry09_vm_table(invalid_ttep);
++    thor_entry09_vm_seen(cpu_ttep);
++    thor_entry09_vm_seen(invalid_ttep);
++    for (unsigned i = 0; i < 512; ++i) {
++        uint64_t e = root[i];
++        if (invalid[i] != 0) {
++            thor_entry09_fail();
++        }
++        if (i < 192 || i > 239) {
++            if (e != 0) {
++                thor_entry09_fail();
++            }
++            continue;
++        }
++        uint64_t attrs = e & ~THOR_ENTRY09_TABLE_PA;
++        if (attrs != base_attrs && attrs != (base_attrs | ARM_DYNAMIC_TABLE_XN)) {
++            thor_entry09_fail();
++        }
++        uint64_t l2pa = e & THOR_ENTRY09_TABLE_PA;
++        thor_entry09_vm_seen(l2pa);
++        ++gThorEntry09VmReport.l2_tables;
++        tt_entry_t *l2 = thor_entry09_vm_table(l2pa);
++        for (unsigned j = 0; j < 512; ++j) {
++            uint64_t e2 = l2[j];
++            if (e2 == 0) {
++                continue;
++            }
++            if ((e2 & 3) == 1) {
++                thor_entry09_vm_leaf(e2, 1);
++                ++gThorEntry09VmReport.block_leaves;
++                continue;
++            }
++            uint64_t l3attrs = e2 & ~THOR_ENTRY09_TABLE_PA;
++            int lowglobal = i == ((LOW_GLOBAL_BASE_ADDRESS >> 30) & 255) &&
++                j == ((LOW_GLOBAL_BASE_ADDRESS >> 21) & 511);
++            if (l3attrs != (3ULL | (lowglobal ? ARM_DYNAMIC_TABLE_XN : 0))) {
++                thor_entry09_fail();
++            }
++            uint64_t l3pa = e2 & THOR_ENTRY09_TABLE_PA;
++            thor_entry09_vm_seen(l3pa);
++            ++gThorEntry09VmReport.l3_tables;
++            tt_entry_t *l3 = thor_entry09_vm_table(l3pa);
++            for (unsigned k = 0; k < 512; ++k) {
++                uint64_t e3 = l3[k];
++                if (lowglobal && e3 != 0) {
++                    thor_entry09_fail();
++                }
++                if (e3 != 0) {
++                    thor_entry09_vm_leaf(e3, 0);
++                    ++gThorEntry09VmReport.page_leaves;
++                }
++            }
++        }
++    }
++    uint32_t pages = gThorEntry09VmReport.pages;
++    uint64_t all = pages == 64 ? UINT64_MAX : (1ULL << pages) - 1;
++    if (gThorEntry09VmReport.l2_tables != 48 ||
++        gThorEntry09VmReport.table_pages_seen != all) {
++        thor_entry09_fail();
++    }
++}
++
++static int
++thor_entry09_vm_stack_guard(uint64_t va)
++{
++    return (va >= (uintptr_t)&intstack_low_guard &&
++        va - (uintptr_t)&intstack_low_guard < PAGE_MAX_SIZE) ||
++        (va >= (uintptr_t)&intstack_high_guard &&
++        va - (uintptr_t)&intstack_high_guard < PAGE_MAX_SIZE) ||
++        (va >= (uintptr_t)&excepstack_high_guard &&
++        va - (uintptr_t)&excepstack_high_guard < PAGE_MAX_SIZE);
++}
++
++static void
++thor_entry09_vm_range(uint64_t start, uint64_t size, uint64_t pa,
++    int read_only, int executable, int bootdata)
++{
++    if ((start & (ARM_PGBYTES - 1)) != 0 ||
++        (size & (ARM_PGBYTES - 1)) != 0) {
++        thor_entry09_fail();
++    }
++    for (uint64_t offset = 0; offset < size; offset += ARM_PGBYTES) {
++        uint64_t e = 0, parent = 0;
++        uint64_t expected_ap = (read_only || (bootdata && thor_entry09_vm_stack_guard(start + offset))) ?
++            ARM_PTE_AP(AP_RONA) : ARM_PTE_AP(AP_RWNA);
++        if (thor_entry09_vm_walk(start + offset, &e, &parent) != pa + offset ||
++            (e & ARM_PTE_APMASK) != expected_ap ||
++            !!(e & ARM_PTE_PNX) == !!executable ||
++            (executable && (parent & ARM_TTE_TABLE_PXN) != 0)) {
++            thor_entry09_fail();
++        }
++    }
++}
++
++static void
++thor_entry09_vm_segment(uint64_t va, uint64_t size, int read_only, int executable, int bootdata)
++{
++    if (size != 0) {
++        thor_entry09_vm_range(va, size, va - gVirtBase + gPhysBase,
++            read_only, executable, bootdata);
++    }
++}
++
++static void
++thor_entry09_vm_prot_done(boot_args *args)
++{
++    if (thor_entry09_vm_args != args || gThorEntry09VmReport.version != 1 ||
++        gThorEntry09VmReport.prot_returned != 0 || kva_active ||
++        segLOWEST != gVirtBase || segLOWESTTEXT != gVirtBase ||
++        segSizeEXTRADATA != 0 || segSizeTRUSTCACHE != 0 || auxkc_mh != 0 ||
++        PAGE_SHIFT_CONST != 12 || page_size != ARM_PGBYTES) {
++        thor_entry09_fail();
++    }
++    thor_entry09_adt_check(args, 1);
++    gThorEntry09VmReport.prot_returned = 1;
++    thor_entry09_mark(5, 0x008000ffU);
++}
++
++static void __attribute__((noreturn))
++thor_entry09_vm_finish(boot_args *args, vm_map_address_t dynamic_memory_begin)
++{
++    uint64_t old_tail_va = args->virtBase + args->topOfKernelData - args->physBase;
++    uint64_t shift = physmap_base - old_tail_va;
++    uint64_t aperture = physmap_base;
++    uint64_t pa_offset = args->topOfKernelData & ARM_TT_L2_OFFMASK;
++    uint64_t va_offset = aperture & ARM_TT_L2_OFFMASK;
++    uint64_t ignored_e = 0, ignored_parent = 0;
++    if (va_offset < pa_offset) {
++        aperture += pa_offset - va_offset;
++    } else if (va_offset > pa_offset) {
++        aperture = ((aperture + ARM_TT_L2_OFFMASK) & ~ARM_TT_L2_OFFMASK) + pa_offset;
++    }
++    if (thor_entry09_c_state(args) != 1) {
++        thor_entry09_reset();
++    }
++    if (args != thor_entry09_vm_args || gThorEntry09VmReport.version != 1 ||
++        gThorEntry09VmReport.prot_returned != 1 || gThorEntry09VmReport.status != 0 ||
++        kva_active || gVirtBase != args->virtBase || gPhysBase != args->physBase ||
++        mem_size != args->memSize || gPhysSize != args->memSize ||
++        real_phys_size != args->memSize || mem_actual != args->memSizeActual ||
++        avail_end != gThorEntry09VmReport.limit || real_avail_end != avail_end ||
++        first_avail_phys != gThorEntry09VmReport.first ||
++        avail_start != first_avail_phys + (uint64_t)gThorEntry09VmReport.pages * ARM_PGBYTES ||
++        invalid_ttep != first_avail_phys || cpu_ttep != first_avail_phys + ARM_PGBYTES ||
++        invalid_tte != thor_entry09_vm_table(invalid_ttep) ||
++        cpu_tte != thor_entry09_vm_table(cpu_ttep) ||
++        (shift & (ARM_PGBYTES - 1)) != 0 || shift >= (1ULL << 30) ||
++        physmap_end != physmap_base + args->memSize + PTOV_TABLE_SIZE * ARM_TT_L2_SIZE ||
++        static_memory_end != physmap_end || dynamic_memory_begin != physmap_end ||
++        ptov_index != 2 || ptov_table[0].pa != args->topOfKernelData ||
++        ptov_table[0].va != aperture || ptov_table[0].len != avail_end - args->topOfKernelData ||
++        arm_vm_kernelcache_phys_start != 0 || arm_vm_kernelcache_phys_end != 0) {
++        thor_entry09_fail();
++    }
++    for (unsigned i = 1; i < PTOV_TABLE_SIZE; ++i) {
++        if (ptov_table[i].len != 0) {
++            thor_entry09_fail();
++        }
++    }
++    thor_entry09_adt_check(args, 1);
++    thor_entry09_post_cpu_check(args);
++    thor_entry09_vm_all_tables();
++    thor_entry09_vm_segment(segTEXTB, segSizeTEXT, 1, 0, 0);
++    thor_entry09_vm_segment(segDATACONSTB, segSizeDATACONST, 0, 0, 0);
++    thor_entry09_vm_segment(segTEXTEXECB, segSizeTEXTEXEC, 1, 1, 0);
++    thor_entry09_vm_segment(segDATAB, segSizeDATA, 0, 0, 0);
++    thor_entry09_vm_segment(segBOOTDATAB, segSizeBOOTDATA, 0, 0, 1);
++    thor_entry09_vm_segment(segKLDB, segSizeKLD, 1, 1, 0);
++    thor_entry09_vm_segment(segKLDDATAB, segSizeKLDDATA, 1, 0, 0);
++    thor_entry09_vm_segment(segLASTDATACONSTB, segSizeLASTDATACONST, 0, 0, 0);
++    thor_entry09_vm_segment(segLINKB, segSizeLINK, 0, 0, 0);
++    thor_entry09_vm_segment(end_kern, old_tail_va - end_kern, 0, 0, 0);
++    thor_entry09_vm_range(aperture, avail_end - args->topOfKernelData,
++        args->topOfKernelData, 0, 0, 0);
++    if (thor_entry09_vm_walk(gVirtBase - ARM_PGBYTES, &ignored_e, &ignored_parent) != 0 ||
++        thor_entry09_vm_walk(aperture + avail_end - args->topOfKernelData,
++            &ignored_e, &ignored_parent) != 0 ||
++        thor_entry09_vm_walk(LOW_GLOBAL_BASE_ADDRESS, &ignored_e, &ignored_parent) != 0 ||
++        thor_entry09_vm_walk(0xb805a000ULL, &ignored_e, &ignored_parent) != 0) {
++        thor_entry09_fail();
++    }
++    gThorEntry09VmReport.final_avail = avail_start;
++    gThorEntry09VmReport.future_root = cpu_ttep;
++    gThorEntry09VmReport.invalid_root = invalid_ttep;
++    gThorEntry09VmReport.aperture = aperture;
++    gThorEntry09VmReport.slide = shift;
++    gThorEntry09VmReport.status = 1;
++    thor_entry09_mark(6, 0x0000ff00U);
++    thor_entry09_stop();
++}
+diff --git a/osfmk/arm/thor_entry09_adt.h b/osfmk/arm/thor_entry09_adt.h
+new file mode 100644
+--- /dev/null
++++ b/osfmk/arm/thor_entry09_adt.h
+@@ -0,0 +1,53 @@
++/* Exact canonical ADT, with only runtime reg and seed values mutable. */
++static const uint8_t thor_entry09_canonical_adt[800] = {
++    0x04, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x6e, 0x61, 0x6d, 0x65, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x64, 0x65, 0x76, 0x69,
++    0x63, 0x65, 0x2d, 0x74, 0x72, 0x65, 0x65, 0x00, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x74, 0x69, 0x62,
++    0x6c, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x78, 0x6e, 0x75, 0x2c,
++    0x74, 0x68, 0x6f, 0x72, 0x2d, 0x65, 0x6e, 0x74, 0x72, 0x79, 0x30, 0x39, 0x00, 0x00, 0x00, 0x00,
++    0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x1f, 0x00, 0x00, 0x00, 0x58, 0x69, 0x61, 0x6f, 0x6d, 0x69, 0x20, 0x74, 0x68, 0x6f, 0x72, 0x20,
++    0x45, 0x4e, 0x54, 0x52, 0x59, 0x30, 0x39, 0x20, 0x64, 0x69, 0x61, 0x67, 0x6e, 0x6f, 0x73, 0x74,
++    0x69, 0x63, 0x00, 0x00, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x2d, 0x74, 0x79, 0x70, 0x65, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x74, 0x68, 0x6f, 0x72, 0x00, 0x00, 0x00, 0x00,
++    0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x6e, 0x61, 0x6d, 0x65, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x63, 0x68, 0x6f, 0x73,
++    0x65, 0x6e, 0x00, 0x00, 0x65, 0x6e, 0x74, 0x72, 0x79, 0x30, 0x39, 0x2d, 0x64, 0x69, 0x61, 0x67,
++    0x6e, 0x6f, 0x73, 0x74, 0x69, 0x63, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x72, 0x61, 0x6e, 0x64,
++    0x6f, 0x6d, 0x2d, 0x73, 0x65, 0x65, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6e, 0x61, 0x6d, 0x65, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x00, 0x6d, 0x65, 0x6d, 0x6f,
++    0x72, 0x79, 0x2d, 0x6d, 0x61, 0x70, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
++    0x6e, 0x61, 0x6d, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x05, 0x00, 0x00, 0x00, 0x63, 0x70, 0x75, 0x73, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x6e, 0x61, 0x6d, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x63, 0x70, 0x75, 0x30, 0x00, 0x00, 0x00, 0x00,
++    0x73, 0x74, 0x61, 0x74, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x08, 0x00, 0x00, 0x00, 0x72, 0x75, 0x6e, 0x6e, 0x69, 0x6e, 0x67, 0x00, 0x72, 0x65, 0x67, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x65, 0x76, 0x69, 0x63, 0x65, 0x5f, 0x74,
++    0x79, 0x70, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x63, 0x70, 0x75, 0x00,
++    0x74, 0x69, 0x6d, 0x65, 0x62, 0x61, 0x73, 0x65, 0x2d, 0x66, 0x72, 0x65, 0x71, 0x75, 0x65, 0x6e,
++    0x63, 0x79, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x04, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x24, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x6e, 0x61, 0x6d, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x09, 0x00, 0x00, 0x00, 0x64, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x73, 0x00, 0x00, 0x00, 0x00,
++};
+diff --git a/osfmk/kern/timer_call.c b/osfmk/kern/timer_call.c
+--- a/osfmk/kern/timer_call.c
++++ b/osfmk/kern/timer_call.c
+@@ -2176,3 +2176,21 @@
+ 	processor->running_timers_active = false;
+ 	running_timers_sync();
+ }
++
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++/* Read-only evidence from the real timer_call_init result. */
++uint32_t thor_entry09_timer_ready(void);
++uint32_t
++thor_entry09_timer_ready(void)
++{
++    return timer_longterm_queue == &timer_longterm.queue &&
++        timer_longterm.threshold.interval == TIMER_LONGTERM_NONE &&
++        timer_longterm.threshold.deadline == TIMER_LONGTERM_NONE &&
++        timer_longterm.threshold.preempted == TIMER_LONGTERM_NONE &&
++        timer_longterm.threshold.timer.tc_func == timer_longterm_callout &&
++        timer_longterm.threshold.timer.tc_param0 == (timer_call_param_t)&timer_longterm &&
++        queue_empty(&timer_longterm.queue.head) && timer_longterm.queue.count == 0 &&
++        timer_scan_limit_us == 400 && timer_scan_interval_us == 40 &&
++        timer_scan_limit_abs == 7680 && timer_scan_interval_abs == 768;
++}
++#endif
+diff --git a/osfmk/arm/cpuid.c b/osfmk/arm/cpuid.c
+--- a/osfmk/arm/cpuid.c
++++ b/osfmk/arm/cpuid.c
+@@ -32,6 +32,7 @@
+ #include <pexpert/pexpert.h>
+ #include <arm/cpuid.h>
+ #include <arm/cpuid_internal.h>
++#include <arm/ccsidr_decode.h>
+ #include <arm/cpu_data_internal.h>
+ #include <arm64/proc_reg.h>
+ #include <kern/lock_rw.h>
+@@ -285,11 +286,25 @@
+ 	return machine_arm_mvfp_info();
+ }
+ 
++static arm_ccsidr_geometry_t
++cpuid_decode_cache_geometry(uint64_t ccsidr, uint64_t mmfr2)
++{
++	arm_ccsidr_geometry_t geometry;
++	arm_ccsidr_status_t status = arm_ccsidr_decode(ccsidr, mmfr2, &geometry);
++	if (status != ARM_CCSIDR_OK) {
++		panic("unsupported CCSIDR geometry (CCIDX=%llu status=%u)",
++		    (unsigned long long)((mmfr2 >> 20) & 15), (unsigned)status);
++	}
++	return geometry;
++}
++
+ void
+ do_cacheid(void)
+ {
+ 	arm_cache_clidr_info_t arm_cache_clidr_info;
+-	arm_cache_ccsidr_info_t arm_cache_ccsidr_info;
++	uint64_t ccsidr;
++	uint64_t mmfr2 = machine_read_id_aa64mmfr2();
++	arm_ccsidr_geometry_t geometry;
+ 
+ 	/*
+ 	 * We only need to parse cache geometry parameters once per cluster type.
+@@ -314,14 +329,22 @@
+ 		cpuid_cache_info_boot_cpu = cpuid_cache_info_p;
+ 	}
+ 
++	/* Never read CCSIDR for an absent or reserved L1 data-cache type. */
++	if (arm_cache_clidr_info.bits.Ctype1 < 2 ||
++	    arm_cache_clidr_info.bits.Ctype1 > 4) {
++		panic("unsupported L1 cache type %u", arm_cache_clidr_info.bits.Ctype1);
++	}
++
+ 	/* Select L1 data/unified cache */
+ 
+ 	machine_write_csselr(CSSELR_L1, CSSELR_DATA_UNIFIED);
+-	arm_cache_ccsidr_info.value = machine_read_ccsidr();
++	ccsidr = machine_read_ccsidr();
++	geometry = cpuid_decode_cache_geometry(ccsidr, mmfr2);
+ 
+ 	cpuid_cache_info_p->c_unified = (arm_cache_clidr_info.bits.Ctype1 == 0x4) ? 1 : 0;
+ 
+-	switch (arm_cache_ccsidr_info.bits.c_type) {
++	/* Extended bits 31:28 are reserved, not legacy allocation attributes. */
++	switch ((((mmfr2 >> 20) & 15) == 0) ? ((ccsidr >> 28) & 15) : 0) {
+ 	case 0x1:
+ 		cpuid_cache_info_p->c_type = CACHE_WRITE_ALLOCATION;
+ 		break;
+@@ -338,14 +361,14 @@
+ 		cpuid_cache_info_p->c_type = CACHE_UNKNOWN;
+ 	}
+ 
+-	cpuid_cache_info_p->c_linesz = 4 * (1 << (arm_cache_ccsidr_info.bits.LineSize + 2));
+-	cpuid_cache_info_p->c_assoc = (arm_cache_ccsidr_info.bits.Assoc + 1);
++	cpuid_cache_info_p->c_linesz = geometry.line_bytes;
++	cpuid_cache_info_p->c_assoc = geometry.ways;
+ 
+ 	/* I cache size */
+-	cpuid_cache_info_p->c_isize = (arm_cache_ccsidr_info.bits.NumSets + 1) * cpuid_cache_info_p->c_linesz * cpuid_cache_info_p->c_assoc;
++	cpuid_cache_info_p->c_isize = (arm_cache_clidr_info.bits.Ctype1 == 2) ? 0 : geometry.size_bytes;
+ 
+ 	/* D cache size */
+-	cpuid_cache_info_p->c_dsize = (arm_cache_ccsidr_info.bits.NumSets + 1) * cpuid_cache_info_p->c_linesz * cpuid_cache_info_p->c_assoc;
++	cpuid_cache_info_p->c_dsize = geometry.size_bytes;
+ 
+ 
+ 	if ((arm_cache_clidr_info.bits.Ctype3 == 0x4) ||
+@@ -358,11 +381,12 @@
+ 			/* Select L2 data cache */
+ 			machine_write_csselr(CSSELR_L2, CSSELR_DATA_UNIFIED);
+ 		}
+-		arm_cache_ccsidr_info.value = machine_read_ccsidr();
+-
+-		cpuid_cache_info_p->c_linesz = 4 * (1 << (arm_cache_ccsidr_info.bits.LineSize + 2));
+-		cpuid_cache_info_p->c_assoc = (arm_cache_ccsidr_info.bits.Assoc + 1);
+-		cpuid_cache_info_p->c_l2size = (arm_cache_ccsidr_info.bits.NumSets + 1) * cpuid_cache_info_p->c_linesz * cpuid_cache_info_p->c_assoc;
++		ccsidr = machine_read_ccsidr();
++		geometry = cpuid_decode_cache_geometry(ccsidr, mmfr2);
++
++		cpuid_cache_info_p->c_linesz = geometry.line_bytes;
++		cpuid_cache_info_p->c_assoc = geometry.ways;
++		cpuid_cache_info_p->c_l2size = geometry.size_bytes;
+ 		cpuid_cache_info_p->c_inner_cache_size = cpuid_cache_info_p->c_dsize;
+ 		cpuid_cache_info_p->c_bulksize_op = cpuid_cache_info_p->c_l2size;
+ 
+@@ -380,7 +404,7 @@
+ 		 * TODO: Are there any special considerations for our unusual
+ 		 * cache geometries (3MB)?
+ 		 */
+-		vm_cache_geometry_colors = ((arm_cache_ccsidr_info.bits.NumSets + 1) * cpuid_cache_info_p->c_linesz) / PAGE_SIZE;
++		vm_cache_geometry_colors = (uint32_t)(((uint64_t)geometry.sets * geometry.line_bytes) / PAGE_SIZE);
+ 		kprintf(" vm_cache_geometry_colors: %d\n", vm_cache_geometry_colors);
+ 	} else {
+ 		cpuid_cache_info_p->c_l2size = 0;
+@@ -389,13 +413,12 @@
+ 		cpuid_cache_info_p->c_bulksize_op = cpuid_cache_info_p->c_dsize;
+ 	}
+ 
+-	if (cpuid_cache_info_p->c_unified == 0) {
++	if (arm_cache_clidr_info.bits.Ctype1 == 3) {
+ 		machine_write_csselr(CSSELR_L1, CSSELR_INSTR);
+-		arm_cache_ccsidr_info.value = machine_read_ccsidr();
+-		uint32_t c_linesz = 4 * (1 << (arm_cache_ccsidr_info.bits.LineSize + 2));
+-		uint32_t c_assoc = (arm_cache_ccsidr_info.bits.Assoc + 1);
++		ccsidr = machine_read_ccsidr();
++		geometry = cpuid_decode_cache_geometry(ccsidr, mmfr2);
+ 		/* I cache size */
+-		cpuid_cache_info_p->c_isize = (arm_cache_ccsidr_info.bits.NumSets + 1) * c_linesz * c_assoc;
++		cpuid_cache_info_p->c_isize = geometry.size_bytes;
+ 	}
+ 
+ 	if (cpuid_cache_info_p == cpuid_cache_info_boot_cpu) {
+diff --git a/osfmk/arm/cpuid_internal.h b/osfmk/arm/cpuid_internal.h
+--- a/osfmk/arm/cpuid_internal.h
++++ b/osfmk/arm/cpuid_internal.h
+@@ -40,7 +40,8 @@
+ 
+ uint32_t machine_read_midr(void);
+ uint32_t machine_read_clidr(void);
+-uint32_t machine_read_ccsidr(void);
++uint64_t machine_read_ccsidr(void);
++uint64_t machine_read_id_aa64mmfr2(void);
+ 
+ typedef enum {
+ 	CSSELR_L1 = 0x0,
+diff --git a/osfmk/arm/machine_cpuid.c b/osfmk/arm/machine_cpuid.c
+--- a/osfmk/arm/machine_cpuid.c
++++ b/osfmk/arm/machine_cpuid.c
+@@ -52,13 +52,21 @@
+ 	return (uint32_t)clidr;
+ }
+ 
+-uint32_t
++uint64_t
+ machine_read_ccsidr(void)
+ {
+ 	uint64_t ccsidr;
+ 	__asm__ volatile ("mrs	%0, CCSIDR_EL1"  : "=r" (ccsidr));
+ 
+-	return (uint32_t)ccsidr;
++	return ccsidr;
++}
++
++uint64_t
++machine_read_id_aa64mmfr2(void)
++{
++	uint64_t mmfr2;
++	__asm__ volatile ("mrs %0, ID_AA64MMFR2_EL1" : "=r" (mmfr2));
++	return mmfr2;
+ }
+ 
+ void
+diff --git a/osfmk/arm/ccsidr_decode.h b/osfmk/arm/ccsidr_decode.h
+new file mode 100644
+--- /dev/null
++++ b/osfmk/arm/ccsidr_decode.h
+@@ -0,0 +1,56 @@
++/* Architected AArch64 CCSIDR decoder shared by the kernel and host tests. */
++#ifndef _ARM_CCSIDR_DECODE_H_
++#define _ARM_CCSIDR_DECODE_H_
++#include <stdint.h>
++
++typedef struct {
++	uint32_t line_bytes;
++	uint32_t ways;
++	uint32_t sets;
++	uint32_t size_bytes;
++} arm_ccsidr_geometry_t;
++
++typedef enum {
++	ARM_CCSIDR_OK = 0,
++	ARM_CCSIDR_UNSUPPORTED_FORMAT = 1,
++	ARM_CCSIDR_SIZE_OVERFLOW = 2
++} arm_ccsidr_status_t;
++
++/*
++ * ID_AA64MMFR2_EL1.CCIDX[23:20] is 0 for the legacy encoding and 1
++ * for the extended encoding.  All arithmetic stays 64-bit until the
++ * existing cache_info_t ABI's 32-bit capacity has been checked.
++ * Reserved CCSIDR fields are deliberately ignored, never treated as geometry.
++ */
++static inline arm_ccsidr_status_t
++arm_ccsidr_decode(uint64_t ccsidr, uint64_t mmfr2,
++    arm_ccsidr_geometry_t *result)
++{
++	const uint64_t ccidx = (mmfr2 >> 20) & 15;
++	uint64_t sets, ways;
++	const uint64_t line_bytes = UINT64_C(1) << ((ccsidr & 7) + 4);
++
++	if (ccidx == 0) {
++		sets = ((ccsidr >> 13) & UINT64_C(0x7fff)) + 1;
++		ways = ((ccsidr >> 3) & UINT64_C(0x3ff)) + 1;
++	} else if (ccidx == 1) {
++		sets = ((ccsidr >> 32) & UINT64_C(0xffffff)) + 1;
++		ways = ((ccsidr >> 3) & UINT64_C(0x1fffff)) + 1;
++	} else {
++		return ARM_CCSIDR_UNSUPPORTED_FORMAT;
++	}
++	if (sets > UINT64_MAX / line_bytes ||
++	    ways > UINT64_MAX / (sets * line_bytes)) {
++		return ARM_CCSIDR_SIZE_OVERFLOW;
++	}
++	const uint64_t bytes = sets * line_bytes * ways;
++	if (bytes > UINT32_MAX) {
++		return ARM_CCSIDR_SIZE_OVERFLOW;
++	}
++	result->line_bytes = (uint32_t)line_bytes;
++	result->ways = (uint32_t)ways;
++	result->sets = (uint32_t)sets;
++	result->size_bytes = (uint32_t)bytes;
++	return ARM_CCSIDR_OK;
++}
++#endif /* _ARM_CCSIDR_DECODE_H_ */

@@ -31,8 +31,8 @@ if [ ! -x .cache/fakeroot/usr/local/libexec/availability.pl ]; then
     OBJROOT="$ROOT/build/availability" SYMROOT="$ROOT/build/availability" \
     DSTROOT="$ROOT/.cache/fakeroot" CMAKE="$(command -v cmake)" NINJA="$(command -v ninja)"
 fi
-# Reverse bounded ENTRY08 overlays before testing earlier overlapping patches.
-for EARLY_PATCH in "$ROOT"/patches/xnu/zzzzz-thor-entry08-*.patch; do
+# Reverse bounded ENTRY09 overlays before testing earlier overlapping patches.
+for EARLY_PATCH in "$ROOT"/patches/xnu/zzzzz-thor-entry09-*.patch; do
   if [ -f "$EARLY_PATCH" ] && git -C .cache/xnu-work apply --reverse --check "$EARLY_PATCH" >/dev/null 2>&1; then
     git -C .cache/xnu-work apply --reverse "$EARLY_PATCH"
   fi
@@ -536,7 +536,7 @@ if [ "$THOR_ENTRY_STOP" = 1 ] && { [ "$NATIVE_ARCH_TIMER" != 1 ] ||
   echo 'Thor entry stop requires the complete native ARM source-provider configuration' >&2
   exit 1
 fi
-# ENTRY08 is bounded pre-VM; never combine it with the ENTRY06 entry stop.
+# ENTRY09 is bounded VM preparation; never combine it with the ENTRY06 entry stop.
 THOR_EARLY_C=${XNU_THOR_EARLY_C:-0}
 if [ "$THOR_EARLY_C" != 0 ] && [ "$THOR_EARLY_C" != 1 ]; then
   echo 'XNU_THOR_EARLY_C must be 0 or 1' >&2
@@ -552,12 +552,16 @@ EXTRA_MAKE_ARGS+=("start.o_SFLAGS_ADD=-DXNU_NATIVE_ARCH_TIMER=$NATIVE_ARCH_TIMER
 EXTRA_MAKE_ARGS+=("arm_init.o_CFLAGS_ADD=-DXNU_THOR_EARLY_C=$THOR_EARLY_C")
 EXTRA_MAKE_ARGS+=("pe_identify_machine.o_CFLAGS_ADD=-DXNU_THOR_EARLY_C=$THOR_EARLY_C")
 EXTRA_MAKE_ARGS+=("machine_routines.o_CFLAGS_ADD=-DXNU_THOR_EARLY_C=$THOR_EARLY_C")
-THOR_EARLY_C_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.thor-early-c-mode
+EXTRA_MAKE_ARGS+=("arm_vm_init.o_CFLAGS_ADD=-DXNU_THOR_EARLY_C=$THOR_EARLY_C")
+EXTRA_MAKE_ARGS+=("timer_call.o_CFLAGS_ADD=-DXNU_THOR_EARLY_C=$THOR_EARLY_C")
+THOR_EARLY_C_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.thor-entry09-mode
 if [ "$(cat "$THOR_EARLY_C_STAMP" 2>/dev/null || echo 0)" != "$THOR_EARLY_C" ]; then
   rm -f "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/start.o" \
     "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/arm_init.o" \
     "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/pexpert/DEVELOPMENT/pe_identify_machine.o" \
-+    "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/machine_routines.o"
+    "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/machine_routines.o" \
+    "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/arm_vm_init.o" \
+    "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/timer_call.o"
   printf '%s\n' "$THOR_EARLY_C" > "$THOR_EARLY_C_STAMP"
 fi
 THOR_ENTRY_STOP_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.thor-entry-stop-mode
