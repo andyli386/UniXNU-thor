@@ -104,7 +104,19 @@
  
  	b Lbootstrap_tables_ready
  Lbootstrap_tables_exhausted:
-@@ -745,6 +791,10 @@
+@@ -731,6 +777,11 @@
+ 	 */
+ 	tlbi	vmalle1
+ 	ic		iallu
++#if XNU_THOR_EARLY_C
++	/* Complete the final TLB/I-cache invalidation before enabling M/C/I. */
++	dsb sy
++	isb
++#endif
+ #endif
+ 
+ 	/* If x21 is not 0, then this is either the start_cpu path or
+@@ -745,6 +796,10 @@
  	MSR_TTBR1_EL1_X0
  1:
  
@@ -115,16 +127,27 @@
  	// Set up the exception vectors
  #if __ARM_KERNEL_PROTECT__
  	/* If this is not the first reset of the boot CPU, the alternate mapping
-@@ -761,6 +811,8 @@
- 	sub		x0, x0, x23
+@@ -762,6 +817,8 @@
  1:
  	MSR_VBAR_EL1_X0
-+
-+#endif
  
++#endif
++
  #if HAS_APPLE_PAC
  	PAC_INIT_KEY_STATE tmp=x0, tmp2=x1
-@@ -895,6 +947,10 @@
+ #endif /* HAS_APPLE_PAC */
+@@ -787,6 +844,10 @@
+ 	// Enable NEON
+ 	mov		x0, #(CPACR_FPEN_ENABLE)
+ 	msr		CPACR_EL1, x0
++#if XNU_THOR_EARLY_C
++	/* C and SecureDT use SIMD: complete FPEN before any C instruction. */
++	isb
++#endif
+ #endif
+ 
+ 	// Clear thread pointer
+@@ -895,6 +956,10 @@
  	/* Return to arm_init() */
  	ret
  
@@ -137,7 +160,7 @@
  /* vim: set ts=4: */
 --- /dev/null
 +++ b/osfmk/arm64/thor_entry07_early.inc.S
-@@ -0,0 +1,617 @@
+@@ -0,0 +1,621 @@
 +/* ENTRY07: fixed-grant normal bootstrap and bounded early-C diagnostic.
 + * All pre-MMU helpers are stackless. Only 64MiB owned RAM and the previously
 + * proved framebuffer rows64..127 are addressed. No firmware service is used.
@@ -579,6 +602,10 @@
 +        mrs     x9, daif
 +        and     x9, x9, #0x3c0
 +        cmp     x9, #0x3c0
++        b.ne    L_entry07_state_no
++        mrs     x9, cpacr_el1
++        ubfx    x9, x9, #20, #2
++        cmp     x9, #3
 +        b.ne    L_entry07_state_no
 +        mrs     x9, tcr_el1
 +        MOV64   x11, TCR_EL1_BOOT
