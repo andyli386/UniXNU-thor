@@ -1,0 +1,856 @@
+diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
+index 8fe43b6..71e936e 100644
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -1,3 +1,4 @@
++#include <kern/boot_progress.h>
+ /*
+  * Copyright (c) 2007-2021 Apple Inc. All rights reserved.
+  *
+@@ -341,6 +342,10 @@ arm_setup_pre_sign(void)
+  *		Function:		Runs on the boot CPU, once, on entry from iBoot.
+  */
+ 
++#if XNU_THOR_EARLY_C
++#include "thor_entry09_early.inc.c"
++#endif
++
+ __startup_func
+ void
+ arm_init(
+@@ -353,6 +358,9 @@ arm_init(
+ 	DTEntry chosen = NULL;
+ 	unsigned int dt_entry_size = 0;
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_c_enter(args);
++#endif
+ 	arm_setup_pre_sign();
+ 
+ 	arm_slide_rebase_and_sign_image();
+@@ -369,6 +377,10 @@ arm_init(
+ #endif /* defined(HAS_APPLE_PAC) */
+ 
+ 	PE_init_platform(FALSE, args); /* Get platform expert set up */
++#if XNU_THOR_EARLY_C
++	thor_entry09_c_pe_check(args);
++#endif
++	boot_progress_init();
+ 
+ #if __arm64__
+ 	configure_timer_apple_regs();
+@@ -399,6 +411,10 @@ arm_init(
+ 
+ 
+ 	{
++		/* Native non-Apple 4K builds expose the hardware page size at any RAM size. */
++#if !defined(APPLE_ARM64_ARCH_FAMILY) && !__ARM_16K_PG__
++		PAGE_SHIFT_CONST = ARM_PGSHIFT;
++#else
+ 		/*
+ 		 * Select the advertised kernel page size.
+ 		 */
+@@ -417,8 +433,14 @@ arm_init(
+ 			PAGE_SHIFT_CONST = ARM_PGSHIFT;
+ 		}
+ 
++#endif
++
++#if !defined(APPLE_ARM64_ARCH_FAMILY) && !__ARM_16K_PG__
++		page_shift_user32 = ARM_PGSHIFT;
++#else
+ 		/* 32-bit apps always see 16KB page size */
+ 		page_shift_user32 = PAGE_MAX_SHIFT;
++#endif
+ #ifdef  APPLETYPHOON
+ 		if (PE_parse_boot_argn("cpus_defeatures", &cpus_defeatures, sizeof(cpus_defeatures))) {
+ 			if ((cpus_defeatures & 0xF) != 0) {
+@@ -429,7 +451,13 @@ arm_init(
+ 	}
+ #endif
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_before_topology();
++#endif
+ 	ml_parse_cpu_topology();
++#if XNU_THOR_EARLY_C
++	thor_entry09_topology_check(args);
++#endif
+ 
+ 
+ 	master_cpu = ml_get_boot_cpu_number();
+@@ -460,7 +488,17 @@ arm_init(
+ 	thread->machine.preemption_count = 0;
+ 	cpu_bootstrap();
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_thread_check(args, thread);
++	if (rtclock_timebase_const.numer != 0 || rtclock_timebase_const.denom != 0 ||
++	    rtclock_sec_divisor != 0 || rtclock_usec_divisor != 0) {
++		thor_entry09_fail();
++	}
++#endif
+ 	rtclock_early_init();
++#if XNU_THOR_EARLY_C
++	thor_entry09_rtclock_done(args, thread);
++#endif
+ 
+ 	kernel_debug_string_early("kernel_startup_bootstrap");
+ 	kernel_startup_bootstrap();
+@@ -470,6 +508,9 @@ arm_init(
+ 	 */
+ 	timer_call_init();
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_before_cpu(args);
++#endif
+ 	cpu_init();
+ 
+ 	processor_bootstrap();
+@@ -519,7 +560,12 @@ arm_init(
+ 	__builtin_arm_wsr("pan", 1);
+ #endif  /* __ARM_PAN_AVAILABLE__ */
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry09_prevm_done(args);
++#endif
++	boot_progress_stage("arm_vm_init enter");
+ 	arm_vm_init(xmaxmem, args);
++	boot_progress_stage("arm_vm_init returned");
+ 
+ 	if (debug_boot_arg) {
+ 		patch_low_glo();
+diff --git a/osfmk/arm/cpuid.c b/osfmk/arm/cpuid.c
+index 96e96f6..dc3f28b 100644
+--- a/osfmk/arm/cpuid.c
++++ b/osfmk/arm/cpuid.c
+@@ -32,6 +32,7 @@
+ #include <pexpert/pexpert.h>
+ #include <arm/cpuid.h>
+ #include <arm/cpuid_internal.h>
++#include <arm/ccsidr_decode.h>
+ #include <arm/cpu_data_internal.h>
+ #include <arm64/proc_reg.h>
+ #include <kern/lock_rw.h>
+@@ -285,11 +286,25 @@ arm_mvfp_info(void)
+ 	return machine_arm_mvfp_info();
+ }
+ 
++static arm_ccsidr_geometry_t
++cpuid_decode_cache_geometry(uint64_t ccsidr, uint64_t mmfr2)
++{
++	arm_ccsidr_geometry_t geometry;
++	arm_ccsidr_status_t status = arm_ccsidr_decode(ccsidr, mmfr2, &geometry);
++	if (status != ARM_CCSIDR_OK) {
++		panic("unsupported CCSIDR geometry (CCIDX=%llu status=%u)",
++		    (unsigned long long)((mmfr2 >> 20) & 15), (unsigned)status);
++	}
++	return geometry;
++}
++
+ void
+ do_cacheid(void)
+ {
+ 	arm_cache_clidr_info_t arm_cache_clidr_info;
+-	arm_cache_ccsidr_info_t arm_cache_ccsidr_info;
++	uint64_t ccsidr;
++	uint64_t mmfr2 = machine_read_id_aa64mmfr2();
++	arm_ccsidr_geometry_t geometry;
+ 
+ 	/*
+ 	 * We only need to parse cache geometry parameters once per cluster type.
+@@ -314,14 +329,22 @@ do_cacheid(void)
+ 		cpuid_cache_info_boot_cpu = cpuid_cache_info_p;
+ 	}
+ 
++	/* Never read CCSIDR for an absent or reserved L1 data-cache type. */
++	if (arm_cache_clidr_info.bits.Ctype1 < 2 ||
++	    arm_cache_clidr_info.bits.Ctype1 > 4) {
++		panic("unsupported L1 cache type %u", arm_cache_clidr_info.bits.Ctype1);
++	}
++
+ 	/* Select L1 data/unified cache */
+ 
+ 	machine_write_csselr(CSSELR_L1, CSSELR_DATA_UNIFIED);
+-	arm_cache_ccsidr_info.value = machine_read_ccsidr();
++	ccsidr = machine_read_ccsidr();
++	geometry = cpuid_decode_cache_geometry(ccsidr, mmfr2);
+ 
+ 	cpuid_cache_info_p->c_unified = (arm_cache_clidr_info.bits.Ctype1 == 0x4) ? 1 : 0;
+ 
+-	switch (arm_cache_ccsidr_info.bits.c_type) {
++	/* Extended bits 31:28 are reserved, not legacy allocation attributes. */
++	switch ((((mmfr2 >> 20) & 15) == 0) ? ((ccsidr >> 28) & 15) : 0) {
+ 	case 0x1:
+ 		cpuid_cache_info_p->c_type = CACHE_WRITE_ALLOCATION;
+ 		break;
+@@ -338,14 +361,14 @@ do_cacheid(void)
+ 		cpuid_cache_info_p->c_type = CACHE_UNKNOWN;
+ 	}
+ 
+-	cpuid_cache_info_p->c_linesz = 4 * (1 << (arm_cache_ccsidr_info.bits.LineSize + 2));
+-	cpuid_cache_info_p->c_assoc = (arm_cache_ccsidr_info.bits.Assoc + 1);
++	cpuid_cache_info_p->c_linesz = geometry.line_bytes;
++	cpuid_cache_info_p->c_assoc = geometry.ways;
+ 
+ 	/* I cache size */
+-	cpuid_cache_info_p->c_isize = (arm_cache_ccsidr_info.bits.NumSets + 1) * cpuid_cache_info_p->c_linesz * cpuid_cache_info_p->c_assoc;
++	cpuid_cache_info_p->c_isize = (arm_cache_clidr_info.bits.Ctype1 == 2) ? 0 : geometry.size_bytes;
+ 
+ 	/* D cache size */
+-	cpuid_cache_info_p->c_dsize = (arm_cache_ccsidr_info.bits.NumSets + 1) * cpuid_cache_info_p->c_linesz * cpuid_cache_info_p->c_assoc;
++	cpuid_cache_info_p->c_dsize = geometry.size_bytes;
+ 
+ 
+ 	if ((arm_cache_clidr_info.bits.Ctype3 == 0x4) ||
+@@ -358,11 +381,12 @@ do_cacheid(void)
+ 			/* Select L2 data cache */
+ 			machine_write_csselr(CSSELR_L2, CSSELR_DATA_UNIFIED);
+ 		}
+-		arm_cache_ccsidr_info.value = machine_read_ccsidr();
++		ccsidr = machine_read_ccsidr();
++		geometry = cpuid_decode_cache_geometry(ccsidr, mmfr2);
+ 
+-		cpuid_cache_info_p->c_linesz = 4 * (1 << (arm_cache_ccsidr_info.bits.LineSize + 2));
+-		cpuid_cache_info_p->c_assoc = (arm_cache_ccsidr_info.bits.Assoc + 1);
+-		cpuid_cache_info_p->c_l2size = (arm_cache_ccsidr_info.bits.NumSets + 1) * cpuid_cache_info_p->c_linesz * cpuid_cache_info_p->c_assoc;
++		cpuid_cache_info_p->c_linesz = geometry.line_bytes;
++		cpuid_cache_info_p->c_assoc = geometry.ways;
++		cpuid_cache_info_p->c_l2size = geometry.size_bytes;
+ 		cpuid_cache_info_p->c_inner_cache_size = cpuid_cache_info_p->c_dsize;
+ 		cpuid_cache_info_p->c_bulksize_op = cpuid_cache_info_p->c_l2size;
+ 
+@@ -380,7 +404,7 @@ do_cacheid(void)
+ 		 * TODO: Are there any special considerations for our unusual
+ 		 * cache geometries (3MB)?
+ 		 */
+-		vm_cache_geometry_colors = ((arm_cache_ccsidr_info.bits.NumSets + 1) * cpuid_cache_info_p->c_linesz) / PAGE_SIZE;
++		vm_cache_geometry_colors = (uint32_t)(((uint64_t)geometry.sets * geometry.line_bytes) / PAGE_SIZE);
+ 		kprintf(" vm_cache_geometry_colors: %d\n", vm_cache_geometry_colors);
+ 	} else {
+ 		cpuid_cache_info_p->c_l2size = 0;
+@@ -389,13 +413,12 @@ do_cacheid(void)
+ 		cpuid_cache_info_p->c_bulksize_op = cpuid_cache_info_p->c_dsize;
+ 	}
+ 
+-	if (cpuid_cache_info_p->c_unified == 0) {
++	if (arm_cache_clidr_info.bits.Ctype1 == 3) {
+ 		machine_write_csselr(CSSELR_L1, CSSELR_INSTR);
+-		arm_cache_ccsidr_info.value = machine_read_ccsidr();
+-		uint32_t c_linesz = 4 * (1 << (arm_cache_ccsidr_info.bits.LineSize + 2));
+-		uint32_t c_assoc = (arm_cache_ccsidr_info.bits.Assoc + 1);
++		ccsidr = machine_read_ccsidr();
++		geometry = cpuid_decode_cache_geometry(ccsidr, mmfr2);
+ 		/* I cache size */
+-		cpuid_cache_info_p->c_isize = (arm_cache_ccsidr_info.bits.NumSets + 1) * c_linesz * c_assoc;
++		cpuid_cache_info_p->c_isize = geometry.size_bytes;
+ 	}
+ 
+ 	if (cpuid_cache_info_p == cpuid_cache_info_boot_cpu) {
+diff --git a/osfmk/arm/cpuid_internal.h b/osfmk/arm/cpuid_internal.h
+index 4d17f6b..a3c909e 100644
+--- a/osfmk/arm/cpuid_internal.h
++++ b/osfmk/arm/cpuid_internal.h
+@@ -40,7 +40,8 @@ arm_mvfp_info_t *machine_arm_mvfp_info(void);
+ 
+ uint32_t machine_read_midr(void);
+ uint32_t machine_read_clidr(void);
+-uint32_t machine_read_ccsidr(void);
++uint64_t machine_read_ccsidr(void);
++uint64_t machine_read_id_aa64mmfr2(void);
+ 
+ typedef enum {
+ 	CSSELR_L1 = 0x0,
+diff --git a/osfmk/arm/machine_cpuid.c b/osfmk/arm/machine_cpuid.c
+index d6c9a1c..7fbd660 100644
+--- a/osfmk/arm/machine_cpuid.c
++++ b/osfmk/arm/machine_cpuid.c
+@@ -52,13 +52,21 @@ machine_read_clidr(void)
+ 	return (uint32_t)clidr;
+ }
+ 
+-uint32_t
++uint64_t
+ machine_read_ccsidr(void)
+ {
+ 	uint64_t ccsidr;
+ 	__asm__ volatile ("mrs	%0, CCSIDR_EL1"  : "=r" (ccsidr));
+ 
+-	return (uint32_t)ccsidr;
++	return ccsidr;
++}
++
++uint64_t
++machine_read_id_aa64mmfr2(void)
++{
++	uint64_t mmfr2;
++	__asm__ volatile ("mrs %0, ID_AA64MMFR2_EL1" : "=r" (mmfr2));
++	return mmfr2;
+ }
+ 
+ void
+diff --git a/osfmk/arm64/arm_vm_init.c b/osfmk/arm64/arm_vm_init.c
+index 985370e..9c03e8e 100644
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -370,6 +370,14 @@ typedef struct {
+ SECURITY_READ_ONLY_LATE(static ptov_table_entry)        ptov_table[PTOV_TABLE_SIZE];
+ SECURITY_READ_ONLY_LATE(static boolean_t)               kva_active = FALSE;
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++static void thor_entry09_vm_enter(uint64_t memory_size, boot_args *args);
++static void thor_entry09_vm_allocate(boolean_t map_static);
++static void thor_entry09_vm_prot_done(boot_args *args);
++static void thor_entry09_vm_finish(boot_args *args, vm_map_address_t dynamic_memory_begin) __attribute__((noreturn));
++#endif
++
++
+ 
+ vm_map_address_t
+ phystokv(pmap_paddr_t pa)
+@@ -456,6 +464,9 @@ alloc_ptpage(boolean_t map_static)
+ #if !(defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR))
+ 	map_static = FALSE;
+ #endif
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_vm_allocate(map_static);
++#endif
+ 
+ 	if (!ropage_next) {
+ 		ropage_next = (vm_offset_t)&ropagetable_begin;
+@@ -1817,6 +1828,10 @@ init_ptpages(tt_entry_t *tt, vm_map_address_t start, vm_map_address_t end, bool
+ #define ARM64_PHYSMAP_SLIDE_RANGE (1ULL << 30) // 1 GB
+ #define ARM64_PHYSMAP_SLIDE_MASK  (ARM64_PHYSMAP_SLIDE_RANGE - 1)
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++#include "thor_entry09_vm.inc.c"
++#endif
++
+ void
+ arm_vm_init(uint64_t memory_size, boot_args * args)
+ {
+@@ -1830,6 +1845,10 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
+ 	vm_offset_t      ptpage_vaddr;
+ 	vm_map_address_t dynamic_memory_begin;
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_vm_enter(memory_size, args);
++#endif
++
+ 	/*
+ 	 * Get the virtual and physical kernel-managed memory base from boot_args.
+ 	 */
+@@ -2102,6 +2121,9 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
+ 	vm_prelink_edata = segPRELINKDATAB + segSizePRELINKDATA;
+ 
+ 	arm_vm_prot_init(args);
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_vm_prot_done(args);
++#endif
+ 
+ 	/*
+ 	 * Initialize the page tables for the low globals:
+@@ -2148,9 +2170,17 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
+ 	arm_set_user_tbi();
+ 
+ 	arm_vm_physmap_init(args);
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_vm_finish(args, dynamic_memory_begin); /* ENTRY10 verifies and returns */
++#endif
+ 	set_mmu_ttb_alternate(cpu_ttep & TTBR_BADDR_MASK);
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry10_post_ttbr1(args); /* no TTBR0 replacement */
++#endif
+ 
++#if XNU_MONITOR
+ 	ml_enable_monitor();
++#endif
+ 
+ 	set_mmu_ttb(invalid_ttep & TTBR_BADDR_MASK);
+ 
+diff --git a/osfmk/arm64/machine_routines.c b/osfmk/arm64/machine_routines.c
+index 2056712..1b0aff4 100644
+--- a/osfmk/arm64/machine_routines.c
++++ b/osfmk/arm64/machine_routines.c
+@@ -2358,6 +2358,13 @@ platform_syscall(arm_saved_state_t *state)
+ 	thread_exception_return();
+ }
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++volatile uint64_t gThorEntry09CntkctlBefore;
++volatile uint64_t gThorEntry09CntkctlAfter;
++volatile uint32_t gThorEntry09CntkctlStatus;
++extern void thor_entry09_fail(void) __attribute__((noreturn));
++#endif
++
+ static void
+ _enable_timebase_event_stream(uint32_t bit_index)
+ {
+@@ -2369,6 +2376,15 @@ _enable_timebase_event_stream(uint32_t bit_index)
+ 
+ 	__asm__ volatile ("mrs	%0, CNTKCTL_EL1" : "=r"(cntkctl));
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	if (bit_index != 4 || gThorEntry09CntkctlStatus != 0) {
++		thor_entry09_fail();
++	}
++	gThorEntry09CntkctlBefore = cntkctl;
++	/* EVNTIS=0 keeps EVENTI in bits0..15.  Its zero is RES0-compatible
++	 * when FEAT_ECV is absent.  Preserve every unrelated register bit. */
++	cntkctl &= ~((uint64_t)CNTKCTL_EL1_EVENTI_MASK | (1ULL << 17));
++#endif
+ 	cntkctl |= (bit_index << CNTKCTL_EL1_EVENTI_SHIFT);
+ 	cntkctl |= CNTKCTL_EL1_EVNTEN;
+ 	cntkctl |= CNTKCTL_EL1_EVENTDIR; /* 1->0; why not? */
+@@ -2382,6 +2398,14 @@ _enable_timebase_event_stream(uint32_t bit_index)
+ 	}
+ 
+ 	__builtin_arm_wsr64("CNTKCTL_EL1", cntkctl);
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	__asm__ volatile ("isb" ::: "memory");
++	gThorEntry09CntkctlAfter = __builtin_arm_rsr64("CNTKCTL_EL1");
++	if (gThorEntry09CntkctlAfter != cntkctl) {
++		thor_entry09_fail();
++	}
++	gThorEntry09CntkctlStatus = 1;
++#endif
+ }
+ 
+ /*
+diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
+index d4909c7..06c90dc 100644
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -33,9 +33,26 @@
+ #include <pexpert/arm64/board_config.h>
+ #include <mach_assert.h>
+ #include <machine/asm.h>
++#if defined(APPLE_ARM64_ARCH_FAMILY)
+ #include <arm64/tunables/tunables.s>
++#endif
+ #include <arm64/exception_asm.h>
+ 
++#if XNU_THOR_EARLY_C && XNU_THOR_ENTRY_STOP
++#error ENTRY06 stop and ENTRY09 early C are mutually exclusive
++#endif
++#if XNU_THOR_EARLY_C
++#if ARM_PGSHIFT != 12 || BOOTSTRAP_TABLE_BYTES != 65536 || __ARM_KERNEL_PROTECT__
++#error ENTRY09 requires the reviewed native 4K, 16-page bootstrap pool
++#endif
++#if T0SZ_BOOT != 26 || T1SZ_BOOT != 26 || ARM_TT_L1_INDEX_MASK != 0x0000003fc0000000ULL || HAS_APPLE_PAC || KASAN
++#error ENTRY09 requires two reviewed 38-bit level-1 roots, no PAC and no KASAN
++#endif
++#if !XNU_NATIVE_ARCH_TIMER
++#error ENTRY09 must not access BCM2837 timer MMIO
++#endif
++#endif
++
+ #if __ARM_KERNEL_PROTECT__
+ #include <arm/pmap.h>
+ #endif /* __ARM_KERNEL_PROTECT__ */
+@@ -143,8 +160,8 @@ LEXT(reset_vector)
+ 	adrp	x19, EXT(ResetHandlerData)@page			// Get address of the reset handler data
+ 	add		x19, x19, EXT(ResetHandlerData)@pageoff
+ 	mrs		x15, MPIDR_EL1						// Load MPIDR to get CPU number
+-#if HAS_CLUSTER
+-	and		x0, x15, #0xFFFF					// CPU number in Affinity0, cluster ID in Affinity1
++#if HAS_CLUSTER || defined(BCM2837)
++	and		x0, x15, #0xFFFF					// CPU number in Affinity0, cluster ID in Affinity1 (SM8550 numbers cores in Affinity1)
+ #else
+ 	and		x0, x15, #0xFF						// CPU number is in MPIDR Affinity Level 0
+ #endif
+@@ -222,7 +239,14 @@ LEXT(ResetHandlerData)
+ 	.align	3
+ 	.globl EXT(_start)
+ LEXT(_start)
++#if XNU_THOR_EARLY_C
++	b EXT(thor_entry09_enter)
++#elif defined(XNU_THOR_ENTRY_STOP) && XNU_THOR_ENTRY_STOP
++	b	EXT(thor_entry_stop_begin)
++#include "thor_entry_stop.inc.S"
++#else
+ 	b	EXT(start_first_cpu)
++#endif
+ 
+ 
+ /*
+@@ -234,6 +258,13 @@ LEXT(_start)
+ 	.align 12, 0
+ 	.global	EXT(LowExceptionVectorBase)
+ LEXT(LowExceptionVectorBase)
++#if XNU_THOR_EARLY_C
++	/* Kept at its owned physical identity address before and after M=1. */
++	.rept 16
++	b EXT(thor_entry09_exception)
++	.space 124, 0
++	.endr
++#else
+ 	/* EL1 SP 0 */
+ 	b		.
+ 	.align	7
+@@ -269,6 +300,7 @@ LEXT(LowExceptionVectorBase)
+ 	b		.
+ 	.align	7
+ 	b		.
++#endif
+ 	.align 12, 0
+ 
+ #if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+@@ -424,6 +456,10 @@ start_cpu:
+ 
+ 	/* allocate an L2 table */
+ 3:	add	$4, $4, PGBYTES
++	/* Refuse before a new table can overwrite adjacent kernel globals. */
++	add $6, x25, #(BOOTSTRAP_TABLE_BYTES >> 12), lsl #12
++	cmp $4, $6
++	b.hs Lbootstrap_tables_exhausted
+ 
+ 	/* create_l1_table_entry(virt_base, L1 table, L2 table, scratch1, scratch2, scratch3) */
+ 	create_l1_table_entry	$0, $3, $4, $6, $7, $8
+@@ -523,17 +559,20 @@ LEXT(start_first_cpu)
+ 	 *	Page 4 - KVA L2 table
+ 	 */
+ 
++#if !XNU_THOR_EARLY_C
+ 	// Invalidate all entries in the bootstrap page tables
+ 	mov		x0, #(ARM_TTE_EMPTY)				// Load invalid entry template
+ 	mov		x1, x25								// Start at V=P pagetable root
+-	mov		x2, #(TTE_PGENTRIES)				// Load number of entries per page
+-	lsl		x2, x2, #2							// Shift by 2 for num entries on 4 pages
++	mov		x2, #(BOOTSTRAP_TABLE_BYTES / ARM_PGBYTES)
++	lsl		x2, x2, #(ARM_PGSHIFT - TTE_SHIFT) // Clear the whole reserved pool
+ 
+ Linvalidate_bootstrap:							// do {
+ 	str		x0, [x1], #(1 << TTE_SHIFT)			//   Invalidate and advance
+ 	subs	x2, x2, #1							//   entries--
+ 	b.ne	Linvalidate_bootstrap				// } while (entries != 0)
+ 
++#endif
++
+ 	/*
+ 	 * In order to reclaim memory on targets where TZ0 (or some other entity)
+ 	 * must be located at the base of memory, iBoot may set the virtual and
+@@ -575,6 +614,22 @@ Lkernelcache_base_found:
+ 	add		x22, x22, x18
+ 	add		x23, x23, x18
+ 
++#if XNU_THOR_EARLY_C
++	/* No header prefix is permitted by the ENTRY09 exact-grant contract. */
++	cbnz x18, EXT(thor_entry09_reset)
++	mov x28, lr
++	mov x0, x23
++	mov x1, x22
++	mov x2, x24
++	mov x3, x25
++	mov x4, #BOOTSTRAP_TABLE_BYTES
++	bl EXT(thor_entry09_build_tables)
++	/* Second persistent band: all ten page-table pages constructed. */
++	mov x0, #1
++	mov w1, #0xffff
++	bl EXT(thor_entry09_mark)
++	mov lr, x28
++#else
+ 	/*
+ 	 * x0  - V=P virtual cursor
+ 	 * x4  - V=P physical cursor
+@@ -611,6 +666,14 @@ Lkernelcache_base_found:
+ 	lsr		x5,  x24, #(ARM_TT_L2_SHIFT)
+ 	create_bootstrap_mapping x14, x15, x5, x3, x2, x9, x10, x11, x12, x13
+ 
++#endif
++
++	b Lbootstrap_tables_ready
++Lbootstrap_tables_exhausted:
++	// MMU is still off. Stop with the offending cursor/end preserved for
++	// the early debugger rather than corrupting memory or forging a map.
++	b Lbootstrap_tables_exhausted
++Lbootstrap_tables_ready:
+ 	/* Ensure TTEs are visible */
+ 	dsb		ish
+ 
+@@ -695,7 +758,7 @@ common_start:
+ 	dsb		ish
+ 
+ 
+-#if defined(BCM2837)
++#if defined(BCM2837) && (!defined(XNU_NATIVE_ARCH_TIMER) || !XNU_NATIVE_ARCH_TIMER)
+ 	// Setup timer interrupt routing; must be done before MMU is enabled
+ 	mrs		x15, MPIDR_EL1						// Load MPIDR to get CPU number
+ 	and		x15, x15, #0xFF						// CPU number is in MPIDR Affinity Level 0
+@@ -714,6 +777,11 @@ common_start:
+ 	 */
+ 	tlbi	vmalle1
+ 	ic		iallu
++#if XNU_THOR_EARLY_C
++	/* Complete the final TLB/I-cache invalidation before enabling M/C/I. */
++	dsb sy
++	isb
++#endif
+ #endif
+ 
+ 	/* If x21 is not 0, then this is either the start_cpu path or
+@@ -728,6 +796,10 @@ common_start:
+ 	MSR_TTBR1_EL1_X0
+ 1:
+ 
++#if XNU_THOR_EARLY_C
++	/* Physical LowExceptionVectorBase remains valid across M=0 -> M=1.
++	 * The full ordinary XNU exception machinery is not initialized yet. */
++#else
+ 	// Set up the exception vectors
+ #if __ARM_KERNEL_PROTECT__
+ 	/* If this is not the first reset of the boot CPU, the alternate mapping
+@@ -745,6 +817,8 @@ common_start:
+ 1:
+ 	MSR_VBAR_EL1_X0
+ 
++#endif
++
+ #if HAS_APPLE_PAC
+ 	PAC_INIT_KEY_STATE tmp=x0, tmp2=x1
+ #endif /* HAS_APPLE_PAC */
+@@ -770,6 +844,10 @@ common_start:
+ 	// Enable NEON
+ 	mov		x0, #(CPACR_FPEN_ENABLE)
+ 	msr		CPACR_EL1, x0
++#if XNU_THOR_EARLY_C
++	/* C and SecureDT use SIMD: complete FPEN before any C instruction. */
++	isb
++#endif
+ #endif
+ 
+ 	// Clear thread pointer
+@@ -783,10 +861,13 @@ common_start:
+ 	// Initialization common to all non-virtual Apple targets
+ #endif  // APPLE_ARM64_ARCH_FAMILY
+ 
++
++#if defined(APPLE_ARM64_ARCH_FAMILY)
+ 	// Read MIDR before start of per-SoC tunables
+ 	mrs x12, MIDR_EL1
+ 
+ 	APPLY_TUNABLES x12, x13, x14
++#endif
+ 
+ #if HAS_CLUSTER && !NO_CPU_OVRD
+ 	// Unmask external IRQs if we're restarting from non-retention WFI
+@@ -875,6 +956,10 @@ arm_init_tramp:
+ 	/* Return to arm_init() */
+ 	ret
+ 
++#if XNU_THOR_EARLY_C
++#include "thor_entry09_early.inc.S"
++#endif
++
+ //#include	"globals_asm.h"
+ 
+ /* vim: set ts=4: */
+diff --git a/osfmk/kern/timer_call.c b/osfmk/kern/timer_call.c
+index f8c8180..9323794 100644
+--- a/osfmk/kern/timer_call.c
++++ b/osfmk/kern/timer_call.c
+@@ -2176,3 +2176,21 @@ running_timers_deactivate(processor_t processor)
+ 	processor->running_timers_active = false;
+ 	running_timers_sync();
+ }
++
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++/* Read-only evidence from the real timer_call_init result. */
++uint32_t thor_entry09_timer_ready(void);
++uint32_t
++thor_entry09_timer_ready(void)
++{
++    return timer_longterm_queue == &timer_longterm.queue &&
++        timer_longterm.threshold.interval == TIMER_LONGTERM_NONE &&
++        timer_longterm.threshold.deadline == TIMER_LONGTERM_NONE &&
++        timer_longterm.threshold.preempted == TIMER_LONGTERM_NONE &&
++        timer_longterm.threshold.timer.tc_func == timer_longterm_callout &&
++        timer_longterm.threshold.timer.tc_param0 == (timer_call_param_t)&timer_longterm &&
++        queue_empty(&timer_longterm.queue.head) && timer_longterm.queue.count == 0 &&
++        timer_scan_limit_us == 400 && timer_scan_interval_us == 40 &&
++        timer_scan_limit_abs == 7680 && timer_scan_interval_abs == 768;
++}
++#endif
+diff --git a/pexpert/arm/pe_identify_machine.c b/pexpert/arm/pe_identify_machine.c
+index 937ce42..3205814 100644
+--- a/pexpert/arm/pe_identify_machine.c
++++ b/pexpert/arm/pe_identify_machine.c
+@@ -26,6 +26,167 @@ static vm_offset_t gPESoCBasePhys;
+ static uint32_t pe_arm_init_timer(void *args);
+ 
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++#include "thor_entry09_clock.h"
++
++volatile thor_entry09_clock_report_t gThorEntry09ClockReport;
++
++static int
++thor_entry09_property_matches(DTEntry entry, const char *key,
++    const void *expected, unsigned int expected_size)
++{
++	const void *value = NULL;
++	unsigned int size = 0;
++	return SecureDTGetProperty(entry, key, &value, &size) == kSuccess &&
++	       size == expected_size && memcmp(value, expected, expected_size) == 0;
++}
++
++static int
++thor_entry09_property_absent(DTEntry entry, const char *key)
++{
++	const void *value = NULL;
++	unsigned int size = 0;
++	return SecureDTGetProperty(entry, key, &value, &size) != kSuccess;
++}
++
++static int
++thor_entry09_seed_present(DTEntry entry)
++{
++    const void *value = NULL;
++    unsigned int size = 0, bits = 0;
++    if (SecureDTGetProperty(entry, "random-seed", &value, &size) != kSuccess ||
++        value == NULL || size != 64) {
++        return 0;
++    }
++    for (unsigned int i = 0; i < 64; ++i) {
++        bits |= ((const uint8_t *)value)[i];
++    }
++    return bits != 0;
++}
++
++static uint32_t
++thor_entry09_read_le32(const void *value)
++{
++	const uint8_t *p = (const uint8_t *)value;
++	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
++	       ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
++}
++
++static uint64_t
++thor_entry09_counter_frequency(void)
++{
++#if defined(THOR_ENTRY09_HOST_TEST)
++	extern uint64_t thor_entry09_host_counter_hz(void);
++	return thor_entry09_host_counter_hz();
++#elif defined(__arm64__) || defined(__aarch64__)
++	uint64_t value;
++	__asm__ volatile ("mrs %0, cntfrq_el0" : "=r" (value));
++	return value;
++#else
++#error ENTRY09 kernel clock shim requires AArch64
++#endif
++}
++
++/*
++ * This branch deliberately has no Apple SoC/MMIO prerequisite or default
++ * CPU/bus frequency. Only the generic counter has evidence. The caller must
++ * check this report after PE(FALSE). ENTRY09 executes real VM preparation
++ * and stops after arm_vm_physmap_init, before installing the new TTBR1.
++ * An error returns with all global clock fields zero, never using panic/serial.
++ */
++static void
++thor_entry09_identify_counter(boot_args *bootArgs)
++{
++	DTEntry root, chosen, cpus, cpu, other;
++	OpaqueDTEntryIterator iter;
++	const void *value = NULL;
++	unsigned int size = 0;
++	uint32_t timebase;
++	uint64_t counter;
++	static const uint8_t diagnostic_version[4] = { 1, 0, 0, 0 };
++	static const char *const unavailable[] = {
++		"bus-frequency", "clock-frequency", "memory-frequency",
++		"peripheral-frequency", "fixed-frequency"
++	};
++	unsigned int i;
++
++	bzero(&gPEClockFrequencyInfo, sizeof(gPEClockFrequencyInfo));
++	if (gThorEntry09ClockReport.status != THOR_ENTRY09_CLOCK_UNSET) {
++		gThorEntry09ClockReport.valid_mask = 0;
++		gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_REENTERED;
++		return;
++	}
++	gThorEntry09ClockReport.version = THOR_ENTRY09_CLOCK_VERSION;
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_BOOTARGS;
++	if (bootArgs == NULL || bootArgs->deviceTreeP == NULL ||
++	    bootArgs->deviceTreeLength < 8 || bootArgs->deviceTreeLength > 16384) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_ROOT;
++	if (SecureDTLookupEntry(NULL, "/", &root) != kSuccess ||
++	    !thor_entry09_property_matches(root, "name", "device-tree", sizeof("device-tree")) ||
++	    !thor_entry09_property_matches(root, "compatible", "xnu,thor-entry09", sizeof("xnu,thor-entry09")) ||
++	    !thor_entry09_property_matches(root, "model", "Xiaomi thor ENTRY09 diagnostic", sizeof("Xiaomi thor ENTRY09 diagnostic")) ||
++	    !thor_entry09_property_matches(root, "target-type", "thor", sizeof("thor"))) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_CHOSEN;
++	if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess ||
++	    !thor_entry09_property_matches(chosen, "entry09-diagnostic", diagnostic_version, sizeof(diagnostic_version)) ||
++	    !thor_entry09_property_absent(chosen, "dram-base") ||
++	    !thor_entry09_property_absent(chosen, "dram-size") ||
++	    !thor_entry09_seed_present(chosen) ||
++	    SecureDTLookupEntry(NULL, "/arm-io", &other) == kSuccess) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_CPUS;
++	if (SecureDTLookupEntry(NULL, "/cpus", &cpus) != kSuccess ||
++	    SecureDTInitEntryIterator(cpus, &iter) != kSuccess ||
++	    SecureDTIterateEntries(&iter, &cpu) != kSuccess) {
++		return;
++	}
++	gThorEntry09ClockReport.cpu_count = 1;
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_TOPOLOGY;
++	if (SecureDTIterateEntries(&iter, &other) == kSuccess) {
++		gThorEntry09ClockReport.cpu_count = 2;
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_CPU_STATE;
++	if (!thor_entry09_property_matches(cpu, "name", "cpu0", sizeof("cpu0")) ||
++	    !thor_entry09_property_matches(cpu, "state", "running", sizeof("running")) ||
++	    !thor_entry09_property_matches(cpu, "device_type", "cpu", sizeof("cpu"))) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_UNSUPPORTED_FREQUENCY;
++	for (i = 0; i < sizeof(unavailable) / sizeof(unavailable[0]); i++) {
++		if (!thor_entry09_property_absent(cpu, unavailable[i])) {
++			return;
++		}
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_TIMEBASE;
++	if (SecureDTGetProperty(cpu, "timebase-frequency", &value, &size) != kSuccess || size != 4) {
++		return;
++	}
++	timebase = thor_entry09_read_le32(value);
++	gThorEntry09ClockReport.dt_timebase_hz = timebase;
++	if (timebase != THOR_ENTRY09_COUNTER_HZ) {
++		return;
++	}
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_COUNTER;
++	counter = thor_entry09_counter_frequency();
++	gThorEntry09ClockReport.counter_hz = counter;
++	if (counter != timebase) {
++		return;
++	}
++
++	/* Unknown physical rates and all legacy ratios remain explicitly zero. */
++	gPEClockFrequencyInfo.timebase_frequency_hz = timebase;
++	gPEClockFrequencyInfo.dec_clock_rate_hz = timebase;
++	gThorEntry09ClockReport.valid_mask = THOR_ENTRY09_CLOCK_VALID_TIMEBASE | THOR_ENTRY09_CLOCK_VALID_DEC;
++	gThorEntry09ClockReport.status = THOR_ENTRY09_CLOCK_OK;
++}
++#endif
++
+ /*
+  * pe_identify_machine:
+  *
+@@ -34,6 +195,10 @@ static uint32_t pe_arm_init_timer(void *args);
+ void
+ pe_identify_machine(boot_args * bootArgs)
+ {
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry09_identify_counter(bootArgs);
++	return;
++#endif
+ 	OpaqueDTEntryIterator iter;
+ 	DTEntry         cpus, cpu;
+ 	void const     *value;
