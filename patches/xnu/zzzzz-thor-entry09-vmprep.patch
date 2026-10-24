@@ -1601,7 +1601,7 @@ diff --git a/osfmk/arm64/thor_entry09_vm.inc.c b/osfmk/arm64/thor_entry09_vm.inc
 new file mode 100644
 --- /dev/null
 +++ b/osfmk/arm64/thor_entry09_vm.inc.c
-@@ -0,0 +1,351 @@
+@@ -0,0 +1,355 @@
 +/* ENTRY09 diagnostic only: observe original VM preparation, never install it.
 + * After arm_vm_physmap_init, phystokv already selects the future aperture.
 + * Every table access below deliberately uses the still-active old alias.
@@ -1887,13 +1887,17 @@ new file mode 100644
 +    uint64_t old_tail_va = args->virtBase + args->topOfKernelData - args->physBase;
 +    uint64_t shift = physmap_base - old_tail_va;
 +    uint64_t aperture = physmap_base;
-+    uint64_t pa_offset = args->topOfKernelData & ARM_TT_L2_OFFMASK;
-+    uint64_t va_offset = aperture & ARM_TT_L2_OFFMASK;
 +    uint64_t ignored_e = 0, ignored_parent = 0;
-+    if (va_offset < pa_offset) {
-+        aperture += pa_offset - va_offset;
-+    } else if (va_offset > pa_offset) {
-+        aperture = ((aperture + ARM_TT_L2_OFFMASK) & ~ARM_TT_L2_OFFMASK) + pa_offset;
++    /* The first zero-length prefix still aligns temp_ptov_table[0].va.
++     * The tail then starts at that aligned address and aligns a second time. */
++    for (unsigned i = 0; i < 2; ++i) {
++        uint64_t pa_offset = (i == 0 ? args->physBase : args->topOfKernelData) & ARM_TT_L2_OFFMASK;
++        uint64_t va_offset = aperture & ARM_TT_L2_OFFMASK;
++        if (va_offset < pa_offset) {
++            aperture += pa_offset - va_offset;
++        } else if (va_offset > pa_offset) {
++            aperture = ((aperture + ARM_TT_L2_OFFMASK) & ~ARM_TT_L2_OFFMASK) + pa_offset;
++        }
 +    }
 +    if (thor_entry09_c_state(args) != 1) {
 +        thor_entry09_reset();
