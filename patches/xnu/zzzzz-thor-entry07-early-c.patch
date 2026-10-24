@@ -1,145 +1,3 @@
---- /dev/null
-+++ b/osfmk/arm/thor_entry07_early.inc.c
-@@ -0,0 +1,101 @@
-+/* Included only in the actual arm_init.c under XNU_THOR_EARLY_C=1.
-+ * No allocator, console, scheduler or VM bootstrap is introduced here.
-+ */
-+#include "../../pexpert/arm/thor_entry07_clock.h"
-+
-+extern void thor_entry07_mark(uint64_t band, uint32_t rgb);
-+extern uint32_t thor_entry07_c_state(const boot_args *args);
-+extern void thor_entry07_fail(void) __attribute__((noreturn));
-+extern void thor_entry07_stop(void) __attribute__((noreturn));
-+extern void thor_entry07_reset(void) __attribute__((noreturn));
-+
-+static void
-+thor_entry07_c_enter(const boot_args *args)
-+{
-+    if (thor_entry07_c_state(args) != 1) {
-+        thor_entry07_reset();
-+    }
-+    /* A fixed, unslid MH_EXECUTE with no threaded starts takes the real
-+     * normal rebase function's minimal branch. Other formats are refused. */
-+    if ((uintptr_t)&_mh_execute_header != (uintptr_t)VM_KERNEL_LINK_ADDRESS ||
-+        _mh_execute_header.magic != MH_MAGIC_64 ||
-+        _mh_execute_header.filetype != MH_EXECUTE ||
-+        (_mh_execute_header.flags & MH_DYLIB_IN_CACHE) != 0 ||
-+        &__thread_starts_sect_start[0] != &__thread_starts_sect_end[0]) {
-+        thor_entry07_fail();
-+    }
-+    thor_entry07_mark(2, 0x00ffff00U);
-+}
-+
-+static void __attribute__((noreturn))
-+thor_entry07_c_finish(boot_args *args)
-+{
-+    DTEntry chosen = NULL;
-+    void const *property = NULL;
-+    unsigned int size = 0;
-+    const unsigned char *bytes;
-+    uint64_t unknown_frequencies;
-+
-+    if (thor_entry07_c_state(args) != 1) {
-+        thor_entry07_reset();
-+    }
-+    if (BootArgs != args || args != &const_boot_args || vm_kernel_slide != 0 ||
-+        static_kernelcache || PE_state.initialized != TRUE ||
-+        PE_state.bootArgs != args || PE_state.deviceTreeHead != args->deviceTreeP ||
-+        PE_state.deviceTreeSize != 544 || args->deviceTreeLength != 544 ||
-+        PE_state.video.v_baseAddr != 0xb8000000ULL ||
-+        PE_state.video.v_rowBytes != 5760 || PE_state.video.v_width != 1440 ||
-+        PE_state.video.v_height != 3200 || PE_state.video.v_depth != 32 ||
-+        PE_state.video.v_display != 1) {
-+        thor_entry07_fail();
-+    }
-+    if (gThorEntry07ClockReport.version != 1 ||
-+        gThorEntry07ClockReport.status != 1 ||
-+        gThorEntry07ClockReport.valid_mask != 3 ||
-+        gThorEntry07ClockReport.cpu_count != 1 ||
-+        gThorEntry07ClockReport.counter_hz != 19200000 ||
-+        gThorEntry07ClockReport.dt_timebase_hz != 19200000 ||
-+        gThorEntry07ClockReport.reserved != 0) {
-+        thor_entry07_fail();
-+    }
-+    unknown_frequencies = gPEClockFrequencyInfo.bus_clock_rate_hz |
-+        gPEClockFrequencyInfo.cpu_clock_rate_hz |
-+        gPEClockFrequencyInfo.bus_clock_rate_num |
-+        gPEClockFrequencyInfo.bus_clock_rate_den |
-+        gPEClockFrequencyInfo.bus_to_cpu_rate_num |
-+        gPEClockFrequencyInfo.bus_to_cpu_rate_den |
-+        gPEClockFrequencyInfo.bus_to_dec_rate_num |
-+        gPEClockFrequencyInfo.bus_to_dec_rate_den |
-+        gPEClockFrequencyInfo.timebase_frequency_num |
-+        gPEClockFrequencyInfo.timebase_frequency_den |
-+        gPEClockFrequencyInfo.bus_frequency_hz |
-+        gPEClockFrequencyInfo.bus_frequency_min_hz |
-+        gPEClockFrequencyInfo.bus_frequency_max_hz |
-+        gPEClockFrequencyInfo.cpu_frequency_hz |
-+        gPEClockFrequencyInfo.cpu_frequency_min_hz |
-+        gPEClockFrequencyInfo.cpu_frequency_max_hz |
-+        gPEClockFrequencyInfo.prf_frequency_hz |
-+        gPEClockFrequencyInfo.prf_frequency_min_hz |
-+        gPEClockFrequencyInfo.prf_frequency_max_hz |
-+        gPEClockFrequencyInfo.mem_frequency_hz |
-+        gPEClockFrequencyInfo.mem_frequency_min_hz |
-+        gPEClockFrequencyInfo.mem_frequency_max_hz |
-+        gPEClockFrequencyInfo.fix_frequency_hz;
-+    if (unknown_frequencies != 0 ||
-+        gPEClockFrequencyInfo.dec_clock_rate_hz != 19200000 ||
-+        gPEClockFrequencyInfo.timebase_frequency_hz != 19200000) {
-+        thor_entry07_fail();
-+    }
-+    if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess ||
-+        SecureDTGetProperty(chosen, "entry07-diagnostic", &property, &size) != kSuccess ||
-+        size != 4 || property == NULL) {
-+        thor_entry07_fail();
-+    }
-+    bytes = (const unsigned char *)property;
-+    if (bytes[0] != 1 || bytes[1] != 0 || bytes[2] != 0 || bytes[3] != 0) {
-+        thor_entry07_fail();
-+    }
-+    /* Fifth band is dominated by the genuine PE(FALSE) return and checks. */
-+    thor_entry07_mark(4, 0x0000ff00U);
-+    thor_entry07_stop();
-+}
---- a/osfmk/arm/arm_init.c
-+++ b/osfmk/arm/arm_init.c
-@@ -342,6 +342,10 @@
-  *		Function:		Runs on the boot CPU, once, on entry from iBoot.
-  */
- 
-+#if XNU_THOR_EARLY_C
-+#include "thor_entry07_early.inc.c"
-+#endif
-+
- __startup_func
- void
- arm_init(
-@@ -354,6 +358,9 @@
- 	DTEntry chosen = NULL;
- 	unsigned int dt_entry_size = 0;
- 
-+#if XNU_THOR_EARLY_C
-+	thor_entry07_c_enter(args);
-+#endif
- 	arm_setup_pre_sign();
- 
- 	arm_slide_rebase_and_sign_image();
-@@ -369,7 +376,14 @@
- 	BootCpuData.jop_key = ml_default_jop_pid();
- #endif /* defined(HAS_APPLE_PAC) */
- 
-+#if XNU_THOR_EARLY_C
-+	/* Fourth persistent band: normal rebase/copy/cpu_data_init completed. */
-+	thor_entry07_mark(3, 0x000000ffU);
-+#endif
- 	PE_init_platform(FALSE, args); /* Get platform expert set up */
-+#if XNU_THOR_EARLY_C
-+	thor_entry07_c_finish(args); /* noreturn, before all later bootstrap */
-+#endif
- 	boot_progress_init();
- 
- #if __arm64__
 --- a/osfmk/arm64/start.s
 +++ b/osfmk/arm64/start.s
 @@ -38,6 +38,21 @@
@@ -153,8 +11,8 @@
 +#if ARM_PGSHIFT != 12 || BOOTSTRAP_TABLE_BYTES != 65536 || __ARM_KERNEL_PROTECT__
 +#error ENTRY07 requires the reviewed native 4K, 16-page bootstrap pool
 +#endif
-+#if T0SZ_BOOT != 25 || T1SZ_BOOT != 25 || HAS_APPLE_PAC || KASAN
-+#error ENTRY07 requires two 39-bit level-1 roots, no PAC and no KASAN
++#if T0SZ_BOOT != 26 || T1SZ_BOOT != 26 || ARM_TT_L1_INDEX_MASK != 0x0000003fc0000000ULL || HAS_APPLE_PAC || KASAN
++#error ENTRY07 requires two reviewed 38-bit level-1 roots, no PAC and no KASAN
 +#endif
 +#if !XNU_NATIVE_ARCH_TIMER
 +#error ENTRY07 must not access BCM2837 timer MMIO
@@ -279,7 +137,7 @@
  /* vim: set ts=4: */
 --- /dev/null
 +++ b/osfmk/arm64/thor_entry07_early.inc.S
-@@ -0,0 +1,615 @@
+@@ -0,0 +1,617 @@
 +/* ENTRY07: fixed-grant normal bootstrap and bounded early-C diagnostic.
 + * All pre-MMU helpers are stackless. Only 64MiB owned RAM and the previously
 + * proved framebuffer rows64..127 are addressed. No firmware service is used.
@@ -548,7 +406,8 @@
 +        mov     x9, x0
 +        mov     w11, #2
 +L_entry07_map:
-+        ubfx    x12, x9, #30, #9
++        and     x12, x9, #ARM_TT_L1_INDEX_MASK
++        lsr     x12, x12, #ARM_TT_L1_SHIFT
 +        add     x12, x5, x12, lsl #3
 +        orr     x13, x6, #3
 +        str     x13, [x12]
@@ -601,7 +460,8 @@
 +        add     x7, x3, #9, lsl #12
 +        movz    x9, #0xa000
 +        movk    x9, #0xb805, lsl #16
-+        ubfx    x12, x9, #30, #9
++        and     x12, x9, #ARM_TT_L1_INDEX_MASK
++        lsr     x12, x12, #ARM_TT_L1_SHIFT
 +        add     x12, x3, x12, lsl #3
 +        orr     x13, x6, #3
 +        str     x13, [x12]
@@ -895,3 +755,145 @@
 +        b       EXT(thor_entry07_park)
 +.globl EXT(thor_entry07_asm_end)
 +LEXT(thor_entry07_asm_end)
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -342,6 +342,10 @@
+  *		Function:		Runs on the boot CPU, once, on entry from iBoot.
+  */
+ 
++#if XNU_THOR_EARLY_C
++#include "thor_entry07_early.inc.c"
++#endif
++
+ __startup_func
+ void
+ arm_init(
+@@ -354,6 +358,9 @@
+ 	DTEntry chosen = NULL;
+ 	unsigned int dt_entry_size = 0;
+ 
++#if XNU_THOR_EARLY_C
++	thor_entry07_c_enter(args);
++#endif
+ 	arm_setup_pre_sign();
+ 
+ 	arm_slide_rebase_and_sign_image();
+@@ -369,7 +376,14 @@
+ 	BootCpuData.jop_key = ml_default_jop_pid();
+ #endif /* defined(HAS_APPLE_PAC) */
+ 
++#if XNU_THOR_EARLY_C
++	/* Fourth persistent band: normal rebase/copy/cpu_data_init completed. */
++	thor_entry07_mark(3, 0x000000ffU);
++#endif
+ 	PE_init_platform(FALSE, args); /* Get platform expert set up */
++#if XNU_THOR_EARLY_C
++	thor_entry07_c_finish(args); /* noreturn, before all later bootstrap */
++#endif
+ 	boot_progress_init();
+ 
+ #if __arm64__
+--- /dev/null
++++ b/osfmk/arm/thor_entry07_early.inc.c
+@@ -0,0 +1,101 @@
++/* Included only in the actual arm_init.c under XNU_THOR_EARLY_C=1.
++ * No allocator, console, scheduler or VM bootstrap is introduced here.
++ */
++#include "../../pexpert/arm/thor_entry07_clock.h"
++
++extern void thor_entry07_mark(uint64_t band, uint32_t rgb);
++extern uint32_t thor_entry07_c_state(const boot_args *args);
++extern void thor_entry07_fail(void) __attribute__((noreturn));
++extern void thor_entry07_stop(void) __attribute__((noreturn));
++extern void thor_entry07_reset(void) __attribute__((noreturn));
++
++static void
++thor_entry07_c_enter(const boot_args *args)
++{
++    if (thor_entry07_c_state(args) != 1) {
++        thor_entry07_reset();
++    }
++    /* A fixed, unslid MH_EXECUTE with no threaded starts takes the real
++     * normal rebase function's minimal branch. Other formats are refused. */
++    if ((uintptr_t)&_mh_execute_header != (uintptr_t)VM_KERNEL_LINK_ADDRESS ||
++        _mh_execute_header.magic != MH_MAGIC_64 ||
++        _mh_execute_header.filetype != MH_EXECUTE ||
++        (_mh_execute_header.flags & MH_DYLIB_IN_CACHE) != 0 ||
++        &__thread_starts_sect_start[0] != &__thread_starts_sect_end[0]) {
++        thor_entry07_fail();
++    }
++    thor_entry07_mark(2, 0x00ffff00U);
++}
++
++static void __attribute__((noreturn))
++thor_entry07_c_finish(boot_args *args)
++{
++    DTEntry chosen = NULL;
++    void const *property = NULL;
++    unsigned int size = 0;
++    const unsigned char *bytes;
++    uint64_t unknown_frequencies;
++
++    if (thor_entry07_c_state(args) != 1) {
++        thor_entry07_reset();
++    }
++    if (BootArgs != args || args != &const_boot_args || vm_kernel_slide != 0 ||
++        static_kernelcache || PE_state.initialized != TRUE ||
++        PE_state.bootArgs != args || PE_state.deviceTreeHead != args->deviceTreeP ||
++        PE_state.deviceTreeSize != 544 || args->deviceTreeLength != 544 ||
++        PE_state.video.v_baseAddr != 0xb8000000ULL ||
++        PE_state.video.v_rowBytes != 5760 || PE_state.video.v_width != 1440 ||
++        PE_state.video.v_height != 3200 || PE_state.video.v_depth != 32 ||
++        PE_state.video.v_display != 1) {
++        thor_entry07_fail();
++    }
++    if (gThorEntry07ClockReport.version != 1 ||
++        gThorEntry07ClockReport.status != 1 ||
++        gThorEntry07ClockReport.valid_mask != 3 ||
++        gThorEntry07ClockReport.cpu_count != 1 ||
++        gThorEntry07ClockReport.counter_hz != 19200000 ||
++        gThorEntry07ClockReport.dt_timebase_hz != 19200000 ||
++        gThorEntry07ClockReport.reserved != 0) {
++        thor_entry07_fail();
++    }
++    unknown_frequencies = gPEClockFrequencyInfo.bus_clock_rate_hz |
++        gPEClockFrequencyInfo.cpu_clock_rate_hz |
++        gPEClockFrequencyInfo.bus_clock_rate_num |
++        gPEClockFrequencyInfo.bus_clock_rate_den |
++        gPEClockFrequencyInfo.bus_to_cpu_rate_num |
++        gPEClockFrequencyInfo.bus_to_cpu_rate_den |
++        gPEClockFrequencyInfo.bus_to_dec_rate_num |
++        gPEClockFrequencyInfo.bus_to_dec_rate_den |
++        gPEClockFrequencyInfo.timebase_frequency_num |
++        gPEClockFrequencyInfo.timebase_frequency_den |
++        gPEClockFrequencyInfo.bus_frequency_hz |
++        gPEClockFrequencyInfo.bus_frequency_min_hz |
++        gPEClockFrequencyInfo.bus_frequency_max_hz |
++        gPEClockFrequencyInfo.cpu_frequency_hz |
++        gPEClockFrequencyInfo.cpu_frequency_min_hz |
++        gPEClockFrequencyInfo.cpu_frequency_max_hz |
++        gPEClockFrequencyInfo.prf_frequency_hz |
++        gPEClockFrequencyInfo.prf_frequency_min_hz |
++        gPEClockFrequencyInfo.prf_frequency_max_hz |
++        gPEClockFrequencyInfo.mem_frequency_hz |
++        gPEClockFrequencyInfo.mem_frequency_min_hz |
++        gPEClockFrequencyInfo.mem_frequency_max_hz |
++        gPEClockFrequencyInfo.fix_frequency_hz;
++    if (unknown_frequencies != 0 ||
++        gPEClockFrequencyInfo.dec_clock_rate_hz != 19200000 ||
++        gPEClockFrequencyInfo.timebase_frequency_hz != 19200000) {
++        thor_entry07_fail();
++    }
++    if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess ||
++        SecureDTGetProperty(chosen, "entry07-diagnostic", &property, &size) != kSuccess ||
++        size != 4 || property == NULL) {
++        thor_entry07_fail();
++    }
++    bytes = (const unsigned char *)property;
++    if (bytes[0] != 1 || bytes[1] != 0 || bytes[2] != 0 || bytes[3] != 0) {
++        thor_entry07_fail();
++    }
++    /* Fifth band is dominated by the genuine PE(FALSE) return and checks. */
++    thor_entry07_mark(4, 0x0000ff00U);
++    thor_entry07_stop();
++}
