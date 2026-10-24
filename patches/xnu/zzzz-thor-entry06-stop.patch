@@ -1,0 +1,294 @@
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -224,7 +224,12 @@
+ 	.align	3
+ 	.globl EXT(_start)
+ LEXT(_start)
++#if defined(XNU_THOR_ENTRY_STOP) && XNU_THOR_ENTRY_STOP
++	b	EXT(thor_entry_stop_begin)
++#include "thor_entry_stop.inc.S"
++#else
+ 	b	EXT(start_first_cpu)
++#endif
+ 
+ 
+ /*
+diff --git a/osfmk/arm64/thor_entry_stop.inc.S b/osfmk/arm64/thor_entry_stop.inc.S
+new file mode 100644
+--- /dev/null
++++ b/osfmk/arm64/thor_entry_stop.inc.S
+@@ -0,0 +1,274 @@
++/*
++ * ENTRY06 diagnostic: included at real XNU LEXT(_start) under XNU_THOR_ENTRY_STOP=1.
++ * Stops before normal startup; no stack, UEFI calls, or C runtime.
++ * ABI from DarwinEnter: x0=boot_args PA, x1=entry PA, x2=owned PA, x3=owned size.
++ * x4..x11 have no incoming meaning. No stack, C calls, return, ADT or high RAM.
++ * All data loads are inside the checked boot_args; all stores are to checked FB.
++ * EL1 early exceptions use the original XNU LowExceptionVectorBase self-loops.
++ */
++        .align 2
++        .globl EXT(thor_entry_stop_begin)
++LEXT(thor_entry_stop_begin)
++        mrs     x9, CurrentEL
++        cmp     x9, #4
++        b.ne    L_thor_entry_stop_park
++        msr     daifset, #15
++
++        /* Exact 64 MiB grant, wholly inside the published low DXE heap. */
++        movz    x9, #0x0400, lsl #16
++        cmp     x3, x9
++        b.ne    L_thor_entry_stop_park
++        movz    x9, #0xf800, lsl #16
++        cmp     x2, x9
++        b.lo    L_thor_entry_stop_park
++        movz    x9, #0xfbc0, lsl #16 /* 0xffc00000 - 64 MiB */
++        cmp     x2, x9
++        b.hi    L_thor_entry_stop_park
++        and     x9, x2, #0x1fffff
++        movz    x10, #0x4000
++        cmp     x9, x10
++        b.ne    L_thor_entry_stop_park
++
++        /* The actual branch destination must be this image's real __start. */
++        adr     x9, EXT(_start)
++        cmp     x1, x9
++        b.ne    L_thor_entry_stop_park
++        cmp     x1, x2
++        b.lo    L_thor_entry_stop_park
++        sub     x10, x1, x2
++        cmp     x10, x3
++        b.hs    L_thor_entry_stop_park
++
++        /* Install only after proving the whole 2 KiB vector span is owned. */
++        adr     x9, EXT(LowExceptionVectorBase)
++        tst     x9, #0x7ff
++        b.ne    L_thor_entry_stop_park
++        cmp     x9, x2
++        b.lo    L_thor_entry_stop_park
++        sub     x10, x9, x2
++        cmp     x10, x3
++        b.hs    L_thor_entry_stop_park
++        sub     x10, x3, x10
++        cmp     x10, #0x800
++        b.lo    L_thor_entry_stop_park
++        msr     VBAR_EL1, x9
++        isb
++
++        /* Require EL1 stage-1 translation and data/instruction caching off. */
++        mrs     x9, SCTLR_EL1
++        movz    x10, #0x1005       /* M | C | I */
++        tst     x9, x10
++        b.ne    L_thor_entry_stop_reset
++        tbnz    x9, #25, L_thor_entry_stop_reset /* reject big-endian EL1 data */
++
++        /* Full 0x480-byte ARM64 boot_args must fit before the first load. */
++        tst     x0, #0x3fff        /* caller places Args on a 16 KiB boundary */
++        b.ne    L_thor_entry_stop_reset
++        cmp     x0, x2
++        b.lo    L_thor_entry_stop_reset
++        sub     x9, x0, x2
++        sub     x10, x3, #0x480
++        cmp     x9, x10
++        b.hi    L_thor_entry_stop_reset
++
++        ldr     w9, [x0, #0]
++        movz    w10, #2
++        movk    w10, #2, lsl #16  /* Revision 2, Version 2, little endian */
++        cmp     w9, w10
++        b.ne    L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x8]
++        movz    x10, #0x4000
++        movk    x10, #0x0700, lsl #16
++        movk    x10, #0xfff0, lsl #32
++        movk    x10, #0xffff, lsl #48
++        cmp     x9, x10           /* fixed mainline VirtualBase */
++        b.ne    L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x10]
++        cmp     x9, x2
++        b.ne    L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x18]
++        cmp     x9, x3
++        b.ne    L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x478]
++        cmp     x9, x3
++        b.ne    L_thor_entry_stop_reset
++
++        /* Truthful Top: aligned, covers Args, and keeps the 2 MiB tail. */
++        ldr     x9, [x0, #0x20]
++        tst     x9, #0x3fff
++        b.ne    L_thor_entry_stop_reset
++        add     x10, x0, #0x480
++        cmp     x9, x10
++        b.lo    L_thor_entry_stop_reset
++        sub     x9, x9, x2
++        movz    x10, #0x20, lsl #16
++        sub     x10, x3, x10
++        cmp     x9, x10
++        b.hi    L_thor_entry_stop_reset
++        ldr     w9, [x0, #0x58]    /* machineType */
++        cbnz    w9, L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x60]    /* no ADT is consumed by this diagnostic */
++        cbnz    x9, L_thor_entry_stop_reset
++        ldr     w9, [x0, #0x68]
++        cbnz    w9, L_thor_entry_stop_reset
++        ldrb    w9, [x0, #0x6c]    /* empty command line */
++        cbnz    w9, L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x470]   /* bootFlags */
++        cbnz    x9, L_thor_entry_stop_reset
++
++        /* Exact observed GOP contract; compare full 64-bit Video fields. */
++        ldr     x19, [x0, #0x28]
++        movz    x9, #0xb800, lsl #16
++        cmp     x19, x9
++        b.ne    L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x30]
++        cmp     x9, #1
++        b.ne    L_thor_entry_stop_reset
++        ldr     x20, [x0, #0x38]
++        movz    x9, #5760
++        cmp     x20, x9
++        b.ne    L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x40]
++        cmp     x9, #1440
++        b.ne    L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x48]
++        cmp     x9, #3200
++        b.ne    L_thor_entry_stop_reset
++        ldr     x9, [x0, #0x50]
++        cmp     x9, #32
++        b.ne    L_thor_entry_stop_reset
++
++        /* Counter is independently checked at the real kernel entry. */
++        mrs     x22, CNTFRQ_EL0
++        movz    x9, #0xf800
++        movk    x9, #0x0124, lsl #16 /* 19,200,000 Hz */
++        cmp     x22, x9
++        b.ne    L_thor_entry_stop_reset
++        isb
++        mrs     x23, CNTVCT_EL0
++        movz    w12, #4096
++L_thor_entry_stop_counter_probe:
++        isb
++        mrs     x9, CNTVCT_EL0
++        cmp     x9, x23
++        b.ne    L_thor_entry_stop_marker
++        subs    w12, w12, #1
++        b.ne    L_thor_entry_stop_counter_probe
++        b       L_thor_entry_stop_reset
++
++        /* Unique post-entry signature: rows 64..79 magenta, 80..95 cyan. */
++L_thor_entry_stop_marker:
++        movz    x9, #0xa000
++        movk    x9, #5, lsl #16    /* 64 * 5760 */
++        add     x12, x19, x9
++        movz    w14, #32
++        movz    w16, #0x00ff
++        movk    w16, #0x00ff, lsl #16
++L_thor_entry_stop_marker_row:
++        mov     x13, x12
++        movz    w15, #1440
++L_thor_entry_stop_marker_pixel:
++        str     w16, [x13], #4
++        subs    w15, w15, #1
++        b.ne    L_thor_entry_stop_marker_pixel
++        add     x12, x12, x20
++        subs    w14, w14, #1
++        b.eq    L_thor_entry_stop_gauge_init
++        cmp     w14, #16
++        b.ne    L_thor_entry_stop_marker_row
++        movz    w16, #0xffff
++        b       L_thor_entry_stop_marker_row
++
++        /* Twenty 64-pixel slots, rows 112..127, initially white. */
++L_thor_entry_stop_gauge_init:
++        movz    x9, #0xd800
++        movk    x9, #9, lsl #16    /* 112 * 5760 */
++        add     x12, x19, x9
++        movz    w14, #16
++        movz    w16, #0xffff
++        movk    w16, #0x00ff, lsl #16
++L_thor_entry_stop_gauge_row:
++        mov     x13, x12
++        movz    w15, #1280
++L_thor_entry_stop_gauge_pixel:
++        str     w16, [x13], #4
++        subs    w15, w15, #1
++        b.ne    L_thor_entry_stop_gauge_pixel
++        add     x12, x12, x20
++        subs    w14, w14, #1
++        b.ne    L_thor_entry_stop_gauge_row
++        dsb     sy
++
++        movz    x10, #20
++        mul     x24, x22, x10      /* exact 384,000,000 ticks */
++        isb
++        mrs     x23, CNTVCT_EL0
++        mov     x17, x23
++        movz    w18, #4096
++        movz    x25, #20
++        movz    x26, #0x4000, lsl #16 /* global 2^30 poll limit */
++L_thor_entry_stop_poll:
++        subs    x26, x26, #1
++        b.eq    L_thor_entry_stop_reset
++        isb
++        mrs     x9, CNTVCT_EL0
++        cmp     x9, x17
++        b.ne    L_thor_entry_stop_advanced
++        subs    w18, w18, #1
++        b.eq    L_thor_entry_stop_reset
++        b       L_thor_entry_stop_elapsed
++L_thor_entry_stop_advanced:
++        mov     x17, x9
++        movz    w18, #4096
++L_thor_entry_stop_elapsed:
++        sub     x11, x9, x23       /* unsigned elapsed; no start+deadline sum */
++        cmp     x11, x24
++        b.hs    L_thor_entry_stop_reset
++        udiv    x10, x11, x22
++        movz    x11, #20
++        sub     x10, x11, x10      /* remaining is 1..20 */
++        cmp     x10, x25
++        b.eq    L_thor_entry_stop_poll
++        b.hi    L_thor_entry_stop_reset /* reject backwards displayed time */
++        sub     x27, x25, x10
++        lsl     x27, x27, #6       /* <= 19*64 pixels; never zero here */
++        mov     x25, x10
++        movz    x9, #0xd800
++        movk    x9, #9, lsl #16
++        add     x12, x19, x9
++        add     x12, x12, x10, lsl #8 /* remaining *64 pixels*4 bytes */
++        movz    w14, #16
++L_thor_entry_stop_erase_row:
++        mov     x13, x12
++        mov     x15, x27
++L_thor_entry_stop_erase_pixel:
++        str     wzr, [x13], #4
++        subs    x15, x15, #1
++        b.ne    L_thor_entry_stop_erase_pixel
++        add     x12, x12, x20
++        subs    w14, w14, #1
++        b.ne    L_thor_entry_stop_erase_row
++        dsb     sy
++        b       L_thor_entry_stop_poll
++
++        /* Actual thor conduit: SMC32 PSCI SYSTEM_RESET; never retry as HVC. */
++        .globl EXT(thor_entry_stop_reset)
++LEXT(thor_entry_stop_reset)
++L_thor_entry_stop_reset:
++        msr     daifset, #15
++        dsb     sy
++        movz    w0, #9
++        movk    w0, #0x8400, lsl #16
++        mov     x1, xzr
++        mov     x2, xzr
++        mov     x3, xzr
++        smc     #0
++        b       L_thor_entry_stop_park
++
++        /* Also reached on an invalid pre-vector contract. No WFI/WFE/RET. */
++        .globl EXT(thor_entry_stop_park)
++LEXT(thor_entry_stop_park)
++L_thor_entry_stop_park:
++        b       L_thor_entry_stop_park
++        .globl EXT(thor_entry_stop_end)
++LEXT(thor_entry_stop_end)

@@ -518,7 +518,24 @@ if [ "$NATIVE_ARCH_TIMER" = 1 ] && [ "${XNU_ARMCPU:-0}" != 1 ]; then
   echo 'Architectural timer entry requires the actual ArmCpu interrupt provider' >&2
   exit 1
 fi
-EXTRA_MAKE_ARGS+=("start.o_SFLAGS_ADD=-DXNU_NATIVE_ARCH_TIMER=$NATIVE_ARCH_TIMER")
+# Diagnostic-only flag; normal boot remains the default.
+THOR_ENTRY_STOP=${XNU_THOR_ENTRY_STOP:-0}
+if [ "$THOR_ENTRY_STOP" != 0 ] && [ "$THOR_ENTRY_STOP" != 1 ]; then
+  echo 'XNU_THOR_ENTRY_STOP must be 0 or 1' >&2
+  exit 1
+fi
+if [ "$THOR_ENTRY_STOP" = 1 ] && { [ "$NATIVE_ARCH_TIMER" != 1 ] ||
+    [ "${XNU_ARMCPU:-0}" != 1 ] || [ "${XNU_ARM_DT_PLATFORM:-0}" != 1 ] ||
+    [ "${XNU_SOURCE_CORECRYPTO14:-0}" != 1 ]; }; then
+  echo 'Thor entry stop requires the complete native ARM source-provider configuration' >&2
+  exit 1
+fi
+EXTRA_MAKE_ARGS+=("start.o_SFLAGS_ADD=-DXNU_NATIVE_ARCH_TIMER=$NATIVE_ARCH_TIMER -DXNU_THOR_ENTRY_STOP=$THOR_ENTRY_STOP")
+THOR_ENTRY_STOP_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.thor-entry-stop-mode
+if [ "$(cat "$THOR_ENTRY_STOP_STAMP" 2>/dev/null || echo 0)" != "$THOR_ENTRY_STOP" ]; then
+  rm -f "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/start.o"
+  printf '%s\n' "$THOR_ENTRY_STOP" > "$THOR_ENTRY_STOP_STAMP"
+fi
 NATIVE_TIMER_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.native-arch-timer-mode
 if [ "$(cat "$NATIVE_TIMER_STAMP" 2>/dev/null || echo 0)" != "$NATIVE_ARCH_TIMER" ]; then
   rm -f "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/start.o"
