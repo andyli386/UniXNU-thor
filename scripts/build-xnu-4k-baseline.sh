@@ -31,6 +31,12 @@ if [ ! -x .cache/fakeroot/usr/local/libexec/availability.pl ]; then
     OBJROOT="$ROOT/build/availability" SYMROOT="$ROOT/build/availability" \
     DSTROOT="$ROOT/.cache/fakeroot" CMAKE="$(command -v cmake)" NINJA="$(command -v ninja)"
 fi
+# Reverse bounded ENTRY07 overlays before testing earlier overlapping patches.
+for EARLY_PATCH in "$ROOT"/patches/xnu/zzzzz-thor-entry07-*.patch; do
+  if [ -f "$EARLY_PATCH" ] && git -C .cache/xnu-work apply --reverse --check "$EARLY_PATCH" >/dev/null 2>&1; then
+    git -C .cache/xnu-work apply --reverse "$EARLY_PATCH"
+  fi
+done
 # The optional observation hooks overlap existing root/exec patch context.
 # Remove them first so earlier independent patches retain their idempotent checks.
 # The same holds for the boot-time GPU addon mount and the staged system apps copy (zzy), which edit the owner Data mount function
@@ -530,7 +536,28 @@ if [ "$THOR_ENTRY_STOP" = 1 ] && { [ "$NATIVE_ARCH_TIMER" != 1 ] ||
   echo 'Thor entry stop requires the complete native ARM source-provider configuration' >&2
   exit 1
 fi
-EXTRA_MAKE_ARGS+=("start.o_SFLAGS_ADD=-DXNU_NATIVE_ARCH_TIMER=$NATIVE_ARCH_TIMER -DXNU_THOR_ENTRY_STOP=$THOR_ENTRY_STOP")
+# ENTRY07 is bounded early C; never combine it with the ENTRY06 entry stop.
+THOR_EARLY_C=${XNU_THOR_EARLY_C:-0}
+if [ "$THOR_EARLY_C" != 0 ] && [ "$THOR_EARLY_C" != 1 ]; then
+  echo 'XNU_THOR_EARLY_C must be 0 or 1' >&2
+  exit 1
+fi
+if [ "$THOR_EARLY_C" = 1 ] && { [ "$THOR_ENTRY_STOP" != 0 ] ||
+    [ "$NATIVE_ARCH_TIMER" != 1 ] || [ "${XNU_ARMCPU:-0}" != 1 ] ||
+    [ "${XNU_ARM_DT_PLATFORM:-0}" != 1 ] || [ "${XNU_SOURCE_CORECRYPTO14:-0}" != 1 ]; }; then
+  echo 'Thor early C requires the native source providers and ENTRY_STOP=0' >&2
+  exit 1
+fi
+EXTRA_MAKE_ARGS+=("start.o_SFLAGS_ADD=-DXNU_NATIVE_ARCH_TIMER=$NATIVE_ARCH_TIMER -DXNU_THOR_ENTRY_STOP=$THOR_ENTRY_STOP -DXNU_THOR_EARLY_C=$THOR_EARLY_C")
+EXTRA_MAKE_ARGS+=("arm_init.o_CFLAGS_ADD=-DXNU_THOR_EARLY_C=$THOR_EARLY_C")
+EXTRA_MAKE_ARGS+=("pe_identify_machine.o_CFLAGS_ADD=-DXNU_THOR_EARLY_C=$THOR_EARLY_C")
+THOR_EARLY_C_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.thor-early-c-mode
+if [ "$(cat "$THOR_EARLY_C_STAMP" 2>/dev/null || echo 0)" != "$THOR_EARLY_C" ]; then
+  rm -f "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/start.o" \
+    "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/arm_init.o" \
+    "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/pexpert/DEVELOPMENT/pe_identify_machine.o"
+  printf '%s\n' "$THOR_EARLY_C" > "$THOR_EARLY_C_STAMP"
+fi
 THOR_ENTRY_STOP_STAMP=$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/.thor-entry-stop-mode
 if [ "$(cat "$THOR_ENTRY_STOP_STAMP" 2>/dev/null || echo 0)" != "$THOR_ENTRY_STOP" ]; then
   rm -f "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/start.o"

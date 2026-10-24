@@ -1,0 +1,208 @@
+--- a/pexpert/arm/pe_identify_machine.c
++++ b/pexpert/arm/pe_identify_machine.c
+@@ -26,6 +26,151 @@
+ static uint32_t pe_arm_init_timer(void *args);
+ 
+ 
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++#include "thor_entry07_clock.h"
++
++volatile thor_entry07_clock_report_t gThorEntry07ClockReport;
++
++static int
++thor_entry07_property_matches(DTEntry entry, const char *key,
++    const void *expected, unsigned int expected_size)
++{
++	const void *value = NULL;
++	unsigned int size = 0;
++	return SecureDTGetProperty(entry, key, &value, &size) == kSuccess &&
++	       size == expected_size && memcmp(value, expected, expected_size) == 0;
++}
++
++static int
++thor_entry07_property_absent(DTEntry entry, const char *key)
++{
++	const void *value = NULL;
++	unsigned int size = 0;
++	return SecureDTGetProperty(entry, key, &value, &size) != kSuccess;
++}
++
++static uint32_t
++thor_entry07_read_le32(const void *value)
++{
++	const uint8_t *p = (const uint8_t *)value;
++	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
++	       ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
++}
++
++static uint64_t
++thor_entry07_counter_frequency(void)
++{
++#if defined(THOR_ENTRY07_HOST_TEST)
++	extern uint64_t thor_entry07_host_counter_hz(void);
++	return thor_entry07_host_counter_hz();
++#elif defined(__arm64__) || defined(__aarch64__)
++	uint64_t value;
++	__asm__ volatile ("mrs %0, cntfrq_el0" : "=r" (value));
++	return value;
++#else
++#error ENTRY07 kernel clock shim requires AArch64
++#endif
++}
++
++/*
++ * This branch deliberately has no Apple SoC/MMIO prerequisite or default
++ * CPU/bus frequency. Only the generic counter has evidence. The caller must
++ * stop immediately after PE_init_platform(FALSE) returns, checking this report.
++ * An error returns with all global clock fields zero, never using panic/serial.
++ */
++static void
++thor_entry07_identify_counter(boot_args *bootArgs)
++{
++	DTEntry root, chosen, cpus, cpu, other;
++	OpaqueDTEntryIterator iter;
++	const void *value = NULL;
++	unsigned int size = 0;
++	uint32_t timebase;
++	uint64_t counter;
++	static const uint8_t diagnostic_version[4] = { 1, 0, 0, 0 };
++	static const char *const unavailable[] = {
++		"bus-frequency", "clock-frequency", "memory-frequency",
++		"peripheral-frequency", "fixed-frequency"
++	};
++	unsigned int i;
++
++	bzero(&gPEClockFrequencyInfo, sizeof(gPEClockFrequencyInfo));
++	if (gThorEntry07ClockReport.status != THOR_ENTRY07_CLOCK_UNSET) {
++		gThorEntry07ClockReport.valid_mask = 0;
++		gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_REENTERED;
++		return;
++	}
++	gThorEntry07ClockReport.version = THOR_ENTRY07_CLOCK_VERSION;
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_BOOTARGS;
++	if (bootArgs == NULL || bootArgs->deviceTreeP == NULL ||
++	    bootArgs->deviceTreeLength < 8 || bootArgs->deviceTreeLength > 16384) {
++		return;
++	}
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_ROOT;
++	if (SecureDTLookupEntry(NULL, "/", &root) != kSuccess ||
++	    !thor_entry07_property_matches(root, "name", "device-tree", sizeof("device-tree")) ||
++	    !thor_entry07_property_matches(root, "compatible", "xnu,thor-entry07", sizeof("xnu,thor-entry07")) ||
++	    !thor_entry07_property_matches(root, "model", "Xiaomi thor ENTRY07 diagnostic", sizeof("Xiaomi thor ENTRY07 diagnostic")) ||
++	    !thor_entry07_property_matches(root, "target-type", "thor", sizeof("thor"))) {
++		return;
++	}
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_CHOSEN;
++	if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess ||
++	    !thor_entry07_property_matches(chosen, "entry07-diagnostic", diagnostic_version, sizeof(diagnostic_version)) ||
++	    !thor_entry07_property_absent(chosen, "dram-base") ||
++	    !thor_entry07_property_absent(chosen, "dram-size") ||
++	    !thor_entry07_property_absent(chosen, "random-seed") ||
++	    SecureDTLookupEntry(NULL, "/arm-io", &other) == kSuccess) {
++		return;
++	}
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_CPUS;
++	if (SecureDTLookupEntry(NULL, "/cpus", &cpus) != kSuccess ||
++	    SecureDTInitEntryIterator(cpus, &iter) != kSuccess ||
++	    SecureDTIterateEntries(&iter, &cpu) != kSuccess) {
++		return;
++	}
++	gThorEntry07ClockReport.cpu_count = 1;
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_TOPOLOGY;
++	if (SecureDTIterateEntries(&iter, &other) == kSuccess) {
++		gThorEntry07ClockReport.cpu_count = 2;
++		return;
++	}
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_CPU_STATE;
++	if (!thor_entry07_property_matches(cpu, "name", "cpu0", sizeof("cpu0")) ||
++	    !thor_entry07_property_matches(cpu, "state", "running", sizeof("running")) ||
++	    !thor_entry07_property_matches(cpu, "device_type", "cpu", sizeof("cpu"))) {
++		return;
++	}
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_UNSUPPORTED_FREQUENCY;
++	for (i = 0; i < sizeof(unavailable) / sizeof(unavailable[0]); i++) {
++		if (!thor_entry07_property_absent(cpu, unavailable[i])) {
++			return;
++		}
++	}
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_TIMEBASE;
++	if (SecureDTGetProperty(cpu, "timebase-frequency", &value, &size) != kSuccess || size != 4) {
++		return;
++	}
++	timebase = thor_entry07_read_le32(value);
++	gThorEntry07ClockReport.dt_timebase_hz = timebase;
++	if (timebase != THOR_ENTRY07_COUNTER_HZ) {
++		return;
++	}
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_COUNTER;
++	counter = thor_entry07_counter_frequency();
++	gThorEntry07ClockReport.counter_hz = counter;
++	if (counter != timebase) {
++		return;
++	}
++
++	/* Unknown physical rates and all legacy ratios remain explicitly zero. */
++	gPEClockFrequencyInfo.timebase_frequency_hz = timebase;
++	gPEClockFrequencyInfo.dec_clock_rate_hz = timebase;
++	gThorEntry07ClockReport.valid_mask = THOR_ENTRY07_CLOCK_VALID_TIMEBASE | THOR_ENTRY07_CLOCK_VALID_DEC;
++	gThorEntry07ClockReport.status = THOR_ENTRY07_CLOCK_OK;
++}
++#endif
++
+ /*
+  * pe_identify_machine:
+  *
+@@ -34,6 +179,10 @@
+ void
+ pe_identify_machine(boot_args * bootArgs)
+ {
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry07_identify_counter(bootArgs);
++	return;
++#endif
+ 	OpaqueDTEntryIterator iter;
+ 	DTEntry         cpus, cpu;
+ 	void const     *value;
+--- /dev/null
++++ b/pexpert/arm/thor_entry07_clock.h
+@@ -0,0 +1,40 @@
++/* ENTRY07-only generic-counter identification. Not a normal-platform clock policy. */
++#ifndef THOR_ENTRY07_CLOCK_H
++#define THOR_ENTRY07_CLOCK_H
++
++#include <stdint.h>
++
++#define THOR_ENTRY07_CLOCK_VERSION 1u
++#define THOR_ENTRY07_COUNTER_HZ 19200000u
++#define THOR_ENTRY07_CLOCK_VALID_TIMEBASE 1u
++#define THOR_ENTRY07_CLOCK_VALID_DEC 2u
++
++enum thor_entry07_clock_status {
++	THOR_ENTRY07_CLOCK_UNSET = 0,
++	THOR_ENTRY07_CLOCK_OK = 1,
++	THOR_ENTRY07_CLOCK_REENTERED = 2,
++	THOR_ENTRY07_CLOCK_BOOTARGS = 3,
++	THOR_ENTRY07_CLOCK_ROOT = 4,
++	THOR_ENTRY07_CLOCK_CHOSEN = 5,
++	THOR_ENTRY07_CLOCK_CPUS = 6,
++	THOR_ENTRY07_CLOCK_CPU_STATE = 7,
++	THOR_ENTRY07_CLOCK_TIMEBASE = 8,
++	THOR_ENTRY07_CLOCK_COUNTER = 9,
++	THOR_ENTRY07_CLOCK_UNSUPPORTED_FREQUENCY = 10,
++	THOR_ENTRY07_CLOCK_TOPOLOGY = 11
++};
++
++typedef struct thor_entry07_clock_report {
++	uint32_t version;
++	uint32_t status;
++	uint32_t valid_mask;
++	uint32_t cpu_count;
++	uint64_t counter_hz;
++	uint32_t dt_timebase_hz;
++	uint32_t reserved;
++} thor_entry07_clock_report_t;
++
++/* A separate report makes zero-valued unavailable Apple clock fields explicit. */
++extern volatile thor_entry07_clock_report_t gThorEntry07ClockReport;
++
++#endif
