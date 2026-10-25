@@ -1,0 +1,48 @@
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -372,11 +372,11 @@
+ 
+ #if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
+ static void thor_entry09_vm_enter(uint64_t memory_size, boot_args *args);
+ static void thor_entry09_vm_allocate(boolean_t map_static);
+ static void thor_entry09_vm_prot_done(boot_args *args);
+-static void thor_entry09_vm_finish(boot_args *args, vm_map_address_t dynamic_memory_begin) __attribute__((noreturn));
++static void thor_entry09_vm_finish(boot_args *args, vm_map_address_t dynamic_memory_begin);
+ #endif
+ 
+ 
+ 
+ vm_map_address_t
+--- a/osfmk/arm64/thor_entry09_vm.inc.c
++++ b/osfmk/arm64/thor_entry09_vm.inc.c
+@@ -399,11 +399,11 @@
+ 
+ /* ENTRY10 only: first TTBR1 activation has returned. TTBR0 is still the
+  * original table, so the low-address framebuffer marker remains accessible.
+  * Never call thor_entry09_vm_table() or the pre-switch alias walker here:
+  * some physical table pages move to the new physmap virtual aperture. */
+-static void __attribute__((noreturn))
++static void __attribute__((noinline, noreturn))
+ thor_entry10_post_ttbr1(boot_args *args)
+ {
+     /* This marker is the first side effect after returning from the
+      * set_mmu_ttb_alternate() call. If translation traps first, it is absent.
+      * The green pre-TTBR marker stays intact in a different 14-row slot. */
+--- a/osfmk/arm64/thor_entry09_early.inc.S
++++ b/osfmk/arm64/thor_entry09_early.inc.S
+@@ -561,11 +561,14 @@
+         movz    x19, #0x8c00
+         movk    x19, #0xb80a, lsl #16 /* y120: 8-row gauge */
+         mov     x20, #5760
+         mov     x12, x19
+         mov     w14, #8
+-        movz    w16, #0xffff
++        /* Amber countdown (0xFFD000), visually distinct from the
++         * all-white TTBR1 validation-success marker (0xFFFFFF).
++         * Geometry and original y120..127 mapping are unchanged. */
++        movz    w16, #0xd000
+         movk    w16, #0x00ff, lsl #16
+ L_entry09_gauge_row:
+         mov     x13, x12
+         mov     w15, #1280
+ L_entry09_gauge_pixel:
