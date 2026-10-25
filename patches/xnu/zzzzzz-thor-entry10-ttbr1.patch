@@ -1,0 +1,83 @@
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -2170,11 +2170,14 @@
+ 	arm_set_user_tbi();
+ 
+ 	arm_vm_physmap_init(args);
+ #if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
+-	thor_entry09_vm_finish(args, dynamic_memory_begin); /* noreturn before TTBR1 */
++	thor_entry09_vm_finish(args, dynamic_memory_begin); /* ENTRY10 validate then return */
+ #endif
+ 	set_mmu_ttb_alternate(cpu_ttep & TTBR_BADDR_MASK);
++#if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
++	thor_entry10_post_ttbr1(args); /* readback and visible stop; no TTBR0 change */
++#endif
+ 
+ #if XNU_MONITOR
+ 	ml_enable_monitor();
+ #endif
+--- a/osfmk/arm64/thor_entry09_vm.inc.c
++++ b/osfmk/arm64/thor_entry09_vm.inc.c
+@@ -276,9 +276,16 @@
+     gThorEntry09VmReport.prot_returned = 1;
+     thor_entry09_mark(5, 0x008000ffU);
+ }
+ 
+-static void __attribute__((noreturn))
++
++/* Snapshot the still-active TTBR0 exception and translation state.
++ * The post-TTBR1 probe must not use the old high-VA page-table alias. */
++static volatile uint64_t gThorEntry10OldTTBR0;
++static volatile uint64_t gThorEntry10OldVBAR;
++static volatile uint64_t gThorEntry10OldTCR;
++
++static void
+ thor_entry09_vm_finish(boot_args *args, vm_map_address_t dynamic_memory_begin)
+ {
+     uint64_t old_tail_va = args->virtBase + args->topOfKernelData - args->physBase;
+     uint64_t shift = physmap_base - old_tail_va;
+@@ -349,7 +356,44 @@
+     gThorEntry09VmReport.invalid_root = invalid_ttep;
+     gThorEntry09VmReport.aperture = aperture;
+     gThorEntry09VmReport.slide = shift;
+     gThorEntry09VmReport.status = 1;
++    __asm__ volatile("mrs %0, ttbr0_el1" : "=r"(gThorEntry10OldTTBR0));
++    __asm__ volatile("mrs %0, vbar_el1" : "=r"(gThorEntry10OldVBAR));
++    __asm__ volatile("mrs %0, tcr_el1" : "=r"(gThorEntry10OldTCR));
+     thor_entry09_mark(6, 0x0000ff00U);
++}
++
++/* ENTRY10 only: first TTBR1 activation has returned. TTBR0 is still the
++ * original table, so the low-address framebuffer marker remains accessible.
++ * Never call thor_entry09_vm_table() or the pre-switch alias walker here:
++ * some physical table pages move to the new physmap virtual aperture. */
++static void __attribute__((noreturn))
++thor_entry10_post_ttbr1(boot_args *args)
++{
++    uint64_t ttbr1, ttbr0, vbar, tcr, sctlr;
++    __asm__ volatile("mrs %0, ttbr1_el1" : "=r"(ttbr1));
++    __asm__ volatile("mrs %0, ttbr0_el1" : "=r"(ttbr0));
++    __asm__ volatile("mrs %0, vbar_el1" : "=r"(vbar));
++    __asm__ volatile("mrs %0, tcr_el1" : "=r"(tcr));
++    __asm__ volatile("mrs %0, sctlr_el1" : "=r"(sctlr));
++    if (ttbr1 != (cpu_ttep & TTBR_BADDR_MASK) ||
++        ttbr0 != gThorEntry10OldTTBR0 ||
++        vbar != gThorEntry10OldVBAR ||
++        tcr != gThorEntry10OldTCR ||
++        (sctlr & 1) == 0 ||
++        gThorEntry09VmReport.status != 1 ||
++        gThorEntry09VmReport.future_root != cpu_ttep ||
++        args != thor_entry09_vm_args ||
++        args->physBase != gPhysBase ||
++        args->virtBase != gVirtBase) {
++        thor_entry09_fail();
++    }
++    /* Force a write/read on the real post-switch boot stack. */
++    volatile uint64_t stack_probe = 0x544842523130ULL;
++    if (stack_probe != 0x544842523130ULL) {
++        thor_entry09_fail();
++    }
++    /* Cyan, row band 7: distinct from ENTRY09 green band 6 and red refusal. */
++    thor_entry09_mark(7, 0x0000ffffU);
+     thor_entry09_stop();
+ }

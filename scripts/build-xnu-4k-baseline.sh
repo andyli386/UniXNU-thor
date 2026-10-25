@@ -32,7 +32,7 @@ if [ ! -x .cache/fakeroot/usr/local/libexec/availability.pl ]; then
     DSTROOT="$ROOT/.cache/fakeroot" CMAKE="$(command -v cmake)" NINJA="$(command -v ninja)"
 fi
 # Reverse bounded ENTRY09 overlays before testing earlier overlapping patches.
-for EARLY_PATCH in "$ROOT"/patches/xnu/zzzzz-thor-entry10-*.patch; do
+for EARLY_PATCH in "$ROOT"/patches/xnu/zzzzzz-thor-entry10-*.patch "$ROOT"/patches/xnu/zzzzz-thor-entry09-*.patch; do
   if [ -f "$EARLY_PATCH" ] && git -C .cache/xnu-work apply --reverse --check "$EARLY_PATCH" >/dev/null 2>&1; then
     git -C .cache/xnu-work apply --reverse "$EARLY_PATCH"
   fi
