@@ -152,5 +152,52 @@ class WorkflowTests(unittest.TestCase):
         self.assertFalse(a["arm_vm_init_full_returned"])
         self.assertFalse(a["hardware_tested"])
 
+    def test_vmhw04_crosshost_mirror_has_exact_provenance(self):
+        root = SOURCE.parents[3]
+        from hashlib import sha256
+        from subprocess import check_output
+        d = root / "evidence/build/thor-20261025-vm-hw04"
+        p = d / "receipts"
+        frozen = json.loads((d / "crosshost-verification-receipt-v2.json").read_text())
+        firmware = json.loads((p / "firmware-release.json").read_text())
+        gate = json.loads((p / "final-host-gate.json").read_text())
+        tests = json.loads((p / "host-offline-62-checks.json").read_text())
+        machine = json.loads((p / "xnu-ttbr0-root-machinecheck.json").read_text())
+        hashfile = lambda path: sha256(path.read_bytes()).hexdigest()
+        self.assertEqual(frozen["result"], "PASS_RECEIPTS_AND_FD_GIT_HISTORY_ARCHIVED")
+        self.assertEqual(tests["result"], "PASS")
+        self.assertEqual(len(tests["checks"]), 62)
+        self.assertTrue(all(check["passed"] for check in tests["checks"]))
+        self.assertEqual(gate["image_sha256"], frozen["boot_image_sha256_on_i386_only"])
+        self.assertEqual(hashfile(d / "SILICIUM_UEFI.fd"), firmware["uefi_fd_sha256"])
+        self.assertEqual(hashfile(root / "artifacts/candidates/thor-20261025-vmdev-004/kernel.macho"),
+                         firmware["kernel_sha256"])
+        self.assertEqual(machine["kernel_sha256"], firmware["kernel_sha256"])
+        self.assertEqual(check_output(["git", "-C", str(root / "repos/uefi-thor"),
+                           "rev-parse", "experimental/vm-ttbr0-root-readiness-unverified"],
+                          text=True).strip(), firmware["uefi_commit"])
+        self.assertEqual(check_output(["git", "-C", str(root / "repos/UniXNU-thor"),
+                           "rev-parse", "experimental/vm-ttbr0-root-readiness-unverified"],
+                          text=True).strip(), gate["xnu_commit"])
+        self.assertTrue(frozen["one_use_seed_not_transferred"])
+        self.assertTrue(frozen["needs_live_hardware_screen_review"])
+
+    def test_vmhw04_build_only_not_claimed_to_retire_ttbr0(self):
+        root = SOURCE.parents[3]
+        d = root / "evidence/build/thor-20261025-vm-hw04"
+        frozen = json.loads((d / "crosshost-verification-receipt-v2.json").read_text())
+        controller = json.loads((d / "receipts/controller-preflight.json").read_text())
+        code = json.loads((d / "receipts/xnu-ttbr0-root-machinecheck.json").read_text())
+        self.assertTrue(frozen["first_hardware_attempt_not_executed"])
+        self.assertTrue(frozen["ttbr0_still_active"])
+        self.assertEqual(controller["status"], "READY_NOT_EXECUTED")
+        self.assertEqual(controller["max_fastboot_boots"], 1)
+        self.assertEqual(controller["automatic_retries"], 0)
+        self.assertEqual(controller["phone_actions"], 0)
+        self.assertTrue(code["zero_root_4KiB_check_emitted"])
+        self.assertTrue(code["no_TTBR0_renewal_or_retirement"])
+        self.assertFalse(code["arm_vm_init_full_returned"])
+        self.assertFalse(code["hardware_tested"])
+
 if __name__ == "__main__":
     unittest.main()
