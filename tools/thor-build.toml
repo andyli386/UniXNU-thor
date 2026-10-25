@@ -1,0 +1,41 @@
+schema_version = 1
+
+[target]
+board = "thor"
+profile = "vm-post-ttbr1"
+soc = "SM8475"
+
+[kernel]
+ref = "experimental/entry10g-unverified"
+
+[firmware]
+ref_macmini = "experimental/entry10g-unverified"
+ref_i386 = "HEAD"
+build_id = "thor-entry-10g"
+
+[stock]
+verified_entry09_kernel_sha256 = "5ae9caa966587357265011fa132377921ec6d6d96bf617b928f3da9326230647"
+bootshim_sha256 = "9346a527441b242c69414fd7e3d6fa17813f281d562fef13d9ba8373d39007a9"
+dtb_sha256 = "c54e1b6efb086420761f05c2358aa71c98db5f961408399c0e1a85a408328971"
+
+[paths.macmini]
+kernel_source = "repos/UniXNU-thor"
+firmware_source = "repos/uefi-thor"
+kernel = "artifacts/mainline-4k-entry10g-ttbr1-20261025/run01/kernel.entry10g-ttbr1.macho"
+layout = "artifacts/mainline-4k-entry10g-ttbr1-20261025/run01/kernel-layout.json"
+kernel_release = "artifacts/mainline-4k-entry10g-ttbr1-20261025/run01/build-manifest.json"
+firmware_release = "evidence/build/entry10g/final-release-gate.json"
+
+[paths.i386]
+firmware_source = "sources/uefi-thor-entry10g"
+kernel = "artifacts/mainline-4k-entry10g-ttbr1-20261025/run01/kernel.entry10g-ttbr1.macho"
+layout = "artifacts/mainline-4k-entry10g-ttbr1-20261025/run01/kernel-layout.json"
+kernel_release = "artifacts/mainline-4k-entry10g-ttbr1-20261025/run01/build-manifest.json"
+firmware_release = "analysis/entry10g-build/final-release-gate.json"
+fd = "artifacts/thor-entry-10g/firmware/SILICIUM_UEFI.fd"
+image = "artifacts/thor-entry-10g/firmware/thor-entry-10g.img"
+image_manifest = "artifacts/thor-entry-10g/firmware/manifest.json"
+
+[test]
+temporary_boot_only = true
+max_boot_attempts = 1
