@@ -31,6 +31,17 @@ if [ ! -x .cache/fakeroot/usr/local/libexec/availability.pl ]; then
     OBJROOT="$ROOT/build/availability" SYMROOT="$ROOT/build/availability" \
     DSTROOT="$ROOT/.cache/fakeroot" CMAKE="$(command -v cmake)" NINJA="$(command -v ninja)"
 fi
+# The VM task can use an isolated, hash-checked source clone prepared from
+# ENTRY10G plus the three audited VM patches. Avoid replaying historically
+# overlapping patches and changing unrelated compilation inputs.
+if [ "$THOR_XNU_PATCH_MODE" = prepared ]; then
+  VERIFY="$ROOT/patches/xnu/zzzzzzzzzzzzzz-thor-vm-ttbr0-root-audit.patch"
+  test -f "$VERIFY"
+  git -C .cache/xnu-work apply --reverse --check "$VERIFY"
+  grep -q 'thor_vm_ttbr0_ready_gate(args)' .cache/xnu-work/osfmk/arm64/arm_vm_init.c
+  grep -q 'thor_vm_ttbr0_ready_gate(boot_args' .cache/xnu-work/osfmk/arm64/thor_entry09_vm.inc.c
+  echo 'THOR_PREPARED_VM_SOURCE_VERIFIED_NO_PATCH_REPLAY'
+else
 # Reverse bounded ENTRY09 overlays before testing earlier overlapping patches.
 for EARLY_PATCH in "$ROOT"/patches/xnu/zzzzzzzzzzzzzz-thor-vm-ttbr0-root-audit-*.patch "$ROOT"/patches/xnu/zzzzzzzzzzzzz-thor-vm-vbar-high-alias-*.patch "$ROOT"/patches/xnu/zzzzzzzzzzzz-thor-vm-post-ttbr1-*.patch "$ROOT"/patches/xnu/zzzzzzzzzzz-thor-entry10g-*.patch "$ROOT"/patches/xnu/zzzzzzzzzz-thor-entry10f-*.patch "$ROOT"/patches/xnu/zzzzzzzzz-thor-entry10e-*.patch "$ROOT"/patches/xnu/zzzzzzzz-thor-entry10d-*.patch "$ROOT"/patches/xnu/zzzzzzz-thor-entry10c-*.patch "$ROOT"/patches/xnu/zzzzzz-thor-entry10-*.patch "$ROOT"/patches/xnu/zzzzz-thor-entry09-*.patch; do
   if [ -f "$EARLY_PATCH" ] && git -C .cache/xnu-work apply --reverse --check "$EARLY_PATCH" >/dev/null 2>&1; then
@@ -53,6 +64,7 @@ for PATCH in "$ROOT"/patches/xnu/*.patch "$ROOT"/kits/NativePrelink/patches/*.pa
     git -C .cache/xnu-work apply "$PATCH"
   fi
 done
+fi
 export XNU_AVAILABILITY_PL=$ROOT/.cache/fakeroot/usr/local/libexec/availability.pl
 python3 scripts/prepare-xnu-source.py
 # The first pass of a new tree (XNU_BOOTSTRAP=1, set by the unixnu driver) only has to leave the compile records and

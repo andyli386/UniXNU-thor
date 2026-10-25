@@ -134,6 +134,7 @@ try:
         'JOBS': '4', 'XNU_BOOTSTRAP': '0', 'XNU_BUILD_TARGET': 'build', 'XNU_BUILD_WERROR': '0',
         'XNU_NATIVE_ARCH_TIMER': '1', 'XNU_ARMCPU': '1', 'XNU_ARM_DT_PLATFORM': '1',
         'XNU_THOR_ENTRY_STOP': '0', 'XNU_THOR_EARLY_C': '1',
+        'THOR_XNU_PATCH_MODE': 'prepared',
         'XNU_SOURCE_CORECRYPTO14': '1', 'XNU_CRYPTO_BOOTSTRAP': 'source', 'XNU_BOOT_PROGRESS': '0',
         'UNIXNU_XNU_TAG': feeds['xnu']['ref'], 'UNIXNU_XNU_COMMIT': feeds['xnu']['commit'],
         'UNIXNU_XNU_DARWIN': feeds['xnu']['darwin'], 'UNIXNU_XNU_VERSION': feeds['xnu']['version'],
