@@ -121,5 +121,31 @@ class WorkflowTests(unittest.TestCase):
         self.assertTrue(machine["msr_followed_by_isb_then_readback_then_white_marker"])
         self.assertFalse(machine["ttbr0_invalidation_executed"])
 
+    def test_vmhw03_visual_checkpoint_is_bounded(self):
+        root = SOURCE.parents[3]
+        p = root / "evidence/hardware-tests/thor-20261025-vm-hw03"
+        review = json.loads((p / "visual-milestone-review.json").read_text())
+        host = json.loads((p / "technical-summary-awaiting-video.json").read_text())
+        self.assertEqual(review["conclusion"],
+                         "PASS_BOUNDED_REAL_XNU_TTBR1_AND_HIGH_VBAR_CHECKPOINT_VISUALLY_CONFIRMED")
+        self.assertEqual(len(review["photos"]), 7)
+        self.assertTrue(review["observed"]["xnu_white_high_vbar_pass"])
+        self.assertEqual(host["image_sha256"], review["code_path_basis"]["image_sha256"])
+        self.assertTrue(host["android_return_passed"])
+        self.assertFalse(host["full_arm_vm_init_completed"])
+
+    def test_vmhw04_new_root_gate_is_compiled_not_retired(self):
+        root = SOURCE.parents[3]
+        p = root / "runs/thor-20261025-vmdev-004/l2/ttbr0-root-machinecode.json"
+        a = json.loads(p.read_text())
+        self.assertEqual(a["result"], "PASS_LINKED_ZERO_ROOT_AND_HIGH_PHYSVA_GATE")
+        self.assertEqual(a["mapped_phystokv_calls"], 2)
+        self.assertEqual(a["EL1_AT_S1E1R_calls"], 5)
+        self.assertTrue(a["zero_root_4KiB_check_emitted"])
+        self.assertTrue(a["white_marker_after_all_root_guards"])
+        self.assertTrue(a["no_TTBR0_renewal_or_retirement"])
+        self.assertFalse(a["arm_vm_init_full_returned"])
+        self.assertFalse(a["hardware_tested"])
+
 if __name__ == "__main__":
     unittest.main()
