@@ -1,0 +1,91 @@
+--- a/osfmk/arm64/thor_entry09_early.inc.S
++++ b/osfmk/arm64/thor_entry09_early.inc.S
+@@ -351,20 +351,21 @@
+ .align 2
+ .globl EXT(thor_entry09_mark)
+ LEXT(thor_entry09_mark)
+         cmp     x0, #7
+         b.hi    EXT(thor_entry09_reset)
+-        /* Stage0..5 remain six rows each. Preserve four 12-row markers
+-         * inside the EXISTING mapped framebuffer y64..111:
+-         *   pre-TTBR green / post-return cyan / verified white / fail red.
+-         * A failure no longer overwrites the earlier stage evidence.
+-         * No extra mappings, firmware allocations, or boot services. */
++        /* Stage0..5 remain six rows each. Four 14-row marker slots now
++         * occupy y64..119 in the ORIGINAL 90-page framebuffer mapping:
++         *   green64..77 / cyan78..91 / white92..105 / red106..119.
++         * The white countdown gauge moves to y120..127 and uses 8 rows.
++         * Marker writes and gauge writes remain disjoint. No new mapping,
++         * firmware allocation or boot service is needed. */
+         cmp     x0, #6
+         b.lo    L_entry10d_small_band
+-        movz    x2, #0x0e00
+-        movk    x2, #1, lsl #16   /* 69120 bytes: 12 rows */
+-        mov     x7, #0x4380       /* 17280 pixels */
++        movz    x2, #0x3b00
++        movk    x2, #1, lsl #16   /* 80640 bytes: 14 rows */
++        movz    x7, #0x4ec0      /* 20160 pixels */
+         cmp     x0, #6
+         b.eq    L_entry10d_pre
+         movz    w9, #0xffff      /* cyan post-return */
+         cmp     w1, w9
+         b.eq    L_entry10d_post
+@@ -555,15 +556,15 @@
+         ubfx    x9, x9, #16, #4
+         cmp     x9, #10
+         b.hi    EXT(thor_entry09_reset)
+         mov     x28, #4
+         lsl     x28, x28, x9
+-        movz    x19, #0xd800
+-        movk    x19, #0xb809, lsl #16
++        movz    x19, #0x8c00
++        movk    x19, #0xb80a, lsl #16 /* y120: 8-row gauge */
+         mov     x20, #5760
+         mov     x12, x19
+-        mov     w14, #16
++        mov     w14, #8
+         movz    w16, #0xffff
+         movk    w16, #0x00ff, lsl #16
+ L_entry09_gauge_row:
+         mov     x13, x12
+         mov     w15, #1280
+@@ -608,11 +609,11 @@
+         b.hi    EXT(thor_entry09_reset)
+         sub     x27, x25, x10
+         lsl     x27, x27, #6
+         mov     x25, x10
+         add     x12, x19, x10, lsl #8
+-        mov     w14, #16
++        mov     w14, #8
+ L_entry09_erase_row:
+         mov     x13, x12
+         mov     x15, x27
+ L_entry09_erase_pixel:
+         str     wzr, [x13], #4
+--- a/osfmk/arm64/thor_entry09_vm.inc.c
++++ b/osfmk/arm64/thor_entry09_vm.inc.c
+@@ -404,11 +404,11 @@
+ static void __attribute__((noreturn))
+ thor_entry10_post_ttbr1(boot_args *args)
+ {
+     /* This marker is the first side effect after returning from the
+      * set_mmu_ttb_alternate() call. If translation traps first, it is absent.
+-     * The green pre-TTBR marker stays intact in a different 12-row slot. */
++     * The green pre-TTBR marker stays intact in a different 14-row slot. */
+     thor_entry09_mark(7, 0x0000ffffU);
+     uint64_t ttbr1, ttbr0, vbar, tcr, sctlr;
+     __asm__ volatile("mrs %0, ttbr1_el1" : "=r"(ttbr1));
+     __asm__ volatile("mrs %0, ttbr0_el1" : "=r"(ttbr0));
+     __asm__ volatile("mrs %0, vbar_el1" : "=r"(vbar));
+@@ -429,10 +429,10 @@
+     /* Force a write/read on the real post-switch boot stack. */
+     volatile uint64_t stack_probe = 0x544842523130ULL;
+     if (stack_probe != 0x544842523130ULL) {
+         thor_entry09_fail();
+     }
+-    /* White register-and-stack PASS is a third distinct 12-row marker.
++    /* White register-and-stack PASS is a third distinct 14-row marker.
+      * Do not erase green, cyan or red; the original 20s timer is unchanged. */
+     thor_entry09_mark(7, 0x00ffffffU);
+     thor_entry09_stop();
+ }
