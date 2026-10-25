@@ -13,7 +13,7 @@ if not re.fullmatch(r"[a-z0-9-]+", a.run_id):
     p.error("run-id must contain lowercase letters, digits and hyphens")
 r=a.root.resolve()
 w=a.source.resolve()
-if not (w.is_relative_to(r/'sources') or w.is_relative_to(r/'repos')):
+if not (w.is_relative_to(r/'sources') or w.is_relative_to(r/'repos') or w.is_relative_to(r/'worktrees/uefi')):
     p.error("UEFI source must belong to the project source or repos directory")
 if not (w/'Platforms/Xiaomi/thorPkg/thor.dsc').is_file():
     p.error("source is not a thor UEFI tree")

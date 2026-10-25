@@ -460,6 +460,6 @@ if __name__=='__main__':
     ap.add_argument('--out',type=Path,required=True)
     args=ap.parse_args()
     root=args.root.resolve()
-    assert args.source.resolve().is_relative_to(root/'sources'), 'Unexpected source root'
+    assert args.source.resolve().is_relative_to(root/'sources') or args.source.resolve().is_relative_to(root/'worktrees/uefi'), 'Unexpected source root'
     assert args.out.resolve().is_relative_to(root/'runs'), 'Audit output must be in runs/'
     raise SystemExit(Audit(root,args.source,args.out).run())

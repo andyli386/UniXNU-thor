@@ -19,6 +19,7 @@ bootshim_sha256 = "9346a527441b242c69414fd7e3d6fa17813f281d562fef13d9ba8373d3900
 dtb_sha256 = "c54e1b6efb086420761f05c2358aa71c98db5f961408399c0e1a85a408328971"
 
 [paths.macmini]
+vm_build_driver = "worktrees/xnu/vm-dev/scripts/run-thor-vm.py"
 kernel_source = "repos/UniXNU-thor"
 firmware_source = "repos/uefi-thor"
 kernel = "artifacts/mainline-4k-entry10g-ttbr1-20261025/run01/kernel.entry10g-ttbr1.macho"

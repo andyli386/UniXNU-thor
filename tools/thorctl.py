@@ -220,6 +220,9 @@ def verify_run(root, run_id):
             "source_has_compiled_ttbr1_call": bool(summary.get("preboot_mach_o_call_path_proven")),
             "visual_checkpoint": visual,
             "post_ttbr1_validated_by_visual_record": validated,
+            "raw_photo_bytes_sha256_verified": bool(
+                visual and visual.get("photo_bytes_available_to_remote_host") and
+                visual.get("raw_originals_sha256_validated")),
             "full_arm_vm_init_verified": False,
             "no_implicit_full_boot_claim": True}
 
@@ -236,9 +239,24 @@ def main():
     p.add_argument("--emit-run")
     p = cmd.add_parser("test")
     p.add_argument("--affected", nargs="*", default=[])
+    p.add_argument("--execute", action="store_true")
+    p = cmd.add_parser("build")
+    p.add_argument("--host", choices=("macmini","i386"), required=True)
+    p.add_argument("--run-id",required=True)
+    p.add_argument("--stage",choices=("link","audit"))
+    p.add_argument("--dry-run",action="store_true")
+    p = cmd.add_parser("audit")
+    p.add_argument("--host",choices=("macmini","i386"),required=True)
+    p.add_argument("--run-id",required=True)
+    p.add_argument("--dry-run",action="store_true")
     p = cmd.add_parser("package")
-    p.add_argument("--verify", action="store_true", required=True)
+    group=p.add_mutually_exclusive_group(required=True)
+    group.add_argument("--verify", action="store_true")
+    group.add_argument("--create", action="store_true")
     p.add_argument("--host", choices=("macmini", "i386"), required=True)
+    p.add_argument("--run-id")
+    p.add_argument("--audit-run-id")
+    p.add_argument("--dry-run",action="store_true")
     p = cmd.add_parser("device")
     p.add_argument("action", choices=("prepare", "boot"))
     p.add_argument("--host", choices=("macmini", "i386"), required=True)
@@ -259,6 +277,70 @@ def main():
                       "sha256": hashfile(saved)}
     elif args.cmd == "test":
         result = affected(args.affected)
+        if args.execute:
+            command = [str(root/"toolchains/python313/bin/python3"),"-m","unittest",
+                       "discover","-s",str(root/"repos/UniXNU-thor/tests"),
+                       "-p","test_thorctl_workflow.py","-q"]
+            if not (root/"toolchains/python313/bin/python3").exists():
+                die("Unit test runner only available on Mac mini")
+            result["test_exit_code"] = subprocess.run(command,timeout=90).returncode
+            if result["test_exit_code"] != 0: die("Unit test suite failed")
+    elif args.cmd in ("build","audit") or (args.cmd=="package" and args.create):
+        if not args.run_id or not args.run_id.startswith("thor-"):
+            die("New build/package run IDs must begin with thor-")
+        rpath=run_root(root,args.run_id)
+        if args.cmd == "build":
+            ps=host_files(root,cfg,args.host)
+            if args.host=="macmini":
+                driver=ps["vm_build_driver"]
+                if not args.stage:die("Mac XNU build requires --stage link or audit")
+                argv=[str(root/"toolchains/python313/bin/python3"),str(driver),
+                      args.stage,"--run-id",args.run_id]
+            else:
+                driver=root/"tools/thorctl/uefi_build.py"
+                argv=[sys.executable,str(driver),"--root",str(root),
+                      "--source",str(ps["firmware_source"]),
+                      "--run-id",args.run_id,
+                      "--build-id",cfg["firmware"]["build_id"]]
+                if args.dry_run:argv.append("--dry-run")
+        elif args.cmd=="audit":
+            if args.host != "i386":die("UEFI composition auditing still runs on i386")
+            ps=host_files(root,cfg,args.host)
+            output=rpath/"l1"/"uefi-audit"
+            argv=[sys.executable,str(root/"tools/thorctl/firmware_audit.py"),
+                  "--root",str(root),"--source",str(ps["firmware_source"]),
+                  "--out",str(output)]
+        else:
+            if args.host!="i386":die("One-use Android Boot packaging still runs on i386")
+            if not args.audit_run_id:die("Package creation requires --audit-run-id")
+            ps=host_files(root,cfg,args.host)
+            audit_root=run_root(root,args.audit_run_id)
+            proofs=[p for suffix in ("l1/uefi-audit","l2/uefi-audit")
+                    for p in (audit_root/suffix).glob("thor_fd_*-audit.json")]
+            if len(proofs)!=1:die("Expected exactly one audited FD receipt")
+            component=build_lock(root,cfg,args.host)
+            if read_json(proofs[0])["fd"]["sha256"]!=component["uefi_fd"]["sha256"]:
+                die("Requested firmware audit belongs to a different FD")
+            provdir=ps["firmware_source"]/"Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe"
+            matches=[x for x in provdir.glob("ENTRY*_PROVENANCE.json")
+                if read_json(x).get("kernel_sha256")==component["kernel"]["sha256"]]
+            if len(matches)!=1:die("Cannot uniquely derive matching kernel provenance")
+            driver=root/"tools/thorctl/package.py"
+            argv=[sys.executable,str(driver),"--root",str(root),
+                  "--source",str(ps["firmware_source"]),
+                  "--kernel",str(ps["kernel"]),"--fd",str(ps["fd"]),
+                  "--fd-audit",str(proofs[0]),
+                  "--firmware-receipt",str(ps["firmware_release"]),
+                  "--provenance",str(matches[0]),"--run-id",args.run_id]
+            if args.dry_run:argv.append("--dry-run")
+        if args.cmd=="audit" and args.dry_run:
+            result={"dry_run":True,"argv":argv,"phone_actions":0}
+        elif args.cmd=="build" and args.host=="macmini" and args.dry_run:
+            result={"dry_run":True,"argv":argv,"phone_actions":0}
+        else:
+            rc=subprocess.run(argv,timeout=2000).returncode
+            if rc!=0:die("Stage failed (exit "+str(rc)+")")
+            result={"result":"STAGE_PASSED","argv":argv,"phone_actions":0}
     elif args.cmd == "package":
         result = package_status(root, cfg, args.host)
     elif args.cmd == "device" and args.action == "prepare":

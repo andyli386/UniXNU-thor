@@ -29,3 +29,12 @@
 此阶段完成后，才能单独设计“TTBR0 退役 → TLB 刷新 → `phystokv` 修正 → 继续 `arm_vm_init`”的下一任务。不可用本轮成功替代完整内核引导或驱动验证。
 
 **已知风险**：当前 VBAR 是否完全位于 TTBR1 高半区、`invalid_ttep` 是否落在受控内存窗口，都必须以硬件实测证明；若不满足，显示红色诊断停止，不绕过约束。早期异常处理、重启后 RAM 信息保持性尚无保证。
+
+## 2026-10-25 研发落地（等待 L3 录像测试）
+
+- 内核工作分支 `feature/vm-post-ttbr1`，提交 `9038c32145cdf4ae8007d9fb04a9b21d4845b85f`；机器码证明：`set_mmu_ttb_alternate` → `thor_entry10_post_ttbr1` → `thor_vm_pre_ttbr0_retire_probe`。
+- 新 Mach-O `41f36f9efafc0bba7f5222de67fa318e70321b97ea7b8051f7e0f6139d9ef800`，19,274,424 字节，加载跨度 `0x133c000`。
+- UEFI 任务分支同名，提交 `9d08a4d5eb7dd10767c258e5987d69e0f7bd83b4`；由布局生成器把 BootArgs、交接、ADT 及保留窗口全体向前偏移 16KiB。固件 FD `f220a02d25370a31e3868c7221854432a2c8fff1ebcf3fb5cca8efaab278ea2a`。
+- 运行 `thor-20261025-vm-hw01` 的一用 Android v4 镜像位于 i386，SHA256 `6b82c1e9bf6069bb3819a515ddfe197f14efc1d56a123fd6a8cc58c2a3d946c7`，56 项独立离线检查通过；`l3` 不存在，手机尚未启动该版本。
+- 真机验收应观察绿色→青色→白色是否顺序出现；**白色**如今代表额外的代码/栈/VBAR 翻译及 invalid root 边界检查均通过。红色代表主动失败，琥珀黄色只表示倒计时，不代表成功。
+- 本轮继续停在 TTBR0 退役之前；不能误读为 VM 全部初始化成功或进入 Unix 用户态。

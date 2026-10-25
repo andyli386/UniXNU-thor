@@ -47,3 +47,14 @@
 ## 运行的事实边界
 `fastboot boot OKAY` ≠ 内核运行成功；照片可见 XNU 白色成功条 ≠ VM 初始化结束；Android 恢复 ≠ Darwin 启动。
 遇到两轮无新增执行证据，停止硬件启动，优先改善主机机器码审计和安全异常观测。
+
+## 2026-10-25 P0 实际验收进展
+
+- 已完成单一 `thorctl`：`check`、`inspect --emit-run`、`test --affected --execute`、`build`、`audit`、`package --verify/--create`、`device prepare` 和 `run verify/report` 的最小安全工作流。真正的 `device boot` 仍锁定，由审核过的单次测试控制器执行。
+- `firmware_audit.py` 用 UEFI 实际 FD 重新验证，结果为 2 卷 / 20 个模块 / 96 个源码链接输入，未改变审计结论。
+- `uefi_build.py` 参数化后对 ENTRY10G 完成真实重新编译；FD 与原件字节一致。
+- `package.py` 用 ENTRY10G 重建 Android v4 镜像；移除每次 CSPRNG 的 64 字节差异，其余全部源载荷相同。
+- 不可变 `runs/<run-id>/` 和按 run 生成的 header/provenance 替代按 ENTRY 手写 SHA。用户的原始照片未保存成 Mac 本地源文件时，必须报告「有界视觉审查，原始照片 SHA 尚未验证」，不能把录屏证据虚报为存档哈希。
+- VM 新任务 `thor-20261025-vmdev-001` 已完成 XNU 新增 EL1 翻译探针的宿主机编译、审计及实际机器码核验；与原 ENTRY10G 相比，装载跨度减少 16KiB。
+- 按真实 Mach-O 派生的全部 UEFI 交接/ADT/transition 偏移已自动生成，新的 UEFI 独立编译与固件审计通过。
+- 单次候选 `thor-20261025-vm-hw01`：i386 宿主机 56 项离线门禁通过，单次启动控制器及安卓只读预检通过，MAC 保存 XNU/UEFI 两个未验证分支、审计收据和新 FD。镜像与一次性随机种子仅留 i386，未进行本轮手机启动。
