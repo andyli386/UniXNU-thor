@@ -1,0 +1,106 @@
+--- a/osfmk/arm64/thor_entry09_vm.inc.c
++++ b/osfmk/arm64/thor_entry09_vm.inc.c
+@@ -450,11 +450,11 @@
+         "mrs %0, par_el1"
+         : "=r"(par) : "r"(va) : "memory");
+     return (par & 1ULL) == 0;
+ }
+ 
+-static void __attribute__((noinline, noreturn))
++static void __attribute__((noinline))
+ thor_vm_pre_ttbr0_retire_probe(boot_args *args)
+ {
+     uint64_t current_ttbr1, current_ttbr0, old_vbar, sp, new_vbar, readback;
+     __asm__ volatile("mrs %0, ttbr1_el1" : "=r"(current_ttbr1));
+     __asm__ volatile("mrs %0, ttbr0_el1" : "=r"(current_ttbr0));
+@@ -509,10 +509,72 @@
+         : : "r"(new_vbar) : "memory");
+     __asm__ volatile("mrs %0, vbar_el1" : "=r"(readback));
+     if (readback != new_vbar) {
+         thor_entry09_fail();
+     }
+-    /* WHITE now requires code, stack, executable vector alias translation,
+-     * high VBAR_EL1 activation and readback; TTBR0 is still intact. */
++    /* This function now returns. WHITE is reserved for the later
++     * invalid-TTBR0-root and live physmap-mapping readiness check. */
++}
++
++/* This proof is intentionally BEFORE set_mmu_ttb(invalid_ttep).
++ * It consumes NO MMU register write, TLB invalidation, physical aliases
++ * or Boot Services, and only reads one explicitly owned 4 KiB page.
++ * The existing low framebuffer marker remains usable through old TTBR0. */
++static void __attribute__((noinline, noreturn))
++thor_vm_ttbr0_ready_gate(boot_args *args)
++{
++    uint64_t ttbr0, ttbr1, vbar, sp, invalid_va, root_va;
++    __asm__ volatile("mrs %0, ttbr0_el1" : "=r"(ttbr0));
++    __asm__ volatile("mrs %0, ttbr1_el1" : "=r"(ttbr1));
++    __asm__ volatile("mrs %0, vbar_el1" : "=r"(vbar));
++    __asm__ volatile("mov %0, sp" : "=r"(sp));
++
++    /* Validate the ownership contract BEFORE calling phystokv().
++     * The old saved TTBR0 is retained until a separately audited stage. */
++    if (args != thor_entry09_vm_args ||
++        gThorEntry09VmReport.status != 1 || kva_active ||
++        invalid_ttep != first_avail_phys ||
++        cpu_ttep != invalid_ttep + ARM_PGBYTES ||
++        gThorEntry09VmReport.invalid_root != invalid_ttep ||
++        gThorEntry09VmReport.future_root != cpu_ttep ||
++        gPhysSize < 2 * ARM_PGBYTES ||
++        invalid_ttep < gPhysBase ||
++        invalid_ttep - gPhysBase > gPhysSize - 2 * ARM_PGBYTES ||
++        (invalid_ttep & (ARM_PGBYTES - 1)) != 0 ||
++        (cpu_ttep & (ARM_PGBYTES - 1)) != 0 ||
++        ttbr0 != gThorEntry10OldTTBR0 ||
++        ttbr1 != (cpu_ttep & TTBR_BADDR_MASK) ||
++        vbar != (uint64_t)(uintptr_t)&LowExceptionVectorBase ||
++        (vbar >> 48) != 0xffffULL ||
++        (sp >> 48) != 0xffffULL) {
++        thor_entry09_fail();
++    }
++
++    invalid_va = phystokv(invalid_ttep);
++    root_va = phystokv(cpu_ttep);
++    if ((invalid_va >> 48) != 0xffffULL ||
++        root_va != invalid_va + ARM_PGBYTES ||
++        invalid_va != gThorEntry09VmReport.aperture ||
++        !thor_vm_s1e1r_ok(invalid_va) ||
++        !thor_vm_s1e1r_ok(invalid_va + ARM_PGBYTES - sizeof(uint64_t)) ||
++        !thor_vm_s1e1r_ok(root_va) ||
++        !thor_vm_s1e1r_ok(sp) ||
++        !thor_vm_s1e1r_ok(vbar)) {
++        thor_entry09_fail();
++    }
++
++    /* A zeroed first-level root must not translate ANY old low address.
++     * Nonzero entries would mean TTBR0 retirement is unsafe.
++     * Read each word via validated, mapped high kernel VA, not a PA alias. */
++    volatile const uint64_t *invalid_root =
++        (volatile const uint64_t *)(uintptr_t)invalid_va;
++    for (uint32_t i = 0; i < ARM_PGBYTES / sizeof(uint64_t); ++i) {
++        if (invalid_root[i] != 0) {
++            thor_entry09_fail();
++        }
++    }
++
++    /* Only now report the bounded root-readiness milestone.
++     * It is NOT evidence that TTBR0 has actually been retired. */
+     thor_entry09_mark(7, 0x00ffffffU);
+     thor_entry09_stop();
+ }
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -2174,11 +2174,12 @@
+ 	thor_entry09_vm_finish(args, dynamic_memory_begin); /* ENTRY10 validate then return */
+ #endif
+ 	set_mmu_ttb_alternate(cpu_ttep & TTBR_BADDR_MASK);
+ #if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
+ 	thor_entry10_post_ttbr1(args); /* actual TTBR1 register + stack checks; returns */
+-	thor_vm_pre_ttbr0_retire_probe(args); /* high-VA translations; visible stop */
++	thor_vm_pre_ttbr0_retire_probe(args); /* high VBAR switch and readback; returns */
++	thor_vm_ttbr0_ready_gate(args); /* mapped zero invalid-root proof; visible stop */
+ #endif
+ 
+ #if XNU_MONITOR
+ 	ml_enable_monitor();
+ #endif

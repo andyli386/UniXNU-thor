@@ -32,7 +32,7 @@ if [ ! -x .cache/fakeroot/usr/local/libexec/availability.pl ]; then
     DSTROOT="$ROOT/.cache/fakeroot" CMAKE="$(command -v cmake)" NINJA="$(command -v ninja)"
 fi
 # Reverse bounded ENTRY09 overlays before testing earlier overlapping patches.
-for EARLY_PATCH in "$ROOT"/patches/xnu/zzzzzzzzzzzzz-thor-vm-vbar-high-alias-*.patch "$ROOT"/patches/xnu/zzzzzzzzzzzz-thor-vm-post-ttbr1-*.patch "$ROOT"/patches/xnu/zzzzzzzzzzz-thor-entry10g-*.patch "$ROOT"/patches/xnu/zzzzzzzzzz-thor-entry10f-*.patch "$ROOT"/patches/xnu/zzzzzzzzz-thor-entry10e-*.patch "$ROOT"/patches/xnu/zzzzzzzz-thor-entry10d-*.patch "$ROOT"/patches/xnu/zzzzzzz-thor-entry10c-*.patch "$ROOT"/patches/xnu/zzzzzz-thor-entry10-*.patch "$ROOT"/patches/xnu/zzzzz-thor-entry09-*.patch; do
+for EARLY_PATCH in "$ROOT"/patches/xnu/zzzzzzzzzzzzzz-thor-vm-ttbr0-root-audit-*.patch "$ROOT"/patches/xnu/zzzzzzzzzzzzz-thor-vm-vbar-high-alias-*.patch "$ROOT"/patches/xnu/zzzzzzzzzzzz-thor-vm-post-ttbr1-*.patch "$ROOT"/patches/xnu/zzzzzzzzzzz-thor-entry10g-*.patch "$ROOT"/patches/xnu/zzzzzzzzzz-thor-entry10f-*.patch "$ROOT"/patches/xnu/zzzzzzzzz-thor-entry10e-*.patch "$ROOT"/patches/xnu/zzzzzzzz-thor-entry10d-*.patch "$ROOT"/patches/xnu/zzzzzzz-thor-entry10c-*.patch "$ROOT"/patches/xnu/zzzzzz-thor-entry10-*.patch "$ROOT"/patches/xnu/zzzzz-thor-entry09-*.patch; do
   if [ -f "$EARLY_PATCH" ] && git -C .cache/xnu-work apply --reverse --check "$EARLY_PATCH" >/dev/null 2>&1; then
     git -C .cache/xnu-work apply --reverse "$EARLY_PATCH"
   fi
