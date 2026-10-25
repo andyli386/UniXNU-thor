@@ -1,0 +1,24 @@
+--- a/osfmk/arm64/thor_entry09_vm.inc.c
++++ b/osfmk/arm64/thor_entry09_vm.inc.c
+@@ -358,10 +358,21 @@
+     gThorEntry09VmReport.slide = shift;
+     gThorEntry09VmReport.status = 1;
+     __asm__ volatile("mrs %0, ttbr0_el1" : "=r"(gThorEntry10OldTTBR0));
+     __asm__ volatile("mrs %0, vbar_el1" : "=r"(gThorEntry10OldVBAR));
+     __asm__ volatile("mrs %0, tcr_el1" : "=r"(gThorEntry10OldTCR));
++    /* The earlier ENTRY07/08/09 diagnostic colors occupy y76..99.
++     * They can look like a post-switch cyan or success white strip when
++     * photographed edge-on. At this fully checked pre-switch point,
++     * blank those FOUR 6-row regions while the original tables are
++     * still active. Any later cyan/white must then be written by the
++     * real post-TTBR1 path. All writes use the existing framebuffer
++     * mapping, the existing cache flush helper, and do not allocate. */
++    thor_entry09_mark(2, 0x00000000U);
++    thor_entry09_mark(3, 0x00000000U);
++    thor_entry09_mark(4, 0x00000000U);
++    thor_entry09_mark(5, 0x00000000U);
+     thor_entry09_mark(6, 0x0000ff00U);
+     /* Give the observer a bounded two-second visible green checkpoint.
+      * This is before TTBR1 activation and needs no OS services. */
+     uint64_t freq, begin, now, last;
+     uint32_t stagnant = 0;
