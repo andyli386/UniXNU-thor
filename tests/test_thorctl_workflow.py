@@ -96,5 +96,30 @@ class WorkflowTests(unittest.TestCase):
         self.assertFalse(d["visual_scope"]["exit_boot_services_executed"])
         self.assertFalse(d["visual_scope"]["xnu_ttbr1_probe_executed"])
 
+    def test_vm_hw03_report_is_real_uefi_not_xnu_claim(self):
+        root = SOURCE.parents[3]
+        d = root / "evidence/build/thor-20261025-vm-hw03/receipts"
+        from hashlib import sha256
+        ui = json.loads((d / "ui-layout-audit.json").read_text())
+        release = json.loads((d / "firmware-release.json").read_text())
+        host = json.loads((d / "final-host-gate.json").read_text())
+        code = (d / "ThorReportHud.inc.c").read_bytes()
+        self.assertEqual(ui["result"], "PASS_STATIC_UI_LAYOUT_AND_LINKED_PE_STRINGS")
+        self.assertEqual(sha256(code).hexdigest(), release["new_ui_source_sha256"])
+        self.assertEqual(host["result"], "PASS_L2_CANDIDATE_READY_UNTESTED")
+        self.assertFalse(host["hardware_tested"])
+        self.assertEqual(host["host_checks_passed"], 60)
+        self.assertEqual(host["phone_actions"], 0)
+
+    def test_vm_hw03_high_vbar_compiled_without_retiring_ttbr0(self):
+        root = SOURCE.parents[3]
+        d = root / "evidence/build/thor-20261025-vm-hw03/receipts"
+        machine = json.loads((d / "vm-machine-code.json").read_text())
+        self.assertEqual(machine["result"], "PASS_ACTUAL_VBAR_RELOCATION_CODE_AND_ORDER")
+        self.assertEqual(machine["EL1_translation_probe_calls"], 3)
+        self.assertEqual(machine["VBAR_EL1_msr_count"], 1)
+        self.assertTrue(machine["msr_followed_by_isb_then_readback_then_white_marker"])
+        self.assertFalse(machine["ttbr0_invalidation_executed"])
+
 if __name__ == "__main__":
     unittest.main()

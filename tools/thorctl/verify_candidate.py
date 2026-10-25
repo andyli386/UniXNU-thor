@@ -67,10 +67,12 @@ def main():
     kernel_hash=sha(kernel)
     require(kernel_hash==manifest["kernel_sha256"]==build["kernel_sha256"]==receipt["kernel_sha256"],"frozen source kernel SHA256")
     require(kernel_hash==machine["kernel_sha256"],"machine-code proof is for identical kernel")
-    require(machine["result"]=="PASS_LINKED_POST_TTBR1_TRANSLATION_PROBES","linked TTBR1 high-VA machine code path")
-    require(machine["three_translation_probes"] and machine["AT_S1E1R_and_PAR_EL1_visible"],"three actual EL1 translation instructions")
-    require(machine["white_marker_only_after_pre_retire_probe"],"success marker only after new probe")
-    require(not machine["TTBR0_invalidation_executed"],"TTBR0 left intact in this bounded test")
+    require(machine["result"]=="PASS_ACTUAL_VBAR_RELOCATION_CODE_AND_ORDER","linked TTBR1 and high VBAR machine-code path")
+    require(machine["EL1_translation_probe_calls"]==3,"three EL1 translation probe calls")
+    require(machine["VBAR_EL1_msr_count"]==1 and machine["VBAR_EL1_mrs_count"]==2,"VBAR register write and both reads")
+    require(machine["msr_followed_by_isb_then_readback_then_white_marker"],"new high VBAR readback before white success")
+    require(machine["low_exception_high_va"]=="0xfffffff007401000","linked high exception-vector address identity")
+    require(not machine["ttbr0_invalidation_executed"],"original TTBR0 retained in bounded test")
     require(layout["loaded_span_bytes"]==0x133c000,"new 16KiB-reduced Mach-O loaded span")
     require(layout["loaded_span_bytes"]==build["loaded_span_bytes"]==receipt["loaded_span_bytes"],"loaded span comes from actual linked Mach-O")
     require(layout["loaded_span_sha256"]==binding["loaded_span_sha256"],"UEFI range binding to same loaded span")
@@ -116,8 +118,14 @@ def main():
     require(previous.is_file(),"previous ENTRY10G one-use candidate is still retired")
     pe=src/"Build/thorEntry09/RELEASE_CLANGPDB/AARCH64/thorPkg/Drivers/ThorEntryBdsDxe/ThorEntryBdsDxe/OUTPUT/ThorEntryBdsDxe.efi"
     binary=pe.read_bytes()
-    require(b"THOR VM UEFI CHECKPOINT" in binary and b"THOR MAINLINE VM-001" in binary,"new identifying screen text inside real UEFI PE")
-    require(b"UEFI 1 INITRD READ" in binary and b"UEFI 2 KERNEL HASH PASS" in binary,"retained UEFI stage marker contract")
+    require(b"THOR / XNU" in binary and b"CURRENT RESULT" in binary and
+            b"BOOT STAGE / UEFI" in binary,"structured diagnostic screen linked into real UEFI PE")
+    require(b"ESR / ELR / FAR" in binary and b"NOT CAPTURED IN UEFI" in binary,
+            "unavailable exception values explicitly identified")
+    require(b"UEFI CHECKS FAILED" in binary and b"UEFI CHECKS PASS" in binary,
+            "diagnostic screen distinguishes pass from failure by text")
+    require(b"UEFI 1 INITRD READ" in binary and b"UEFI 2 KERNEL HASH PASS" in binary,
+            "retained UEFI stage labels")
     final={"schema":"thor-vm-independent-offline-gate-v1",
            "checked_at":datetime.datetime.now().astimezone().isoformat(),
            "result":"PASS","conditions_count":len(marks),"checks":marks,
