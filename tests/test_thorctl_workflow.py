@@ -71,5 +71,30 @@ class WorkflowTests(unittest.TestCase):
                          "db2facaa97bfc314711795aa9414a2043aaffbc0")
 
 
+    def test_vm_postlink_transition_crc_regression(self):
+        root = SOURCE.parents[3]
+        r = root / "evidence/build/thor-20261025-vm-hw02/receipts"
+        fix = json.loads((r / "transition-verified.json").read_text())
+        final = json.loads((r / "firmware-release.json").read_text())
+        baseline = json.loads((r / "photo-root-cause.json").read_text())
+        self.assertEqual(fix["result"], "PASS_LINKED_SHA_EQUALS_EMBEDDED_HEADER")
+        self.assertEqual(fix["linked_transition_sha256"],
+                         fix["source_expected_transition_sha256"])
+        self.assertEqual(fix["in_transition_relocations"], 0)
+        self.assertEqual(fix["instruction_differences_vs_entry10g"],
+                         [76, 96, 100, 156])
+        self.assertEqual(fix["linked_transition_sha256"],
+                         final["linked_transition_sha256"])
+        self.assertNotEqual(baseline["binary_root_cause"]["old_uefi_sha256_transition"],
+                            fix["linked_transition_sha256"])
+
+    def test_vm_failed_pre_ebs_not_xnu_milestone(self):
+        root = SOURCE.parents[3]
+        d = json.loads((root / "evidence/build/thor-20261025-vm-hw02/receipts/photo-root-cause.json").read_text())
+        self.assertEqual(d["visual_scope"]["explicit_firmware_error"],
+                         "EFI_CRC_ERROR, 0x800000000000001B")
+        self.assertFalse(d["visual_scope"]["exit_boot_services_executed"])
+        self.assertFalse(d["visual_scope"]["xnu_ttbr1_probe_executed"])
+
 if __name__ == "__main__":
     unittest.main()

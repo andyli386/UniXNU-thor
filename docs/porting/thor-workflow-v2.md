@@ -58,3 +58,19 @@
 - VM 新任务 `thor-20261025-vmdev-001` 已完成 XNU 新增 EL1 翻译探针的宿主机编译、审计及实际机器码核验；与原 ENTRY10G 相比，装载跨度减少 16KiB。
 - 按真实 Mach-O 派生的全部 UEFI 交接/ADT/transition 偏移已自动生成，新的 UEFI 独立编译与固件审计通过。
 - 单次候选 `thor-20261025-vm-hw01`：i386 宿主机 56 项离线门禁通过，单次启动控制器及安卓只读预检通过，MAC 保存 XNU/UEFI 两个未验证分支、审计收据和新 FD。镜像与一次性随机种子仅留 i386，未进行本轮手机启动。
+
+## 2026-10-25 — VM-HW01 红屏后的二阶段 UEFI 交接哈希门禁
+
+真机截图明确显示 `UEFI 4 PRE EBS FAILURE`、`STATUS 800000000000001B` (`EFI_CRC_ERROR`)、`PLAN OK COUNT 9`、`CODE 0 SYNC 0 BYTES 500`、`PROOF PHASE 0`，因此本轮没有进入 ExitBootServices 或 XNU 新增的 EL1 翻译探针。
+
+根因经实际链接 PE 逐字节验证：`ThorEntry06TransitionStart..End` 交接代码仍为 500 字节；随新的 16 KiB 装载跨度，E06_* 立即数字段变化导致字节偏移 76/96/100/156 对应四个指令字不同。原固定 SHA `dda3e10f…5b2c16` 已过期；新 PE 实测 `c2fe5fa8…52a186`。PE 存在 216 条整体重定位，但交接片段没有任何重定位条目。
+
+已经实施且必须成为以后标准步骤：
+1. 根据链接内核 Mach-O 产生 UEFI 交接布局和内核预期头（任务工作树）。
+2. **首次 UEFI 编译**；读取实际链接后的 `ThorEntryBdsDxe.efi` 和映射文件；检查交接代码边界、长度及 relocation 零交集。
+3. `tools/thorctl/transition_bind.py` 派生真实 500 字节 SHA，仅更新隔离工作树的 `ThorEntry06TransitionExpected.h`，并提交修改，不允许关闭运行时校验。
+4. **第二次 UEFI 编译**；重新提取链接后的同段代码，确保哈希与头文件精确相等；再做 FD 卷组成审计和独立 Boot v4 候选验收。
+5. 本轮新 UEFI 源码提交 `9160ae0ba3cbb2f8884dd58e81a9248814b8f5c4`，FD SHA256 `a00e96c89e644f144279efe3a40527c57ca96d9e9dd72ac73c5a090c3c1cd51e`；新镜像运行 ID `thor-20261025-vm-hw02`，SHA256 `0db7b8339ddedf8fb1256effdf509eae885aed2c316754bf7f87af72d5aac3a7`。
+6. 新镜像 56/56 离线门禁以及二次链接 PE 哈希门禁通过；此前 `thor-20261025-vm-hw01` 已消费的镜像禁止复用，保留其照片和技术证据。**VM-HW02 尚未真实启动，禁止将主机通过当成已验证 XNU VM。**
+
+不要在没有新源码/链接证据时重复手机启动；本轮修复消除了已证实的 UEFI 阻断条件，但 TTBR1 后 EL1 地址翻译的真实结果仍需新一轮独立录像确认。

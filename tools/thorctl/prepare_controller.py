@@ -25,6 +25,7 @@ def main():
     ap.add_argument("--root",type=Path,required=True)
     ap.add_argument("--run-id",required=True)
     ap.add_argument("--source",type=Path,required=True)
+    ap.add_argument("--firmware-release",type=Path,required=True)
     args=ap.parse_args()
     root=args.root.resolve()
     if not re.fullmatch(r"thor-[a-z0-9-]{8,90}",args.run_id):
@@ -47,8 +48,18 @@ def main():
     assert image.stat().st_size==25894912
     uefi_head=subprocess.check_output(["git","-C",str(source),"rev-parse","HEAD"],text=True).strip()
     assert not subprocess.check_output(["git","-C",str(source),"status","--porcelain"],text=True).strip()
-    receipt=json.loads((root/"runs/thor-20261025-vm-uefi-001/l2/firmware-release.json").read_text())
+    fw=(root/args.firmware_release).resolve()
+    assert fw.is_relative_to(root/"runs") and fw.is_file()
+    receipt=json.loads(fw.read_text())
     assert uefi_head==receipt["uefi_commit"]
+    assert receipt["uefi_fd_sha256"]==checked["inputs"]["uefi_fd"]["sha256"]
+    assert receipt.get("transition_sha_matches_expected_header") is True
+    identity=fw.parent/"transition-verified.json"
+    postlink=json.loads(identity.read_text())
+    assert postlink["result"]=="PASS_LINKED_SHA_EQUALS_EMBEDDED_HEADER"
+    assert postlink["final_fd_sha256"]==receipt["uefi_fd_sha256"]
+    assert postlink["linked_transition_sha256"]==receipt["linked_transition_sha256"]
+    assert hashlib.sha256(identity.read_bytes()).hexdigest()==receipt["postlink_transition_check_sha256"]
     refs={
         "fresh_held_usb_entry10g_attempt.py":"fresh_usb_attempt.py",
         "start_thor_entry10g_i386_once.py":"start_once.py",
