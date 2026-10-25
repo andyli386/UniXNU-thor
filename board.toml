@@ -1,0 +1,9 @@
+[board]
+name = "thor"
+soc = "SM8475"
+description = "Xiaomi 12S Ultra: UniXNU main-project compile-only baseline"
+kit = "thor"
+
+[kernel]
+defconfig = "thor_compile_defconfig"
+archives = []

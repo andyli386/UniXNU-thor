@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "primary_project": "https://github.com/UniXNU/UniXNU",
+  "core_upstream_commit": "1a01c2afa197d975d04da892325c56b6b14aaecb",
+  "core_local_commit": "a7e270cb9e20fac230515126977ab29521362775",
+  "core_local_tag": "thor-host-mainline-4k-baseline-20261024",
+  "reference_policy": "Pong repositories are hardware references only; inherit main-project feeds and patches",
+  "references": {
+    "xnu": {
+      "name": "xnu",
+      "kind": "refer",
+      "git": "https://github.com/apple-oss-distributions/xnu.git",
+      "ref": "xnu-10063.141.1",
+      "commit": "d8b80295118ef25ac3a784134bcf95cd8e88109f",
+      "darwin": "23.6.0",
+      "version": "10063.141.1",
+      "driverkit_tag": "xnu-10063.121.3",
+      "trustcache_tag": "xnu-8796.101.5"
+    },
+    "libplatform": {
+      "name": "libplatform",
+      "kind": "refer",
+      "git": "https://github.com/apple-oss-distributions/libplatform.git",
+      "ref": "libplatform-316.100.10",
+      "commit": "a00a4cc36da2110578bcf3b8eeeeb93dcc7f4e11"
+    },
+    "libdispatch": {
+      "name": "libdispatch",
+      "kind": "refer",
+      "git": "https://github.com/apple-oss-distributions/libdispatch.git",
+      "ref": "libdispatch-1477.100.9",
+      "commit": "30fe6a7d945340ce69cef121132f049e810089a5"
+    },
+    "AvailabilityVersions": {
+      "name": "AvailabilityVersions",
+      "kind": "refer",
+      "git": "https://github.com/apple-oss-distributions/AvailabilityVersions.git",
+      "ref": "AvailabilityVersions-141.1",
+      "commit": "933f9360f1b70dfbda5548386a3d65e0358b4f7d"
+    }
+  },
+  "native_prelink_commit": "2b6ffb50117eee820b98aca9bd51b5c7dfb2970e",
+  "host_baseline_artifact": "artifacts/mainline-4k-compile-baseline-20261024/kernel.compile-only.macho",
+  "host_baseline_sha256": "c262f87c0718a0ccf72bd8dea288ac1dbc7504b3649c66810c2f276d23386908",
+  "host_baseline_scope": "direct main-project source-only build, not assembled thor device profile",
+  "device_profile_assembled": false,
+  "device_profile_built": false,
+  "hardware_boot_tested": false
+}
