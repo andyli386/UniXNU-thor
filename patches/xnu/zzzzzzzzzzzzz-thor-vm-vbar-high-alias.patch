@@ -1,0 +1,93 @@
+--- a/osfmk/arm64/thor_entry09_vm.inc.c
++++ b/osfmk/arm64/thor_entry09_vm.inc.c
+@@ -1,10 +1,11 @@
+ /* ENTRY09 diagnostic only: observe original VM preparation, never install it.
+  * After arm_vm_physmap_init, phystokv already selects the future aperture.
+  * Every table access below deliberately uses the still-active old alias.
+  */
+ extern uint32_t thor_entry09_c_state(const boot_args *args);
++extern unsigned int LowExceptionVectorBase; /* early vector symbol in start.s */
+ extern void thor_entry09_mark(uint64_t band, uint32_t rgb);
+ extern void thor_entry09_fail(void) __attribute__((noreturn));
+ extern void thor_entry09_reset(void) __attribute__((noreturn));
+ extern void thor_entry09_stop(void) __attribute__((noreturn));
+ extern void thor_entry09_adt_check(const boot_args *args, int consumed);
+@@ -452,32 +453,66 @@
+ }
+ 
+ static void __attribute__((noinline, noreturn))
+ thor_vm_pre_ttbr0_retire_probe(boot_args *args)
+ {
+-    uint64_t current_ttbr1, current_ttbr0, vbar, sp;
++    uint64_t current_ttbr1, current_ttbr0, old_vbar, sp, new_vbar, readback;
+     __asm__ volatile("mrs %0, ttbr1_el1" : "=r"(current_ttbr1));
+     __asm__ volatile("mrs %0, ttbr0_el1" : "=r"(current_ttbr0));
+-    __asm__ volatile("mrs %0, vbar_el1" : "=r"(vbar));
++    __asm__ volatile("mrs %0, vbar_el1" : "=r"(old_vbar));
+     __asm__ volatile("mov %0, sp" : "=r"(sp));
++    new_vbar = (uint64_t)(uintptr_t)&LowExceptionVectorBase;
++
++    /* Early Thor start.s *deliberately* installs the physical, low
++     * LowExceptionVectorBase and skips the normal high-VBAR setup.
++     * Requiring the original VBAR to have a 0xffff prefix is wrong.
++     * Validate its exact owned-PA -> KVA counterpart before changing it.
++     * The original TTBR0 is NOT modified in this diagnostic phase. */
+     if (gThorEntry09VmReport.status != 1 ||
+         current_ttbr1 != (cpu_ttep & TTBR_BADDR_MASK) ||
+         current_ttbr0 != gThorEntry10OldTTBR0 ||
+         args != thor_entry09_vm_args ||
+         invalid_ttep == cpu_ttep || invalid_ttep < gPhysBase ||
+         (invalid_ttep - gPhysBase) >= gPhysSize ||
+         (invalid_ttep & (ARM_PGBYTES - 1)) != 0 ||
+-        (sp >> 48) != 0xffffULL || (vbar >> 48) != 0xffffULL) {
+-        thor_entry09_fail();
+-    }
+-    /* A code address, the current EL1 stack and exception vector address
+-     * MUST all translate under the new regime before considering an
+-     * invalid TTBR0 root or a global TLB invalidation. */
++        gPhysSize < 2048U || segSizeTEXTEXEC < 2048U ||
++        (sp >> 48) != 0xffffULL ||
++        old_vbar != gThorEntry10OldVBAR ||
++        old_vbar < gPhysBase ||
++        old_vbar - gPhysBase > gPhysSize - 2048U ||
++        (old_vbar & 0x7ffULL) != 0 ||
++        new_vbar != gVirtBase + (old_vbar - gPhysBase) ||
++        (new_vbar >> 48) != 0xffffULL ||
++        new_vbar < segTEXTEXECB ||
++        new_vbar - segTEXTEXECB > segSizeTEXTEXEC - 2048U ||
++        (new_vbar & 0x7ffULL) != 0) {
++        thor_entry09_fail();
++    }
++
++    /* AT S1E1R + PAR_EL1 tests the real active EL1 regime without touching
++     * the candidate VA. The previous segment-table audit separately proved
++     * the low vector belongs to executable, read-only __TEXT_EXEC.
++     * All three high addresses MUST translate before modifying VBAR_EL1. */
+     if (!thor_vm_s1e1r_ok((uint64_t)(uintptr_t)&thor_vm_pre_ttbr0_retire_probe) ||
+         !thor_vm_s1e1r_ok(sp) ||
+-        !thor_vm_s1e1r_ok(vbar)) {
+-        thor_entry09_fail();
+-    }
+-    /* White now means the additional high-VA pre-retirement guard passed. */
++        !thor_vm_s1e1r_ok(new_vbar)) {
++        thor_entry09_fail();
++    }
++
++    /* Change only the exception vector address to its mapped kernel VA.
++     * Retain original TTBR0 until a later, separately authorized phase.
++     * The vector's 16 slots branch directly to a stackless reset handler;
++     * it does not depend on Boot Services or a translated identity alias. */
++    __asm__ volatile(
++        "dsb sy\n"
++        "msr vbar_el1, %0\n"
++        "isb"
++        : : "r"(new_vbar) : "memory");
++    __asm__ volatile("mrs %0, vbar_el1" : "=r"(readback));
++    if (readback != new_vbar) {
++        thor_entry09_fail();
++    }
++    /* WHITE now requires code, stack, executable vector alias translation,
++     * high VBAR_EL1 activation and readback; TTBR0 is still intact. */
+     thor_entry09_mark(7, 0x00ffffffU);
+     thor_entry09_stop();
+ }
