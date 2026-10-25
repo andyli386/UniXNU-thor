@@ -1,0 +1,67 @@
+--- a/osfmk/arm64/thor_entry09_early.inc.S
++++ b/osfmk/arm64/thor_entry09_early.inc.S
+@@ -352,16 +352,29 @@
+ .globl EXT(thor_entry09_mark)
+ LEXT(thor_entry09_mark)
+         cmp     x0, #7
+         b.hi    EXT(thor_entry09_reset)
++        /* Stage 0..5 retains original six-row bands. Stage 6/7 occupies
++         * the already mapped y64..111 (48 rows): green pre-TTBR, cyan
++         * post-TTBR, or red terminal failure. No new PTEs or MMIO. */
++        cmp     x0, #6
++        b.lo    L_entry10c_small_band
++        mov     x0, #0
++        movz    x2, #0x3800
++        movk    x2, #4, lsl #16   /* 276480 bytes, 48 rows */
++        movz    x7, #0x0e00
++        movk    x7, #1, lsl #16   /* 69120 pixels */
++        b       L_entry10c_band_ready
++L_entry10c_small_band:
+         mov     x2, #34560
++        mov     x7, #8640
++L_entry10c_band_ready:
+         mul     x3, x0, x2
+         movz    x4, #0xa000
+         movk    x4, #0xb805, lsl #16
+         add     x3, x3, x4
+         mov     x5, x3
+         add     x6, x3, x2
+-        mov     x7, #8640
+ L_entry09_mark_pixels:
+         str     w1, [x5], #4
+         subs    x7, x7, #1
+         b.ne    L_entry09_mark_pixels
+--- a/osfmk/arm64/thor_entry09_vm.inc.c
++++ b/osfmk/arm64/thor_entry09_vm.inc.c
+@@ -360,8 +360,31 @@
+     __asm__ volatile("mrs %0, ttbr0_el1" : "=r"(gThorEntry10OldTTBR0));
+     __asm__ volatile("mrs %0, vbar_el1" : "=r"(gThorEntry10OldVBAR));
+     __asm__ volatile("mrs %0, tcr_el1" : "=r"(gThorEntry10OldTCR));
+     thor_entry09_mark(6, 0x0000ff00U);
++    /* Give the observer a bounded two-second visible green checkpoint.
++     * This is before TTBR1 activation and needs no OS services. */
++    uint64_t freq, begin, now, last;
++    uint32_t stagnant = 0;
++    __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(freq));
++    if (freq != 19200000ULL) {
++        thor_entry09_fail();
++    }
++    __asm__ volatile("isb; mrs %0, cntvct_el0" : "=r"(begin) :: "memory");
++    last = begin;
++    for (uint32_t i = 0; i < 0x40000000U; i++) {
++        __asm__ volatile("isb; mrs %0, cntvct_el0" : "=r"(now) :: "memory");
++        if (now - begin >= 2 * freq) {
++            return;
++        }
++        if (now != last) {
++            stagnant = 0;
++            last = now;
++        } else if (++stagnant >= 4096) {
++            thor_entry09_fail();
++        }
++    }
++    thor_entry09_fail();
+ }
+ 
+ /* ENTRY10 only: first TTBR1 activation has returned. TTBR0 is still the
+  * original table, so the low-address framebuffer marker remains accessible.
