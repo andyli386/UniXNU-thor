@@ -189,6 +189,48 @@ def package_status(root, config, host):
             "phone_actions": 0}
 
 
+def linked_root_gate_proof(root, run_id, summary):
+    """Resolve machine-code proof by frozen SHA, never by a floating HEAD."""
+    if not summary.get("linked_zero_root_machineproof_passed"):
+        return False
+    gate_paths = [
+        root / "runs" / run_id / "l2/final-host-gate.json",
+        root / "evidence/build" / run_id / "receipts/final-host-gate.json",
+    ]
+    gates = [read_json(p) for p in gate_paths if p.is_file()]
+    if not gates:
+        die("Root-gate hardware summary lacks immutable L2 gate")
+    for gate in gates:
+        if (gate.get("run_id") != run_id or
+            gate.get("kernel_sha256") != summary.get("kernel_sha256") or
+            not HEX64.fullmatch(gate.get("zero_root_machineproof_sha256", ""))):
+            die("Root-gate L2 identity or SHA pin invalid")
+    expected = gates[0]["zero_root_machineproof_sha256"]
+    if any(g["zero_root_machineproof_sha256"] != expected for g in gates):
+        die("Inconsistent cross-host linked machine-code identity")
+    proofs = [
+        root / "evidence/build" / run_id /
+            "receipts/xnu-ttbr0-root-machinecheck.json",
+    ]
+    proofs.extend((root / "artifacts/candidates").glob(
+        "thor-*/ttbr0-root-machinecode.json"))
+    for p in proofs:
+        if not p.is_file() or p.is_symlink() or not p.resolve().is_relative_to(root):
+            continue
+        if hashfile(p) != expected:
+            continue
+        report = read_json(p)
+        if (report.get("kernel_sha256") != summary["kernel_sha256"] or
+            report.get("result") != "PASS_LINKED_ZERO_ROOT_AND_HIGH_PHYSVA_GATE" or
+            report.get("compiled_arm_vm_init_call_order", [])[-1:] !=
+                ["thor_vm_ttbr0_ready_gate"] or
+            report.get("zero_root_4KiB_check_emitted") is not True or
+            report.get("no_TTBR0_renewal_or_retirement") is not True):
+            die("Linked machine-code receipt contents do not satisfy root-gate contract")
+        return True
+    die("No machine-code report matches HW run's pinned SHA256")
+
+
 def verify_run(root, run_id):
     run_root(root, run_id)
     options = [root/"runs"/run_id/"l3", root/"evidence/hardware-tests"/run_id,
@@ -229,15 +271,23 @@ def verify_run(root, run_id):
         and visual.get("code_path_basis", {}).get("xnu_commit") == summary.get("xnu_commit")
         and visual.get("observed", {}).get("xnu_white_high_vbar_pass") is True)
     validated = bool(accepted and android and (older_review or milestone_review))
+    root_gate_compiled = linked_root_gate_proof(root, run_id, summary)
+    earlier_ttbr1_compiled = bool(
+        summary.get("preboot_mach_o_call_path_proven") or
+        (visual and visual.get("code_path_basis", {}).get("xnu_commit") ==
+         summary.get("xnu_commit") and
+         "set_mmu_ttb_alternate" in
+         visual.get("code_path_basis", {}).get("compiled_call_order", [])))
     return {"schema": "thor-evidence-derived-status-v1", "run_id": run_id,
             "fastboot_command_accepted": accepted,
             "android_return_verified": android,
-            "source_has_compiled_ttbr1_call": bool(
-                summary.get("preboot_mach_o_call_path_proven") or
-                (visual and visual.get("code_path_basis", {}).get("xnu_commit") ==
-                 summary.get("xnu_commit") and
-                 "set_mmu_ttb_alternate" in
-                 visual.get("code_path_basis", {}).get("compiled_call_order", []))),
+            "source_has_compiled_ttbr1_call": bool(root_gate_compiled or earlier_ttbr1_compiled),
+            "linked_ttbr0_zero_root_gate_compiled": root_gate_compiled,
+            "ttbr0_root_gate_live_verified": bool(
+                root_gate_compiled and visual and
+                visual.get("conclusion") ==
+                "PASS_BOUNDED_TTBR0_ZERO_ROOT_READINESS_VISUALLY_CONFIRMED" and
+                visual.get("image_sha256") == summary.get("image_sha256")),
             "visual_checkpoint": visual,
             "post_ttbr1_validated_by_visual_record": validated,
             "raw_photo_bytes_sha256_verified": bool(

@@ -199,5 +199,27 @@ class WorkflowTests(unittest.TestCase):
         self.assertFalse(code["arm_vm_init_full_returned"])
         self.assertFalse(code["hardware_tested"])
 
+    def test_vmhw04_real_run_reports_linked_code_but_not_live_checkpoint(self):
+        root = SOURCE.parents[3]
+        s = thorctl.verify_run(root, "thor-20261025-vm-hw04")
+        self.assertTrue(s["fastboot_command_accepted"])
+        self.assertTrue(s["android_return_verified"])
+        self.assertTrue(s["source_has_compiled_ttbr1_call"])
+        self.assertTrue(s["linked_ttbr0_zero_root_gate_compiled"])
+        self.assertFalse(s["ttbr0_root_gate_live_verified"])
+        self.assertFalse(s["post_ttbr1_validated_by_visual_record"])
+        self.assertFalse(s["full_arm_vm_init_verified"])
+
+    def test_linked_root_gate_requires_pinned_machine_code(self):
+        with tempfile.TemporaryDirectory() as dirname:
+            root = Path(dirname)
+            summary = {"kernel_sha256": "4" * 64,
+                       "linked_zero_root_machineproof_passed": True}
+            with self.assertRaises(RuntimeError):
+                thorctl.linked_root_gate_proof(root, "thor-20261025-vm-hw04", summary)
+            summary["linked_zero_root_machineproof_passed"] = False
+            self.assertFalse(thorctl.linked_root_gate_proof(
+                root, "thor-20261025-vm-hw04", summary))
+
 if __name__ == "__main__":
     unittest.main()
