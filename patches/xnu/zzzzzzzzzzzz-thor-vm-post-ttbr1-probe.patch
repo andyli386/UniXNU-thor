@@ -1,0 +1,89 @@
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -2173,11 +2173,12 @@
+ #if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
+ 	thor_entry09_vm_finish(args, dynamic_memory_begin); /* ENTRY10 validate then return */
+ #endif
+ 	set_mmu_ttb_alternate(cpu_ttep & TTBR_BADDR_MASK);
+ #if defined(XNU_THOR_EARLY_C) && XNU_THOR_EARLY_C
+-	thor_entry10_post_ttbr1(args); /* readback and visible stop; no TTBR0 change */
++	thor_entry10_post_ttbr1(args); /* actual TTBR1 register + stack checks; returns */
++	thor_vm_pre_ttbr0_retire_probe(args); /* high-VA translations; visible stop */
+ #endif
+ 
+ #if XNU_MONITOR
+ 	ml_enable_monitor();
+ #endif
+--- a/osfmk/arm64/thor_entry09_vm.inc.c
++++ b/osfmk/arm64/thor_entry09_vm.inc.c
+@@ -399,11 +399,11 @@
+ 
+ /* ENTRY10 only: first TTBR1 activation has returned. TTBR0 is still the
+  * original table, so the low-address framebuffer marker remains accessible.
+  * Never call thor_entry09_vm_table() or the pre-switch alias walker here:
+  * some physical table pages move to the new physmap virtual aperture. */
+-static void __attribute__((noinline, noreturn))
++static void __attribute__((noinline))
+ thor_entry10_post_ttbr1(boot_args *args)
+ {
+     /* This marker is the first side effect after returning from the
+      * set_mmu_ttb_alternate() call. If translation traps first, it is absent.
+      * The green pre-TTBR marker stays intact in a different 14-row slot. */
+@@ -429,10 +429,55 @@
+     /* Force a write/read on the real post-switch boot stack. */
+     volatile uint64_t stack_probe = 0x544842523130ULL;
+     if (stack_probe != 0x544842523130ULL) {
+         thor_entry09_fail();
+     }
+-    /* White register-and-stack PASS is a third distinct 14-row marker.
+-     * Do not erase green, cyan or red; the original 20s timer is unchanged. */
++    /* Do not paint WHITE here: next function must also prove high-VA
++     * translation before TTBR0 can eventually be retired. The post-TTBR1
++     * cyan checkpoint has already been recorded without overlap. */
++}
++
++/* Pre-retirement guard. AT S1E1R inspects the currently active EL1
++ * translation regime and PAR_EL1.F, but does not dereference its operand.
++ * It is strictly a diagnostic: never replace TTBR0 or flush TLB here. */
++static int __attribute__((noinline))
++thor_vm_s1e1r_ok(uint64_t va)
++{
++    uint64_t par;
++    __asm__ volatile(
++        "at s1e1r, %1\n"
++        "isb\n"
++        "mrs %0, par_el1"
++        : "=r"(par) : "r"(va) : "memory");
++    return (par & 1ULL) == 0;
++}
++
++static void __attribute__((noinline, noreturn))
++thor_vm_pre_ttbr0_retire_probe(boot_args *args)
++{
++    uint64_t current_ttbr1, current_ttbr0, vbar, sp;
++    __asm__ volatile("mrs %0, ttbr1_el1" : "=r"(current_ttbr1));
++    __asm__ volatile("mrs %0, ttbr0_el1" : "=r"(current_ttbr0));
++    __asm__ volatile("mrs %0, vbar_el1" : "=r"(vbar));
++    __asm__ volatile("mov %0, sp" : "=r"(sp));
++    if (gThorEntry09VmReport.status != 1 ||
++        current_ttbr1 != (cpu_ttep & TTBR_BADDR_MASK) ||
++        current_ttbr0 != gThorEntry10OldTTBR0 ||
++        args != thor_entry09_vm_args ||
++        invalid_ttep == cpu_ttep || invalid_ttep < gPhysBase ||
++        (invalid_ttep - gPhysBase) >= gPhysSize ||
++        (invalid_ttep & (ARM_PGBYTES - 1)) != 0 ||
++        (sp >> 48) != 0xffffULL || (vbar >> 48) != 0xffffULL) {
++        thor_entry09_fail();
++    }
++    /* A code address, the current EL1 stack and exception vector address
++     * MUST all translate under the new regime before considering an
++     * invalid TTBR0 root or a global TLB invalidation. */
++    if (!thor_vm_s1e1r_ok((uint64_t)(uintptr_t)&thor_vm_pre_ttbr0_retire_probe) ||
++        !thor_vm_s1e1r_ok(sp) ||
++        !thor_vm_s1e1r_ok(vbar)) {
++        thor_entry09_fail();
++    }
++    /* White now means the additional high-VA pre-retirement guard passed. */
+     thor_entry09_mark(7, 0x00ffffffU);
+     thor_entry09_stop();
+ }
