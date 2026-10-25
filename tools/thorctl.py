@@ -208,16 +208,36 @@ def verify_run(root, run_id):
             die("Altered hardware evidence " + name)
     photo = d/"visual-observation.json"
     visual = read_json(photo) if photo.is_file() else None
+    reviewed_file = d/"visual-milestone-review.json"
+    if visual is None and reviewed_file.is_file():
+        entry = read_json(reviewed_file)
+        photos = entry.get("photos", [])
+        if (entry.get("run_id") == run_id and len(photos) >= 2
+            and len({f.get("sha256") for f in photos}) == len(photos)
+            and all(HEX64.fullmatch(f.get("sha256", "")) for f in photos)):
+            visual = entry
     accepted = bool(summary.get("temporary_fastboot_boot_accepted") or
                     summary.get("fastboot_boot_accepted"))
     android = bool(summary.get("android_return_passed"))
-    validated = bool(visual and visual.get("review") == "independent"
-                     and visual.get("post_ttbr1_state") == "green-cyan-white"
-                     and visual.get("source_photo_sha256"))
+    older_review = bool(visual and visual.get("review") == "independent"
+                        and visual.get("post_ttbr1_state") == "green-cyan-white"
+                        and visual.get("source_photo_sha256"))
+    milestone_review = bool(
+        visual and visual.get("conclusion") ==
+        "PASS_BOUNDED_REAL_XNU_TTBR1_AND_HIGH_VBAR_CHECKPOINT_VISUALLY_CONFIRMED"
+        and visual.get("code_path_basis", {}).get("image_sha256") == summary.get("image_sha256")
+        and visual.get("code_path_basis", {}).get("xnu_commit") == summary.get("xnu_commit")
+        and visual.get("observed", {}).get("xnu_white_high_vbar_pass") is True)
+    validated = bool(accepted and android and (older_review or milestone_review))
     return {"schema": "thor-evidence-derived-status-v1", "run_id": run_id,
             "fastboot_command_accepted": accepted,
             "android_return_verified": android,
-            "source_has_compiled_ttbr1_call": bool(summary.get("preboot_mach_o_call_path_proven")),
+            "source_has_compiled_ttbr1_call": bool(
+                summary.get("preboot_mach_o_call_path_proven") or
+                (visual and visual.get("code_path_basis", {}).get("xnu_commit") ==
+                 summary.get("xnu_commit") and
+                 "set_mmu_ttb_alternate" in
+                 visual.get("code_path_basis", {}).get("compiled_call_order", []))),
             "visual_checkpoint": visual,
             "post_ttbr1_validated_by_visual_record": validated,
             "raw_photo_bytes_sha256_verified": bool(

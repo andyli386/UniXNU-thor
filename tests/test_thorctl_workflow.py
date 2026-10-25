@@ -133,6 +133,11 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(host["image_sha256"], review["code_path_basis"]["image_sha256"])
         self.assertTrue(host["android_return_passed"])
         self.assertFalse(host["full_arm_vm_init_completed"])
+        derived = thorctl.verify_run(root, "thor-20261025-vm-hw03")
+        self.assertTrue(derived["source_has_compiled_ttbr1_call"])
+        self.assertTrue(derived["post_ttbr1_validated_by_visual_record"])
+        self.assertFalse(derived["raw_photo_bytes_sha256_verified"])
+        self.assertFalse(derived["full_arm_vm_init_verified"])
 
     def test_vmhw04_new_root_gate_is_compiled_not_retired(self):
         root = SOURCE.parents[3]
