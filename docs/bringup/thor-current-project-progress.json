@@ -1,6 +1,6 @@
 {
   "schema": "thor-current-project-progress-v1",
-  "updated_at": "2026-10-26T08:03:21.143205+00:00",
+  "updated_at": "2026-10-26T10:54:11.272151+00:00",
   "last_hardware_run": "thor-20261026-vm-mem04",
   "last_hardware_frontier": "native_pmap_bootstrap_return_and_guards",
   "last_hardware_passed_slots": [
@@ -24,7 +24,7 @@
   "next_candidate_kernel_sha256": "765bcb34234def5ba344a593e9ef76176d44d0fdd1576dabef0eae043d1c9c89",
   "next_candidate_host_machinecode_result": "PASS_MEM05_BOUNDED_EARLY_VM_RETURN",
   "next_candidate_hardware_tested": false,
-  "new_boot_image_prepared": false,
+  "new_boot_image_prepared": true,
   "next_candidate_tests_passed": 20,
   "remaining_groups": [
     "early_VM_return_hardware_then_full_VM",
@@ -33,5 +33,12 @@
     "graphics_services_and_SpringBoard"
   ],
   "require_overall_flowchart_each_report": true,
-  "phone_boots_executed_manually_by_user": true
+  "phone_boots_executed_manually_by_user": true,
+  "next_run_id": "thor-20261026-vm-mem05",
+  "new_boot_image_sha256": "cebebd3f292d2fcee7c7b3d3511f704055543c860c93c2abde2f652069b8caa5",
+  "new_boot_image_consumed": false,
+  "full_L2_conditions_passed": 328,
+  "full_L2_result": "PASS",
+  "controller_status": "READY_NOT_EXECUTED",
+  "next_handoff": "thor-mem05-l2-and-manual-l3-20261026.md"
 }
