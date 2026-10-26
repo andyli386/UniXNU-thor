@@ -40,6 +40,9 @@ def parser():
     result.add_argument("--tool-manifest", type=Path,
                         default=Path("toolchains/android-boot-tools/package-tools.json"))
     result.add_argument("--dry-run", action="store_true")
+    for name in ("full-loader-asset", "full-loader-manifest", "full-loader-precheck"):
+        result.add_argument("--" + name, type=Path)
+    result.add_argument("--full-loader-precheck-sha256")
     return result
 
 
@@ -86,7 +89,7 @@ def main(argv=None):
             approved["fd"]["sha256"] == fd_pin and not approved["failures"],
             "Independent FD audit")
     layout = json.loads((kernel_path.parent / "kernel-layout.json").read_text())
-    if frozen["_validated_packaging_profile"] in ("MEM05", "MEM06", "MEM07"):
+    if frozen["_validated_packaging_profile"] in ("MEM05", "MEM06", "MEM07", "MEM08"):
         import importlib.util
         spec = importlib.util.spec_from_file_location("mem05_geometry", work / "scripts/bind-thor-mem05-kernel.py")
         geometry = importlib.util.module_from_spec(spec)
@@ -131,22 +134,50 @@ def main(argv=None):
     require(len(prefix) == 64 and
             digest(prefix) == canonical["payload_prefix_sha256"],
             "Header source identity")
+    full_loader = None
+    full_header = full_body = b""
+    full_options = (args.full_loader_asset, args.full_loader_manifest,
+                    args.full_loader_precheck, args.full_loader_precheck_sha256)
+    if frozen["_validated_packaging_profile"] == "MEM08":
+        require(all(full_options), "MEM08 requires the full asset and independent preseed replay")
+        from full_loader_asset import validate as validate_full_asset
+        from package_mem08 import validate_asset_precheck
+        full_loader = validate_full_asset(root, path(args.full_loader_asset), path(args.full_loader_manifest))
+        require(full_loader == receipt.get("full_loader"), "MEM08 firmware binds the selected public full-loader asset")
+        validate_asset_precheck(root, path(args.full_loader_precheck),
+                                args.full_loader_precheck_sha256, full_loader)
+        full_header = (root / full_loader["header_path"]).read_bytes()
+        full_body = (root / full_loader["compressed_path"]).read_bytes()
+    else:
+        require(not any(full_options), "Auxiliary full kernel requires the explicit MEM08 profile")
     python, scripts, tools_meta = load_tools(root, args.tool_manifest)
     tools_meta["packager_sha256"] = digest(Path(__file__).read_bytes())
     tools_meta["helper_sha256"] = digest(
         Path(__file__).with_name("package_host.py").read_bytes())
+    if full_loader is not None:
+        for name in ("full_loader_asset.py", "package_mem08.py"):
+            tools_meta[name] = digest(Path(__file__).with_name(name).read_bytes())
     if args.dry_run:
         print(json.dumps({"result": "PASS_NO_ARTIFACT_CREATED",
                           "kernel_sha256": kernel_pin, "fd_sha256": fd_pin,
                           **kernel_metadata,
                           "uefi_commit": source_pin, "out": str(out),
                           "seed_source": seed_source(os.sys.platform),
-                          "package_tools": tools_meta, "phone_actions": 0}, indent=2))
+                          "package_tools": tools_meta, "full_loader": full_loader,
+                          "phone_actions": 0}, indent=2))
         return
     with private_output(out, now()):
         seed, source = private_seed()
         length = ((max(128 + len(kernel), 19289048) + 4095) // 4096) * 4096
         bundle = prefix + seed + kernel + bytes(length - 128 - len(kernel))
+        full_offset = None
+        if full_loader is not None:
+            full_offset = length
+            require((full_header + full_body).count(b"THOR-FULL08" + bytes(5)) == 1,
+                    "One public FULL08 frame")
+            bundle += full_header + full_body
+            bundle += bytes((-len(bundle)) % 4096)
+            length = len(bundle)
         require(len(bundle) == length and
                 bundle.count(b"THOR-PAYLOAD09\0\0") == 1, "Wire and size limits")
         for name, value in (("kernel-bundle.bin", bundle),
@@ -168,6 +199,11 @@ def main(argv=None):
             "header_magic": "THOR-PAYLOAD09 v2 intentionally reused",
             "full_vm_boot": False, "ttbr1_live_verified": False, "phone_attempts": 0,
             "package_tools": tools_meta}
+        if full_loader is not None:
+            metadata.update(full_loader=full_loader,
+                            full_loader_bundle_offset=full_offset,
+                            full_loader_precheck_sha256=args.full_loader_precheck_sha256,
+                            full_kernel_staging_only=True)
         write(out / "payload-contract.json",
               (json.dumps(metadata, indent=2) + "\n").encode())
         records = []

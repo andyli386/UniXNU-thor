@@ -135,6 +135,11 @@ MEM05_NONBUILD_FILES = {
 }
 MEM06_NONBUILD_FILES = {"scripts/audit-thor-mem06-linked.py", "tests/test_thor_mem06_policy.py"}
 ARTIFACT_PROFILES = {
+    "thor-mem08-build-manifest-v1": {
+        "tag": "MEM08", "allowed": {"scripts/audit-thor-mem08-linked.py", "tests/test_thor_mem08_log.py", "tests/test_thor_mem08_render.py"},
+        "proof": "mem08-native-log-machinecode-final.json", "lock_key": "mem08_machinecheck_sha256",
+        "proof_schema": "thor-mem08-native-log-machinecode-v1", "proof_result": "PASS_MEM08_NATIVE_ARM_INIT_LOG_RETURN",
+    },
     "thor-mem07-build-manifest-v1": {
         "tag": "MEM07", "allowed": {"scripts/audit-thor-mem07-linked.py", "tests/test_thor_mem07_startup.py", "tests/test_thor_mem07_render.py"},
         "proof": "mem07-native-kprintf-machinecode-final.json", "lock_key": "mem07_machinecheck_sha256",
@@ -166,6 +171,11 @@ ARTIFACT_PROFILES = {
     },
 }
 RELEASE_PROFILES = {
+    "thor-mem08-native-log-and-full-loader-v1": {
+        "tag": "MEM08", "prefix": "mem08", "proof_schema": "thor-mem08-native-log-full-loader-host-proof-v1",
+        "proof_result": "PASS_MEM08_NATIVE_LOG_AND_FULL_LOADER_BINDING",
+        "ui_schema": "thor-mem08-UEFI-HUD-grid-linked-proof-v1", "ui_result": "PASS_LINKED_MEM08_AND_RESERVED_GOP_Y0_383",
+    },
     "thor-mem07-native-startup-and-loader-probe-v1": {
         "tag": "MEM07", "prefix": "mem07", "proof_schema": "thor-mem07-native-startup-loader-host-proof-v1",
         "proof_result": "PASS_MEM07_NATIVE_STARTUP_AND_LOADER_PROBE_BINDING",
@@ -254,12 +264,12 @@ def validate_mem03_artifact(root, candidate):
                 sha(candidate / file), "Pinned build proof: " + file)
     require(lock.get("L2_linked_and_audited") is True,
             "Artifact must be linked and audited")
-    if profile["tag"] in ("MEM05", "MEM06", "MEM07"):
+    if profile["tag"] in ("MEM05", "MEM06", "MEM07", "MEM08"):
         linked = json.loads((candidate / profile["proof"]).read_text())
         require(linked.get("schema") == profile["proof_schema"] and
                 linked.get("result") == profile["proof_result"] and
                 linked.get("kernel_sha256") == lock["kernel_sha256"] and
-                lock.get("frontier") == build.get("frontier") == ({"MEM05": "early-vm-return", "MEM06": "vm-return-and-native-debug-global-map", "MEM07": "native-arm-init-kprintf-startup"}[profile["tag"]]),
+                lock.get("frontier") == build.get("frontier") == ({"MEM05": "early-vm-return", "MEM06": "vm-return-and-native-debug-global-map", "MEM07": "native-arm-init-kprintf-startup", "MEM08": "native-arm-init-first-kprintf-return"}[profile["tag"]]),
                 "MEM05 exact native early VM return proof")
         checkpoints = linked.get("checkpoint_contract", {})
         require(exact_stage_list(checkpoints.get("compiled_stage_prefix"), list(range(16)))
@@ -278,6 +288,9 @@ def validate_mem03_artifact(root, candidate):
                 and lock.get("pmap_bootstrap_executed") is False
                 and lock.get("phone_actions") == linked.get("phone_actions") == 0,
                 "MEM05 compiled progress is not hardware qualification")
+    if profile["tag"] == "MEM08":
+        from package_mem08 import validate_native_log
+        validate_native_log(candidate, tree, lock, build, linked)
     if profile["tag"] == "MEM07":
         require(all(item.get("native_arm_init_kprintf_startup_compiled") is True and
                     item.get("bounded_after_native_KPRINTF_startup") is True
@@ -329,6 +342,9 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
     """Check actual MEM03 release/proof/source contracts before a seed exists."""
     receipt = json.loads(receipt_path.read_text())
     audit = json.loads(audit_path.read_text())
+    if receipt.get("schema") == "thor-mem08-native-log-and-full-loader-v1":
+        from package_mem08 import validate_release
+        return validate_release(root, work, receipt_path, audit_path, lock, receipt, audit)
     profile = RELEASE_PROFILES.get(receipt.get("schema"))
     require(profile is not None,
             "Required MEM03 firmware release schema or recognized MEM04 firmware release schema")
