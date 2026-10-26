@@ -1,6 +1,6 @@
 {
   "schema": "thor-current-project-progress-v1",
-  "updated_at": "2026-10-26T13:54:20.582857+00:00",
+  "updated_at": "2026-10-26T14:28:14.601928+00:00",
   "last_hardware_run": "thor-20261026-vm-mem06",
   "last_hardware_frontier": "bounded_native_RO_globals_after_early_VM_return",
   "last_hardware_passed_slots": [
@@ -26,8 +26,8 @@
   "next_candidate": "thor-20261026-vmdev-016",
   "next_candidate_kernel_sha256": "d52a98872ad3fa2ddb24c00c2741e21ff62b69836be7eb996f32afdcbb2eed08",
   "next_candidate_host_machinecode_result": "PASS_MEM07_NATIVE_ARM_INIT_KPRINTF_STARTUP",
-  "next_candidate_hardware_tested": false,
-  "new_boot_image_prepared": true,
+  "next_candidate_hardware_tested": true,
+  "new_boot_image_prepared": false,
   "next_candidate_tests_passed": 35,
   "next_candidate_unchanged_tests_reused": 20,
   "remaining_groups": [
@@ -39,15 +39,18 @@
   ],
   "require_overall_flowchart_each_report": true,
   "phone_boots_executed_manually_by_user": true,
-  "next_run_id": "thor-20261026-vm-mem07",
+  "next_run_id": null,
   "new_boot_image_sha256": "fea3b5d12d9908170229f232cfa20bea5769415a2187a0ff9b622f55987da55e",
-  "new_boot_image_consumed": false,
+  "new_boot_image_consumed": true,
   "full_L2_conditions_passed": 529,
   "full_L2_result": "PASS",
-  "controller_status": "READY_NOT_EXECUTED",
-  "next_handoff": "thor-mem06-l3-and-mem07-i386-joint-validation-20261026.md",
+  "controller_status": "FASTBOOT_ACCEPTED_ANDROID_RECOVERED_VISUAL_PENDING",
+  "next_handoff": "thor-mem07-l3-transport-and-next-stage-20261026.md",
   "boot_host": "i386",
   "boot_host_project_root": "/home/vincent/Projects/thor-unixnu",
-  "local_live_USB_check": "PENDING_USER_CONNECTION_AND_READONLY_CHECK",
-  "Mac_boot_authority_transferred": true
+  "local_live_USB_check": "PASS_ANDROID_READONLY_7_OF_7_OBSERVED_ON_I386",
+  "Mac_boot_authority_transferred": true,
+  "latest_hardware_attempt": "thor-20261026-vm-mem07",
+  "latest_hardware_attempt_result": "FASTBOOT_ACCEPTED_ANDROID_RECOVERED_VISUAL_PENDING",
+  "next_candidate_visual_result": "PENDING_PHOTO_CONTENT"
 }
