@@ -106,6 +106,7 @@ def validate(root, manifest_path):
     root = Path(root).resolve(); manifest_path = rooted(root, manifest_path)
     document = json.loads(manifest_path.read_text())
     require(document.get('schema') == 'thor-fullseq01-full-kernel-asset-manifest-v1', 'asset manifest schema')
+    require(document.get('raw_kernel_path') == document.get('raw_path'), 'one bound raw kernel path')
     raw_path = rooted(root, document['raw_path']); raw = raw_path.read_bytes()
     comp_path = rooted(root, document['compressed_path']); compressed = comp_path.read_bytes()
     header_path = rooted(root, document['header_path']); header = header_path.read_bytes()
@@ -124,7 +125,8 @@ def validate(root, manifest_path):
             'actual standard production codec roundtrip')
     return dict(schema='thor-fullseq01-validated-full-kernel-v1',
         manifest_path=str(manifest_path.relative_to(root)), manifest_sha256=sha(manifest_path.read_bytes()),
-        raw_path=str(raw_path.relative_to(root)), compressed_path=str(comp_path.relative_to(root)),
+        raw_path=str(raw_path.relative_to(root)), raw_kernel_path=str(raw_path.relative_to(root)),
+        compressed_path=str(comp_path.relative_to(root)),
         header_path=str(header_path.relative_to(root)), header_sha256=sha(header), **fields,
         loaded_span_sha256=geometry['loaded_span_sha256'], segment_record_count=geometry['segment_record_count'],
         scratch_bytes=13376, **identity, full_kernel_entry_executed=False)
@@ -150,6 +152,7 @@ def produce(root, kernel, codec, codec_sha256, out):
         geometry['nonzero_segment_count'], 0)
     (out / 'full-kernel.header.bin').write_bytes(header)
     document = dict(schema='thor-fullseq01-full-kernel-asset-manifest-v1', raw_path=str(kernel.relative_to(root)),
+        raw_kernel_path=str(kernel.relative_to(root)),
         compressed_path=str(comp.relative_to(root)), header_path=str((out / 'full-kernel.header.bin').relative_to(root)),
         header_sha256=sha(header), **read_inner(header + compressed),
         loaded_span_sha256=geometry['loaded_span_sha256'], segment_record_count=geometry['segment_record_count'],
