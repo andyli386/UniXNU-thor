@@ -223,7 +223,7 @@ def validate_mem06_inputs(root,pkg,src,xsrc,candidate,manifest,receipt,audit,lay
     pe=src/"Build/thorEntry09/RELEASE_CLANGPDB/AARCH64/thorPkg/Drivers/ThorEntryBdsDxe/ThorEntryBdsDxe/OUTPUT/ThorEntryBdsDxe.efi"
     binary=pe.read_bytes()
     require(b"RUN MEM06 / THOR SM8475" in binary and
-            b"MEM06 FDT WINDOW ONLY - NO MEMORY GRANT" in binary and b"THOR FDT MEMDIAG 05" in binary,
+            b"MEM06 FDT WINDOW ONLY - NO MEMORY GRANT" in binary and b"THOR FDT MEMDIAG 06" in binary,
             "actual final linked PE carries unique MEM06 diagnostic identity")
     require(all(label not in binary for label in (b"RUN MEM01 / THOR SM8475",b"RUN MEM02 / THOR SM8475",b"RUN MEM03 / THOR SM8475",
                                                 b"RUN VM-VBAR / THOR",b"RUN VM-HW11 / THOR SM8475")),
