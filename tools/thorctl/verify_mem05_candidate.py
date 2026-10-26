@@ -689,7 +689,9 @@ def validate_mem05_transition(root,src,layout,require,proof_path=None):
     spec=importlib.util.spec_from_file_location('mem05_actual_transition',Path(__file__).with_name('transition_bind.py'))
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     def raw(tree):
-        pe,mp=module.pe_paths(tree);start,end=module.transition_symbols(mp);code,meta=module.load_pe(pe,start,end-start)
+        output=tree/'Build/thorEntry09/RELEASE_CLANGPDB/AARCH64/thorPkg/Drivers/ThorEntryBdsDxe/ThorEntryBdsDxe/OUTPUT'
+        pe=output/'ThorEntryBdsDxe.efi';mp=output/'ThorEntryBdsDxe.map'
+        start,end=module.transition_symbols(mp);code,meta=module.load_pe(pe,start,end-start)
         require(len(code)==500 and not meta['relocations_in_transition'],'actual500B PE transition has no interval relocation');return code
     old=raw(root/'worktrees/uefi/vm-mem04');new=raw(src);decoded=host.validate_mem05_transition_words(old,new,layout)
     require(True,'independent actual PE words match transition/args/entry/vector/stack-top offsets')
