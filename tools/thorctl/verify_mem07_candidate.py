@@ -162,6 +162,12 @@ TRANSITION_SHA = "de0b5fd081759dde1f579f7741c2a6cab40feea95285e5c9eaee9832a87da1
 OLD_KERNEL_SHA = "623b444dc57fc8981562277f1eade9f1ed25818badaa3bfd03ae7ff54a5333aa"
 
 
+def mem07_pe_identity(binary):
+    return all(label in binary for label in (
+        b"RUN MEM07 / THOR SM8475", b"MEM07 FDT WINDOW ONLY - NO MEMORY GRANT",
+        b"THOR FDT MEMDIAG 07"))
+
+
 def validate_mem07_inputs(root,pkg,src,xsrc,candidate,manifest,receipt,audit,layout,
                          build,machine,binding,extra,detail,boot,kernel,fd,prov,
                          xproof,uproof,firmware_audit_path,transfer_index,require,replay_xnu=True):
@@ -224,8 +230,7 @@ def validate_mem07_inputs(root,pkg,src,xsrc,candidate,manifest,receipt,audit,lay
     pin(memory,receipt["unchanged_memorymap_source_sha256"],"original memory map unchanged")
     pe=src/"Build/thorEntry09/RELEASE_CLANGPDB/AARCH64/thorPkg/Drivers/ThorEntryBdsDxe/ThorEntryBdsDxe/OUTPUT/ThorEntryBdsDxe.efi"
     binary=pe.read_bytes()
-    require(b"RUN MEM07 / THOR SM8475" in binary and
-            b"MEM07 FDT WINDOW ONLY - NO MEMORY GRANT" in binary and b"THOR FDT MEMDIAG 06" in binary,
+    require(mem07_pe_identity(binary),
             "actual final linked PE carries unique MEM07 diagnostic identity")
     require(all(label not in binary for label in (b"RUN MEM01 / THOR SM8475",b"RUN MEM02 / THOR SM8475",b"RUN MEM03 / THOR SM8475",
                                                 b"RUN VM-VBAR / THOR",b"RUN VM-HW11 / THOR SM8475")),

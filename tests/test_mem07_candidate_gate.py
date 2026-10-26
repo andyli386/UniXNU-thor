@@ -410,4 +410,10 @@ class StartupBranchTests(unittest.TestCase):
     def test_indirect_blr_rejected(self):
         with self.assertRaises(gate.GateError):self.decode(0xd63f0000,'BL')
 
+class PeVersionTests(unittest.TestCase):
+    banner=b'RUN MEM07 / THOR SM8475\0MEM07 FDT WINDOW ONLY - NO MEMORY GRANT\0THOR FDT MEMDIAG 07'
+    def test_current_all_three_native_version_labels(self):self.assertTrue(gate.mem07_pe_identity(self.banner))
+    def test_old_memdiag_with_new_banner_is_rejected(self):self.assertFalse(gate.mem07_pe_identity(self.banner.replace(b'MEMDIAG 07',b'MEMDIAG 06')))
+    def test_old_run_with_new_memdiag_is_rejected(self):self.assertFalse(gate.mem07_pe_identity(self.banner.replace(b'RUN MEM07',b'RUN MEM06')))
+
 if __name__=="__main__":unittest.main()
