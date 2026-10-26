@@ -1,10 +1,13 @@
 {
   "schema": "thor-reporting-preferences-v1",
-  "updated_at": "2026-10-26T07:29:08.603590+00:00",
+  "updated_at": "2026-10-26T13:55:48.541537+00:00",
   "show_overall_mermaid_flowchart_in_every_progress_report": true,
   "distinguish_device_verified_host_verified_and_pending": true,
   "no_L2_or_grid_percentage_as_iOS_completion": true,
   "user_manually_runs_all_phone_boots_after_recording": true,
   "send_commands_when_new_image_and_L2_ready_without_extra_permission_question": true,
-  "never_reuse_consumed_image": true
+  "never_reuse_consumed_image": true,
+  "next_phone_boot_host": "i386",
+  "next_phone_boot_project_root": "/home/vincent/Projects/thor-unixnu",
+  "Linux_readonly_check_before_manual_execute": true
 }
