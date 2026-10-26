@@ -1629,7 +1629,6 @@ def fresh_firmware_guards(checks, args, asset, firmware, output):
     source = rooted(checks.root, args.source)
     tests = source / 'Platforms/Xiaomi/thorPkg/Tests'
     jobs = [('core', 'test_fullseq_core.py', 'THOR_FULLSEQ_CORE_AUDIT', 40),
-            ('proof', 'test_fullseq_proof.py', 'THOR_FULLSEQ_PROOF_AUDIT', 96),
             ('handoff', 'test_fullseq_handoff.py', 'THOR_FULLSEQ_HANDOFF_AUDIT', 64)]
     results = {}
     for name, filename, variable, count in jobs:
@@ -1654,6 +1653,7 @@ def fresh_firmware_guards(checks, args, asset, firmware, output):
             checks.require(str(document['result']).startswith('PASS'), 'fresh actual firmware host result: ' + name)
         freeze_sources(checks, document['source_files_sha256'], source)
         results[name] = document
+    results['proof'] = validate_remote_service_free(checks, source)
     checks.require(results['proof']['result'] == 'PASS_FULLSEQ_SERVICE_FREE_PROOF_REAL_MMU',
                    'fresh service-free handoff proof uses actual production MMU verifier')
     handoff = results['handoff']
@@ -1661,6 +1661,51 @@ def fresh_firmware_guards(checks, args, asset, firmware, output):
                    and handoff['full_kernel_entered'] is False and handoff['production_seed_generated'] is False,
                    'fresh actual load/handoff executes owned-memory expansion and uses only fixed test entropy')
     return results
+
+
+def validate_remote_service_free(checks, source):
+    base = checks.root / 'evidence/build/ios-full-seq01'
+    proof, _ = checks.document(base / 'gate-i386-proof-fresh-01/proof.json',
+                               '5b6f3847eddf1a4ab59f02697b2bf887f9c423a6fe3a3ade1c8c8a656fff83d5')
+    index, path = checks.document(base / 'gate-i386-proof-transfer-01/index.json',
+                                  'bd47c0e8c2d3311dbfd79da70addf5f27903778d09f9088c6322d2659dfff4d1')
+    imported, _ = checks.document(base / 'gate-i386-proof-transfer-01/import-proof.json')
+    checks.require(imported['result'] == 'PASS_EXACT_I386_BYTES_IMPORTED'
+                   and imported['index_sha256'] == hash_file(path)
+                   and imported['archive_sha256'] == index['archive_sha256']
+                   and imported['execution_host'] == 'i386' and imported['mac_executed_proof_ELF'] is False
+                   and imported['phone_actions'] == index['phone_actions'] == 0
+                   and index['real_seed_included'] is False and index['real_boot_image_included'] is False,
+                   'service-free proof fixture executes on i386; raw Mac SIGKILL remains a separate failed host run')
+    for name, record in index['files'].items():
+        relative = Path(name)
+        checks.require(not relative.is_absolute() and relative.parts[0] == 'gate-i386-proof-fresh-01'
+                       and '..' not in relative.parts, 'bounded exact remote service-free evidence member')
+        checks.freeze(base / relative, record['sha256'], record['bytes'])
+    checks.require(proof['schema'] == 'thor-fullseq-service-free-proof-host-v1'
+                   and proof['result'] == 'PASS_FULLSEQ_SERVICE_FREE_PROOF_REAL_MMU'
+                   and proof['case_count'] == proof['executed_cases'] == proof['passed_cases'] == len(proof['cases']) == 96
+                   and all(case['passed'] is True and case['actual']['status'] == case['expected_status']
+                           and (case['actual']['checker'] == case['expected_checker']
+                                if case['expected_checker'] is not None else case['actual']['status'] != 'OK')
+                           for case in proof['cases'])
+                   and proof['firmware_services_called'] == 0 and proof['phone_executed'] is False
+                   and proof['hardware_edges_modeled'] is True,
+                   'all 96 actual production MMU/owner/service-free cases match fixed expected status/checker without firmware services')
+    freeze_sources(checks, proof['source_files_sha256'], source)
+    directory = base / 'gate-i386-proof-fresh-01/proof.build'
+    executable = checks.freeze(directory / 'fullseq-proof-host', proof['executable_sha256'])
+    checks.freeze(directory / 'compiler.log', proof['compiler_log_sha256'])
+    raw = executable.read_bytes()
+    checks.require(raw[:6] == b'\x7fELF\x02\x01' and struct.unpack_from('<H', raw, 18)[0] == 62,
+                   'service-free evidence binds actual Linux x86_64 executable and its compiler log')
+    checks.require(proof['workspace_reservation_bytes'] == 65536 and proof['maximum_work_checks'] == 1000000
+                   and proof['guard_limit_ticks'] == 38400000 and proof['overall_limit_ticks'] == 384000000,
+                   'actual service-free proof retains fixed workspace and finite work/time budgets')
+    return dict(result=proof['result'], execution_host='i386', cases=96,
+                raw_receipt_sha256='5b6f3847eddf1a4ab59f02697b2bf887f9c423a6fe3a3ade1c8c8a656fff83d5',
+                source_inputs=len(proof['source_files_sha256']), hardware_edges_modeled=True,
+                Mac_failed_run_counted_as_pass=False, phone_actions=0)
 
 
 def validate_remote_adapter(checks, source):
