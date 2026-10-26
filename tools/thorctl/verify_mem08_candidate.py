@@ -1589,7 +1589,7 @@ def validate_mem08_native_full_loader(root, src, base, receipt, detail, full, re
     header = rooted(root, full['header_path']).read_bytes()
     require(binary.count(header) == 1 and bytes.fromhex(FULL_SPAN_SHA) in binary,
             'real linked PE embeds exactly the header and loaded-span digest of selected public FULL08 asset')
-    for text in (b'LDR PLAN', b'LDR PROBE', b'FULL'):
+    for text in (b'LDR PLAN', b'FULL LAYOUT %a S%u / FREE %u', b'CHECK ONLY / NO FULL-XNU ENTRY'):
         require(text in binary, 'real PE exposes full-layout stage result: ' + text.decode())
     return {'proof_sha256': sha(path), 'native_object_count': 5, 'native_stack_frames_independently_parsed': len(frames),
             'persistent_diagnostic_window_bytes': 64 << 20, 'temporary_full_layout_window_bytes': WINDOW_BYTES,
@@ -1757,6 +1757,7 @@ def verify_release(args):
             and fresh_firmware['link_inputs'] == 97, 'fresh complete FV/FFS/LZMA, twenty PE modules and all native archive/input checks succeed')
     report = dict(schema='thor-vm-independent-offline-gate-v1', checked_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         result='PASS', run_id=run_id, verifier_sha256=sha(Path(__file__)), conditions_count=len(require.marks), checks=require.marks,
+        validation_timing='postpackage fresh validation',
         inputs={'android_boot_v4': {'sha256': sha(boot), 'bytes': boot.stat().st_size},
                 'native_xnu': {'sha256': sha(kernel), 'bytes': kernel.stat().st_size},
                 'uefi_fd': {'sha256': sha(fd), 'bytes': fd.stat().st_size}, 'full_loader': full},
