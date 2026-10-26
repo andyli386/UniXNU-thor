@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """MEM04 pre-seed profile and renderer regressions; no real entropy or boot image."""
 import contextlib
+import base64
+import struct
 import importlib.util
 import io
 import json
@@ -16,6 +18,8 @@ pack, host = old.pack, old.host
 
 NAMES = ["initial", "read_permit", "kernel_hash_pass", "kernel_hash_refused",
          "loader_handoff_ready", "loader_error_max_values"]
+OLD_TRANSITION = base64.b64decode("XyQD1d9PA9XfPwPVSEI41R8RAPHhDgBUCICg0n8ACOuBDQBUCAC/0l8ACOsjDQBUCHi/0l8ACOvIDABUSFBAkh8RQPFhDABUyP3/EAkAgNKJJqDyKQECix8BCeuhCwBUCACY0mgmoPIIAQKLHwAI6wELAFQIkZrS6Aeg8ggBAos/AAjrYQoAVAgAnNLoB6DyCAECi58ACOvBCQBUCACQ0ugmoPIIAQKLvwAI6yEJAFQIEDjVHwEG68EIAFSpAILSCgEJil8BCetBCABUKAjINwgImDcJ/WDTyQcAtSgAO9UfAQfrYQcAVOkMQJI/KQDxCAcAVOlMUNM/KQDxqAYAVIoAgNJKIcmaBMAY1d8/A9W/AACR/QMfqv4DH6roAwKqSQADiyh+C9UIAQqLHwEJ66P//1QIAJTSqAC38gkAiNJpAbfyKH4L1QgBCosfAQnro///VJ8/A9UfdQjVnz8D1d8/A9XoAwaqCPl/kgj5fZII+XOSnz8D1QgQGNXfPwPVH4cI1Z8/A9XfPwPVCRA41T8BCOvhAQBUSUI41T8RAPGBAgBUCcA41T8BBOshAQBU6QMAkT8BBevBAABUKUI71SkNepI/AQ/xQQAAVCAAH9bfTwPVnz8D1SABgFIAgLBy4QMfquIDH6rjAx+qAwAA1AAAABQ=")
+NEW_TRANSITION = base64.b64decode("XyQD1d9PA9XfPwPVSEI41R8RAPHhDgBUCICg0n8ACOuBDQBUCAC/0l8ACOsjDQBUCHi/0l8ACOvIDABUSFBAkh8RQPFhDABUyP3/EAkAgNKJJqDyKQECix8BCeuhCwBUCACY0mgmoPIIAQKLHwAI6wELAFQIkZ7S6Aeg8ggBAos/AAjrYQoAVAgAgNIICKDyCAECi58ACOvBCQBUCACQ0ugmoPIIAQKLvwAI6yEJAFQIEDjVHwEG68EIAFSpAILSCgEJil8BCetBCABUKAjINwgImDcJ/WDTyQcAtSgAO9UfAQfrYQcAVOkMQJI/KQDxCAcAVOlMUNM/KQDxqAYAVIoAgNJKIcmaBMAY1d8/A9W/AACR/QMfqv4DH6roAwKqSQADiyh+C9UIAQqLHwEJ66P//1QIAJTSqAC38gkAiNJpAbfyKH4L1QgBCosfAQnro///VJ8/A9UfdQjVnz8D1d8/A9XoAwaqCPl/kgj5fZII+XOSnz8D1QgQGNXfPwPVH4cI1Z8/A9XfPwPVCRA41T8BCOvhAQBUSUI41T8RAPGBAgBUCcA41T8BBOshAQBU6QMAkT8BBevBAABUKUI71SkNepI/AQ/xQQAAVCAAH9bfTwPVnz8D1SABgFIAgLBy4QMfquIDH6rjAx+qAwAA1AAAABQ=")
 
 
 class ProfileFixture:
@@ -157,6 +161,40 @@ class ProfileFixture:
         self.receipt.update(dict.fromkeys(
             ["actual_UEFI_GetMemoryMap_contiguous_256MiB_verified", "pmap_bootstrap_executed",
              "arm_vm_init_returned", "hardware_tested", "xnu_runtime_qualified"], False))
+        if tag == "MEM04":
+            layout_path = self.candidate / "kernel-layout.json"
+            layout = json.loads(layout_path.read_text())
+            layout.update(entry_offset=0x3ff488, vectors_offset=0x400000,
+                          entry_sync_offset=0x3ff000, entry_sync_bytes=0x3000)
+            layout_path.write_text(json.dumps(layout))
+            self.build["layout_sha256"] = host.sha(layout_path)
+            self.sync_artifact()
+            folder = self.root / "postlink-transition"
+            folder.mkdir()
+            (folder / "old-transition.bin").write_bytes(OLD_TRANSITION)
+            (folder / "new-transition.bin").write_bytes(NEW_TRANSITION)
+            self.transition_path = folder / "mem04-transition-binding.json"
+            (self.adt / "thor_entry06_arch.S").write_text("unit assembly identity")
+            header = "#define THOR_ENTRY06_TRANSITION_BYTES 500u\n"
+            header += "mEntry06TransitionSha256[32] = {" + ",".join(
+                "0x" + host.MEM04_TRANSITION_PIN[i:i+2]
+                for i in range(0, 64, 2)) + "};\n"
+            (self.adt / "ThorEntry06TransitionExpected.h").write_text(header)
+            self.transition = {
+                "schema": "thor-mem04-transition-entry-vector-immediate-proof-v1",
+                "result": "PASS_ONLY_ACTUAL_ENTRY_VECTOR_IMMEDIATES_CHANGED",
+                "old_code_sha256": host.MEM03_TRANSITION_PIN,
+                "new_code_sha256": host.MEM04_TRANSITION_PIN,
+                "code_bytes": 500, "relocations": 0,
+                "changed_instruction_word_offsets": [116, 136, 140],
+                "unchanged_bytes": 488, "opcode_register_branches_unchanged": True,
+                "old_decoded_entry_offset": 0x3fd488, "new_decoded_entry_offset": 0x3ff488,
+                "old_decoded_vector_offset": 0x3fe000, "new_decoded_vector_offset": 0x400000,
+                "kernel_sha256": self.base.kernel_pin,
+                "kernel_layout_sha256": host.sha(layout_path),
+                "unchanged_assembly_source_sha256": host.sha(self.adt / "thor_entry06_arch.S"),
+                "new_expected_header_sha256": host.sha(self.adt / "ThorEntry06TransitionExpected.h"),
+                "phone_actions": 0}
         self.sync_trace()
         self.sync_release()
 
@@ -177,6 +215,13 @@ class ProfileFixture:
         self.render["host_trace_sha256"] = host.sha(self.trace_path)
 
     def sync_release(self):
+        if hasattr(self, "transition"):
+            self.transition_path.write_text(json.dumps(self.transition))
+            identity = host.sha(self.transition_path)
+            self.receipt["transition_binding_audit_sha256"] = identity
+            self.proof["transition_binding_audit_sha256"] = identity
+            self.receipt["linked_transition_sha256"] = host.MEM04_TRANSITION_PIN
+            self.proof["transition"]["sha256"] = host.MEM04_TRANSITION_PIN
         for path, value in ((self.proof_path, self.proof), (self.ui_path, self.ui),
                             (self.render_path, self.render)):
             path.write_text(json.dumps(value))
@@ -349,6 +394,65 @@ class Mem04PackagingTests(unittest.TestCase):
         self.assertEqual(result["result"], "PASS_NO_ARTIFACT_CREATED")
         fixture.rng.assert_not_called()
         self.assertFalse(fixture.base.out.exists())
+
+    def test_semantic_transition_proof_missing_rejects_before_seed(self):
+        self.f.transition_path.unlink()
+        self.reject("semantic proof missing")
+
+    def test_legacy_raw_pin_cannot_be_changed_in_semantic_proof(self):
+        self.f.transition["old_code_sha256"] = "0" * 64
+        self.f.sync_release()
+        self.reject("transition raw pins")
+
+    def test_new_raw_corruption_rejects_before_seed(self):
+        path = self.f.transition_path.parent / "new-transition.bin"
+        value = bytearray(path.read_bytes())
+        value[116] ^= 1
+        path.write_bytes(value)
+        self.reject("transition raw pins")
+
+    def test_actual_layout_hash_must_match_semantic_proof(self):
+        self.f.transition["kernel_layout_sha256"] = "0" * 64
+        self.f.sync_release()
+        self.reject("actual kernel layout identity")
+
+
+class TransitionWordTests(unittest.TestCase):
+    def setUp(self):
+        self.layout = {"entry_offset": 0x3ff488, "vectors_offset": 0x400000,
+                       "entry_sync_offset": 0x3ff000, "entry_sync_bytes": 0x3000}
+
+    def test_real_pinned_raw_pair_decodes_actual_entry_and_vector(self):
+        self.assertEqual(old.digest(OLD_TRANSITION), host.MEM03_TRANSITION_PIN)
+        self.assertEqual(old.digest(NEW_TRANSITION), host.MEM04_TRANSITION_PIN)
+        result = host.validate_mem04_transition_words(OLD_TRANSITION, NEW_TRANSITION, self.layout)
+        self.assertEqual(result["new_decoded_entry_offset"], 0x3ff488)
+        self.assertEqual(result["new_decoded_vector_offset"], 0x400000)
+
+    def test_opcode_or_destination_register_changes_are_not_immediates(self):
+        for bit in (31, 0):
+            value = bytearray(NEW_TRANSITION)
+            struct.pack_into("<I", value, 116, struct.unpack_from("<I", value, 116)[0] ^ (1 << bit))
+            with self.assertRaisesRegex(RuntimeError, "non-immediate"):
+                host.validate_mem04_transition_words(OLD_TRANSITION, value, self.layout)
+
+    def test_fourth_changed_instruction_is_rejected(self):
+        value = bytearray(NEW_TRANSITION)
+        value[4] ^= 1
+        with self.assertRaisesRegex(RuntimeError, "changed word set"):
+            host.validate_mem04_transition_words(OLD_TRANSITION, value, self.layout)
+
+    def test_wrong_entry_immediate_is_rejected(self):
+        value = bytearray(NEW_TRANSITION)
+        word = struct.unpack_from("<I", value, 116)[0]
+        struct.pack_into("<I", value, 116, (word & ~(0xffff << 5)) | (0xf480 << 5))
+        with self.assertRaisesRegex(RuntimeError, "immediate values"):
+            host.validate_mem04_transition_words(OLD_TRANSITION, value, self.layout)
+
+    def test_mismatched_actual_layout_is_rejected(self):
+        self.layout["vectors_offset"] += 4096
+        with self.assertRaisesRegex(RuntimeError, "actual kernel layout offsets"):
+            host.validate_mem04_transition_words(OLD_TRANSITION, NEW_TRANSITION, self.layout)
 
 
 if __name__ == "__main__":

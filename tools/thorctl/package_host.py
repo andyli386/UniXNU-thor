@@ -238,7 +238,8 @@ def validate_mem03_artifact(root, candidate):
                     "MEM04 unexecuted runtime scope: " + key)
     # This tag exists only in the validated in-memory copy. Never rewrite the
     # immutable artifact lock, and never infer profile from caller-supplied flags.
-    return dict(lock, _validated_packaging_profile=profile["tag"]), build, layout
+    return dict(lock, _validated_packaging_profile=profile["tag"],
+                _validated_candidate_directory=str(candidate)), build, layout
 
 
 def validate_mem03_release(root, work, receipt_path, audit_path, lock):
@@ -296,6 +297,9 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
             lock["machinecheck_sha256"] and proof["pe_sha256"] == ui["pe_sha256"],
             "MEM03 UEFI/XNU/PE proof identity")
     transition = "29ee4adbbb30fe06bcebf9f9af9723f98698c6170636b2bb24e52a7a17fe9d24"
+    if prefix == "mem04":
+        transition = validate_mem04_transition_binding(
+            root, work, receipt_path, receipt, proof, lock)
     require(receipt["linked_transition_sha256"] ==
             proof["transition"]["sha256"] == transition and
             proof["transition"]["bytes"] == 500 and
@@ -494,3 +498,92 @@ def validate_mem04_render_trace(work, render_path, render):
             else:
                 require(not any(overlap(rect, old) for old in live_text),
                         "MEM04 renderer fill erases live text")
+
+
+MEM03_TRANSITION_PIN = "29ee4adbbb30fe06bcebf9f9af9723f98698c6170636b2bb24e52a7a17fe9d24"
+MEM04_TRANSITION_PIN = "8ce4b52c64f2436845be90affac50ed0fe86f5f4b8072780ba8ffe1492962f36"
+
+
+def validate_mem04_transition_words(old, new, layout):
+    """Three reviewed x8 MOV-wide immediates; every other byte is immutable."""
+    import struct
+    require(len(old) == len(new) == 500, "MEM04 transition raw length")
+    changed = [offset for offset in range(0, 500, 4)
+               if old[offset:offset + 4] != new[offset:offset + 4]]
+    require(changed == [116, 136, 140], "MEM04 transition changed word set")
+    mask = 0xffff << 5
+    def immediate(blob, offset, opcode, shift):
+        word = struct.unpack_from("<I", blob, offset)[0]
+        require(word & 0xff800000 == opcode and word & 31 == 8
+                and (word >> 21) & 3 == shift,
+                "MEM04 transition opcode/register/shift")
+        return (word >> 5) & 0xffff
+    for offset in changed:
+        left, right = struct.unpack_from("<I", old, offset)[0], struct.unpack_from("<I", new, offset)[0]
+        require(left & ~mask == right & ~mask,
+                "MEM04 transition non-immediate bits changed")
+    old_values = [immediate(old, at, op, shift) for at, op, shift in
+                  [(116, 0xd2800000, 0), (136, 0xd2800000, 0), (140, 0xf2800000, 1)]]
+    new_values = [immediate(new, at, op, shift) for at, op, shift in
+                  [(116, 0xd2800000, 0), (136, 0xd2800000, 0), (140, 0xf2800000, 1)]]
+    require(old_values == [0xd488, 0xe000, 0x3f] and
+            new_values == [0xf488, 0, 0x40], "MEM04 transition immediate values")
+    old_high = immediate(old, 120, 0xf2800000, 1)
+    new_high = immediate(new, 120, 0xf2800000, 1)
+    require(old_high == new_high == 0x3f, "MEM04 transition entry high immediate")
+    require(layout.get("entry_offset") == new_values[0] | (new_high << 16) and
+            layout.get("vectors_offset") == new_values[1] | (new_values[2] << 16) and
+            layout.get("entry_sync_offset") == 0x3ff000 and
+            layout.get("entry_sync_bytes") == 0x3000,
+            "MEM04 transition actual kernel layout offsets")
+    return {"old_decoded_entry_offset": old_values[0] | (old_high << 16),
+            "new_decoded_entry_offset": new_values[0] | (new_high << 16),
+            "old_decoded_vector_offset": old_values[1] | (old_values[2] << 16),
+            "new_decoded_vector_offset": new_values[1] | (new_values[2] << 16)}
+
+
+def validate_mem04_transition_binding(root, work, receipt_path, receipt, uefi_proof, lock):
+    folder = receipt_path.parent / "postlink-transition"
+    audit_path = folder / "mem04-transition-binding.json"
+    require(audit_path.is_file(), "MEM04 transition semantic proof missing")
+    require(receipt.get("transition_binding_audit_sha256") ==
+            uefi_proof.get("transition_binding_audit_sha256") == sha(audit_path),
+            "MEM04 transition semantic proof identity")
+    audit = json.loads(audit_path.read_text())
+    require(audit.get("schema") == "thor-mem04-transition-entry-vector-immediate-proof-v1"
+            and audit.get("result") == "PASS_ONLY_ACTUAL_ENTRY_VECTOR_IMMEDIATES_CHANGED"
+            and audit.get("code_bytes") == 500 and audit.get("relocations") == 0
+            and exact_stage_list(audit.get("changed_instruction_word_offsets"), [116, 136, 140])
+            and audit.get("unchanged_bytes") == 488
+            and audit.get("opcode_register_branches_unchanged") is True
+            and audit.get("phone_actions") == 0,
+            "MEM04 transition semantic proof contract")
+    old_path, new_path = folder / "old-transition.bin", folder / "new-transition.bin"
+    require(old_path.is_file() and new_path.is_file(), "MEM04 transition raw files missing")
+    require(audit.get("old_code_sha256") == sha(old_path) == MEM03_TRANSITION_PIN and
+            audit.get("new_code_sha256") == sha(new_path) == MEM04_TRANSITION_PIN,
+            "MEM04 transition raw pins")
+    candidate = rooted(root, Path(lock["_validated_candidate_directory"]))
+    layout_path = candidate / "kernel-layout.json"
+    layout = json.loads(layout_path.read_text())
+    require(audit.get("kernel_layout_sha256") == sha(layout_path) and
+            audit.get("kernel_sha256") == layout.get("kernel_sha256") == lock["kernel_sha256"],
+            "MEM04 transition actual kernel layout identity")
+    decoded = validate_mem04_transition_words(old_path.read_bytes(), new_path.read_bytes(), layout)
+    require(all(audit.get(key) == value for key, value in decoded.items()),
+            "MEM04 transition decoded offsets disagree with proof")
+    adt = work / "Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe"
+    for field, name in (("unchanged_assembly_source_sha256", "thor_entry06_arch.S"),
+                        ("new_expected_header_sha256", "ThorEntry06TransitionExpected.h")):
+        require(audit.get(field) == sha(adt / name), "MEM04 transition source pin: " + name)
+    import re
+    header = (adt / "ThorEntry06TransitionExpected.h").read_text()
+    values = re.search(r"mEntry06TransitionSha256\[32\]\s*=\s*\{([^}]+)\}", header)
+    require(values is not None and
+            re.search(r"#define\s+THOR_ENTRY06_TRANSITION_BYTES\s+500u", header) is not None,
+            "MEM04 transition expected header structure")
+    expected = bytes(int(value, 16) for value in
+                     re.findall(r"0x([0-9a-fA-F]{1,2})", values.group(1)))
+    require(len(expected) == 32 and expected.hex() == MEM04_TRANSITION_PIN,
+            "MEM04 transition expected header pin")
+    return MEM04_TRANSITION_PIN
