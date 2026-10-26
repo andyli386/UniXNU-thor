@@ -1126,7 +1126,7 @@ def validate_transition(checks, source, base, document, binding, objects, binary
                    and document['transition_sha_matches_expected_header'] is True
                    and document['transition_bytes'] == 528 and document['relocations_in_transition'] == 0,
                    'standalone and actual linked full-mode transition proof')
-    expected_binary = checks.freeze(base / 'transition-prediction/transition.bin', document['transition_sha256'], 528).read_bytes()
+    expected_binary = checks.freeze(base / 'transition-linked/transition.bin', document['transition_sha256'], 528).read_bytes()
     raw = objects['thor_fullseq_arch.obj']
     symbols, _ = coff_symbols(raw)
     names = {}
@@ -1643,7 +1643,7 @@ def fresh_firmware_guards(checks, args, asset, firmware, output):
             env['THOR_FULLSEQ_HANDOFF_PROJECT_ROOT'] = str(checks.root)
             env['THOR_FULLSEQ_HANDOFF_ASSET'] = str(rooted(checks.root, args.asset_manifest))
             env['THOR_FULLSEQ_HANDOFF_BINDING'] = str(Path(firmware['release_path']).parent / 'binding/fullseq-binding.json')
-            env['THOR_FULLSEQ_HANDOFF_TRANSITION'] = str(Path(firmware['release_path']).parent / 'transition-prediction/transition.bin')
+            env['THOR_FULLSEQ_HANDOFF_TRANSITION'] = str(Path(firmware['release_path']).parent / 'transition-linked/transition.bin')
         log = run_command(checks, [sys.executable, '-B', suite], directory / 'execution.log', cwd=source, env=env)
         checks.require(re.search(r'Ran\s+' + str(count) + r'\s+tests?\b', log.read_text()) is not None
                        and re.search(r'(?m)^OK\s*$', log.read_text()) is not None,
