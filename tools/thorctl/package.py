@@ -86,6 +86,18 @@ def main(argv=None):
             approved["fd"]["sha256"] == fd_pin and not approved["failures"],
             "Independent FD audit")
     layout = json.loads((kernel_path.parent / "kernel-layout.json").read_text())
+    if frozen["_validated_packaging_profile"] == "MEM05":
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mem05_geometry", work / "scripts/bind-thor-mem05-kernel.py")
+        geometry = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(geometry)
+        actual = geometry.geometry(kernel)
+        for key in ("kernel_sha256", "kernel_bytes", "loaded_span_bytes", "loaded_span_sha256",
+                    "segment_count", "entry_offset", "vectors_offset", "entry_sync_offset", "entry_sync_bytes"):
+            require(layout[key] == actual[key], "Actual MEM05 Mach-O geometry: " + key)
+        for key in ("virtual_base", "virtual_end"):
+            require(key not in layout or layout[key] == actual[key], "Optional MEM05 VA field: " + key)
+            layout.setdefault(key, actual[key])
     require(layout["kernel_sha256"] == kernel_pin and
             layout["loaded_span_bytes"] == frozen["loaded_span_bytes"] and
             layout["virtual_end"] - layout["virtual_base"] ==
