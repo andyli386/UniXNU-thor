@@ -336,6 +336,7 @@ def inspect_asset(root, manifest_path):
     manifest_path = rooted(root, manifest_path)
     document = json.loads(manifest_path.read_text())
     require(document.get('schema') == 'thor-fullseq01-full-kernel-asset-manifest-v1', 'actual FULLSEQ01 asset manifest')
+    require(document.get('raw_kernel_path') == document.get('raw_path'), 'explicit raw-kernel role is the same selected raw path')
     paths = {role: rooted(root, document[key]) for role, key in
              (('raw', 'raw_path'), ('compressed', 'compressed_path'), ('header', 'header_path'))}
     raw, body, header = [paths[role].read_bytes() for role in ('raw', 'compressed', 'header')]
@@ -358,6 +359,7 @@ def inspect_asset(root, manifest_path):
     canonical = dict(schema='thor-fullseq01-validated-full-kernel-v1',
                      manifest_path=str(manifest_path.relative_to(root)), manifest_sha256=hash_file(manifest_path),
                      raw_path=str(paths['raw'].relative_to(root)), compressed_path=str(paths['compressed'].relative_to(root)),
+                     raw_kernel_path=str(paths['raw'].relative_to(root)),
                      header_path=str(paths['header'].relative_to(root)), header_sha256=sha(header), **inner,
                      loaded_span_sha256=geometry['loaded_span_sha256'],
                      segment_record_count=geometry['segment_record_count'], scratch_bytes=13376,
