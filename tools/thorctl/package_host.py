@@ -135,6 +135,11 @@ MEM05_NONBUILD_FILES = {
 }
 MEM06_NONBUILD_FILES = {"scripts/audit-thor-mem06-linked.py", "tests/test_thor_mem06_policy.py"}
 ARTIFACT_PROFILES = {
+    "thor-mem07-build-manifest-v1": {
+        "tag": "MEM07", "allowed": {"scripts/audit-thor-mem07-linked.py", "tests/test_thor_mem07_startup.py", "tests/test_thor_mem07_render.py"},
+        "proof": "mem07-native-kprintf-machinecode-final.json", "lock_key": "mem07_machinecheck_sha256",
+        "proof_schema": "thor-mem07-native-kprintf-machinecode-v1", "proof_result": "PASS_MEM07_NATIVE_ARM_INIT_KPRINTF_STARTUP",
+    },
     "thor-mem06-build-manifest-v1": {
         "tag": "MEM06", "allowed": MEM06_NONBUILD_FILES,
         "proof": "mem06-grid-globals-machinecode-final.json", "lock_key": "mem06_machinecheck_sha256",
@@ -161,6 +166,11 @@ ARTIFACT_PROFILES = {
     },
 }
 RELEASE_PROFILES = {
+    "thor-mem07-native-startup-and-loader-probe-v1": {
+        "tag": "MEM07", "prefix": "mem07", "proof_schema": "thor-mem07-native-startup-loader-host-proof-v1",
+        "proof_result": "PASS_MEM07_NATIVE_STARTUP_AND_LOADER_PROBE_BINDING",
+        "ui_schema": "thor-mem07-UEFI-HUD-grid-linked-proof-v1", "ui_result": "PASS_LINKED_MEM07_AND_RESERVED_GOP_Y0_319",
+    },
     "thor-mem06-readable-grid-and-native-globals-v1": {
         "tag": "MEM06", "prefix": "mem06", "proof_schema": "thor-mem06-readable-grid-host-proof-v1",
         "proof_result": "PASS_MEM06_READABLE_GRID_AND_NATIVE_GLOBALS_BINDING",
@@ -244,12 +254,12 @@ def validate_mem03_artifact(root, candidate):
                 sha(candidate / file), "Pinned build proof: " + file)
     require(lock.get("L2_linked_and_audited") is True,
             "Artifact must be linked and audited")
-    if profile["tag"] in ("MEM05", "MEM06"):
+    if profile["tag"] in ("MEM05", "MEM06", "MEM07"):
         linked = json.loads((candidate / profile["proof"]).read_text())
         require(linked.get("schema") == profile["proof_schema"] and
                 linked.get("result") == profile["proof_result"] and
                 linked.get("kernel_sha256") == lock["kernel_sha256"] and
-                lock.get("frontier") == build.get("frontier") == ("vm-return-and-native-debug-global-map" if profile["tag"] == "MEM06" else "early-vm-return"),
+                lock.get("frontier") == build.get("frontier") == ({"MEM05": "early-vm-return", "MEM06": "vm-return-and-native-debug-global-map", "MEM07": "native-arm-init-kprintf-startup"}[profile["tag"]]),
                 "MEM05 exact native early VM return proof")
         checkpoints = linked.get("checkpoint_contract", {})
         require(exact_stage_list(checkpoints.get("compiled_stage_prefix"), list(range(16)))
@@ -268,6 +278,23 @@ def validate_mem03_artifact(root, candidate):
                 and lock.get("pmap_bootstrap_executed") is False
                 and lock.get("phone_actions") == linked.get("phone_actions") == 0,
                 "MEM05 compiled progress is not hardware qualification")
+    if profile["tag"] == "MEM07":
+        require(all(item.get("native_arm_init_kprintf_startup_compiled") is True and
+                    item.get("bounded_after_native_KPRINTF_startup") is True
+                    for item in (lock, build, linked)), "MEM07 natural startup and bounded stop required")
+        require(linked.get("native_pmap_map_globals_call_compiled") is False and
+                linked.get("normal_machine_init_reached") is False,
+                "MEM07 removes early global-map call and stops before natural machine_init")
+        guards_path = candidate / "mem07-native-startup-guards.json"
+        guards = json.loads(guards_path.read_text())
+        require(sha(guards_path) == lock.get("native_startup_guards_sha256") == build.get("native_startup_guards_sha256")
+                and guards.get("schema") == "thor-mem07-production-C-startup-guards-v1"
+                and guards.get("result") == "PASS_NATIVE_READONLY_GUARDS_WITH_FAULTS" and guards.get("phone_actions") == 0,
+                "MEM07 actual native C guard execution proof identity")
+        require(set(guards.get("source_sha256", {})) == {"osfmk/kern/startup.c", "pexpert/arm/pe_serial.c", "pexpert/arm/pe_kprintf.c"},
+                "MEM07 complete native startup source set")
+        for relative, digest in guards["source_sha256"].items():
+            require(sha(tree / ".cache/xnu-work" / relative) == digest, "MEM07 executed native C guard source: " + relative)
     if profile["tag"] == "MEM06":
         for key in ("native_pmap_map_globals_call_compiled", "bounded_after_global_map"):
             require(lock.get(key) is True and build.get(key) is True and linked.get(key) is True, "MEM06 exact native global-map contract: " + key)
@@ -353,8 +380,8 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
             lock["machinecheck_sha256"] and proof["pe_sha256"] == ui["pe_sha256"],
             "MEM03 UEFI/XNU/PE proof identity")
     transition = "29ee4adbbb30fe06bcebf9f9af9723f98698c6170636b2bb24e52a7a17fe9d24"
-    if prefix in ("mem04", "mem05", "mem06"):
-        validator = {"mem04": validate_mem04_transition_binding, "mem05": validate_mem05_transition_binding, "mem06": validate_mem06_transition_binding}[prefix]
+    if prefix in ("mem04", "mem05", "mem06", "mem07"):
+        validator = {"mem04": validate_mem04_transition_binding, "mem05": validate_mem05_transition_binding, "mem06": validate_mem06_transition_binding, "mem07": validate_mem07_transition_binding}[prefix]
         transition = validator(root, work, receipt_path, receipt, proof, lock)
     require(receipt["linked_transition_sha256"] ==
             proof["transition"]["sha256"] == transition and
@@ -386,7 +413,10 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
     require(isinstance(tests, dict) and
             all(type(value) is int and value > 0 for value in tests.values()),
             profile["tag"] + " source regression counts")
-    if prefix in ("mem04", "mem05", "mem06"):
+    if prefix == "mem07":
+        require(tests == dict(expected, mem07=12, mem07_loader=29, mem07_canary=14, mem07_stack=10), "MEM07 retains34 FDT plus12 renderer,29 loader and24 hardware-adapter cases")
+        validate_mem07_loader_proof(work, receipt_path, receipt, proof)
+    elif prefix in ("mem04", "mem05", "mem06"):
         require(tests == dict(expected, **{prefix: 11}),
                 "MEM04 retains baseline and eleven renderer regressions")
     else:
@@ -422,9 +452,9 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
             ui.get("never_calls_GOP_after_EBS") is True and
             ui.get("last_fullscreen_clear_followed_by_five_FDT_rows") is True,
             "MEM03 diagnostic/ownership boundary")
-    if prefix in ("mem04", "mem05", "mem06"):
+    if prefix in ("mem04", "mem05", "mem06", "mem07"):
         require(lock.get("native_pmap_bootstrap_call_compiled") is True and
-                lock.get("bounded_after_native_VM_return" if prefix in ("mem05", "mem06") else "bounded_after_pmap_return") is True,
+                lock.get("bounded_after_native_VM_return" if prefix in ("mem05", "mem06", "mem07") else "bounded_after_pmap_return") is True,
                 "Release requires the matching bounded native frontier")
         render_path = receipt_path.parent / "stage-render-audit.json"
         require(receipt.get("stage_render_audit_sha256") == sha(render_path),
@@ -449,16 +479,16 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
         require(sha(linked_path) == lock[prefix + "_machinecheck_sha256"],
                 "MEM04 release numbered checkpoint proof identity")
         linked = json.loads(linked_path.read_text())
-        require(exact_stage_list(checkpoints.get("compiled_stage_prefix"), list(range(16 if prefix in ("mem05", "mem06") else 14)))
-                and exact_stage_list(checkpoints.get("reserved_slots"), [] if prefix in ("mem05", "mem06") else [14, 15])
+        require(exact_stage_list(checkpoints.get("compiled_stage_prefix"), list(range(16 if prefix in ("mem05", "mem06", "mem07") else 14)))
+                and exact_stage_list(checkpoints.get("reserved_slots"), [] if prefix in ("mem05", "mem06", "mem07") else [14, 15])
                 and type(checkpoints.get("number_base")) is int
                 and checkpoints["number_base"] == 16
                 and checkpoints == linked.get("checkpoint_contract")
                 and ui.get("native_pmap_bootstrap_call_compiled") is True
-                and ui.get("bounded_after_native_VM_return" if prefix in ("mem05", "mem06") else "bounded_after_pmap_return") is True,
-                "Linked numbered stages match the exact bounded native frontier" if prefix in ("mem05", "mem06")
+                and ui.get("bounded_after_native_VM_return" if prefix in ("mem05", "mem06", "mem07") else "bounded_after_pmap_return") is True,
+                "Linked numbered stages match the exact bounded native frontier" if prefix in ("mem05", "mem06", "mem07")
                 else "MEM04 linked numbered proof requires fourteen bounded stages")
-        if prefix in ("mem05", "mem06"):
+        if prefix in ("mem05", "mem06", "mem07"):
             require(ui.get("native_arm_vm_init_return_compiled") is True,
                     "MEM05 UI identifies compiled early VM return")
     return receipt, audit
@@ -817,3 +847,188 @@ def validate_mem06_transition_binding(root, work, receipt_path, receipt, uefi_pr
     require(bytes(int(x, 16) for x in re.findall(r"0x([0-9a-fA-F]{1,2})", match.group(1))).hex() == MEM06_TRANSITION_PIN,
             "MEM06 expected header pins actual independently checked transition")
     return MEM06_TRANSITION_PIN
+
+MEM07_TRANSITION_PIN = "de0b5fd081759dde1f579f7741c2a6cab40feea95285e5c9eaee9832a87da195"
+MEM07_CHANGED_OFFSETS = []
+
+def validate_mem07_transition_words(old, new, layout):
+    """Constrain only the actual MEM06-to-MEM07 owned-layout immediate change."""
+    import struct
+    require(len(old) == len(new) == 500, "MEM07 transition raw length")
+    require(sha_bytes(old) == MEM06_TRANSITION_PIN and sha_bytes(new) == MEM07_TRANSITION_PIN,
+            "MEM07 exact independently reviewed old/new transition bytes")
+    changed = [offset for offset in range(0, 500, 4) if old[offset:offset+4] != new[offset:offset+4]]
+    require(changed == MEM07_CHANGED_OFFSETS, "Only transition/BootArgs/stack-top immediate words changed")
+    for offset in changed:
+        before, after = struct.unpack_from("<I", old, offset)[0], struct.unpack_from("<I", new, offset)[0]
+        require(before & ~(0xffff << 5) == after & ~(0xffff << 5),
+                "MEM07 transition opcodes/registers/branches unchanged")
+    def pair(code, offset, register):
+        first, second = struct.unpack_from("<II", code, offset)
+        require(first & 0x7f80001f == 0x52800000 | register and
+                second & 0x7f80001f == 0x72800000 | register and
+                (first >> 21) & 3 == 0 and (second >> 21) & 3 == 1 and first >> 31 == second >> 31,
+                "MEM07 actual MOVZ/MOVK width, register and shifts")
+        return ((first >> 5) & 0xffff) | (((second >> 5) & 0xffff) << 16)
+    expected = {"transition": (76, 9, layout["loaded_span_bytes"] + 0x4000),
+                "args": (96, 8, layout["loaded_span_bytes"]),
+                "entry": (116, 8, layout["entry_offset"]),
+                "vector": (136, 8, layout["vectors_offset"]),
+                "stack_top": (156, 8, layout["loaded_span_bytes"] + 0x3c000)}
+    prior_span = 20201472
+    prior = {"transition": prior_span + 0x4000, "args": prior_span,
+             "entry": 0x400488, "vector": 0x401000, "stack_top": prior_span + 0x3c000}
+    values = {}
+    for name, (offset, register, value) in expected.items():
+        require(type(value) is int and 0 < value < 0x4000000 and
+                pair(new, offset, register) == value and pair(old, offset, register) == prior[name],
+                "MEM07 encoded " + name + " matches actual Mach-O and unchanged owned offsets")
+        values["old_decoded_" + name + "_offset"] = prior[name]
+        values["new_decoded_" + name + "_offset"] = value
+    return values
+
+
+def validate_mem07_transition_binding(root, work, receipt_path, receipt, uefi_proof, lock):
+    folder = receipt_path.parent / "postlink-transition"
+    path = folder / "mem07-transition-binding.json"
+    require(path.is_file() and receipt.get("transition_binding_audit_sha256") ==
+            uefi_proof.get("transition_binding_audit_sha256") == sha(path),
+            "MEM07 owned-layout transition proof identity")
+    proof = json.loads(path.read_text())
+    require(proof.get("schema") == "thor-mem07-transition-owned-layout-immediate-proof-v1" and
+            proof.get("result") == "PASS_ACTUAL_OWNED_LAYOUT_AND_TRANSITION_UNCHANGED" and
+            proof.get("changed_instruction_word_offsets") == MEM07_CHANGED_OFFSETS and
+            proof.get("unchanged_bytes") == 500 - 4 * len(MEM07_CHANGED_OFFSETS) and proof.get("code_bytes") == 500 and
+            proof.get("relocations") == 0 and proof.get("opcode_register_branches_unchanged") is True and
+            proof.get("phone_actions") == 0, "MEM07 exact layout-only transition contract")
+    old_path, new_path = folder / "old-transition.bin", folder / "new-transition.bin"
+    require(proof.get("old_code_sha256") == sha(old_path) == MEM06_TRANSITION_PIN and
+            proof.get("new_code_sha256") == sha(new_path) == MEM07_TRANSITION_PIN,
+            "MEM07 immutable raw transition inputs")
+    candidate = rooted(root, Path(lock["_validated_candidate_directory"]))
+    layout_path = candidate / "kernel-layout.json"
+    layout = json.loads(layout_path.read_text())
+    require(proof.get("kernel_layout_sha256") == sha(layout_path) and
+            proof.get("kernel_sha256") == layout["kernel_sha256"] == lock["kernel_sha256"],
+            "MEM07 transition belongs to exact frozen kernel layout")
+    decoded = validate_mem07_transition_words(old_path.read_bytes(), new_path.read_bytes(), layout)
+    require(all(proof.get(k) == v for k, v in decoded.items()), "MEM07 decoded owned layout agrees with proof")
+    adt = work / "Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe"
+    require(proof.get("unchanged_assembly_source_sha256") == sha(adt / "thor_entry06_arch.S") and
+            proof.get("new_expected_header_sha256") == sha(adt / "ThorEntry06TransitionExpected.h"),
+            "MEM07 exact unchanged assembly and newly bound expected header")
+    import re
+    text = (adt / "ThorEntry06TransitionExpected.h").read_text()
+    match = re.search(r"mEntry06TransitionSha256\[32\]\s*=\s*\{([^}]+)\}", text)
+    require(match and re.search(r"#define\s+THOR_ENTRY06_TRANSITION_BYTES\s+500u", text),
+            "MEM07 complete expected transition header")
+    require(bytes(int(x, 16) for x in re.findall(r"0x([0-9a-fA-F]{1,2})", match.group(1))).hex() == MEM07_TRANSITION_PIN,
+            "MEM07 expected header pins actual independently checked transition")
+    return MEM07_TRANSITION_PIN
+
+
+def validate_mem07_loader_proof(work, receipt_path, receipt, uefi_proof):
+    """New loader proof is bound to actual production sources and execution log."""
+    path = receipt_path.parent / "loader-memory-probe-audit.json"
+    require(path.is_file(), "MEM07 complete production loader probe audit")
+    require(sha(path) == receipt.get("loader_memory_probe_audit_sha256") ==
+            uefi_proof.get("loader_memory_probe_audit_sha256"), "MEM07 loader proof immutable identity")
+    document = json.loads(path.read_text())
+    require(document.get("schema") == "thor-mem07-production-loader-probe-audit-v1" and
+            document.get("result") == "PASS_PRODUCTION_LOADER_PROBE_AND_BORROWED_SOURCE_GUARDS",
+            "MEM07 actual production loader proof schema/result")
+    require(document.get("phone_actions") == 0 and document.get("temporary_probe_bytes") == 0x7000000
+            and document.get("probe_pages") == 28672 and document.get("persistent_grant_bytes") == 0x4000000,
+            "MEM07 probe is temporary112MiB, final XNU remains64MiB")
+    for relative, digest in document["source_files_sha256"].items():
+        require(sha(rooted(work, Path(relative))) == digest, "MEM07 production probe source: " + relative)
+    validate_mem07_native_loader_outputs(work, receipt_path.parent, receipt, document)
+    return document
+
+
+def archive_member_bytes(data,basename):
+    """Read a unique GNU/BSD/MSVC COFF ar member without executing an archiver."""
+    require(data.startswith(b'!<arch>\n'),'self-contained standard ar archive required')
+    cursor=8;members=[];names=b''
+    while cursor<len(data):
+        require(cursor+60<=len(data),'complete archive member header')
+        header=data[cursor:cursor+60];require(header[58:60]==b'`\n','archive header magic')
+        field=header[:16].decode('ascii').strip();size_text=header[48:58].decode('ascii').strip()
+        require(size_text.isdecimal(),'decimal archive member size')
+        size=int(size_text);cursor+=60
+        require(size<=len(data)-cursor,'archive member inside file')
+        payload=data[cursor:cursor+size];cursor+=size+(size&1)
+        require(cursor<=len(data),'archive odd member padding present')
+        if field=='//':
+            require(not names,'unique archive long-name table');names=payload
+        else:members.append((field,payload))
+    require(cursor==len(data),'archive exact end')
+    selected=[]
+    for field,payload in members:
+        if field in {'/','/SYM64/'}:continue
+        if field.startswith('#1/'):
+            length=field[3:];require(length.isdecimal() and int(length)<=len(payload),'BSD inline name bounds')
+            n=int(length);name=payload[:n].rstrip(b'\0').decode();payload=payload[n:]
+        elif field.startswith('/') and field[1:].isdigit():
+            offset=int(field[1:]);require(offset<len(names),'archive long-name offset')
+            endings=[i for i in [names.find(b'\0',offset),names.find(b'\n',offset)] if i>=0]
+            require(endings,'terminated archive long name');name=names[offset:min(endings)].decode().removesuffix('/')
+        else:name=field.removesuffix('/')
+        if name.replace('\\','/').rsplit('/',1)[-1]==basename:selected.append(payload)
+    require(len(selected)==1,'one exact production native object member')
+    return selected[0]
+
+
+def validate_mem07_native_loader_outputs(work,base,receipt,document):
+    import re,struct,tempfile
+    stack_path=base/'native-stack-usage.json'
+    require(sha(stack_path)==document['stack_usage_artifact_sha256'],'native compiler stack report immutable identity')
+    stack=json.loads(stack_path.read_text())
+    require(stack['schema']=='thor-mem07-native-compiler-stack-usage-v1' and
+            stack['result']=='PASS_NEW_NATIVE_FRAMES_WITHIN_EXISTING_STACK_GUARD' and stack['phone_actions']==0,
+            'actual native stack frames measured by compiler')
+    require(stack['source_build_commit']==receipt['uefi_build_source_commit'], 'native stack report actual compiled revision')
+    expected={'ThorMem07Probe':96,'ReadMap':160,'Mem07Canary':432,'RunMem07Probe':208}
+    require(stack['new_function_stack_bytes']==expected and all(0<n<1024 for n in expected.values())
+            and stack['workspace_static_bytes']==20480 and stack['shared_stack_guard_bytes']==16384,
+            'new native frames fit unchanged16KiB stack guard;20KiB workspace stays static')
+    require(document['actual_probe_stack_bytes']==96 and document['workspace_static'] is True
+            and document['reentrant_probe_rejected'] is True,'native probe reentry blocked before report/workspace mutation')
+    require(set(stack['reports'])=={'thor_mem07_loader.su','ThorEntryBdsDxe.su'},'both exact compiler stack artifacts present')
+    all_usage=''
+    for name,item in stack['reports'].items():
+        path=rooted(work,Path(item['compiler_output_relative_path']))
+        require(path.name==name and path.stat().st_size==item['bytes'] and sha(path)==item['sha256'],
+                'same actual native compiler stack output: '+name)
+        require(sha(base/'native-stack-usage'/name)==item['sha256'],'stack report copy equals actual compiler output')
+        all_usage+=path.read_text()+'\n'
+    for name,frame in expected.items():
+        found=re.findall(r'(?m)^.*:'+re.escape(name)+r'\t([0-9]+)\tstatic\s*$',all_usage)
+        require(found==[str(frame)],'independent compiler stack-frame parse: '+name)
+    output=work/'Build/thorEntry09/RELEASE_CLANGPDB/AARCH64/thorPkg/Drivers/ThorEntryBdsDxe/ThorEntryBdsDxe/OUTPUT'
+    library=output/'ThorEntryBdsDxe.lib';raw=archive_member_bytes(library.read_bytes(),'thor_mem07_loader.obj')
+    require(hashlib.sha256(raw).hexdigest()==document['production_probe_object_sha256']==stack['production_probe_object_sha256']
+            and len(raw)>=20 and struct.unpack_from('<H',raw)[0]==0xaa64,
+            'actual ARM64 COFF production probe object belongs to audited linked BDS archive')
+    require(set(document['production_native_symbols'])=={'ThorMem07Probe','ThorMem07CopyExact','ThorMem07BorrowRead'},
+            'all three native production entry points required')
+    command=['xcrun','llvm-nm','--defined-only',str(library)]
+    symbols=subprocess.run(command,capture_output=True,text=True,timeout=60)
+    require(symbols.returncode==0 and all(re.search(r'(?m)^\s*[0-9a-fA-F]+\s+[Tt]\s+'+name+r'\s*$',symbols.stdout)
+            for name in document['production_native_symbols']),'native archive actually defines probe and exact-reader entry points')
+    require(document['existing_stack_policy_shared_header'] is True and document['ArchAt_preserves_PAR_EL1_and_DAIF'] is True
+            and document['firmware_stack_base']==0xa760d000 and document['firmware_stack_end']==0xa764d000
+            and document['guarded_stack_minimum']==0xa7611000,'original shared stack bounds and preserved AT observation state')
+    host=base/'stack-host-execution.json'
+    require(sha(host)==document['stack_host_execution_sha256'],'actual production stack adapter execution proof pinned')
+    frozen=json.loads(host.read_text())
+    require(frozen['schema']=='thor-mem07-production-shared-stack-host-execution-v1' and len(frozen['results'])==10
+            and frozen['phone_actions']==0,'ten actual production wrapper stack-boundary cases')
+    require(frozen['shared_policy_header_sha256']==sha(work/'Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe/thor_entry06_mmu.h'),
+            'executed production wrapper uses actual shared stack policy header')
+    with tempfile.TemporaryDirectory(prefix='mem07-shared-stack-replay-') as temporary:
+        out=Path(temporary)/'stack-host-execution.json';env=os.environ.copy();env['THOR_MEM07_STACK_AUDIT']=str(out)
+        result=subprocess.run([os.sys.executable,'-B',str(work/'Platforms/Xiaomi/thorPkg/Tests/test_mem07_stack.py'),'-q'],
+                              env=env,capture_output=True,text=True,timeout=60)
+        require(result.returncode==0 and 'Ran 10 tests' in result.stderr and out.is_file()
+                and json.loads(out.read_text())==frozen,'fresh production shared-stack wrapper reproduces all ten pinned cases')
