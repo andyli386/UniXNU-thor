@@ -72,14 +72,14 @@ def replay(root,source,original,index,temporary):
     old_source=original_fd
     for _ in suffix.parts:
         old_source=old_source.parent
-    require(old_source.name in {"vm-mem03","vm-mem04","vm-mem05","vm-mem06","vm-mem07","vm-mem08"} and old_source.parent.name=="uefi",
+    require(old_source.name in {"vm-mem03","vm-mem04","vm-mem05","vm-mem06","vm-mem07","vm-mem08","ios-full-seq01"} and old_source.parent.name=="uefi",
             "MEM03 original build source identity")
     old_root=old_source.parents[2]
     actual_fd=source/suffix
     require(actual_fd.is_file() and actual_fd.stat().st_size==original["fd"]["bytes"]
             and digest(actual_fd)==original["fd"]["sha256"],"original audit FD identity matches actual relocated firmware")
     mapper=PublicPathMap(source,old_source,old_root)
-    mapper.candidate_stage=old_source.name.removeprefix("vm-")
+    mapper.candidate_stage="fullseq01" if old_source.name=="ios-full-seq01" else old_source.name.removeprefix("vm-")
     index_info=verify_public_index(index,root,mapper)
     # Every original auditor input is checked before the audit starts; no path
     # search, missing-file fallback, or text rewriting is permitted.
@@ -127,7 +127,7 @@ def verify_public_index(index,root,mapper):
     require(document["schema"]=="thor-"+mapper.candidate_stage+"-public-source-firmware-transfer-v1", "known explicit public transfer index schema")
     require(document["contains_seed"] is False and document["contains_boot_image"] is False
             and document["phone_actions"]==0,"public transfer contains no entropy/boot image")
-    require(document["actual_efi_count"]==20 and document["actual_link_input_libraries"]==(97 if mapper.candidate_stage=="mem08" else 96),
+    require(document["actual_efi_count"]==20 and document["actual_link_input_libraries"]==(97 if mapper.candidate_stage in {"mem08","fullseq01"} else 96),
             "complete public module/library input transfer")
     require(isinstance(document["audited_input_files"],list) and len(document["audited_input_files"])>=300,
             "complete indexed public auditor input set")
