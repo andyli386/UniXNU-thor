@@ -1357,9 +1357,11 @@ def validate_firmware(checks, args, asset, output):
                    and index['phone_actions'] == 0, 'public firmware transfer has no seed, image or hardware action')
     for record in index['audited_input_files']:
         relative = Path(record['relative_path'])
-        checks.require(not relative.is_absolute() and relative.parts[0] == 'uefi-root' and '..' not in relative.parts,
-                       'explicit bounded public archive-relative firmware input')
-        checks.freeze(source / Path(*relative.parts[1:]), record['sha256'], record['bytes'])
+        destination = source / Path(*relative.parts[1:])
+        checks.require(not relative.is_absolute() and relative.parts[0] == 'uefi-root'
+                       and destination.resolve().is_relative_to(source.resolve()),
+                       'explicit public archive input resolves strictly inside actual firmware source')
+        checks.freeze(destination, record['sha256'], record['bytes'])
     for name in ('firmware_audit_replay.py', 'firmware_audit.py', 'firmware_parse_volumes.py'):
         checks.freeze(Path(__file__).with_name(name))
     adapter = load_module('fullseq_complete_firmware_replay', Path(__file__).with_name('firmware_audit_replay.py'))
