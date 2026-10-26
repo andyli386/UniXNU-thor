@@ -12,7 +12,8 @@ import struct
 import subprocess
 import tomllib
 from package_host import (load_tools, package_commands, private_output,
-                          private_seed, require, rooted, seed_source)
+                          private_seed, require, rooted, seed_source,
+                          validate_mem03_artifact, validate_mem03_release)
 
 
 def digest(data):
@@ -57,8 +58,16 @@ def main(argv=None):
     require(not out.exists(), "Refuse to reuse or overwrite an existing attempt")
     seed_source(os.sys.platform)
     config = tomllib.loads((root / "thor-build.toml").read_text())
-    frozen = json.loads((kernel_path.parent / "build-manifest.json").read_text())
-    receipt = json.loads(receipt_path.read_text())
+    frozen, build, layout = validate_mem03_artifact(root, kernel_path.parent)
+    kernel_metadata = {
+        "kernel_source_revision": frozen["xnu_commit"],
+        "kernel_build_source_revision": frozen["build_source_commit"],
+        "kernel_artifact_manifest_sha256": digest(
+            (kernel_path.parent / "manifest.json").read_bytes()),
+        "kernel_build_manifest_sha256": digest(
+            (kernel_path.parent / "build-manifest.json").read_bytes())}
+    receipt, approved = validate_mem03_release(
+        root, work, receipt_path, audit_path, frozen)
     kernel_pin, fd_pin = frozen["kernel_sha256"], receipt["uefi_fd_sha256"]
     source_pin = receipt["uefi_commit"]
     adt = work / "Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe"
@@ -117,6 +126,7 @@ def main(argv=None):
     if args.dry_run:
         print(json.dumps({"result": "PASS_NO_ARTIFACT_CREATED",
                           "kernel_sha256": kernel_pin, "fd_sha256": fd_pin,
+                          **kernel_metadata,
                           "uefi_commit": source_pin, "out": str(out),
                           "seed_source": seed_source(os.sys.platform),
                           "package_tools": tools_meta, "phone_actions": 0}, indent=2))
@@ -137,7 +147,7 @@ def main(argv=None):
             "schema": "thor-one-use-image-v2", "created_at": now(),
             "state": "packaged-awaiting-independent-offline-review",
             "stage": "THOR_PROFILED_ONE_USE_CANDIDATE",
-            "kernel_sha256": kernel_pin, "kernel_source_revision": frozen["xnu_commit"],
+            "kernel_sha256": kernel_pin, **kernel_metadata,
             "uefi_commit": source_pin, "fd_sha256": fd_pin,
             "fd_audit_sha256": digest(audit_path.read_bytes()),
             "bundle_sha256": digest(bundle), "bundle_bytes": len(bundle),

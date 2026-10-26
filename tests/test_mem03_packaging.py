@@ -190,11 +190,36 @@ class PreflightOrderTests(unittest.TestCase):
         (self.root / "firmware.fd").write_bytes(fd)
         build = {"kernel_sha256": self.kernel_pin, "kernel_bytes": len(kernel),
                  "loaded_span_bytes": 4096, "xnu_commit": "xnu-test"}
-        layout = {"kernel_sha256": self.kernel_pin, "loaded_span_bytes": 4096,
+        layout = {"kernel_sha256": self.kernel_pin, "kernel_bytes": len(kernel),
+                  "loaded_span_bytes": 4096,
                   "virtual_base": 4096, "virtual_end": 8192, "segment_count": 10,
                   "loaded_span_sha256": "loaded-span-test"}
         (self.candidate / "build-manifest.json").write_text(json.dumps(build))
         (self.candidate / "kernel-layout.json").write_text(json.dumps(layout))
+        proof_bytes = b"unit-proof"
+        for name in ("machinecode.json", "mem03-fb-contract-machinecode-final.json"):
+            (self.candidate / name).write_bytes(proof_bytes)
+        (self.root / "xnu-source").mkdir()
+        build.pop("xnu_commit")
+        build.update(schema="thor-mem03-build-manifest-v1",
+                     final_HEAD="a" * 40, actual_build_source_commit="a" * 40,
+                     tree=str(self.root / "xnu-source"), working_tree_clean=True,
+                     compiled_source_content_equivalent_to_final_HEAD=True,
+                     post_build_changes=[], loaded_span_sha256="loaded-span-test",
+                     layout_sha256=host.sha(self.candidate / "kernel-layout.json"),
+                     machinecode_sha256=digest(proof_bytes),
+                     coverage_machinecode_sha256=digest(proof_bytes))
+        (self.candidate / "build-manifest.json").write_text(json.dumps(build))
+        lock = {"schema": "thor-artifact-lock-v2",
+                "xnu_commit": "a" * 40, "build_source_commit": "a" * 40,
+                "audit_and_test_commit": "a" * 40,
+                "compiled_source_content_equivalent_to_final_HEAD": True,
+                "post_build_changes": [], "L2_linked_and_audited": True,
+                "kernel_sha256": self.kernel_pin, "kernel_bytes": len(kernel),
+                "loaded_span_bytes": 4096, "loaded_span_sha256": "loaded-span-test",
+                "machinecheck_sha256": digest(proof_bytes),
+                "mem03_coverage_machinecheck_sha256": digest(proof_bytes)}
+        (self.candidate / "manifest.json").write_text(json.dumps(lock))
         prefix = pack.struct.pack("<16sIIQ32s", b"THOR-PAYLOAD09\0\0", 2, 128,
                                   len(kernel), bytes.fromhex(self.kernel_pin))
         provenance = {"kernel_sha256": self.kernel_pin,
@@ -229,16 +254,23 @@ class PreflightOrderTests(unittest.TestCase):
                      "--run-id", "thor-test-package"]
         self.out = self.root / "runs/thor-test-package/l2/package"
 
-    def run_main(self, extra=(), entropy_error=None, git_outputs=None):
+    def run_main(self, extra=(), entropy_error=None, git_outputs=None,
+                 real_release_validation=False):
         tools = (Path("/pinned/python"), {}, {"scripts": {}})
         output = io.StringIO()
-        with mock.patch.object(pack.subprocess, "check_output",
-                               side_effect=git_outputs or ["uefi-test", ""]):
-            with mock.patch.object(pack, "load_tools", return_value=tools):
-                with mock.patch.object(pack, "private_seed",
-                                       side_effect=entropy_error) as rng:
-                    with contextlib.redirect_stdout(output):
-                        pack.main(self.argv + list(extra))
+        release = json.loads((self.root / "release.json").read_text())
+        release_context = (contextlib.nullcontext() if real_release_validation else
+                           mock.patch.object(pack, "validate_mem03_release",
+                                             return_value=(release, {})))
+        with release_context:
+            with mock.patch.object(pack.subprocess, "check_output",
+                                   side_effect=git_outputs or ["a" * 40, "", "", "uefi-test", ""]):
+                with mock.patch.object(pack, "load_tools", return_value=tools):
+                    with mock.patch.object(pack, "private_seed",
+                                           side_effect=entropy_error) as rng:
+                        self.last_rng = rng
+                        with contextlib.redirect_stdout(output):
+                            pack.main(self.argv + list(extra))
         return output.getvalue(), rng
 
     def test_dry_run_creates_nothing_and_never_requests_entropy(self):
@@ -262,12 +294,132 @@ class PreflightOrderTests(unittest.TestCase):
 
     def test_wrong_source_revision_fails_before_output(self):
         with self.assertRaisesRegex(RuntimeError, "source revision"):
-            self.run_main(["--dry-run"], git_outputs=["wrong"])
+            self.run_main(["--dry-run"], git_outputs=["a" * 40, "", "", "wrong"])
         self.assertFalse(self.out.exists())
 
     def test_dirty_source_fails_before_output(self):
         with self.assertRaisesRegex(RuntimeError, "source unclean"):
-            self.run_main(["--dry-run"], git_outputs=["uefi-test", " M file"])
+            self.run_main(["--dry-run"], git_outputs=["a" * 40, "", "", "uefi-test", " M file"])
+        self.assertFalse(self.out.exists())
+
+    def mutate_json(self, name, action):
+        path = self.candidate / name
+        value = json.loads(path.read_text())
+        action(value)
+        path.write_text(json.dumps(value))
+
+    def test_real_schema_build_record_needs_no_fake_xnu_commit(self):
+        build = json.loads((self.candidate / "build-manifest.json").read_text())
+        self.assertNotIn("xnu_commit", build)
+        output, rng = self.run_main(["--dry-run"])
+        self.assertEqual(json.loads(output)["result"], "PASS_NO_ARTIFACT_CREATED")
+        rng.assert_not_called()
+
+    def test_missing_artifact_revision_rejected_in_both_modes_before_output(self):
+        self.mutate_json("manifest.json", lambda data: data.pop("xnu_commit"))
+        for extra in (["--dry-run"], []):
+            with self.assertRaisesRegex(RuntimeError, "source revision fields"):
+                self.run_main(extra)
+            self.assertFalse(self.out.exists())
+
+    def test_missing_build_source_commit_rejected_before_output(self):
+        self.mutate_json("build-manifest.json",
+                         lambda data: data.pop("actual_build_source_commit"))
+        with self.assertRaisesRegex(RuntimeError, "build and audit source"):
+            self.run_main()
+        self.assertFalse(self.out.exists())
+
+    def test_mismatched_artifact_layout_rejected_before_output(self):
+        self.mutate_json("manifest.json",
+                         lambda data: data.update(loaded_span_bytes=8192))
+        with self.assertRaisesRegex(RuntimeError, "agreement"):
+            self.run_main(["--dry-run"])
+        self.assertFalse(self.out.exists())
+
+    def test_wrong_build_schema_rejected_before_output(self):
+        self.mutate_json("build-manifest.json",
+                         lambda data: data.update(schema="unrelated-schema"))
+        with self.assertRaisesRegex(RuntimeError, "build manifest schema"):
+            self.run_main()
+        self.assertFalse(self.out.exists())
+
+    def test_compile_file_cannot_claim_postbuild_equivalence(self):
+        self.mutate_json("manifest.json",
+                         lambda data: data.update(post_build_changes=["kernel.c"]))
+        self.mutate_json("build-manifest.json",
+                         lambda data: data.update(post_build_changes=["kernel.c"]))
+        with self.assertRaisesRegex(RuntimeError, "audit/test files"):
+            self.run_main()
+        self.assertFalse(self.out.exists())
+
+    def test_live_source_difference_must_match_the_frozen_record(self):
+        with self.assertRaisesRegex(RuntimeError, "source equivalence"):
+            self.run_main(["--dry-run"],
+                          git_outputs=["a" * 40, "", "unrecorded.c"])
+        self.assertFalse(self.out.exists())
+
+    @mock.patch.object(pack, "validate_mem03_release")
+    def test_both_written_manifests_include_verified_source_metadata(self, release_stub):
+        release_stub.return_value = (
+            json.loads((self.root / "release.json").read_text()), {})
+        # Dummy tools and mocked bytes: this cannot produce a real boot image.
+        def dummy_tool(command, **kwargs):
+            unpacked = self.out / "unpacked"
+            unpacked.mkdir(exist_ok=True)
+            (unpacked / "kernel").write_bytes(
+                (self.out / "kernel.gz-dtb").read_bytes())
+            (unpacked / "ramdisk").write_bytes(
+                (self.out / "kernel-bundle.bin").read_bytes())
+            (self.out / "thor-boot.img").write_bytes(
+                b"INVALID-UNIT-TEST-IMAGE-NOT-FOR-PHONE")
+            return subprocess.CompletedProcess(command, 0, "", "")
+        tools = (Path("/pinned/python"), {}, {"scripts": {}})
+        with mock.patch.object(pack.subprocess, "check_output",
+                               side_effect=["a" * 40, "", "", "uefi-test", ""]):
+            with mock.patch.object(pack, "load_tools", return_value=tools):
+                with mock.patch.object(pack, "private_seed",
+                                       return_value=(b"U" * 64, "darwin-os.urandom")):
+                    with mock.patch.object(pack, "package_commands",
+                                           return_value=[["dummy"]] * 3):
+                        with mock.patch.object(pack.subprocess, "run",
+                                               side_effect=dummy_tool):
+                            with contextlib.redirect_stdout(io.StringIO()):
+                                pack.main(self.argv)
+        for name in ("payload-contract.json", "manifest.json"):
+            result = json.loads((self.out / name).read_text())
+            self.assertEqual(result["kernel_source_revision"], "a" * 40)
+            self.assertEqual(result["kernel_build_source_revision"], "a" * 40)
+            self.assertEqual(result["kernel_artifact_manifest_sha256"],
+                             host.sha(self.candidate / "manifest.json"))
+            self.assertEqual(result["kernel_build_manifest_sha256"],
+                             host.sha(self.candidate / "build-manifest.json"))
+        self.assertEqual((self.out / "thor-boot.img").read_bytes(),
+                         b"INVALID-UNIT-TEST-IMAGE-NOT-FOR-PHONE")
+
+    def test_release_missing_fields_rejected_before_entropy_in_both_modes(self):
+        for extra in (["--dry-run"], []):
+            with self.assertRaisesRegex(RuntimeError, "Required MEM03 firmware"):
+                self.run_main(extra, real_release_validation=True)
+            self.last_rng.assert_not_called()
+            self.assertFalse(self.out.exists())
+
+    def test_wrong_audit_hash_rejected_before_entropy(self):
+        fields = ("schema uefi_commit uefi_fd_sha256 uefi_fd_bytes kernel_sha256 "
+                  "kernel_bytes kernel_source_commit loaded_span_bytes "
+                  "firmware_audit_sha256 firmware_audit_result linked_transition_sha256 "
+                  "actual_kernel_binding_sha256 new_ui_source_sha256 new_bds_source_sha256 "
+                  "unchanged_fdt_validator_sha256 unchanged_memorymap_source_sha256 "
+                  "new_ui_layout_audit_sha256 mem03_uefi_proof_sha256").split()
+        receipt = dict.fromkeys(fields, "unit-test")
+        receipt.update(schema="thor-mem03-fdt-detail-and-xnu-fb-coverage-v1",
+                       board="thor", kernel_sha256=self.kernel_pin,
+                       kernel_bytes=len(b"unit-test-kernel"),
+                       kernel_source_commit="a" * 40, loaded_span_bytes=4096,
+                       firmware_audit_sha256="0" * 64)
+        (self.root / "release.json").write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(RuntimeError, "firmware audit identity"):
+            self.run_main(real_release_validation=True)
+        self.last_rng.assert_not_called()
         self.assertFalse(self.out.exists())
 
 
