@@ -10,6 +10,7 @@ import importlib.util
 import io
 import json
 import hashlib
+import posixpath
 from pathlib import Path
 
 
@@ -135,13 +136,17 @@ def verify_public_index(index,root,mapper):
     for item in document["audited_input_files"]:
         require(item["archive"] in {mapper.candidate_stage+"-uefi-main",mapper.candidate_stage+"-uefi-link-inputs"},"declared public archive name")
         relative=Path(item["relative_path"])
-        require(not relative.is_absolute() and relative.parts[0]=="uefi-root" and ".." not in relative.parts,
-                "bounded explicit archive-relative input")
+        require(not relative.is_absolute() and relative.parts and relative.parts[0]=="uefi-root",
+                "explicit archive-relative source prefix")
+        destination=(mapper.source/Path(*relative.parts[1:])).resolve()
+        require(destination.is_relative_to(mapper.source.resolve()),
+                "resolved public input remains inside source")
         origin=Path(item["origin_path"])
-        require(origin.is_absolute() and origin.is_relative_to(mapper.original_source)
-                and str(origin) not in origins,"unique original public source input")
-        destination=mapper.source/Path(*relative.parts[1:])
-        require(mapper(origin)==destination,"public index origin and overlay destination agree exactly")
+        normalized_origin=Path(posixpath.normpath(str(origin)))
+        normalized_source=Path(posixpath.normpath(str(mapper.original_source)))
+        require(origin.is_absolute() and normalized_origin.is_relative_to(normalized_source)
+                and str(origin) not in origins,"unique bounded original public source input")
+        require(mapper(origin).resolve()==destination,"public index origin and overlay destination agree exactly")
         require(destination.is_file() and destination.stat().st_size==item["bytes"] and
                 digest(destination)==item["sha256"],"indexed public input bytes missing/changed: "+str(destination))
         origins.add(str(origin))
