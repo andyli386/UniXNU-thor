@@ -1,128 +1,181 @@
 #!/usr/bin/env python3
-"""Create one private ENTRY10 Android Boot v4 candidate, with no phone commands."""
+"""Create a private one-use Thor Android Boot v4 candidate, with no device access."""
 from pathlib import Path
-import datetime, gzip, hashlib, json, os, struct, subprocess, argparse, tomllib
+import argparse
+import datetime
+import gzip
+import hashlib
+import json
+import os
+import re
+import struct
+import subprocess
+import tomllib
+from package_host import (load_tools, package_commands, private_output,
+                          private_seed, require, rooted, seed_source)
 
-os.umask(0o077)
-parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--root",type=Path,default=Path("/home/vincent/Projects/thor-unixnu"))
-parser.add_argument("--source",type=Path,required=True)
-parser.add_argument("--kernel",type=Path,required=True)
-parser.add_argument("--fd",type=Path,required=True)
-parser.add_argument("--fd-audit",type=Path,required=True)
-parser.add_argument("--firmware-receipt",type=Path,required=True)
-parser.add_argument("--provenance",type=Path,required=True)
-parser.add_argument("--run-id",required=True)
-parser.add_argument("--dry-run",action="store_true")
-args=parser.parse_args()
-ROOT=args.root.resolve()
-def rooted(p):
-    x=(ROOT/p).resolve()
-    if not x.is_relative_to(ROOT):raise RuntimeError("Path escapes workspace")
-    return x
-WORK=rooted(args.source)
-KERNEL=rooted(args.kernel)
-FD=rooted(args.fd)
-AUDIT=rooted(args.fd_audit)
-RECEIPT=rooted(args.firmware_receipt)
-ADT=WORK/"Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe"
-PROVENANCE=rooted(args.provenance)
-BASE=ROOT/"artifacts/thor-smoke-01"
-if not __import__("re").fullmatch(r"[a-z][a-z0-9-]{6,96}",args.run_id):
-    parser.error("Invalid unique run ID")
-OUT=rooted(Path("runs")/args.run_id/"l2/package")
-config=tomllib.loads((ROOT/"thor-build.toml").read_text())
-BASE_KERNEL_PIN=config["stock"]["verified_entry09_kernel_sha256"]
-frozen=json.loads((KERNEL.parent/"build-manifest.json").read_text())
-KERNEL_PIN=frozen["kernel_sha256"]
-fw_receipt=json.loads(RECEIPT.read_text())
-FD_PIN=fw_receipt["uefi_fd_sha256"]
-SOURCE_PIN=fw_receipt["uefi_commit"]
-def digest(data): return hashlib.sha256(data).hexdigest()
-def now(): return datetime.datetime.now().astimezone().isoformat()
-def write(path,data):
-    with path.open("xb") as f: f.write(data)
-def check(cond,message):
-    if not cond: raise RuntimeError(message)
 
-def main():
-    check(os.sys.platform.startswith("linux"),"Linux seed source required")
-    check(subprocess.check_output(["git","-C",str(WORK),"rev-parse","HEAD"],text=True).strip()==SOURCE_PIN,"UEFI source revision")
-    check(not subprocess.check_output(["git","-C",str(WORK),"status","--porcelain"],text=True).strip(),"UEFI source unclean")
-    kernel=KERNEL.read_bytes()
-    check(len(kernel)==frozen["kernel_bytes"] and digest(kernel)==KERNEL_PIN,"Frozen kernel identity")
-    fd=FD.read_bytes()
-    check(len(fd)==3145728 and digest(fd)==FD_PIN,"Reviewed FD identity")
-    audit=AUDIT
-    approved=json.loads(audit.read_text())
-    check(approved["status"]=="PASS" and approved["fd"]["sha256"]==FD_PIN and not approved["failures"],"Independent FD audit")
-    meta=json.loads((KERNEL.parent/"kernel-layout.json").read_text())
-    check(meta["kernel_sha256"]==KERNEL_PIN and meta["loaded_span_bytes"]==frozen["loaded_span_bytes"] and meta["virtual_end"]-meta["virtual_base"]==meta["loaded_span_bytes"] and meta["segment_count"]==10,"Mach-O layout")
-    release=json.loads((KERNEL.parent/"build-manifest.json").read_text())
-    check(release["xnu_commit"]==frozen["xnu_commit"],"XNU frozen source")
-    check(release["kernel_sha256"]==KERNEL_PIN and release["kernel_bytes"]==len(kernel),"Kernel freeze")
-    original=(ROOT/"artifacts/mainline-4k-entry09-vmprep-20261024/run02/kernel.entry09-vmprep.macho")
-    check(digest(original.read_bytes())==BASE_KERNEL_PIN,"Original ENTRY09 kernel")
-    expected=(ADT/"ThorEntry06PayloadExpected.h").read_text()
-    check("#define THOR_ENTRY06_PAYLOAD_BYTES "+str(len(kernel))+"ULL" in expected and "mEntry06PayloadHeader[64]" in expected,"UEFI kernel-header binding")
-    check(PROVENANCE.is_file() and PROVENANCE.parent==ADT,"Source-provenance input")
-    check(digest(PROVENANCE.read_bytes())!=BASE_KERNEL_PIN,"Non-legacy source record")
-    canonical=json.loads(PROVENANCE.read_text())
-    check(canonical["kernel_sha256"]==KERNEL_PIN and canonical["loaded_span_sha256"]==meta["loaded_span_sha256"],"UEFI layout binding")
-    def orig(name,pin):
-        value=(BASE/name).read_bytes()
-        check(digest(value)==pin,"Stock component changed: "+name)
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def now():
+    return datetime.datetime.now().astimezone().isoformat()
+
+
+def write(path, data):
+    with path.open("xb") as stream:
+        stream.write(data)
+
+
+def parser():
+    result = argparse.ArgumentParser(description=__doc__)
+    result.add_argument("--root", type=Path,
+                        default=Path("/home/vincent/Projects/thor-unixnu"))
+    for name in ("source", "kernel", "fd", "fd-audit", "firmware-receipt",
+                 "provenance"):
+        result.add_argument("--" + name, type=Path, required=True)
+    result.add_argument("--run-id", required=True)
+    result.add_argument("--tool-manifest", type=Path,
+                        default=Path("toolchains/android-boot-tools/package-tools.json"))
+    result.add_argument("--dry-run", action="store_true")
+    return result
+
+
+def main(argv=None):
+    args = parser().parse_args(argv)
+    os.umask(0o077)
+    require(re.fullmatch(r"[a-z][a-z0-9-]{6,96}", args.run_id), "Invalid run ID")
+    root = args.root.resolve()
+    def path(value):
+        return rooted(root, value)
+    work, kernel_path, fd_path, audit_path, receipt_path, provenance = [
+        path(getattr(args, name))
+        for name in ("source", "kernel", "fd", "fd_audit",
+                     "firmware_receipt", "provenance")]
+    out = path(Path("runs") / args.run_id / "l2/package")
+    require(not out.exists(), "Refuse to reuse or overwrite an existing attempt")
+    seed_source(os.sys.platform)
+    config = tomllib.loads((root / "thor-build.toml").read_text())
+    frozen = json.loads((kernel_path.parent / "build-manifest.json").read_text())
+    receipt = json.loads(receipt_path.read_text())
+    kernel_pin, fd_pin = frozen["kernel_sha256"], receipt["uefi_fd_sha256"]
+    source_pin = receipt["uefi_commit"]
+    adt = work / "Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe"
+    head = subprocess.check_output(
+        ["git", "-C", str(work), "rev-parse", "HEAD"], text=True).strip()
+    require(head == source_pin, "UEFI source revision")
+    require(not subprocess.check_output(
+        ["git", "-C", str(work), "status", "--porcelain"], text=True).strip(),
+        "UEFI source unclean")
+    kernel, fd = kernel_path.read_bytes(), fd_path.read_bytes()
+    require(len(kernel) == frozen["kernel_bytes"] and
+            digest(kernel) == kernel_pin, "Frozen kernel identity")
+    require(len(fd) == 3145728 and digest(fd) == fd_pin, "Reviewed FD identity")
+    approved = json.loads(audit_path.read_text())
+    require(approved["status"] == "PASS" and
+            approved["fd"]["sha256"] == fd_pin and not approved["failures"],
+            "Independent FD audit")
+    layout = json.loads((kernel_path.parent / "kernel-layout.json").read_text())
+    require(layout["kernel_sha256"] == kernel_pin and
+            layout["loaded_span_bytes"] == frozen["loaded_span_bytes"] and
+            layout["virtual_end"] - layout["virtual_base"] ==
+            layout["loaded_span_bytes"] and layout["segment_count"] == 10,
+            "Mach-O layout")
+    require(receipt["kernel_sha256"] == kernel_pin, "Release kernel identity")
+    base_pin = config["stock"]["verified_entry09_kernel_sha256"]
+    original = root / ("artifacts/mainline-4k-entry09-vmprep-20261024/"
+                       "run02/kernel.entry09-vmprep.macho")
+    require(digest(original.read_bytes()) == base_pin, "Original ENTRY09 kernel")
+    expected = (adt / "ThorEntry06PayloadExpected.h").read_text()
+    require("#define THOR_ENTRY06_PAYLOAD_BYTES " + str(len(kernel)) + "ULL"
+            in expected and "mEntry06PayloadHeader[64]" in expected,
+            "UEFI kernel-header binding")
+    require(provenance.is_file() and provenance.parent == adt,
+            "Source-provenance input")
+    require(digest(provenance.read_bytes()) != base_pin, "Non-legacy source record")
+    canonical = json.loads(provenance.read_text())
+    require(canonical["kernel_sha256"] == kernel_pin and
+            canonical["loaded_span_sha256"] == layout["loaded_span_sha256"],
+            "UEFI layout binding")
+    def stock(name, pin):
+        value = (root / "artifacts/thor-smoke-01" / name).read_bytes()
+        require(digest(value) == pin, "Stock component changed: " + name)
         return value
-    shim=orig("BootShim.bin",config["stock"]["bootshim_sha256"])
-    dtb=orig("thor-stock-vendor-dtb.bin",config["stock"]["dtb_sha256"])
-    check(len(shim)==112 and len(dtb)==6443651,"Stock boot component size")
-    prefix=struct.pack("<16sIIQ32s",b"THOR-PAYLOAD09\0\0",2,128,len(kernel),bytes.fromhex(KERNEL_PIN))
-    check(len(prefix)==64 and digest(prefix)==canonical["payload_prefix_sha256"],"Header source identity")
-    check(not OUT.exists(),"Refuse to reuse or overwrite an existing attempt")
+    shim = stock("BootShim.bin", config["stock"]["bootshim_sha256"])
+    dtb = stock("thor-stock-vendor-dtb.bin", config["stock"]["dtb_sha256"])
+    require(len(shim) == 112 and len(dtb) == 6443651, "Stock component size")
+    prefix = struct.pack("<16sIIQ32s", b"THOR-PAYLOAD09\0\0", 2, 128,
+                         len(kernel), bytes.fromhex(kernel_pin))
+    require(len(prefix) == 64 and
+            digest(prefix) == canonical["payload_prefix_sha256"],
+            "Header source identity")
+    python, scripts, tools_meta = load_tools(root, args.tool_manifest)
+    tools_meta["packager_sha256"] = digest(Path(__file__).read_bytes())
+    tools_meta["helper_sha256"] = digest(
+        Path(__file__).with_name("package_host.py").read_bytes())
     if args.dry_run:
-        print(json.dumps({"result":"PASS_NO_ARTIFACT_CREATED","kernel_sha256":KERNEL_PIN,
-          "fd_sha256":FD_PIN,"uefi_commit":SOURCE_PIN,
-          "stock_kernel_sha256":BASE_KERNEL_PIN,"out":str(OUT),"phone_actions":0},indent=2))
+        print(json.dumps({"result": "PASS_NO_ARTIFACT_CREATED",
+                          "kernel_sha256": kernel_pin, "fd_sha256": fd_pin,
+                          "uefi_commit": source_pin, "out": str(out),
+                          "seed_source": seed_source(os.sys.platform),
+                          "package_tools": tools_meta, "phone_actions": 0}, indent=2))
         return
-    OUT.mkdir(parents=True,mode=0o700)
-    try:
-        # Generate only after all immutable source and binary gates passed.
-        seed=os.getrandom(64,0)
-        check(len(seed)==64 and any(seed),"Invalid CSPRNG result")
-        length=((max(128+len(kernel),19289048)+4095)//4096)*4096
-        bundle=prefix+seed+kernel+bytes(length-128-len(kernel))
-        check(len(bundle)==length and bundle.count(b"THOR-PAYLOAD09\0\0")==1,"Wire and size limits")
-        write(OUT/"kernel-bundle.bin",bundle)
-        write(OUT/"SILICIUM_UEFI.fd",fd)
-        write(OUT/"BootShim.bin",shim)
-        write(OUT/"thor-stock-vendor-dtb.bin",dtb)
-        compressed=gzip.compress(shim+fd,compresslevel=9,mtime=0)
-        write(OUT/"kernel.gz-dtb",compressed+dtb)
-        metadata={"schema":"thor-one-use-image-v2","created_at":now(),"state":"packaged-awaiting-independent-offline-review","stage":"THOR_PROFILED_ONE_USE_CANDIDATE","kernel_sha256":KERNEL_PIN,"kernel_source_revision":release["xnu_commit"],"uefi_commit":SOURCE_PIN,"fd_sha256":FD_PIN,"fd_audit_sha256":digest(audit.read_bytes()),"bundle_sha256":digest(bundle),"bundle_bytes":len(bundle),"seed_sha256":digest(seed),"seed_source":"linux-os.getrandom(flags=0)","seed_bytes":64,"seed_raw_logged":False,"seed_reuse_allowed":False,"header_magic":"THOR-PAYLOAD09 v2 intentionally reused","full_vm_boot":False,"ttbr1_live_verified":False,"phone_attempts":0}
-        write(OUT/"payload-contract.json",(json.dumps(metadata,indent=2)+"\n").encode())
-        image=OUT/"thor-boot.img"
-        cmds=[
-            ["mkbootimg","--header_version","4","--kernel",str(OUT/"kernel.gz-dtb"),"--ramdisk",str(OUT/"kernel-bundle.bin"),"--os_version","12.0.0","--os_patch_level","2024-09","--cmdline","","-o",str(image)],
-            ["/usr/bin/python3",str(ROOT/"scripts/verify_android_boot_v4.py"),str(image),"--expected-header-version","4","--kernel-format","gzip-bootshim-fd-dtb","--shim",str(OUT/"BootShim.bin"),"--fd",str(OUT/"SILICIUM_UEFI.fd"),"--dtb",str(OUT/"thor-stock-vendor-dtb.bin"),"--ramdisk",str(OUT/"kernel-bundle.bin"),"--fd-base","0xA7100000","--fd-size","0x300000","--max-image-size","201326592","--strict-padding","--require-exact-size"],
-            ["unpack_bootimg","--boot_img",str(image),"--out",str(OUT/"unpacked")],
-        ]
-        records=[]
-        for idx,argv in enumerate(cmds):
-            process=subprocess.run(argv,capture_output=True,text=True,timeout=120,check=False)
-            label=("mkbootimg","verify-image","unpack-crosscheck")[idx]
-            write(OUT/(label+".stdout"),process.stdout.encode())
-            write(OUT/(label+".stderr"),process.stderr.encode())
-            records.append({"name":label,"argv":argv,"returncode":process.returncode})
-            check(process.returncode==0,"Package tool failed: "+label)
-        check((OUT/"unpacked/kernel").read_bytes()==(OUT/"kernel.gz-dtb").read_bytes(),"Unpack kernel mismatch")
-        check((OUT/"unpacked/ramdisk").read_bytes()==bundle,"Unpack ramdisk mismatch")
-        check(image.stat().st_size < 64*1024*1024,"Boot image cap")
-        metadata.update(image_sha256=digest(image.read_bytes()),image_bytes=image.stat().st_size,run_id=args.run_id,checks=["source","kernel","FD","FV auditor","seed","wire","Android v4","unpack"],package_commands=records)
-        manifest=OUT/"manifest.json"
-        write(manifest,(json.dumps(metadata,indent=2)+"\n").encode())
-        print(json.dumps({"state":"ONE_USE_IMAGE_HOST_PACKAGED","image":str(image),"sha256":metadata["image_sha256"],"bytes":image.stat().st_size,"seed_logged":False,"phone_actions":0},indent=2))
-    except Exception:
-        # Leave invalid output intact for analysis, but it MUST NOT be launched.
-        (OUT/"INVALID-NOT-FOR-PHONE").write_text(now()+"\n")
-        raise
-if __name__=="__main__":main()
+    with private_output(out, now()):
+        seed, source = private_seed()
+        length = ((max(128 + len(kernel), 19289048) + 4095) // 4096) * 4096
+        bundle = prefix + seed + kernel + bytes(length - 128 - len(kernel))
+        require(len(bundle) == length and
+                bundle.count(b"THOR-PAYLOAD09\0\0") == 1, "Wire and size limits")
+        for name, value in (("kernel-bundle.bin", bundle),
+                            ("SILICIUM_UEFI.fd", fd), ("BootShim.bin", shim),
+                            ("thor-stock-vendor-dtb.bin", dtb),
+                            ("kernel.gz-dtb", gzip.compress(shim + fd,
+                                                           compresslevel=9, mtime=0) + dtb)):
+            write(out / name, value)
+        metadata = {
+            "schema": "thor-one-use-image-v2", "created_at": now(),
+            "state": "packaged-awaiting-independent-offline-review",
+            "stage": "THOR_PROFILED_ONE_USE_CANDIDATE",
+            "kernel_sha256": kernel_pin, "kernel_source_revision": frozen["xnu_commit"],
+            "uefi_commit": source_pin, "fd_sha256": fd_pin,
+            "fd_audit_sha256": digest(audit_path.read_bytes()),
+            "bundle_sha256": digest(bundle), "bundle_bytes": len(bundle),
+            "seed_sha256": digest(seed), "seed_source": source, "seed_bytes": 64,
+            "seed_raw_logged": False, "seed_reuse_allowed": False,
+            "header_magic": "THOR-PAYLOAD09 v2 intentionally reused",
+            "full_vm_boot": False, "ttbr1_live_verified": False, "phone_attempts": 0,
+            "package_tools": tools_meta}
+        write(out / "payload-contract.json",
+              (json.dumps(metadata, indent=2) + "\n").encode())
+        records = []
+        for label, command in zip(
+                ("mkbootimg", "verify-image", "unpack-crosscheck"),
+                package_commands(python, scripts, out)):
+            process = subprocess.run(command, capture_output=True, text=True,
+                                     timeout=120, check=False)
+            write(out / (label + ".stdout"), process.stdout.encode())
+            write(out / (label + ".stderr"), process.stderr.encode())
+            records.append({"name": label, "argv": command,
+                            "returncode": process.returncode})
+            require(process.returncode == 0, "Package tool failed: " + label)
+        require((out / "unpacked/kernel").read_bytes() ==
+                (out / "kernel.gz-dtb").read_bytes(), "Unpack kernel mismatch")
+        require((out / "unpacked/ramdisk").read_bytes() == bundle,
+                "Unpack ramdisk mismatch")
+        image = out / "thor-boot.img"
+        require(image.stat().st_size < 64 * 1024 * 1024, "Boot image cap")
+        metadata.update(image_sha256=digest(image.read_bytes()),
+                        image_bytes=image.stat().st_size, run_id=args.run_id,
+                        checks=["source", "kernel", "FD", "FV auditor", "seed",
+                                "wire", "Android v4", "unpack", "pinned host tools"],
+                        package_commands=records)
+        write(out / "manifest.json", (json.dumps(metadata, indent=2) + "\n").encode())
+        print(json.dumps({"state": "ONE_USE_IMAGE_HOST_PACKAGED",
+                          "image": str(image), "sha256": metadata["image_sha256"],
+                          "bytes": metadata["image_bytes"], "seed_logged": False,
+                          "phone_actions": 0}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
