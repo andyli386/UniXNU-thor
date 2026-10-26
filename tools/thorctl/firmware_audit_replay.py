@@ -72,7 +72,7 @@ def replay(root,source,original,index,temporary):
     old_source=original_fd
     for _ in suffix.parts:
         old_source=old_source.parent
-    require(old_source.name in {"vm-mem03","vm-mem04"} and old_source.parent.name=="uefi",
+    require(old_source.name in {"vm-mem03","vm-mem04","vm-mem05"} and old_source.parent.name=="uefi",
             "MEM03 original build source identity")
     old_root=old_source.parents[2]
     actual_fd=source/suffix

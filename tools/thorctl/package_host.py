@@ -130,7 +130,17 @@ MEM04_NONBUILD_FILES = {
     "scripts/audit-thor-mem04-pmap.py",
     "tests/test_thor_mem04_pmap.py",
 }
+MEM05_NONBUILD_FILES = {
+    "scripts/audit-thor-mem05-linked.py", "tests/test_thor_mem05_cfg.py",
+}
 ARTIFACT_PROFILES = {
+    "thor-mem05-build-manifest-v1": {
+        "tag": "MEM05", "allowed": MEM05_NONBUILD_FILES,
+        "proof": "mem05-grid-vm-machinecode-final.json",
+        "lock_key": "mem05_machinecheck_sha256",
+        "proof_schema": "thor-mem05-early-vm-machinecode-v1",
+        "proof_result": "PASS_MEM05_BOUNDED_EARLY_VM_RETURN",
+    },
     "thor-mem03-build-manifest-v1": {
         "tag": "MEM03", "allowed": COMPILE_EQUIVALENCE_NONBUILD_FILES,
         "proof": "mem03-fb-contract-machinecode-final.json",
@@ -145,6 +155,13 @@ ARTIFACT_PROFILES = {
     },
 }
 RELEASE_PROFILES = {
+    "thor-mem05-stage-safe-hud-and-early-vm-return-v1": {
+        "tag": "MEM05", "prefix": "mem05",
+        "proof_schema": "thor-mem05-stage-safe-hud-host-proof-v1",
+        "proof_result": "PASS_MEM05_STAGE_SAFE_HUD_AND_EARLY_VM_RETURN_BINDING",
+        "ui_schema": "thor-mem05-UEFI-HUD-grid-linked-proof-v1",
+        "ui_result": "PASS_LINKED_MEM05_AND_RESERVED_GOP_Y0_319",
+    },
     "thor-mem03-fdt-detail-and-xnu-fb-coverage-v1": {
         "tag": "MEM03", "prefix": "mem03",
         "proof_schema": "thor-mem03-snapshot-detail-host-proof-v1",
@@ -173,7 +190,7 @@ def validate_mem03_artifact(root, candidate):
     require(lock.get("schema") == "thor-artifact-lock-v2",
             "Artifact lock schema")
     profile = ARTIFACT_PROFILES.get(build.get("schema"))
-    require(profile is not None, "MEM03/MEM04 build manifest schema")
+    require(profile is not None, "Known frozen diagnostic build manifest schema")
     for key in ("kernel_sha256", "kernel_bytes", "loaded_span_bytes",
                 "loaded_span_sha256"):
         require(key in lock and key in build and key in layout and
@@ -216,6 +233,30 @@ def validate_mem03_artifact(root, candidate):
                 sha(candidate / file), "Pinned build proof: " + file)
     require(lock.get("L2_linked_and_audited") is True,
             "Artifact must be linked and audited")
+    if profile["tag"] == "MEM05":
+        linked = json.loads((candidate / profile["proof"]).read_text())
+        require(linked.get("schema") == profile["proof_schema"] and
+                linked.get("result") == profile["proof_result"] and
+                linked.get("kernel_sha256") == lock["kernel_sha256"] and
+                lock.get("frontier") == build.get("frontier") == "early-vm-return",
+                "MEM05 exact native early VM return proof")
+        checkpoints = linked.get("checkpoint_contract", {})
+        require(exact_stage_list(checkpoints.get("compiled_stage_prefix"), list(range(16)))
+                and exact_stage_list(checkpoints.get("reserved_slots"), [])
+                and type(checkpoints.get("number_base")) is int and checkpoints["number_base"] == 16,
+                "MEM05 sixteen numbered compiled checkpoints")
+        for key in ("native_arm_vm_init_return_compiled", "bounded_after_native_VM_return"):
+            require(lock.get(key) is True and build.get(key) is True and linked.get(key) is True,
+                    "MEM05 native return contract: " + key)
+        require("_pmap_bootstrap" in linked.get("native_tail", {}).get("native_tail_calls", {}),
+                "MEM05 retains actual native pmap call")
+        require(lock.get("hardware_tested") is False and linked.get("hardware_tested") is False
+                and lock.get("arm_vm_init_returned") is False
+                and linked.get("arm_vm_init_returned_on_phone") is False
+                and linked.get("full_VM_initialization_proven") is False
+                and lock.get("pmap_bootstrap_executed") is False
+                and lock.get("phone_actions") == linked.get("phone_actions") == 0,
+                "MEM05 compiled progress is not hardware qualification")
     if profile["tag"] == "MEM04":
         linked = json.loads((candidate / profile["proof"]).read_text())
         require(linked.get("schema") == profile["proof_schema"] and
@@ -297,9 +338,9 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
             lock["machinecheck_sha256"] and proof["pe_sha256"] == ui["pe_sha256"],
             "MEM03 UEFI/XNU/PE proof identity")
     transition = "29ee4adbbb30fe06bcebf9f9af9723f98698c6170636b2bb24e52a7a17fe9d24"
-    if prefix == "mem04":
-        transition = validate_mem04_transition_binding(
-            root, work, receipt_path, receipt, proof, lock)
+    if prefix in ("mem04", "mem05"):
+        transition = (validate_mem05_transition_binding if prefix == "mem05"
+                      else validate_mem04_transition_binding)(root, work, receipt_path, receipt, proof, lock)
     require(receipt["linked_transition_sha256"] ==
             proof["transition"]["sha256"] == transition and
             proof["transition"]["bytes"] == 500 and
@@ -330,8 +371,8 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
     require(isinstance(tests, dict) and
             all(type(value) is int and value > 0 for value in tests.values()),
             profile["tag"] + " source regression counts")
-    if prefix == "mem04":
-        require(tests == dict(expected, mem04=11),
+    if prefix in ("mem04", "mem05"):
+        require(tests == dict(expected, **{prefix: 11}),
                 "MEM04 retains baseline and eleven renderer regressions")
     else:
         require(tests == expected, "MEM03 baseline regression contracts")
@@ -366,15 +407,15 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
             ui.get("never_calls_GOP_after_EBS") is True and
             ui.get("last_fullscreen_clear_followed_by_five_FDT_rows") is True,
             "MEM03 diagnostic/ownership boundary")
-    if prefix == "mem04":
+    if prefix in ("mem04", "mem05"):
         require(lock.get("native_pmap_bootstrap_call_compiled") is True and
-                lock.get("bounded_after_pmap_return") is True,
-                "MEM04 release requires bounded pmap artifact")
+                lock.get("bounded_after_native_VM_return" if prefix == "mem05" else "bounded_after_pmap_return") is True,
+                "Release requires the matching bounded native frontier")
         render_path = receipt_path.parent / "stage-render-audit.json"
         require(receipt.get("stage_render_audit_sha256") == sha(render_path),
                 "MEM04 stage render audit identity")
         render = json.loads(render_path.read_text())
-        require(render.get("schema") == "thor-mem04-executed-stage-render-event-audit-v1"
+        require(render.get("schema") == "thor-" + prefix + "-executed-stage-render-event-audit-v1"
                 and render.get("result") == "PASS_ALL_STAGE_FRAMES_NO_OVERLAP"
                 and render.get("unexpected_overlap_count") == 0
                 and render.get("text_bounds_valid") is True
@@ -386,21 +427,25 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
         require(render.get("renderer_source_sha256") == receipt["new_bds_source_sha256"]
                 and render.get("hud_source_sha256") == receipt["new_ui_source_sha256"],
                 "MEM04 executed renderer source identity")
-        validate_mem04_render_trace(work, render_path, render)
+        validate_mem04_render_trace(work, render_path, render, prefix)
         checkpoints = ui.get("checkpoint_contract", {})
         candidate = rooted(root, Path(lock["_validated_candidate_directory"]))
-        linked_path = candidate / ARTIFACT_PROFILES["thor-mem04-build-manifest-v1"]["proof"]
-        require(sha(linked_path) == lock["mem04_machinecheck_sha256"],
+        linked_path = candidate / ARTIFACT_PROFILES["thor-" + prefix + "-build-manifest-v1"]["proof"]
+        require(sha(linked_path) == lock[prefix + "_machinecheck_sha256"],
                 "MEM04 release numbered checkpoint proof identity")
         linked = json.loads(linked_path.read_text())
-        require(exact_stage_list(checkpoints.get("compiled_stage_prefix"), list(range(14)))
-                and exact_stage_list(checkpoints.get("reserved_slots"), [14, 15])
+        require(exact_stage_list(checkpoints.get("compiled_stage_prefix"), list(range(16 if prefix == "mem05" else 14)))
+                and exact_stage_list(checkpoints.get("reserved_slots"), [] if prefix == "mem05" else [14, 15])
                 and type(checkpoints.get("number_base")) is int
                 and checkpoints["number_base"] == 16
                 and checkpoints == linked.get("checkpoint_contract")
                 and ui.get("native_pmap_bootstrap_call_compiled") is True
-                and ui.get("bounded_after_pmap_return") is True,
-                "MEM04 pmap checkpoint scope is fourteen bounded stages")
+                and ui.get("bounded_after_native_VM_return" if prefix == "mem05" else "bounded_after_pmap_return") is True,
+                "Linked numbered stages match the exact bounded native frontier" if prefix == "mem05"
+                else "MEM04 linked numbered proof requires fourteen bounded stages")
+        if prefix == "mem05":
+            require(ui.get("native_arm_vm_init_return_compiled") is True,
+                    "MEM05 UI identifies compiled early VM return")
     return receipt, audit
 
 
@@ -409,14 +454,14 @@ def exact_stage_list(value, expected):
             all(type(item) is int for item in value) and value == expected)
 
 
-def validate_mem04_render_trace(work, render_path, render):
+def validate_mem04_render_trace(work, render_path, render, prefix="mem04"):
     """Bind frame summaries to the executed host trace and recheck its geometry."""
     trace_path = render_path.parent / "stage-render-events.jsonl"
     harness_path = render_path.parent / "stage-render-harness.c"
     require(render.get("host_trace_sha256") == sha(trace_path) and
             render.get("host_harness_sha256") == sha(harness_path),
             "MEM04 executed renderer trace/harness identity")
-    test_path = work / "Platforms/Xiaomi/thorPkg/Tests/test_mem04_stage_render.py"
+    test_path = work / ("Platforms/Xiaomi/thorPkg/Tests/test_" + prefix + "_stage_render.py")
     require(render.get("test_source_sha256") == sha(test_path),
             "MEM04 executed renderer test source identity")
     pins = render.get("source_files_sha256")
@@ -596,3 +641,86 @@ def validate_mem04_transition_binding(root, work, receipt_path, receipt, uefi_pr
     require(len(expected) == 32 and expected.hex() == MEM04_TRANSITION_PIN,
             "MEM04 transition expected header pin")
     return MEM04_TRANSITION_PIN
+
+
+MEM05_TRANSITION_PIN = "7acb7a64ca5de2090534707cef6941f5492837c8fc4b87212cc8e4306ea789c2"
+
+
+def validate_mem05_transition_words(old, new, layout):
+    """Constrain only the actual MEM04-to-MEM05 owned-layout immediate change."""
+    import struct
+    require(len(old) == len(new) == 500, "MEM05 transition raw length")
+    require(sha_bytes(old) == MEM04_TRANSITION_PIN and sha_bytes(new) == MEM05_TRANSITION_PIN,
+            "MEM05 exact independently reviewed old/new transition bytes")
+    changed = [offset for offset in range(0, 500, 4) if old[offset:offset+4] != new[offset:offset+4]]
+    require(changed == [76, 96, 100, 156], "Only transition/BootArgs/stack-top immediate words changed")
+    for offset in changed:
+        before, after = struct.unpack_from("<I", old, offset)[0], struct.unpack_from("<I", new, offset)[0]
+        require(before & ~(0xffff << 5) == after & ~(0xffff << 5),
+                "MEM05 transition opcodes/registers/branches unchanged")
+    def pair(code, offset, register):
+        first, second = struct.unpack_from("<II", code, offset)
+        require(first & 0x7f80001f == 0x52800000 | register and
+                second & 0x7f80001f == 0x72800000 | register and
+                (first >> 21) & 3 == 0 and (second >> 21) & 3 == 1 and first >> 31 == second >> 31,
+                "MEM05 actual MOVZ/MOVK width, register and shifts")
+        return ((first >> 5) & 0xffff) | (((second >> 5) & 0xffff) << 16)
+    expected = {"transition": (76, 9, layout["loaded_span_bytes"] + 0x4000),
+                "args": (96, 8, layout["loaded_span_bytes"]),
+                "entry": (116, 8, layout["entry_offset"]),
+                "vector": (136, 8, layout["vectors_offset"]),
+                "stack_top": (156, 8, layout["loaded_span_bytes"] + 0x3c000)}
+    prior_span = 20168704
+    prior = {"transition": prior_span + 0x4000, "args": prior_span,
+             "entry": 0x3ff488, "vector": 0x400000, "stack_top": prior_span + 0x3c000}
+    values = {}
+    for name, (offset, register, value) in expected.items():
+        require(type(value) is int and 0 < value < 0x4000000 and
+                pair(new, offset, register) == value and pair(old, offset, register) == prior[name],
+                "MEM05 encoded " + name + " matches actual Mach-O and unchanged owned offsets")
+        values["old_decoded_" + name + "_offset"] = prior[name]
+        values["new_decoded_" + name + "_offset"] = value
+    return values
+
+
+def sha_bytes(value):
+    return hashlib.sha256(value).hexdigest()
+
+
+def validate_mem05_transition_binding(root, work, receipt_path, receipt, uefi_proof, lock):
+    folder = receipt_path.parent / "postlink-transition"
+    path = folder / "mem05-transition-binding.json"
+    require(path.is_file() and receipt.get("transition_binding_audit_sha256") ==
+            uefi_proof.get("transition_binding_audit_sha256") == sha(path),
+            "MEM05 owned-layout transition proof identity")
+    proof = json.loads(path.read_text())
+    require(proof.get("schema") == "thor-mem05-transition-owned-layout-immediate-proof-v1" and
+            proof.get("result") == "PASS_ONLY_ACTUAL_OWNED_LAYOUT_IMMEDIATES_CHANGED" and
+            proof.get("changed_instruction_word_offsets") == [76, 96, 100, 156] and
+            proof.get("unchanged_bytes") == 484 and proof.get("code_bytes") == 500 and
+            proof.get("relocations") == 0 and proof.get("opcode_register_branches_unchanged") is True and
+            proof.get("phone_actions") == 0, "MEM05 exact layout-only transition contract")
+    old_path, new_path = folder / "old-transition.bin", folder / "new-transition.bin"
+    require(proof.get("old_code_sha256") == sha(old_path) == MEM04_TRANSITION_PIN and
+            proof.get("new_code_sha256") == sha(new_path) == MEM05_TRANSITION_PIN,
+            "MEM05 immutable raw transition inputs")
+    candidate = rooted(root, Path(lock["_validated_candidate_directory"]))
+    layout_path = candidate / "kernel-layout.json"
+    layout = json.loads(layout_path.read_text())
+    require(proof.get("kernel_layout_sha256") == sha(layout_path) and
+            proof.get("kernel_sha256") == layout["kernel_sha256"] == lock["kernel_sha256"],
+            "MEM05 transition belongs to exact frozen kernel layout")
+    decoded = validate_mem05_transition_words(old_path.read_bytes(), new_path.read_bytes(), layout)
+    require(all(proof.get(k) == v for k, v in decoded.items()), "MEM05 decoded owned layout agrees with proof")
+    adt = work / "Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe"
+    require(proof.get("unchanged_assembly_source_sha256") == sha(adt / "thor_entry06_arch.S") and
+            proof.get("new_expected_header_sha256") == sha(adt / "ThorEntry06TransitionExpected.h"),
+            "MEM05 exact unchanged assembly and newly bound expected header")
+    import re
+    text = (adt / "ThorEntry06TransitionExpected.h").read_text()
+    match = re.search(r"mEntry06TransitionSha256\[32\]\s*=\s*\{([^}]+)\}", text)
+    require(match and re.search(r"#define\s+THOR_ENTRY06_TRANSITION_BYTES\s+500u", text),
+            "MEM05 complete expected transition header")
+    require(bytes(int(x, 16) for x in re.findall(r"0x([0-9a-fA-F]{1,2})", match.group(1))).hex() == MEM05_TRANSITION_PIN,
+            "MEM05 expected header pins actual independently checked transition")
+    return MEM05_TRANSITION_PIN
