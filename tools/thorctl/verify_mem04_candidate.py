@@ -827,7 +827,9 @@ def validate_mem04_transition(root,src,layout,require,proof_path=None):
     spec=importlib.util.spec_from_file_location("mem04_transition_bind",Path(__file__).with_name("transition_bind.py"))
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     def actual_code(source):
-        pe,map_path=module.pe_paths(source)
+        pe,_=module.pe_paths(source)
+        # The audited CLANGPDB build exports this map beside its final PE.
+        map_path=pe.with_suffix(".map")
         start,end=module.transition_symbols(map_path)
         code,metadata=module.load_pe(pe,start,end-start)
         require(len(code)==500 and not metadata["relocations_in_transition"],"real transition remains exactly500 bytes without interval relocations")
