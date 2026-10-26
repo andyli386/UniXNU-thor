@@ -111,7 +111,8 @@ class ProfileFixture:
             "gop_y_reserved": [0, 319], "uefi_first_postclear_draw_y": 352,
             "never_calls_GOP_after_EBS": True,
             "last_fullscreen_clear_followed_by_five_FDT_rows": True,
-            "completed_stage_slots": list(range(14)), "reserved_stage_slots": [14, 15],
+            "checkpoint_contract": {"compiled_stage_prefix": list(range(14)),
+                                    "reserved_slots": [14, 15], "number_base": 16},
             "native_pmap_bootstrap_call_compiled": True, "bounded_after_pmap_return": True,
             "phone_actions": 0}
         tests = {"mem01": 12, "mem02": 10, "mem03": 12}
@@ -319,12 +320,12 @@ class Mem04PackagingTests(unittest.TestCase):
         self.reject("proof schemas/results")
 
     def test_UEFI_legacy_grid_contract_cannot_claim_fourteen_stages(self):
-        self.f.ui["completed_stage_slots"] = list(range(11))
+        self.f.ui["checkpoint_contract"]["compiled_stage_prefix"] = list(range(11))
         self.f.sync_release()
         self.reject("fourteen bounded stages")
 
     def test_boolean_slot_ID_does_not_equal_a_real_number(self):
-        self.f.ui["completed_stage_slots"][0] = False
+        self.f.ui["checkpoint_contract"]["compiled_stage_prefix"][0] = False
         self.f.sync_release()
         self.reject("fourteen bounded stages")
 

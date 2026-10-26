@@ -387,8 +387,17 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
                 and render.get("hud_source_sha256") == receipt["new_ui_source_sha256"],
                 "MEM04 executed renderer source identity")
         validate_mem04_render_trace(work, render_path, render)
-        require(exact_stage_list(ui.get("completed_stage_slots"), list(range(14)))
-                and exact_stage_list(ui.get("reserved_stage_slots"), [14, 15])
+        checkpoints = ui.get("checkpoint_contract", {})
+        candidate = rooted(root, Path(lock["_validated_candidate_directory"]))
+        linked_path = candidate / ARTIFACT_PROFILES["thor-mem04-build-manifest-v1"]["proof"]
+        require(sha(linked_path) == lock["mem04_machinecheck_sha256"],
+                "MEM04 release numbered checkpoint proof identity")
+        linked = json.loads(linked_path.read_text())
+        require(exact_stage_list(checkpoints.get("compiled_stage_prefix"), list(range(14)))
+                and exact_stage_list(checkpoints.get("reserved_slots"), [14, 15])
+                and type(checkpoints.get("number_base")) is int
+                and checkpoints["number_base"] == 16
+                and checkpoints == linked.get("checkpoint_contract")
                 and ui.get("native_pmap_bootstrap_call_compiled") is True
                 and ui.get("bounded_after_pmap_return") is True,
                 "MEM04 pmap checkpoint scope is fourteen bounded stages")
