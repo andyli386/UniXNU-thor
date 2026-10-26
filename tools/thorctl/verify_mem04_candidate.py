@@ -221,7 +221,7 @@ def validate_mem04_inputs(root,pkg,src,xsrc,candidate,manifest,receipt,audit,lay
     pe=src/"Build/thorEntry09/RELEASE_CLANGPDB/AARCH64/thorPkg/Drivers/ThorEntryBdsDxe/ThorEntryBdsDxe/OUTPUT/ThorEntryBdsDxe.efi"
     binary=pe.read_bytes()
     require(b"RUN MEM04 / THOR SM8475" in binary and
-            b"MEM04 FDT WINDOW ONLY - NO MEMORY GRANT" in binary and b"THOR FDT MEMDIAG 03" in binary,
+            b"MEM04 FDT WINDOW ONLY - NO MEMORY GRANT" in binary and b"THOR FDT MEMDIAG 04" in binary,
             "actual final linked PE carries unique MEM04 diagnostic identity")
     require(all(label not in binary for label in (b"RUN MEM01 / THOR SM8475",b"RUN MEM02 / THOR SM8475",b"RUN MEM03 / THOR SM8475",
                                                 b"RUN VM-VBAR / THOR",b"RUN VM-HW11 / THOR SM8475")),
@@ -1044,7 +1044,9 @@ def main():
     pe=src/"Build/thorEntry09/RELEASE_CLANGPDB/AARCH64/thorPkg/Drivers/ThorEntryBdsDxe/ThorEntryBdsDxe/OUTPUT/ThorEntryBdsDxe.efi"
     binary=pe.read_bytes()
     require(b"THOR / XNU" in binary and b"CURRENT RESULT" in binary and
-            b"BOOT STAGE / UEFI" in binary,"structured diagnostic screen linked into real UEFI PE")
+            all(label in binary for label in (b"01 INITRD",b"02 KERNEL",b"03 MEMORY",b"04 HANDOFF")) and
+            b"UEFI PROGRESS  %u / 4 VALIDATED  /  %a" in binary,
+            "structured four-card diagnostic progress screen linked into real MEM04 UEFI PE")
     require(b"ESR / ELR / FAR" in binary and b"NOT CAPTURED IN UEFI" in binary,
             "unavailable exception values explicitly identified")
     require(b"UEFI CHECKS FAILED" in binary and b"UEFI CHECKS PASS" in binary,
