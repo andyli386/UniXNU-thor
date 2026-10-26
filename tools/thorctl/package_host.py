@@ -124,6 +124,42 @@ COMPILE_EQUIVALENCE_NONBUILD_FILES = {
     "scripts/audit-thor-mem03-linked.py",
     "tests/test_thor_mem03_fb_contract.py",
 }
+MEM04_NONBUILD_FILES = {
+    "scripts/audit-thor-mem04-linked.py",
+    "tests/test_thor_mem04_telemetry.py",
+    "scripts/audit-thor-mem04-pmap.py",
+    "tests/test_thor_mem04_pmap.py",
+}
+ARTIFACT_PROFILES = {
+    "thor-mem03-build-manifest-v1": {
+        "tag": "MEM03", "allowed": COMPILE_EQUIVALENCE_NONBUILD_FILES,
+        "proof": "mem03-fb-contract-machinecode-final.json",
+        "lock_key": "mem03_coverage_machinecheck_sha256",
+    },
+    "thor-mem04-build-manifest-v1": {
+        "tag": "MEM04", "allowed": MEM04_NONBUILD_FILES,
+        "proof": "mem04-grid-pmap-machinecode-final.json",
+        "lock_key": "mem04_machinecheck_sha256",
+        "proof_schema": "thor-mem04-grid-pmap-machinecode-v1",
+        "proof_result": "PASS_MEM04_LINKED_READABLE_GRID_BOUNDED_NATIVE_PMAP",
+    },
+}
+RELEASE_PROFILES = {
+    "thor-mem03-fdt-detail-and-xnu-fb-coverage-v1": {
+        "tag": "MEM03", "prefix": "mem03",
+        "proof_schema": "thor-mem03-snapshot-detail-host-proof-v1",
+        "proof_result": "PASS_MEM03_FDT_DETAIL_AND_FINAL_OVERLAY",
+        "ui_schema": "thor-mem03-UEFI-HUD-grid-linked-proof-v1",
+        "ui_result": "PASS_LINKED_MEM03_AND_RESERVED_GOP_Y0_319",
+    },
+    "thor-mem04-stage-safe-hud-and-pmap-v1": {
+        "tag": "MEM04", "prefix": "mem04",
+        "proof_schema": "thor-mem04-stage-safe-hud-host-proof-v1",
+        "proof_result": "PASS_MEM04_STAGE_SAFE_HUD_AND_PMAP_BINDING",
+        "ui_schema": "thor-mem04-UEFI-HUD-grid-linked-proof-v1",
+        "ui_result": "PASS_LINKED_MEM04_AND_RESERVED_GOP_Y0_319",
+    },
+}
 
 
 def validate_mem03_artifact(root, candidate):
@@ -136,8 +172,8 @@ def validate_mem03_artifact(root, candidate):
     layout = json.loads(layout_path.read_text())
     require(lock.get("schema") == "thor-artifact-lock-v2",
             "Artifact lock schema")
-    require(build.get("schema") == "thor-mem03-build-manifest-v1",
-            "MEM03 build manifest schema")
+    profile = ARTIFACT_PROFILES.get(build.get("schema"))
+    require(profile is not None, "MEM03/MEM04 build manifest schema")
     for key in ("kernel_sha256", "kernel_bytes", "loaded_span_bytes",
                 "loaded_span_sha256"):
         require(key in lock and key in build and key in layout and
@@ -160,7 +196,7 @@ def validate_mem03_artifact(root, candidate):
     require(isinstance(changes, list) and all(isinstance(x, str) for x in changes)
             and len(changes) == len(set(changes))
             and sorted(changes) == sorted(build.get("post_build_changes", []))
-            and set(changes) <= COMPILE_EQUIVALENCE_NONBUILD_FILES,
+            and set(changes) <= profile["allowed"],
             "Only reviewed audit/test files may change after compilation")
     tree = rooted(root, Path(build["tree"]))
     def git(*arguments):
@@ -174,19 +210,46 @@ def validate_mem03_artifact(root, candidate):
             "Build receipt layout identity")
     for file, lock_key, build_key in (
             ("machinecode.json", "machinecheck_sha256", "machinecode_sha256"),
-            ("mem03-fb-contract-machinecode-final.json", "mem03_coverage_machinecheck_sha256",
+            (profile["proof"], profile["lock_key"],
              "coverage_machinecode_sha256")):
         require(lock.get(lock_key) == build.get(build_key) ==
                 sha(candidate / file), "Pinned build proof: " + file)
     require(lock.get("L2_linked_and_audited") is True,
             "Artifact must be linked and audited")
-    return lock, build, layout
+    if profile["tag"] == "MEM04":
+        linked = json.loads((candidate / profile["proof"]).read_text())
+        require(linked.get("schema") == profile["proof_schema"] and
+                linked.get("result") == profile["proof_result"] and
+                linked.get("frontier") == "pmap-return",
+                "MEM04 linked pmap proof schema/result/frontier")
+        require(linked.get("kernel_sha256") == lock["kernel_sha256"],
+                "MEM04 linked pmap proof kernel identity")
+        checkpoints = linked.get("checkpoint_contract", {})
+        require(exact_stage_list(checkpoints.get("compiled_stage_prefix"), list(range(14)))
+                and exact_stage_list(checkpoints.get("reserved_slots"), [14, 15])
+                and type(checkpoints.get("number_base")) is int
+                and checkpoints["number_base"] == 16,
+                "MEM04 linked pmap proof fourteen numbered stages")
+        for key in ("native_pmap_bootstrap_call_compiled", "bounded_after_pmap_return"):
+            require(lock.get(key) is True and linked.get(key) is True,
+                    "MEM04 compiled bounded pmap contract: " + key)
+        for key in ("pmap_bootstrap_executed", "arm_vm_init_returned", "hardware_tested"):
+            require(lock.get(key) is False and linked.get(key) is False,
+                    "MEM04 unexecuted runtime scope: " + key)
+    # This tag exists only in the validated in-memory copy. Never rewrite the
+    # immutable artifact lock, and never infer profile from caller-supplied flags.
+    return dict(lock, _validated_packaging_profile=profile["tag"]), build, layout
 
 
 def validate_mem03_release(root, work, receipt_path, audit_path, lock):
     """Check actual MEM03 release/proof/source contracts before a seed exists."""
     receipt = json.loads(receipt_path.read_text())
     audit = json.loads(audit_path.read_text())
+    profile = RELEASE_PROFILES.get(receipt.get("schema"))
+    require(profile is not None,
+            "Required MEM03 firmware release schema or recognized MEM04 firmware release schema")
+    prefix = profile["prefix"]
+    proof_hash_key = prefix + "_uefi_proof_sha256"
     required = ("schema", "uefi_commit", "uefi_fd_sha256", "uefi_fd_bytes",
                 "kernel_sha256", "kernel_bytes", "kernel_source_commit",
                 "loaded_span_bytes", "firmware_audit_sha256",
@@ -194,11 +257,11 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
                 "actual_kernel_binding_sha256", "new_ui_source_sha256",
                 "new_bds_source_sha256", "unchanged_fdt_validator_sha256",
                 "unchanged_memorymap_source_sha256", "new_ui_layout_audit_sha256",
-                "mem03_uefi_proof_sha256")
+                proof_hash_key)
     require(all(key in receipt for key in required),
-            "Required MEM03 firmware release fields")
-    require(receipt["schema"] == "thor-mem03-fdt-detail-and-xnu-fb-coverage-v1",
-            "MEM03 firmware release schema")
+            "Required " + profile["tag"] + " firmware release fields")
+    require(lock.get("_validated_packaging_profile") == profile["tag"],
+            "Validated artifact/release profile mismatch")
     require(receipt.get("board") == "thor" and
             receipt["kernel_sha256"] == lock["kernel_sha256"] and
             receipt["kernel_bytes"] == lock["kernel_bytes"] and
@@ -216,16 +279,16 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
                               ("linker_inputs", "unique_link_inputs", 96)):
         require(receipt.get(field) == len(audit.get(key, [])) == count,
                 "MEM03 firmware structure: " + field)
-    proof_path = receipt_path.parent / "mem03-uefi-proof.json"
+    proof_path = receipt_path.parent / (prefix + "-uefi-proof.json")
     ui_path = receipt_path.parent / "ui-stage-grid-audit.json"
-    require(receipt["mem03_uefi_proof_sha256"] == sha(proof_path) and
+    require(receipt[proof_hash_key] == sha(proof_path) and
             receipt["new_ui_layout_audit_sha256"] == sha(ui_path),
             "MEM03 release proof hashes")
     proof, ui = json.loads(proof_path.read_text()), json.loads(ui_path.read_text())
-    require(proof.get("schema") == "thor-mem03-snapshot-detail-host-proof-v1"
-            and proof.get("result") == "PASS_MEM03_FDT_DETAIL_AND_FINAL_OVERLAY"
-            and ui.get("schema") == "thor-mem03-UEFI-HUD-grid-linked-proof-v1"
-            and ui.get("result") == "PASS_LINKED_MEM03_AND_RESERVED_GOP_Y0_319",
+    require(proof.get("schema") == profile["proof_schema"]
+            and proof.get("result") == profile["proof_result"]
+            and ui.get("schema") == profile["ui_schema"]
+            and ui.get("result") == profile["ui_result"],
             "MEM03 proof schemas/results")
     require(proof["firmware"]["sha256"] == ui["fd_sha256"] ==
             receipt["uefi_fd_sha256"] and proof["kernel_sha256"] ==
@@ -258,11 +321,20 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
     require(ui["hud_sha256"] == receipt["new_ui_source_sha256"] and
             ui["bds_source_sha256"] == receipt["new_bds_source_sha256"],
             "MEM03 linked HUD source identity")
-    require(proof.get("tests") == {"mem01": 12, "mem02": 10, "mem03": 12} and
-            receipt.get("source_level_regressions_passed") == 34 and
+    tests = proof.get("tests")
+    expected = {"mem01": 12, "mem02": 10, "mem03": 12}
+    require(isinstance(tests, dict) and
+            all(type(value) is int and value > 0 for value in tests.values()),
+            profile["tag"] + " source regression counts")
+    if prefix == "mem04":
+        require(tests == dict(expected, mem04=11),
+                "MEM04 retains baseline and eleven renderer regressions")
+    else:
+        require(tests == expected, "MEM03 baseline regression contracts")
+    require(receipt.get("source_level_regressions_passed") == sum(tests.values()) and
             proof["test_results_sha256"] ==
-            sha(receipt_path.parent / "mem03-source-test-results.json"),
-            "MEM03 source regression identity")
+            sha(receipt_path.parent / (prefix + "-source-test-results.json")),
+            profile["tag"] + " source regression identity")
     require(all(proof.get("policy_unchanged", {}).get(key) is True
                 for key in ("fdt_gate", "fdt_gate_header", "memory_map",
                             "payload_read_permit")),
@@ -290,4 +362,135 @@ def validate_mem03_release(root, work, receipt_path, audit_path, lock):
             ui.get("never_calls_GOP_after_EBS") is True and
             ui.get("last_fullscreen_clear_followed_by_five_FDT_rows") is True,
             "MEM03 diagnostic/ownership boundary")
+    if prefix == "mem04":
+        require(lock.get("native_pmap_bootstrap_call_compiled") is True and
+                lock.get("bounded_after_pmap_return") is True,
+                "MEM04 release requires bounded pmap artifact")
+        render_path = receipt_path.parent / "stage-render-audit.json"
+        require(receipt.get("stage_render_audit_sha256") == sha(render_path),
+                "MEM04 stage render audit identity")
+        render = json.loads(render_path.read_text())
+        require(render.get("schema") == "thor-mem04-executed-stage-render-event-audit-v1"
+                and render.get("result") == "PASS_ALL_STAGE_FRAMES_NO_OVERLAP"
+                and render.get("unexpected_overlap_count") == 0
+                and render.get("text_bounds_valid") is True
+                and render.get("xnu_reserved_preserved") is True,
+                "MEM04 all-stage renderer nonoverlap and bounds")
+        frames = render.get("frames")
+        require(isinstance(frames, list) and len(frames) >= 6,
+                "MEM04 executed renderer frame coverage")
+        require(render.get("renderer_source_sha256") == receipt["new_bds_source_sha256"]
+                and render.get("hud_source_sha256") == receipt["new_ui_source_sha256"],
+                "MEM04 executed renderer source identity")
+        validate_mem04_render_trace(work, render_path, render)
+        require(exact_stage_list(ui.get("completed_stage_slots"), list(range(14)))
+                and exact_stage_list(ui.get("reserved_stage_slots"), [14, 15])
+                and ui.get("native_pmap_bootstrap_call_compiled") is True
+                and ui.get("bounded_after_pmap_return") is True,
+                "MEM04 pmap checkpoint scope is fourteen bounded stages")
     return receipt, audit
+
+
+def exact_stage_list(value, expected):
+    return (isinstance(value, list) and
+            all(type(item) is int for item in value) and value == expected)
+
+
+def validate_mem04_render_trace(work, render_path, render):
+    """Bind frame summaries to the executed host trace and recheck its geometry."""
+    trace_path = render_path.parent / "stage-render-events.jsonl"
+    harness_path = render_path.parent / "stage-render-harness.c"
+    require(render.get("host_trace_sha256") == sha(trace_path) and
+            render.get("host_harness_sha256") == sha(harness_path),
+            "MEM04 executed renderer trace/harness identity")
+    test_path = work / "Platforms/Xiaomi/thorPkg/Tests/test_mem04_stage_render.py"
+    require(render.get("test_source_sha256") == sha(test_path),
+            "MEM04 executed renderer test source identity")
+    pins = render.get("source_files_sha256")
+    require(isinstance(pins, dict) and len(pins) >= 13,
+            "MEM04 executed renderer source coverage")
+    for relative, expected in pins.items():
+        require(sha(rooted(work, Path(relative))) == expected,
+                "MEM04 executed renderer pinned source: " + relative)
+    require(render.get("render_functions_from_production_C") is True and
+            render.get("font_pixels_executed") is True and
+            render.get("host_service_and_loader_state_stubs") is True and
+            render.get("xnu_y_reserved") == [0, 319],
+            "MEM04 honest executed renderer scope")
+    events = [json.loads(line) for line in trace_path.read_text().splitlines()
+              if line.strip()]
+    require(events and type(render.get("event_count")) is int and
+            render["event_count"] == len(events),
+            "MEM04 nonempty executed renderer event trace")
+    groups, active = {}, None
+    for event in events:
+        number, kind = event.get("frame"), event.get("kind")
+        require(type(number) is int and number > 0,
+                "MEM04 renderer frame ID")
+        if kind == "begin":
+            require(active is None and number not in groups,
+                    "MEM04 renderer frame ordering")
+            active = number
+            groups[number] = []
+        require(active == number, "MEM04 renderer event outside active frame")
+        groups[number].append(event)
+        if kind == "pixels":
+            active = None
+    require(active is None, "MEM04 incomplete renderer frame")
+    frames = render["frames"]
+    require(type(render.get("frame_count")) is int and
+            render["frame_count"] == len(frames) == len(groups) and
+            exact_stage_list(list(groups), list(range(1, len(groups) + 1))),
+            "MEM04 renderer frame-count identity")
+    essential = {"initial", "read_permit", "kernel_hash_pass",
+                 "kernel_hash_refused", "loader_handoff_ready", "loader_error_max_values"}
+    require(essential <= {row.get("name") for row in frames},
+            "MEM04 required renderer stages")
+    def rectangle(event):
+        value = event.get("rect")
+        require(isinstance(value, list) and len(value) == 4 and
+                all(type(item) is int for item in value),
+                "MEM04 renderer rectangle shape")
+        x, y, width, height = value
+        require(x >= 0 and y >= 320 and width >= 0 and height >= 0 and
+                x + width <= 1440 and y + height <= 3200,
+                "MEM04 renderer text/fill bounds")
+        return value
+    def overlap(left, right):
+        x, y, w, h = left
+        xx, yy, ww, hh = right
+        return min(x + w, xx + ww) > max(x, xx) and min(y + h, yy + hh) > max(y, yy)
+    for index, frame in enumerate(frames, 1):
+        require(type(frame.get("id")) is int and frame["id"] == index,
+                "MEM04 renderer frame summary ID")
+        rows = groups[index]
+        require(len(rows) >= 4 and rows[0].get("kind") == "begin" and
+                rows[0].get("name") == frame.get("name") and
+                rows[1].get("kind") == "clear" and
+                rows[1].get("rect") == [0, 0, 1440, 3200] and
+                sum(row.get("kind") == "clear" for row in rows) == 1 and
+                rows[-1].get("kind") == "pixels",
+                "MEM04 renderer full-frame clear and completion")
+        pixels = rows[-1]
+        require(type(frame.get("event_count")) is int and
+                frame["event_count"] == len(rows) and
+                type(frame.get("texts")) is int and frame["texts"] > 0 and
+                frame["texts"] == sum(row.get("kind") == "text" for row in rows) and
+                type(frame.get("glyph_pixels")) is int and frame["glyph_pixels"] > 0 and
+                frame["glyph_pixels"] == pixels.get("glyph_pixels") and
+                frame.get("forbidden_glyphs") == pixels.get("forbidden_glyphs") == 0,
+                "MEM04 renderer summary/pixel identity")
+        live_text = []
+        for row in rows[2:-1]:
+            kind = row.get("kind")
+            require(kind in ("text", "fill"), "MEM04 renderer event kind")
+            rect = rectangle(row)
+            if kind == "text":
+                require(isinstance(row.get("text"), str), "MEM04 renderer text value")
+                require(not any(overlap(rect, old) for old in live_text),
+                        "MEM04 executed text overlap")
+                if row["text"]:
+                    live_text.append(rect)
+            else:
+                require(not any(overlap(rect, old) for old in live_text),
+                        "MEM04 renderer fill erases live text")
