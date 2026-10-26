@@ -86,7 +86,7 @@ def main(argv=None):
             approved["fd"]["sha256"] == fd_pin and not approved["failures"],
             "Independent FD audit")
     layout = json.loads((kernel_path.parent / "kernel-layout.json").read_text())
-    if frozen["_validated_packaging_profile"] == "MEM05":
+    if frozen["_validated_packaging_profile"] in ("MEM05", "MEM06"):
         import importlib.util
         spec = importlib.util.spec_from_file_location("mem05_geometry", work / "scripts/bind-thor-mem05-kernel.py")
         geometry = importlib.util.module_from_spec(spec)
