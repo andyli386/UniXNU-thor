@@ -75,7 +75,40 @@ def adt_fixture():
             + struct.pack('<II', 2, 0) + prop('name', b'chosen\0') + prop('boot-uuid', b'actual-os-uuid\0'))
 
 
+def transition_fixture():
+    words = [0xd503201f] * 132
+    for index, (value, register, target) in enumerate([
+        (0x6c00000, 9, 8), (0x6bfc000, 8, 0), (0x3ea4a0, 8, 1),
+        (0x3eb000, 8, 4), (0x6c38000, 8, 5),
+    ]):
+        at = 10 + 5 * index
+        words[at:at + 5] = [0xd2800000 | ((value & 65535) << 5) | register,
+                              0xf2a00000 | ((value >> 16) << 5) | register,
+                              0x8b020000 | (register << 5) | register,
+                              0xeb00001f | (register << 16) | (target << 5),
+                              0x54000001]
+    words[85], words[101], words[122] = 0x910000bf, 0xd5181008, 0xd61f0020
+    return bytearray(struct.pack('<132I', *words))
+
+
 class FullseqGate(unittest.TestCase):
+    def test_transition_independent_movz_movk_full_values(self):
+        values = gate.transition_immediates(transition_fixture())
+        self.assertEqual([(row['value'], row['target_register']) for row in values],
+                         [(0x6c00000, 8), (0x6bfc000, 0), (0x3ea4a0, 1), (0x3eb000, 4), (0x6c38000, 5)])
+
+    def test_transition_rejects_hidden_native_call_after_stack_switch(self):
+        raw = transition_fixture()
+        struct.pack_into('<I', raw, 360, 0x94000001)
+        with self.assertRaisesRegex(gate.GateError, 'native call'):
+            gate.transition_immediates(raw)
+
+    def test_transition_rejects_removed_constant_comparison_branch(self):
+        raw = transition_fixture()
+        struct.pack_into('<I', raw, 14 * 4, 0xd503201f)
+        with self.assertRaisesRegex(gate.GateError, 'B.NE'):
+            gate.transition_immediates(raw)
+
     def test_independent_adt_node_paths_and_value_offsets(self):
         data = adt_fixture()
         nodes, offsets = gate.parse_adt(data)

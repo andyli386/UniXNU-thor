@@ -774,8 +774,8 @@ def parse_adt(data):
 
 def fresh_adt(checks, uefi, output):
     base = checks.root / 'evidence/build/ios-full-seq01/adt'
-    formal, _ = checks.document(base / 'production-adt-proof-03.json',
-                                '0750d9ccceb3de9060189916dab5e75c1e734eab3caadfcc6a2b487eb175e369')
+    formal, _ = checks.document(base / 'production-adt-proof-04.json',
+                                '1dd836367075b256cd69925fdb0e28cdc0d03be6e5fd4de30e3853643d98a370')
     mirror = base / 'production-source'
     freeze_sources(checks, formal['source_files_sha256'], mirror)
     if uefi is not None:
@@ -1049,13 +1049,146 @@ def parse_stack_report(data):
     return result
 
 
-def validate_native_firmware(checks, source, release, documents, base, binary):
+def pe_interval(data, address, count):
+    require(data[:2] == b'MZ' and len(data) > 8192, 'complete linked PE DOS prefix')
+    pe = struct.unpack_from('<I', data, 0x3c)[0]
+    require(pe + 24 <= len(data) and data[pe:pe + 4] == b'PE\0\0', 'bounded actual PE signature')
+    machine, nsections = struct.unpack_from('<HH', data, pe + 4)
+    optional = struct.unpack_from('<H', data, pe + 20)[0]
+    at = pe + 24
+    require(machine == 0xaa64 and 2 <= nsections <= 12 and optional >= 160
+            and at + optional + nsections * 40 <= len(data)
+            and struct.unpack_from('<H', data, at)[0] == 0x20b,
+            'complete real AArch64 PE32+ section table')
+    sections = []
+    for i in range(nsections):
+        item = at + optional + 40 * i
+        virtual_size, rva, size, offset = struct.unpack_from('<4I', data, item + 8)
+        require(offset + size <= len(data), 'PE section raw bytes stay inside actual linked file')
+        sections.append((data[item:item + 8].rstrip(b'\0'), rva, size, offset))
+
+    def fetch(rva, length, executable=False):
+        found = [(name, start, size, offset) for name, start, size, offset in sections
+                 if start <= rva and rva + length <= start + size and (not executable or name == b'.text')]
+        require(len(found) == 1, 'one complete actual PE file-backed interval')
+        _, start, _, offset = found[0]
+        return data[offset + rva - start:offset + rva - start + length]
+
+    require(struct.unpack_from('<I', data, at + 108)[0] > 5, 'actual PE relocation directory is declared')
+    reloc, size = struct.unpack_from('<II', data, at + 112 + 5 * 8)
+    if size:
+        raw = fetch(reloc, size)
+        cursor = 0
+        while cursor < size:
+            require(cursor + 8 <= size, 'complete actual PE relocation block')
+            page, length = struct.unpack_from('<II', raw, cursor)
+            require(length >= 8 and length % 2 == 0 and length <= size - cursor, 'bounded PE relocation block')
+            for index in range(cursor + 8, cursor + length, 2):
+                word = struct.unpack_from('<H', raw, index)[0]
+                require(not word >> 12 or not address <= page + (word & 4095) < address + count,
+                        'no actual PE base relocation lies inside copied PIC interval')
+            cursor += length
+    return fetch(address, count, True)
+
+
+def transition_immediates(raw):
+    require(len(raw) == 528, 'new full-mode transition has actual fixed 528-byte interval')
+    words = struct.unpack('<132I', raw)
+    rows = []
+    for i in range(len(words) - 3):
+        first, second, add, compare = words[i:i + 4]
+        register = first & 31
+        if register not in (8, 9) or first & 0xffe00000 != 0xd2800000:
+            continue
+        if second & 0xffe0001f != 0xf2a00000 | register:
+            continue
+        if add != 0x8b020000 | (register << 5) | register:
+            continue
+        require(compare & 0xfffffc1f == 0xeb00001f | (register << 16), 'transition constant followed by its actual register compare')
+        target_register = (compare >> 5) & 31
+        require(i + 4 < len(words) and words[i + 4] & 0xff00001f == 0x54000001,
+                'actual transition compare has immediate B.NE rejection before register use')
+        rows.append(dict(offset=i * 4, value=((first >> 5) & 65535) | (((second >> 5) & 65535) << 16),
+                         target_register=target_register))
+    require(len(rows) == 5, 'exactly five independent dynamic entry/ABI/stack transition constants')
+    require(not any(word & 0x0a000000 == 0x08000000 for word in words), 'copied transition has no data load or store')
+    require(not any(word & 0xfc000000 == 0x94000000 or word & 0xfffffc1f in (0xd63f0000, 0xd65f0000)
+                    for word in words), 'copied transition has no native call or return')
+    require([word for word in words if word & 0xfffffc1f == 0xd61f0000] == [0xd61f0020]
+            and words.count(0x910000bf) == 1 and words[404 // 4] == 0xd5181008
+            and words[488 // 4] == 0xd61f0020,
+            'one owned-SP switch, actual SCTLR retirement and sole indirect BR X1')
+    return rows
+
+
+def validate_transition(checks, source, base, document, binding, objects, binary, asset):
+    checks.require(document['result'] == 'PASS_STANDALONE_OBJECT_AND_LINKED_PE_IDENTICAL'
+                   and document['transition_sha_matches_expected_header'] is True
+                   and document['transition_bytes'] == 528 and document['relocations_in_transition'] == 0,
+                   'standalone and actual linked full-mode transition proof')
+    expected_binary = checks.freeze(base / 'transition-prediction/transition.bin', document['transition_sha256'], 528).read_bytes()
+    raw = objects['thor_fullseq_arch.obj']
+    symbols, _ = coff_symbols(raw)
+    names = {}
+    for name in ('ThorFullSeqTransitionStart', 'ThorFullSeqTransitionEnd', 'ThorFullSeqTransitionSctlrWrite', 'ThorFullSeqTransitionKernelBranch'):
+        found = [(value, section) for symbol, value, section in symbols if symbol == name]
+        checks.require(len(found) == 1, 'one actual native PIC symbol: ' + name)
+        names[name] = found[0]
+    first, section = names['ThorFullSeqTransitionStart']
+    end, end_section = names['ThorFullSeqTransitionEnd']
+    checks.require(first % 4096 == 0 and section == end_section and end - first == 528,
+                   'actual COFF PIC interval is one page-aligned bounded section extent')
+    at = 20 + (section - 1) * 40
+    size, offset, reloc = struct.unpack_from('<III', raw, at + 16)
+    count = struct.unpack_from('<H', raw, at + 32)[0]
+    checks.require(end <= size and offset + size <= len(raw) and reloc + count * 10 <= len(raw),
+                   'actual COFF transition section and relocation bounds')
+    checks.require(all(not first <= struct.unpack_from('<I', raw, reloc + i * 10)[0] < end for i in range(count)),
+                   'no actual COFF relocation lies inside copied PIC bytes')
+    actual = raw[offset + first:offset + end]
+    checks.require(actual == expected_binary and sha(actual) == document['transition_sha256'],
+                   'independent actual archived AArch64 transition equals pre-link prediction bytes')
+    map_path = checks.freeze(source / BDS_RELATIVE.replace('.efi', '.map'))
+    found = re.findall(r'^([0-9a-fA-F]+)\s+[0-9a-fA-F]+\s+\d+\s+ThorFullSeqTransitionStart\s*$', map_path.read_text(), re.M)
+    checks.require(found and len(set(found)) == 1, 'one actual linked PE map transition start RVA')
+    rva = int(found[0], 16)
+    checks.require(rva == int(document['linked_pe']['transition_rva'], 16)
+                   and pe_interval(binary, rva, len(actual)) == actual
+                   and document['linked_pe']['pe_sha256'] == sha(binary),
+                   'independent actual PE bytes equal PIC archive/prediction without hidden base relocations')
+    constants = transition_immediates(actual)
+    layout = binding['handoff_layout']
+    expected = [(layout['Transition'], 8), (layout['Args'], 0), (asset['entry_offset'], 1),
+                (asset['vector_offset'], 4), (layout['StackTop'], 5)]
+    checks.require([(row['value'], row['target_register']) for row in constants] == expected,
+                   'independent actual A64 MOVZ/MOVK encodes real new kernel entry, low vector, args and owned stack geometry')
+    expected_header = checks.freeze(source / 'Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe/ThorFullSeqTransitionExpected.h',
+                                    document['expected_transition_header_sha256'])
+    found = re.search(r'mThorFullSeqTransitionSha256\[32\]\s*=\s*\{([^}]+)\}', expected_header.read_text())
+    checks.require(found is not None and bytes.fromhex(''.join(re.findall(r'0x([0-9a-fA-F]{2})', found[1]))).hex() == sha(actual),
+                   'actual compiled expected transition digest is the independently extracted PIC byte hash')
+    return dict(sha256=sha(actual), bytes=len(actual), actual_PE_rva=rva, dynamic_constants=constants,
+                no_data_load_store=True, no_call_or_return=True, no_relocations=True, phone_actions=0)
+
+
+def validate_native_firmware(checks, source, release, documents, base, binary, asset, binding):
     detail, stack = documents['fullseq-uefi-proof.json'], documents['native-stack-usage.json']
     checks.require(detail['schema'] == 'thor-fullseq01-production-uefi-proof-v1'
                    and detail['result'] == 'PASS_ACTUAL_FULLSEQ_SOURCE_AND_LINKED_FIRMWARE_BINDING'
                    and stack['result'] == 'PASS_ACTUAL_AARCH64_OBJECTS_AND_STACK_FRAMES'
                    and detail['source_commit'] == stack['source_commit'] == release['uefi_commit'],
                    'native firmware source, retained workspace and compiler stack evidence are the actual formal build')
+    native_proof_path = rooted(checks.root, asset['raw_path']).parent / 'native-build.json'
+    checks.require(detail['execution_kernel_sha256'] == asset['raw_sha256']
+                   and detail['execution_kernel_raw_bytes'] == asset['raw_bytes']
+                   and detail['loaded_span_bytes'] == asset['loaded_span_bytes']
+                   and detail['loaded_span_sha256'] == asset['loaded_span_sha256']
+                   and detail['asset_manifest_sha256'] == asset['manifest_sha256']
+                   and detail['execution_native_proof_sha256'] == binding['native_proof_sha256'] == hash_file(native_proof_path)
+                   and detail['entry_low_runtime_geometry'] == binding['geometry']
+                   and detail['handoff_layout'] == binding['handoff_layout']
+                   and detail['native_cpp_inputs_sha256'] == release['native_cpp_inputs_sha256'],
+                   'native PE proof, binder, full asset, merged-kernel build and all native CPP inputs form one exact closure')
     freeze_sources(checks, detail['source_files_sha256'], source)
     objects = detail['actual_native_objects']
     checks.require(objects == stack['actual_native_objects'] and len(objects) >= 15
@@ -1095,6 +1228,12 @@ def validate_native_firmware(checks, source, release, documents, base, binary):
                    and sum(frames.values()) == stack['conservative_sum_new_function_stack_bytes'] < 0x3c000
                    and stack['shared_stack_bytes'] == 0x40000 and stack['shared_stack_guard_bytes'] == 0x4000,
                    'independent static frame sum fits guarded retained shared stack without recursive-path claims')
+    checks.require(stack['C_stack_usable_base'] == 0xa7611000 and stack['C_stack_usable_end'] == 0xa764d000
+                   and sum(frames.values()) < stack['C_stack_usable_end'] - stack['C_stack_usable_base']
+                   and stack['copied_transition_stack_bytes'] == 0x10000
+                   and stack['copied_transition_logical_guard_bytes'] == 0x4000
+                   and stack['copied_transition_stack_memory_accesses'] == stack['copied_transition_C_calls'] == 0,
+                   'all C pre/post work remains on guarded firmware stack; owned-SP PIC performs no C call or stack access')
     raw = actual_objects['ThorEntryBdsDxe.obj']
     symbols, sections = coff_symbols(raw)
     workspace = [(value, section) for name, value, section in symbols if name == 'mSeq']
@@ -1123,9 +1262,67 @@ def validate_native_firmware(checks, source, release, documents, base, binary):
                    and detail['post_EBS_external_source_reads'] is False
                    and detail['root_media_installed_on_phone'] is False and detail['storage_write_enabled'] is False,
                    'native public components and retained full handoff make no media install, AMFI runtime or post-EBS source claims')
+    transition = validate_transition(checks, source, base, documents['fullseq-transition-binding.json'],
+                                     binding, actual_objects, binary, asset)
     return dict(actual_native_objects=len(objects), actual_stack_reports=len(reports),
                 maximum_function_frame_bytes=max(frames.values()), conservative_frame_sum_bytes=sum(frames.values()),
-                workspace_static_bytes=size - value, retained_image_bytes=image_size, phone_actions=0)
+                workspace_static_bytes=size - value, retained_image_bytes=image_size,
+                independent_transition=transition, phone_actions=0)
+
+
+def validate_cpp_closure(checks, source, base, release, audit):
+    proof, _ = checks.document(base / 'native-cpp-inputs.json', release['native_cpp_inputs_sha256'])
+    checks.require(proof['schema'] == 'thor-fullseq01-all-linked-native-cpp-inputs-v1'
+                   and proof['result'] == 'PASS_ACTUAL_COMPILER_DEPENDENCY_CLOSURE'
+                   and proof['libraries'] == len(audit['unique_link_inputs']) == 97
+                   and proof['source_commit'] == release['uefi_commit'] and proof['phone_actions'] == 0,
+                   'native CPP source/header dependency closure belongs to every actual linked library')
+    original = Path(audit['fd']['path'])
+    for _ in Path(FD_RELATIVE).parts:
+        original = original.parent
+    files, reports = {}, {}
+    for item in audit['unique_link_inputs']:
+        artifact = item['artifact']
+        old = Path(artifact['path'])
+        checks.require(old.is_relative_to(original), 'native library path is within explicit original firmware root')
+        library = checks.freeze(source / old.relative_to(original), artifact['sha256'], artifact['bytes'])
+        for report in sorted(library.parent.rglob('*.obj.deps')):
+            relative = str(report.relative_to(source))
+            raw = report.read_bytes()
+            reports[relative] = dict(bytes=len(raw), sha256=sha(raw))
+            text = '\n'.join(line.split('#', 1)[0] for line in raw.decode().splitlines())
+            require(':' in text, 'actual clang dependency report has one target separator')
+            target, dependencies = text.split(':', 1)
+            require(Path(target.strip()).is_relative_to(original), 'native dependency target belongs to explicit original firmware root')
+            for name in dependencies.replace('\\\n', ' ').split():
+                path = Path(name)
+                require(path.is_absolute() and path.is_relative_to(original), 'native CPP dependency must have an explicit original firmware path')
+                relative_name = str(path.relative_to(original))
+                local = rooted(checks.root, source / relative_name)
+                before = local.stat()
+                digest = hash_file(local)
+                after = local.stat()
+                require((before.st_ino, before.st_size, before.st_mtime_ns) ==
+                        (after.st_ino, after.st_size, after.st_mtime_ns), 'native CPP input changed during independent hashing')
+                value = dict(bytes=before.st_size, sha256=digest)
+                files[relative_name] = value
+                previous = checks.inputs.get(str(local))
+                require(previous is None or previous == value, 'native CPP input conflicts with source/object identity')
+                checks.inputs[str(local)] = value
+        for report in sorted(library.parent.glob('*resp*')):
+            if report.is_file():
+                reports[str(report.relative_to(source))] = dict(bytes=report.stat().st_size, sha256=hash_file(report))
+    checks.require(files == proof['files'] and len(files) == 803,
+                   'independent union of all actual native compiler reports reconstructs exact 803 source/header inputs')
+    checks.require(reports == proof['dependency_reports']
+                   and sum(name.endswith('.obj.deps') for name in reports) == 328 and len(reports) == 332,
+                   'all 328 actual compiler dependency reports plus four response metadata records are bound')
+    for name, record in reports.items():
+        checks.freeze(source / name, record['sha256'], record['bytes'])
+    checks.require('Platforms/Xiaomi/thorPkg/Drivers/ThorEntryBdsDxe/thor_fullseq_fdt_api.h' in files,
+                   'native firmware actually compiled the shared FDT API header independently tested on both hosts')
+    return dict(libraries=97, cpp_inputs=len(files), object_dependency_reports=328,
+                response_metadata_reports=4, actual_union_independently_reconstructed=True, phone_actions=0)
 
 
 def validate_firmware(checks, args, asset, output):
@@ -1184,6 +1381,30 @@ def validate_firmware(checks, args, asset, output):
         documents[name] = document
     binding, binding_path = checks.document(release_path.parent / 'binding/fullseq-binding.json',
                                             release['binding_audit_sha256'])
+    payload = rooted(checks.root, asset['header_path']).read_bytes() + rooted(checks.root, asset['compressed_path']).read_bytes()
+    prefix = OUTER.pack(OUTER_MAGIC, 3, 128, len(payload), hashlib.sha256(payload).digest(), bytes(64))[:64]
+    checks.require(binding['result'] == 'PASS_ACTUAL_FULL_RAW_LAYOUT_AND_V3_BINDING'
+                   and binding['outer_public_prefix_hex'] == prefix.hex()
+                   and binding['outer_public_prefix_sha256'] == sha(prefix)
+                   and binding['payload_bytes'] == len(payload) and binding['payload_sha256'] == sha(payload)
+                   and binding['TC_runtime_consumption_claimed'] is False
+                   and binding['auth_installed_in_adt'] is False and binding['phone_actions'] == 0,
+                   'independent public v3 framing binds only new full asset and makes no private seed/TC/auth runtime claim')
+    for name in ('raw_bytes', 'raw_sha256', 'loaded_span_bytes', 'loaded_span_sha256', 'segment_record_count',
+                 'nonzero_segment_count', 'entry_offset', 'low_vector_offset', 'runtime_vector_offset'):
+        checks.require(binding['geometry'][name] == asset[name], 'actual native binder geometry agrees with independent Mach-O: ' + name)
+    for name, key in [('__start', 'entry_offset'), ('_LowExceptionVectorBase', 'low_vector_offset'),
+                      ('_ExceptionVectorsBase', 'runtime_vector_offset'), ('_bootstrap_pagetables', 'boot_pt_offset')]:
+        checks.require(binding['geometry']['symbol_offsets'][name] == asset[key],
+                       'actual binder symbol identity agrees with independent real nlist: ' + name)
+    layout = binding['handoff_layout']
+    checks.require(layout['Args'] == asset['loaded_span_bytes']
+                   and layout['Transition'] == layout['Args'] + 0x4000
+                   and layout['StackTop'] - layout['Stack'] == 0x10000
+                   and layout['AdtSlot'] == 0x4000 and layout['TrustCacheSlot'] == 0x10000
+                   and layout['Used'] == layout['Log'] + 0x4000
+                   and layout['Used'] <= layout['MinimumGrant'] <= 0x7000000,
+                   'actual retained metadata, guarded native stack, ADT/TC/log tail fit smallest authorized 112MiB candidate')
     checks.require(documents['fullseq-uefi-proof.json']['binding_audit_sha256'] == hash_file(binding_path),
                    'actual native release and detailed proof bind the same full-kernel expected geometry')
     details = documents['fullseq-uefi-proof.json']
@@ -1210,10 +1431,11 @@ def validate_firmware(checks, args, asset, output):
                    and release['command_line_digest_includes_terminating_NUL'] is True
                    and sha(command_line.encode('ascii') + b'\0') == release['command_line_sha256'],
                    'actual linked BDS PE contains exact bounded native kernel command-line string')
-    native_firmware = validate_native_firmware(checks, source, release, documents, release_path.parent, binary)
+    native_firmware = validate_native_firmware(checks, source, release, documents, release_path.parent, binary, asset, binding)
+    cpp_closure = validate_cpp_closure(checks, source, release_path.parent, release, audit)
     return dict(release=release, release_path=str(release_path), actual_fd_path=str(fd), fd_sha256=hash_file(fd),
                 fresh_firmware_replay=fresh, side_proofs=documents, kernel_command_line=command_line,
-                native_firmware=native_firmware, phone_actions=0)
+                native_firmware=native_firmware, native_cpp_closure=cpp_closure, phone_actions=0)
 
 
 def recheck_inventory(checks, document):
@@ -1343,6 +1565,17 @@ def public_tool_inputs(checks):
     stock = tomllib.loads(config.read_text())['stock']
     checks.freeze(checks.root / 'artifacts/thor-smoke-01/BootShim.bin', stock['bootshim_sha256'], 112)
     checks.freeze(checks.root / 'artifacts/thor-smoke-01/thor-stock-vendor-dtb.bin', stock['dtb_sha256'], 6443651)
+    for name, digest in (
+        ('evidence/upstream/ios-full-seq01-20261026T180503Z/upstream-fetch.json',
+         'db688f59caff915c8a7dcf71e659451c454c0a7a812c5d71385cf1f5d139e55a'),
+        ('evidence/upstream/ios-full-seq01-20261026T180503Z/source-review.json',
+         'a34c0602dfa978b0f67aeda64e7e1d605d8769e7c5f19c43d2f050979fe4999d'),
+        ('evidence/upstream/ios-full-seq01-components-20261026T192504Z/component-fetch.json',
+         'eb805f5fd6ff0681a7ac7d8b8e72ca093764073de5db343b81b19d0748e8a66e'),
+        ('evidence/upstream/ios-full-seq01-components-20261026T192504Z/component-source-review.json',
+         '6b7000cdb5edbac2f343fed6f23ceefea2433387abae4e876efe8f8162f9d829'),
+    ):
+        checks.freeze(checks.root / name, digest)
     return metadata
 
 
@@ -1428,6 +1661,68 @@ def fresh_firmware_guards(checks, args, asset, firmware, output):
     return results
 
 
+def validate_remote_adapter(checks, source):
+    base = checks.root / 'evidence/build/ios-full-seq01'
+    document, _ = checks.document(base / 'gate-i386-adapter-fresh-01/proof.json',
+                                  '240bff7f270a1c5fe5c415b33145043e8665b3d2320cfd7055263e5043fb1c8e')
+    index, index_path = checks.document(base / 'gate-i386-adapter-transfer-01/index.json',
+                                        'c7d8be898bbf70ee593743face23242ad195809b8a317f36b4c613cb6395312e')
+    imported, _ = checks.document(base / 'gate-i386-adapter-transfer-01/import-proof.json')
+    checks.require(imported['result'] == 'PASS_EXACT_I386_BYTES_IMPORTED'
+                   and imported['index_sha256'] == hash_file(index_path)
+                   and imported['archive_sha256'] == index['archive_sha256']
+                   and imported['execution_host'] == 'i386' and imported['mac_executed_adapter_ELF'] is False
+                   and imported['phone_actions'] == index['phone_actions'] == 0
+                   and index['real_seed_included'] is False and index['real_boot_image_included'] is False,
+                   'independently executed i386 adapter evidence transfers exact bytes; Mac cannot claim executing x86 ELF')
+    for name, record in index['files'].items():
+        relative = Path(name)
+        checks.require(not relative.is_absolute() and relative.parts[0] == 'gate-i386-adapter-fresh-01'
+                       and '..' not in relative.parts, 'bounded exact independent remote host evidence member')
+        checks.freeze(base / relative, record['sha256'], record['bytes'])
+    checks.require(document['schema'] == 'thor-fullseq01-production-adapter-host-v1'
+                   and document['result'] == 'PASS_PRODUCTION_ADAPTER_ENTRY_AND_EBS_CONTROL_FLOW'
+                   and document['total'] == document['passed'] == len(document['cases']) == 33
+                   and all(case['passed'] is True for case in document['cases'])
+                   and document['production_expected_used'] is False
+                   and document['test_entropy_is_fixed_fixture_not_production_seed'] is True
+                   and document['native_kernel_execution_claimed'] is False and document['phone_actions'] == 0,
+                   'actual production adapter/entry control flow has 33 successful host fault/success cases and explicit synthetic geometry boundary')
+    for name, digest in document['source_files_sha256'].items():
+        if name.startswith(('Platforms/', 'Mu_Basecore/')):
+            path = Path(source) / name
+        else:
+            checks.require(name.startswith(('evidence/build/vm-mem08/host-codec/source/',
+                                            'evidence/build/ios-full-seq01/adt/source-fixtures/')),
+                           'adapter closure uses only explicit project fixture/codec namespaces')
+            path = checks.root / name
+        checks.freeze(path, digest)
+    directory = base / 'gate-i386-adapter-fresh-01/proof.build'
+    executable = checks.freeze(directory / 'fullseq-adapter-host', document['host_executable_sha256'])
+    code = executable.read_bytes()
+    checks.require(code[:4] == b'\x7fELF' and code[4] == 2 and code[5] == 1
+                   and struct.unpack_from('<H', code, 18)[0] == 62,
+                   'receipt binds the actual x86_64 host ELF, separate from the linked AArch64 phone PE')
+    for name, digest in document['fixture_files_sha256'].items():
+        checks.freeze(directory / name, digest)
+    frames = document['renderer_frames']
+    checks.require(len(frames) == 504 and all(frame['y'] >= 384 for frame in frames),
+                   'all actual rendered host HUD events preserve reserved native top rows')
+    success = {case['number']: case['observed'] for case in document['cases'] if case['number'] in (0, 10)}
+    checks.require(set(success) == {0, 10}, 'actual initial-key and stale-key-retry success paths are both exercised')
+    for number, row in success.items():
+        checks.require(row['terminal'] == 2 and row['post'] == 1 and row['marked'] == 1
+                       and row['forbidden'] == row['trace_bad'] == row['post_source_at'] == 0
+                       and row['post_exec0'] == row['post_exec1'] == row['post_sync_set'] == 0
+                       and row['tpl_raise'] == row['tpl_restore'] == 4
+                       and row['pre_proofs'] == 3 and row['post_proofs'] == 1,
+                       'actual EBS/one-use/post-proof ordering and protected-source success path: ' + str(number))
+    return dict(result=document['result'], execution_host='i386', tests=33, source_inputs=len(document['source_files_sha256']),
+                renderer_events=len(frames), actual_AArch64_geometry_used=False,
+                actual_geometry_verified_by_separate_handoff_suite=True, Mac_skip_counted_as_pass=False,
+                phone_actions=0)
+
+
 def public_preflight(checks, args, asset, geometry, paths, work):
     gate_test = checks.freeze(Path(__file__).resolve().parents[2] / 'tests/test_fullseq_candidate_gate.py')
     run_command(checks, [sys.executable, '-B', '-m', 'unittest', 'discover', '-s', gate_test.parent,
@@ -1441,6 +1736,7 @@ def public_preflight(checks, args, asset, geometry, paths, work):
     firmware = validate_firmware(checks, args, asset, work)
     sha_regression = verify_sha_reuse(checks, rooted(checks.root, args.source))
     firmware_guards = fresh_firmware_guards(checks, args, asset, firmware, work)
+    adapter_guards = validate_remote_adapter(checks, rooted(checks.root, args.source))
     adt = fresh_adt(checks, rooted(checks.root, args.source), work)
     display = validate_display(checks, args.xnu_source, paths['raw'], firmware['kernel_command_line'])
     tools = public_tool_inputs(checks)
@@ -1448,6 +1744,7 @@ def public_preflight(checks, args, asset, geometry, paths, work):
                 source_preservation=preservation, production_codec_replay=codec, prelink=prelink,
                 native_guard_replays=guards, system_inputs=system, firmware=firmware, adt=adt,
                 firmware_guard_replays=firmware_guards, unchanged_sha_algorithm_regression=sha_regression,
+                remote_adapter_replay=adapter_guards,
                 display=display, package_tools=tools, fd_sha256=firmware['fd_sha256'])
 
 
