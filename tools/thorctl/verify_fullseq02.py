@@ -270,7 +270,7 @@ def preflight(gate,out):
 def verify_package(gate):
     root, l2 = gate.root, gate.l2
     asset, release, entries = run_preflight(gate)
-    public_path = l2 / "public-preflight-final.json"
+    public_path = l2 / "public-preflight-final-02.json"
     public = gate.document(public_path)
     gate.require(public["schema"] == "thor-fullseq02-public-preflight-v1" and
                  public["result"] == "PASS_PUBLIC_FULLSEQ02" and
@@ -377,7 +377,9 @@ def verify_package(gate):
         full_kernel_entry_executed=False,
         actual_kernel_executed=False,ios_interface_reached=False,
         full_kernel=asset,
-        inputs=dict(android_boot_v4=dict(sha256=metadata["image_sha256"],
+        inputs=dict(full_kernel=asset,
+                    native_xnu=dict(sha256=asset["raw_sha256"],bytes=asset["raw_bytes"]),
+                    android_boot_v4=dict(sha256=metadata["image_sha256"],
                                         bytes=metadata["image_bytes"]),
                     uefi_fd=dict(sha256=release["uefi_fd_sha256"],bytes=3145728)),
         image_verifier=dict(tool_sha256=digest(scripts["image_verifier"]),
