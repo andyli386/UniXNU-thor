@@ -92,6 +92,14 @@ def transition_fixture():
 
 
 class FullseqGate(unittest.TestCase):
+    def test_one_use_run_id_is_not_hardcoded_to_seq01(self):
+        for value in ("thor-20261027-ios-full-seq01", "thor-20261027-ios-full-seq02",
+                      "thor-20261028-ios-full-seq03"):
+            self.assertTrue(gate.valid_fullseq_run_id(value))
+        for value in ("../thor-20261027-ios-full-seq02", "thor/../../test",
+                      "thor-", "full-seq02", "thor-abc_UPPER", ""):
+            self.assertFalse(gate.valid_fullseq_run_id(value))
+
     def test_transition_independent_movz_movk_full_values(self):
         values = gate.transition_immediates(transition_fixture())
         self.assertEqual([(row['value'], row['target_register']) for row in values],

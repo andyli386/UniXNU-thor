@@ -56,6 +56,10 @@ def require(ok, message):
         raise GateError(message)
 
 
+def valid_fullseq_run_id(value):
+    return isinstance(value, str) and re.fullmatch(r'thor-[a-z0-9-]{8,90}', value) is not None
+
+
 def sha(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -1859,7 +1863,9 @@ def main():
                               verifier_path=str(Path(__file__).resolve()), verifier_sha256=hash_file(__file__),
                               full_kernel_entry_executed=False, hardware_test_attempts=0)
         elif args.verify_package:
-            checks.require(args.run_id == 'thor-20261027-ios-full-seq01'
+            # The immutable manifest and consumed-image ledger enforce one-use
+            # identity; a verifier must not pin all future runs to FULLSEQ01.
+            checks.require(valid_fullseq_run_id(args.run_id)
                            and args.public_preflight is not None and args.public_preflight_sha256 is not None,
                            'exact new full-sequence run and completed public preflight are required')
             public, _ = checks.document(args.public_preflight, args.public_preflight_sha256)
