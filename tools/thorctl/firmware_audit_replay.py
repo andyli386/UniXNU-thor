@@ -38,10 +38,13 @@ def digest(path):
 
 
 class PublicPathMap:
-    def __init__(self, source, original_source, original_root, exact=None):
+    def __init__(self, source, original_source, original_root, exact=None, scratch=None):
         self.source=Path(source).resolve()
         self.original_source=Path(original_source)
         self.original_root=Path(original_root)
+        # Local clean-rebuilds may have the original and current project root
+        # in common. Permit only the private scratch directory for new output.
+        self.scratch=Path(scratch).resolve() if scratch is not None else None
         self.exact={str(Path(k)):Path(v).resolve() for k,v in (exact or {}).items()}
         require(self.original_source.is_absolute() and self.original_root.is_absolute(),
                 "explicit absolute original source/root prefixes")
@@ -53,6 +56,9 @@ class PublicPathMap:
             return self.exact[str(path)]
         if path.is_absolute() and path.is_relative_to(self.original_source):
             return self.source/path.relative_to(self.original_source)
+        if (self.scratch is not None and path.is_absolute() and
+                path.resolve().is_relative_to(self.scratch)):
+            return path
         if path.is_absolute() and path.is_relative_to(self.original_root):
             raise ReplayError("unmapped original public input: "+str(path))
         return path
@@ -89,7 +95,7 @@ def replay(root,source,original,index,temporary):
     actual_fd=source/suffix
     require(actual_fd.is_file() and actual_fd.stat().st_size==original["fd"]["bytes"]
             and digest(actual_fd)==original["fd"]["sha256"],"original audit FD identity matches actual relocated firmware")
-    mapper=PublicPathMap(source,old_source,old_root)
+    mapper=PublicPathMap(source,old_source,old_root,scratch=temporary)
     mapper.candidate_stage=legacy_schema_stage(old_source.name)
     index_info=verify_public_index(index,root,mapper)
     # Every original auditor input is checked before the audit starts; no path

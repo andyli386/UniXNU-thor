@@ -76,6 +76,19 @@ class PublicPaths(unittest.TestCase):
                 with self.assertRaisesRegex(replay.ReplayError, reason):
                     self.verify()
 
+    def test_same_project_private_scratch_is_allowed_but_other_paths_rejected(self):
+        project = self.root
+        original = project / 'worktrees/uefi/ios-full-seq02'
+        original.mkdir(parents=True, exist_ok=True)
+        scratch = project / 'runs/fullseq02/replay-tmp'
+        scratch.mkdir(parents=True)
+        mapper = replay.PublicPathMap(original, original, project, scratch=scratch)
+        self.assertEqual(mapper(scratch / 'audit/out.json'), scratch / 'audit/out.json')
+        with self.assertRaisesRegex(replay.ReplayError, 'unmapped original public'):
+            mapper(project / 'runs/unrelated/secret')
+        with self.assertRaisesRegex(replay.ReplayError, 'unmapped original public'):
+            mapper(scratch / '../../unrelated/secret')
+
     def test_symlink_escape_is_rejected(self):
         outside = self.root / 'outside'
         outside.mkdir()
