@@ -1318,8 +1318,11 @@ def validate_cpp_closure(checks, source, base, release, audit):
         for report in sorted(library.parent.glob('*resp*')):
             if report.is_file():
                 reports[str(report.relative_to(source))] = dict(bytes=report.stat().st_size, sha256=hash_file(report))
-    checks.require(files == proof['files'] and len(files) == 803,
-                   'independent union of all actual native compiler reports reconstructs exact 803 source/header inputs')
+    # The pinned OpenSSL regeneration replaces two old headers with eleven
+    # current headers. Both known closure sizes remain exact, never a minimum.
+    expected_cpp = {'ios-full-seq01': 803, 'ios-full-seq02': 812}.get(source.name)
+    checks.require(expected_cpp is not None and files == proof['files'] and len(files) == expected_cpp,
+                   'independent compiler closure has the exact source-specific header count')
     checks.require(reports == proof['dependency_reports']
                    and sum(name.endswith('.obj.deps') for name in reports) == 328 and len(reports) == 332,
                    'all 328 actual compiler dependency reports plus four response metadata records are bound')
