@@ -18,6 +18,16 @@ class ReplayError(RuntimeError):
     pass
 
 
+def legacy_schema_stage(source_name):
+    # FULLSEQ02 deliberately retains the verified FULLSEQ01 evidence schema.
+    if source_name in {"ios-full-seq01", "ios-full-seq02"}:
+        return "fullseq01"
+    if source_name in {"vm-mem03", "vm-mem04", "vm-mem05", "vm-mem06",
+                       "vm-mem07", "vm-mem08"}:
+        return source_name.removeprefix("vm-")
+    raise ReplayError("unknown original firmware source stage: " + source_name)
+
+
 def require(condition, message):
     if not condition:
         raise ReplayError(message)
@@ -73,14 +83,14 @@ def replay(root,source,original,index,temporary):
     old_source=original_fd
     for _ in suffix.parts:
         old_source=old_source.parent
-    require(old_source.name in {"vm-mem03","vm-mem04","vm-mem05","vm-mem06","vm-mem07","vm-mem08","ios-full-seq01"} and old_source.parent.name=="uefi",
+    require(old_source.name in {"vm-mem03","vm-mem04","vm-mem05","vm-mem06","vm-mem07","vm-mem08","ios-full-seq01","ios-full-seq02"} and old_source.parent.name=="uefi",
             "MEM03 original build source identity")
     old_root=old_source.parents[2]
     actual_fd=source/suffix
     require(actual_fd.is_file() and actual_fd.stat().st_size==original["fd"]["bytes"]
             and digest(actual_fd)==original["fd"]["sha256"],"original audit FD identity matches actual relocated firmware")
     mapper=PublicPathMap(source,old_source,old_root)
-    mapper.candidate_stage="fullseq01" if old_source.name=="ios-full-seq01" else old_source.name.removeprefix("vm-")
+    mapper.candidate_stage=legacy_schema_stage(old_source.name)
     index_info=verify_public_index(index,root,mapper)
     # Every original auditor input is checked before the audit starts; no path
     # search, missing-file fallback, or text rewriting is permitted.

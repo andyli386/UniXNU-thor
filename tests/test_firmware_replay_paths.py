@@ -12,6 +12,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools/thorctl'))
 import firmware_audit_replay as replay
 
 class PublicPaths(unittest.TestCase):
+    def test_fullseq02_source_uses_legacy_evidence_schema_without_widening_paths(self):
+        self.assertEqual(replay.legacy_schema_stage("ios-full-seq02"), "fullseq01")
+        self.assertEqual(replay.legacy_schema_stage("ios-full-seq01"), "fullseq01")
+        self.assertEqual(replay.legacy_schema_stage("vm-mem08"), "mem08")
+        with self.assertRaisesRegex(replay.ReplayError, "unknown original"):
+            replay.legacy_schema_stage("arbitrary-directory")
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
