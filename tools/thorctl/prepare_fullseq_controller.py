@@ -16,10 +16,17 @@ def main():
     parser.add_argument('--root', type=Path, default=Path.cwd())
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--source', type=Path, required=True)
-    parser.add_argument('--adb', type=Path,
-                        default=Path('/Users/<user>/Library/Android/sdk/platform-tools/adb'))
-    parser.add_argument('--fastboot', type=Path,
-                        default=Path('/Users/<user>/Library/Android/sdk/platform-tools/fastboot'))
+    if sys.platform == 'darwin':
+        default_adb = Path('/Users/<user>/Library/Android/sdk/platform-tools/adb')
+        default_fastboot = Path('/Users/<user>/Library/Android/sdk/platform-tools/fastboot')
+    elif sys.platform == 'linux':
+        default_adb = Path('/usr/bin/adb')
+        default_fastboot = Path('/usr/bin/fastboot')
+    else:
+        default_adb = Path('adb')
+        default_fastboot = Path('fastboot')
+    parser.add_argument('--adb', type=Path, default=default_adb)
+    parser.add_argument('--fastboot', type=Path, default=default_fastboot)
     args = parser.parse_args()
     root = args.root.resolve()
     run = root / 'runs' / args.run_id
