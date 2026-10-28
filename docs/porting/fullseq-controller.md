@@ -31,3 +31,12 @@ python3 runs/<run-id>/l2/controller/controller.py execute \
 ```
 
 The template is versioned with the controller tooling. The run copy is intentionally duplicated because its SHA is part of the immutable execution receipt; duplicating that sealed artifact is different from rewriting the controller implementation each round.
+
+For the conventional layout, the path list can be reduced to:
+
+```bash
+python3 tools/thorctl/prepare_fullseq_controller.py \
+  --root /Users/<user>/projects/thor-unixnu \
+  --run-id thor-YYYYMMDD-ios-fullseqNN-purpose \
+  --source worktrees/uefi/<worktree>
+```
