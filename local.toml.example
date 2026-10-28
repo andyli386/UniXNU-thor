@@ -1,0 +1,7 @@
+# Copy to local.toml for private machine paths. Do not commit local.toml.
+[local]
+# drivers = "~/Code/UniXNU-drivers"
+# kits = "~/Code/UniXNU-kits"
+
+# Device-specific IPSW/firmware paths belong in the UniXNU checkout's
+# unixnu.local.toml [build] table, not in this repository.

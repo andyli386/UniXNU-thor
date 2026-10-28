@@ -1,0 +1,189 @@
+schema_version = 1
+
+[device]
+name = "thor"
+soc = "SM8475"
+os_profile = "ios16.6.1-20G81"
+summary = "Format 2 migration of Xiaomi 12S Ultra from the Pong Darwin 22 source boundary, with Thor-owned UEFI and vendor-derived DT inputs."
+
+[[area]]
+id = "configuration"
+status = "implemented"
+components = ["ArmDTPlatform", "ArmCpu", "RamBlock", "XnuPrelink", "DarwinBoot"]
+paths = ["board.toml", "feeds.toml", "unixnu.lock", "configs/**", ".github/**", ".gitignore", "local.toml.example"]
+inputs = ["Upstream Format 2 device repository contract and the pinned iOS 16.6.1 / 20G81 Pong source inventory."]
+configuration = ["board.toml selects thor, SM8475, sm8475 and ios16.6.1-20G81; arrays explicitly list all configuration and patch layers."]
+procedure = ["Create the four profile layers, run defconfig, status --json and the porting record checker."]
+findings = ["The upstream resolver requires Python 3.11 or newer and treats arrays as replacements, so the device lists complete fragments and series."]
+completion = ["The new repository has a Format 2 board, pinned Darwin 22 feeds, a selected defconfig and a record covering every selected component."]
+limits = ["The local SM8475 source is a transition override until a published UniXNU-sm8475-common commit exists."]
+next_action = ["Replace the local SoC override with a reviewed remote commit after the shared DTSI boundary is validated on a second board."]
+evidence = [{kind = "source", reference = "board.toml", result = "Format 2 board identity and resolver layers are present."}]
+
+[[area]]
+id = "firmware"
+status = "planned"
+components = []
+paths = ["proprietary-files.txt", "README.md"]
+inputs = ["Thor Mu-Silicium checkout at ce78bb113ac63009f95733dd8c8d7b731ab4a3f0 and Resources/Configs/thor.toml."]
+configuration = ["Thor DSC/FDF and FD base 0xA7100000 / size 0x300000 are recorded in board.toml."]
+procedure = ["Build the Thor FD through the upstream firmware step after the complete Mu submodules are restored."]
+findings = ["The existing UEFI checkout reaches FULLSEQ08 handoff preparation; this migration does not treat that screen as a Darwin kernel boot result."]
+completion = ["A rebuilt FD contains the upstream UniXNU/DarwinBoot payload integration and preserves Thor memory reservations."]
+limits = ["Mu_Basecore and firmware input qualification remain separate from the device repository migration."]
+next_action = ["Restore all Thor firmware submodules, then run the firmware build and compare the FD size and hash."]
+evidence = []
+
+[[area]]
+id = "cpu"
+status = "planned"
+components = ["ArmCpu"]
+paths = ["drivers/ArmCpu/**", "dts/thor.dts"]
+inputs = ["SM8475 GICv3 and eight-core topology from the Thor vendor DT and UEFI platform constants."]
+configuration = ["ArmCpu is selected as a canonical component and the complete DT keeps the CPU/GIC nodes reviewable."]
+procedure = ["Compile the DTS, boot the rebuilt image, and capture CPU entry, timer and IPI checkpoints."]
+findings = ["Pong's generic ArmCpu source is reusable at the source boundary but remains unverified on Thor."]
+completion = ["All enabled CPUs start and timer/IPI handling remains stable across a manual reboot."]
+limits = ["No Darwin kernel CPU evidence exists in this migration directory yet."]
+next_action = ["Run the first kernel build and capture the ArmCpu counters on Thor."]
+evidence = []
+
+[[area]]
+id = "memory"
+status = "planned"
+components = []
+paths = ["dts/thor.dts", "dts/README.md"]
+inputs = ["Thor DTB-derived memory and reserved-memory nodes, including the UEFI handoff regions."]
+configuration = ["The complete board DTS is retained while the SoC DTSI is an explicit shared include boundary."]
+procedure = ["Compile hardware.dtb and compare reserved ranges with the UEFI FD and payload allocation plan."]
+findings = ["Splitting common nodes before a second SM8475 board exists would risk changing phandles, so the first pass keeps the board DTS complete."]
+completion = ["All handoff ranges are accounted for and DMA accesses use the documented cache policy."]
+limits = ["The shared DTSI currently contains only an ownership marker, not moved hardware nodes."]
+next_action = ["Promote only byte-identical CPU/GIC nodes to the SoC repository after cross-board comparison."]
+evidence = []
+
+[[area]]
+id = "storage"
+status = "planned"
+components = ["ThorUfs"]
+paths = ["drivers/ThorUfs/**", "dts/thor.dts", "proprietary-files.txt"]
+inputs = ["Pong NativeUfs source, Thor UFS nodes in the vendor DT, and the 20G81 OS/SystemOS inputs."]
+configuration = ["ThorUfs is staged under the device owner and deliberately excluded from the canonical component list until its SM8475 adaptation is reviewed."]
+procedure = ["Validate controller register map, clocks, link, SMMU stream ownership, GPT and the iOS root volume before selecting a canonical component."]
+findings = ["The old NativeUfs implementation is a useful migration source, but the upstream ShengUfs catalog entry is scoped to SM8550/sheng and cannot be silently reused."]
+completion = ["The UFS root mounts and launchd starts with persistent writes surviving a reboot."]
+limits = ["No Thor Darwin storage result is claimed; current phone evidence stops before EBS commit and root mount."]
+next_action = ["Implement a Thor-specific UFS component contract and add it to the upstream catalog only after host and device evidence."]
+evidence = []
+
+[[area]]
+id = "display"
+status = "planned"
+components = ["ThorDarwinBoot22"]
+paths = ["drivers/ThorDarwinBoot22/**", "drivers/ThorMetal/**"]
+inputs = ["Thor UEFI GOP configuration (1440x3200x32) and the iOS 16 DarwinBoot22 source boundary."]
+configuration = ["The iOS 16 loader source is staged separately from the current upstream DarwinBoot component."]
+procedure = ["Verify GOP handoff, framebuffer geometry and a known test frame after kernel handoff."]
+findings = ["The FULLSEQ08 screen proves firmware framebuffer output, not Darwin display service startup."]
+completion = ["A known frame appears with correct geometry and colors, followed by the userland display path."]
+limits = ["No Darwin display or SpringBoard evidence exists in the clean migration directory."]
+next_action = ["Reconcile the DarwinBoot22 ABI with the upstream DarwinBoot component before selecting it."]
+evidence = []
+
+[[area]]
+id = "input"
+status = "planned"
+components = []
+paths = ["drivers/ThorDarwinBoot22/**", "package/**"]
+inputs = ["Thor panel and touch controller identification is pending from the stock firmware inventory."]
+configuration = ["No touch component is selected in the first migration pass."]
+procedure = ["Identify the input controller, then adapt and qualify the matching canonical component."]
+findings = ["Pong touch/userland code is board-specific and is not copied into the Thor selection by default."]
+completion = ["Touches map to the display and release events remain stable across repeated cycles."]
+limits = ["No input controller evidence has been added yet."]
+next_action = ["Inventory the Thor touch controller and firmware before implementing input."]
+evidence = []
+
+[[area]]
+id = "gpu"
+status = "planned"
+components = ["ThorAdreno", "ThorMetal"]
+paths = ["drivers/ThorAdreno/**", "drivers/ThorMetal/**"]
+inputs = ["Pong Adreno/Metal source is retained as a migration reference; Thor GPU firmware and power policy are not yet qualified."]
+configuration = ["Staging code is kept outside the canonical components list to avoid claiming SM8550 support for SM8475."]
+procedure = ["Measure GPU firmware loading, SMMU mappings, command submission and a known render before catalog publication."]
+findings = ["The current image has not reached Darwin GPU initialization; enabling these sources now would obscure the first storage/root failure."]
+completion = ["A known image renders through the selected Metal client and survives a restart."]
+limits = ["No GPU component is currently selected by board.toml."]
+next_action = ["Build the platform and storage baseline first, then derive a Thor GPU component contract."]
+evidence = []
+
+[[area]]
+id = "network"
+status = "planned"
+components = []
+paths = ["proprietary-files.txt", "package/**"]
+inputs = ["Thor Wi-Fi chipset and firmware inventory are pending."]
+configuration = ["No network component is selected."]
+procedure = ["Identify firmware, bus and power dependencies before selecting a catalog component."]
+findings = ["Network support is outside the first EBS migration boundary."]
+completion = ["Association and sustained traffic pass with the selected firmware."]
+limits = ["No network source or device evidence is present."]
+next_action = ["Inventory the Thor Wi-Fi device after root storage is working."]
+evidence = []
+
+[[area]]
+id = "audio"
+status = "planned"
+components = []
+paths = ["proprietary-files.txt", "package/**"]
+inputs = ["Thor audio DSP, codecs and routing data are pending."]
+configuration = ["No audio component is selected."]
+procedure = ["Inventory DSP firmware and board routes, then adapt the relevant component."]
+findings = ["Audio is downstream of root and userland startup."]
+completion = ["Declared playback and capture routes handle start and stop correctly."]
+limits = ["No audio source or evidence is present."]
+next_action = ["Defer audio until launchd and root volume are proven."]
+evidence = []
+
+[[area]]
+id = "power"
+status = "planned"
+components = []
+paths = ["dts/thor.dts", "package/**", "proprietary-files.txt"]
+inputs = ["Thor power, battery and PMIC nodes are present in the vendor DT but not yet adapted to Darwin services."]
+configuration = ["No power component is selected."]
+procedure = ["Map PMIC and regulator nodes after platform and storage bring-up."]
+findings = ["UEFI memory and framebuffer constants do not prove Darwin power management."]
+completion = ["Battery readings and declared sleep/resume transitions match observations."]
+limits = ["No power evidence is claimed."]
+next_action = ["Inventory PMIC services after the first stable Darwin kernel boot."]
+evidence = []
+
+[[area]]
+id = "packaging"
+status = "planned"
+components = ["DarwinBoot"]
+paths = ["board.toml", "dts/thor.dts", "package/**", "patches/xnu/**"]
+inputs = ["Upstream boot image contract, Thor FD base/size and the iOS 16 kernel/prelink inputs."]
+configuration = ["The board declares Thor firmware, DTB include paths, payload volume and iOS 16 patch order."]
+procedure = ["Run ipsw fetch, kernel, package, firmware, payload and bootimg in order after inputs are available."]
+findings = ["The prior direct boot image is an execution artifact; the clean tree must regenerate it from these inputs."]
+completion = ["Kernel/prelink, payload, FD and boot image all build with matching hashes and documented inputs."]
+limits = ["The clean directory has not yet downloaded the 20G81 IPSW or built Darwin artifacts."]
+next_action = ["Run resolver and DTS validation first, then fetch the small IPSW members."]
+evidence = []
+
+[[area]]
+id = "diagnostics"
+status = "planned"
+components = []
+paths = ["porting.toml", "README.md", "unixnu.lock"]
+inputs = ["Upstream porting record schema and the clean source revisions recorded in this repository."]
+configuration = ["Runtime receipts, harnesses and old runs are intentionally outside this source tree."]
+procedure = ["Record each resolver/build/device result with the source revision and command that produced it."]
+findings = ["The existing phone screen is a pre-EBS firmware checkpoint and must not be reported as iOS userland."]
+completion = ["Every claimed milestone has a reproducible command, matching source/image revision and accessible result."]
+limits = ["No new Darwin runtime evidence has been collected."]
+next_action = ["After the first clean resolver pass, append host evidence and keep device evidence separate."]
+evidence = []

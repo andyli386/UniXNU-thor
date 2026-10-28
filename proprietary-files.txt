@@ -1,0 +1,8 @@
+# Private inputs stay under inputs/ and are never committed to this repository.
+# Record a source URL, IPSW member and SHA-256 here once each input is qualified.
+#
+# inputs/20G81/KernelCache
+# inputs/20G81/DeviceTree
+# inputs/20G81/StaticTrustCache
+# inputs/20G81/Cryptex1,SystemTrustCache
+# inputs/thor/firmware/*
