@@ -37,6 +37,15 @@ def now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+def host_profile():
+    """Return the explicit host identity for the machine sealing/executing L3."""
+    if sys.platform == 'darwin':
+        return 'macmini'
+    if sys.platform == 'linux':
+        return 'i386'
+    raise RuntimeError('FULLSEQ controller supports only macOS or Linux hosts')
+
+
 def read(path):
     return json.loads(Path(path).read_text())
 
@@ -143,8 +152,10 @@ def validate_inputs(config):
     kernel = proof['inputs'].get('native_xnu', proof['inputs'].get('xnu_kernel', {}))
     require(kernel.get('sha256') == pins['kernel_sha256'], 'L2 kernel mismatch')
     require(firmware['transition_sha_matches_expected_header'] is True, 'Transition binding missing')
-    require(config.get('host_os') == sys.platform and sys.platform == 'darwin',
-            'Controller must be prepared and used on its Mac host')
+    require(config.get('host_os') == sys.platform and sys.platform in ('darwin', 'linux'),
+            'Controller must be prepared and used on the sealed host OS')
+    require(config.get('boot_host') == host_profile(),
+            'Controller host identity does not match this machine')
     require(Path(sys.executable).resolve() == Path(config['binaries']['python']['path']),
             'Controller Python executable mismatch')
     validate_device_baseline(root, device, config['run_id'])
@@ -180,8 +191,9 @@ def prepare(args):
     root = args.root.resolve()
     require(re.fullmatch(r'thor-[a-z0-9-]{8,90}', args.run_id) is not None, 'Invalid run ID')
     names = ('offline_proof', 'manifest', 'firmware_release', 'source', 'fd', 'image', 'device_proof', 'pins')
-    config = {'schema': 'thor-fullseq01-mac-controller-config-v1', 'root': str(root),
-              'run_id': args.run_id, 'host_os': sys.platform, 'boot_host': 'macmini',
+    boot_host = host_profile()
+    config = {'schema': 'thor-fullseq01-host-controller-config-v2', 'root': str(root),
+              'run_id': args.run_id, 'host_os': sys.platform, 'boot_host': boot_host,
               'inputs': {}, 'binaries': {}}
     for key in names:
         config['inputs'][key] = str(rooted(root, getattr(args, key)))
@@ -202,9 +214,10 @@ def prepare(args):
         stream.write(Path(__file__).read_text())
     script.chmod(0o600)
     private_write(out / 'sealed-inputs.json', config)
-    record = {'schema': 'thor-fullseq01-mac-controller-preflight-v1', 'created_at': now(),
+    record = {'schema': 'thor-fullseq01-host-controller-preflight-v2', 'created_at': now(),
               'status': 'READY_NOT_EXECUTED', 'result': 'PASS_HOST_CONTROLLER_REVIEW',
-              'run_id': args.run_id, 'image_sha256': pins['image_sha256'],
+              'run_id': args.run_id, 'boot_host': boot_host,
+              'image_sha256': pins['image_sha256'],
               'image_bytes': pins['image_bytes'], 'source_commit': pins['uefi_commit'],
               'files': {'controller.py': sha(script), 'sealed-inputs.json': sha(out / 'sealed-inputs.json')},
               'offline_proof_sha256': config['input_sha256']['offline_proof'],
@@ -220,7 +233,7 @@ def prepare(args):
 def sealed(preflight):
     preflight = preflight.resolve()
     record = read(preflight)
-    require(record['schema'] == 'thor-fullseq01-mac-controller-preflight-v1' and
+    require(record['schema'] == 'thor-fullseq01-host-controller-preflight-v2' and
             record['status'] == 'READY_NOT_EXECUTED' and record['recording_confirmed'] is False,
             'Invalid sealed controller preflight')
     for name, digest in record['files'].items():

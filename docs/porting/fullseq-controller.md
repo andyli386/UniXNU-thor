@@ -20,7 +20,7 @@ python3 tools/thorctl/fullseq_controller.py prepare \
   --fastboot "$ANDROID_HOME/platform-tools/fastboot"
 ```
 
-`prepare` performs no phone I/O. It refuses a dirty source worktree, a consumed image, an existing `l3`, or a mismatched SHA. The user still starts the recording and invokes the sealed run copy for the single explicitly authorized attempt:
+`prepare` performs no phone I/O. It refuses a dirty source worktree, a consumed image, an existing `l3`, or a mismatched SHA. It records `macmini` on macOS and `i386` on Linux, so the sealed copy must be prepared and executed on the same host class. The user still starts the recording and invokes the sealed run copy for the single explicitly authorized attempt:
 
 ```bash
 python3 runs/<run-id>/l2/controller/controller.py execute \
@@ -40,3 +40,5 @@ python3 tools/thorctl/prepare_fullseq_controller.py \
   --run-id thor-YYYYMMDD-ios-fullseqNN-purpose \
   --source worktrees/uefi/<worktree>
 ```
+
+On the Linux execution host, use the same wrapper against the copied run and source, with `/usr/bin/adb` and `/usr/bin/fastboot` (the Linux defaults). This creates a fresh Linux sealed controller; do not copy a Mac sealed controller and reuse it on Linux.
