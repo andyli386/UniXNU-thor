@@ -18,12 +18,6 @@
 #include <libkern/c++/OSData.h>
 #include <libkern/c++/OSIterator.h>
 #include <pexpert/pexpert.h>
-#include <kern/clock.h>
-
-extern "C" bool pong_cpu_start(IOService *platform);
-#if XNU_PONG_ADRENO_PLATFORM
-extern "C" void pong_adreno_start_optional(void);
-#endif
 
 // Observation counters describe actual published nubs, not started drivers.
 extern "C" {
@@ -42,35 +36,12 @@ public:
   bool configure (IOService *provider) override;
   const char *deleteList (void) override;
   const char *excludeList (void) override;
-  long getGMTTimeOfDay (void) override;
-  void setGMTTimeOfDay (long seconds) override;
 private:
-  long fCalendarOffset;
   bool hasNVRAMProxy (IOService *provider);
   bool createDeviceNubs (IOService *provider);
 };
 
 OSDefineMetaClassAndStructors (ArmDTPlatform, IODTPlatformExpert)
-
-// HackiOS's boot-epoch clock, backed by a supplied host/firmware UTC sample
-// and the real arch timer. This is a software clock, not a claimed PMIC RTC.
-long ArmDTPlatform::getGMTTimeOfDay (void)
-{
-  long offset = __atomic_load_n (&fCalendarOffset, __ATOMIC_ACQUIRE);
-  if (offset == 0) return 0;
-  clock_sec_t uptime;
-  clock_usec_t microseconds;
-  clock_get_system_microtime (&uptime, &microseconds);
-  return offset + (long) uptime;
-}
-
-void ArmDTPlatform::setGMTTimeOfDay (long seconds)
-{
-  clock_sec_t uptime;
-  clock_usec_t microseconds;
-  clock_get_system_microtime (&uptime, &microseconds);
-  __atomic_store_n (&fCalendarOffset, seconds - (long) uptime, __ATOMIC_RELEASE);
-}
 
 // Serialized empty name lists: XNU's processTopLevel() treats a null pointer
 // as "every entry" (remove every child), not as "nothing". An empty list
@@ -130,7 +101,6 @@ bool ArmDTPlatform::createDeviceNubs (IOService *provider)
       continue;
     }
     nub->registerService ();
-    IOLog ("ArmDTPlatform: published DT nub %s\n", nub->getName ());
     nub->release ();
     count++;
   }
@@ -139,19 +109,19 @@ bool ArmDTPlatform::createDeviceNubs (IOService *provider)
   return true;
 }
 
+static void platformStageReset (void)
+{
+  // PSCI SYSTEM_RESET via the same SMC conduit as the entry reset probe.
+  register uint64_t x0 __asm__ ("x0") = 0x84000009;
+  register uint64_t x1 __asm__ ("x1") = 0;
+  register uint64_t x2 __asm__ ("x2") = 0;
+  register uint64_t x3 __asm__ ("x3") = 0;
+  __asm__ volatile ("smc #0" : "+r" (x0) : "r" (x1), "r" (x2), "r" (x3) : "memory");
+  for (;;) { __asm__ volatile ("wfe"); }
+}
+
 bool ArmDTPlatform::configure (IOService *provider)
 {
-  __atomic_store_n (&fCalendarOffset, 0, __ATOMIC_RELAXED);
-  IORegistryEntry *chosen = provider->childFromPath ("chosen", gIODTPlane);
-  OSData *sample = chosen ? OSDynamicCast (OSData, chosen->getProperty ("boot-epoch")) : nullptr;
-  uint64_t epoch = 0;
-  if (sample && sample->getLength () == sizeof (epoch))
-    memcpy (&epoch, sample->getBytesNoCopy (), sizeof (epoch));
-  if (chosen) chosen->release ();
-  if (epoch >= 978307200ULL && epoch <= 4102444800ULL) {
-    setGMTTimeOfDay ((long) epoch);
-    IOLog ("ArmDTPlatform: software calendar anchored to boot-epoch %llu\n", epoch);
-  }
   IORegistryEntry *cpus = provider->childFromPath ("cpus", gIODTPlane);
   IORegistryEntry *bus = provider->childFromPath ("arm-io", gIODTPlane);
   IORegistryEntry *defaults = provider->childFromPath ("defaults", gIODTPlane);
@@ -170,12 +140,20 @@ bool ArmDTPlatform::configure (IOService *provider)
     IOLog ("ArmDTPlatform: /chosen does not supply a usable CHRP NVRAM proxy\n");
     return false;
   }
+  unsigned platformStage = 0;
+  PE_parse_boot_argn ("sheng-platform-stage", &platformStage, sizeof (platformStage));
+  if (platformStage == 1) {
+    platformStageReset ();
+  }
 
   // The inherited implementation publishes real IODTNVRAM from /chosen,
   // then attaches the CPU and top-level nubs. No identity or resource is
   // invented here; failure is returned instead of replaced with a stub.
   if (!IODTPlatformExpert::configure (provider)) {
     return false;
+  }
+  if (platformStage == 2) {
+    platformStageReset ();
   }
 
   OSIterator *iterator = getChildIterator (gIOServicePlane);
@@ -207,22 +185,26 @@ bool ArmDTPlatform::configure (IOService *provider)
   armdt_platform_bus_count = busCount;
   armdt_platform_defaults_count = defaultsCount;
   armdt_platform_nvram_proxy = 1;
+  armdt_platform_configured = 1;
   // Publish the bus child devices (interrupt controller, VirtIO MMIO, ...)
   // as real IOPlatformDevice nubs. No driver is started here.
   if (!createDeviceNubs (provider)) {
     return false;
   }
-  // All CPU nubs now exist. Register them together before PSCI CPU_ON.
-  if (!pong_cpu_start(this)) {
-    IOLog("ArmDTPlatform: boot CPU startup failed\n");
-    return false;
+  if (platformStage == 3) {
+    platformStageReset ();
   }
-  armdt_platform_configured = 1;
-  IOLog ("ArmDTPlatform: registered platform cpus=%u arm-io=%u devices=%u nvram-proxy=%u\n",
-         cpuCount, busCount, armdt_platform_device_count, armdt_platform_nvram_proxy);
+  // Explicit hardware A/B diagnostic: reach the end of the real platform
+  // configuration and panic before publishing the service. The payload's
+  // panic-screen probe makes this observable without a serial console.
+  unsigned platformProbe = 0;
+  PE_parse_boot_argn ("sheng-platform-panic", &platformProbe, sizeof (platformProbe));
+  if (platformProbe != 0 || platformStage == 4) {
+    platformStageReset ();
+  }
   registerService ();
-#if XNU_PONG_ADRENO_PLATFORM
-  pong_adreno_start_optional();
-#endif
+  if (platformStage == 5) {
+    platformStageReset ();
+  }
   return true;
 }

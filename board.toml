@@ -28,14 +28,30 @@ fetch = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,AppOS", "Cry
 defconfig = "thor_defconfig"
 config_fragments = ["arch:configs/common.config", "soc:configs/sm8475.config", "os:configs/ios16.config"]
 patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
-archives = []
+archives = ["build-io-storage-family.py"]
 
 [kernel.prelink]
 tool = "kits/XnuPrelink/emit_prelink.py"
 kernel = "build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf"
-slide = "-0x1000000"
+# FULLSEQ/DarwinBoot places the selected prelink window at the fixed
+# Darwin22 address 0xfffffff00b000000.  The 20G81 cache's original
+# __PRELINK_TEXT base is 0xfffffff004fbc000, so this is the exact slide
+# required by the Thor loader's in-place Mach-O expansion contract.
+slide = "0x6044000"
 kernelcache_sha256 = "d260defcc2eaac258fd3a2234454dda46791dae45e97608c5416f9ba8fd366e9"
-roots = []
+roots = [
+  "com.apple.AppleFSCompression.AppleFSCompressionTypeZlib",
+  "com.apple.driver.AppleEffaceableStorage",
+  "com.apple.filesystems.apfs",
+  "com.apple.iokit.CoreAnalyticsFamily",
+  "com.apple.iokit.IOCryptoAcceleratorFamily",
+  "com.apple.iokit.IOStorageFamily",
+  "com.apple.kec.Compression",
+  "com.apple.kec.corecrypto",
+  "com.apple.kec.pthread",
+  "com.apple.kext.CoreTrust",
+  "com.apple.security.AppleImage4",
+]
 
 [device_tree]
 source = "device:dts/thor.dts"
