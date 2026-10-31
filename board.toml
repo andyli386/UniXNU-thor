@@ -45,7 +45,6 @@ roots = [
   "com.apple.filesystems.apfs",
   "com.apple.iokit.CoreAnalyticsFamily",
   "com.apple.iokit.IOCryptoAcceleratorFamily",
-  "com.apple.iokit.IOStorageFamily",
   "com.apple.kec.Compression",
   "com.apple.kec.corecrypto",
   "com.apple.kec.pthread",

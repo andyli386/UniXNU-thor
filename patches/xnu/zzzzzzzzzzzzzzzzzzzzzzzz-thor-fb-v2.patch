@@ -1,0 +1,233 @@
+diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -129,6 +129,15 @@
+ LEXT(reset_vector)
+ 	// Preserve x0 for start_first_cpu, if called
+ #if defined(GENERIC_PSCI_SMP)
++	/* thor heartbeat: first instruction a secondary executes. If the boot CPU
++	 * never sees this word written, the firmware never delivered the core to
++	 * our reset vector at all. */
++	adrp	x9, EXT(thor_secondary_entry_magic)@page
++	add		x9, x9, EXT(thor_secondary_entry_magic)@pageoff
++	mrs		x10, MPIDR_EL1
++	str		x10, [x9]
++	dc		cvac, x9
++	dsb		sy
+ 	// PSCI enters with MMU/caches off. Install vectors before any optional
+ 	// debug-register access; retain Pong's independent boot-console vectors.
+ 	msr		DAIFSet, #(DAIFSC_ALL)
+@@ -192,6 +201,15 @@
+ 	cmp		x0, x2
+ 	bne		Lskip_cpu_reset_handler
+ 1:
++	/* thor heartbeat 2: the cpu_data entry was found and the reset handler
++	 * validated; a core that stops after this point died inside start_cpu or
++	 * common_start, not in the entry lookup. */
++	adrp	x9, EXT(thor_secondary_handler_magic)@page
++	add		x9, x9, EXT(thor_secondary_handler_magic)@pageoff
++	mrs		x10, MPIDR_EL1
++	str		x10, [x9]
++	dc		cvac, x9
++	dsb		sy
+ 
+ #if HAS_BP_RET
+ 	bl		EXT(set_bp_ret)
+@@ -219,6 +237,22 @@
+ 	.space	(stSize_NUM),0
+ #endif
+ 
++	.section __DATA,__data
++	.align	3
++	.globl	EXT(thor_secondary_entry_magic)
++LEXT(thor_secondary_entry_magic)
++	.space	8, 0
++	.globl	EXT(thor_secondary_handler_magic)
++LEXT(thor_secondary_handler_magic)
++	.space	8, 0
++	.globl	EXT(thor_secondary_start_magic)
++LEXT(thor_secondary_start_magic)
++	.space	8, 0
++	.globl	EXT(thor_secondary_mmu_magic)
++LEXT(thor_secondary_mmu_magic)
++	.space	8, 0
++	.text
++
+ 	.section __DATA_CONST,__const
+ 	.align	3
+ 	.globl  EXT(ResetHandlerData)
+@@ -396,6 +430,15 @@
+ 
+ 	.align 2
+ start_cpu:
++#if defined(GENERIC_PSCI_SMP)
++	/* thor heartbeat 3: reached start_cpu (cpu_data entry resolved). */
++	adrp	x9, EXT(thor_secondary_start_magic)@page
++	add		x9, x9, EXT(thor_secondary_start_magic)@pageoff
++	mrs		x10, MPIDR_EL1
++	str		x10, [x9]
++	dc		cvac, x9
++	dsb		sy
++#endif
+ #if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+ 	// This is done right away in reset vector for pre-KTRR devices
+ 	// Set low reset vector now that we are in the KTRR-free zone
+@@ -570,11 +613,12 @@
+ 	 */
+ 	movz	x12, #0x0000
+ 	movk	x12, #0xb800, lsl #16
+-	movz	w13, #0xffff
+-	movz	x14, #0xb400			/* 520 * (1440 * 4) bytes */
+-	movk	x14, #0x002d, lsl #16
++	movz	w13, #0xffff			/* cyan */
++	movz	x14, #0x6600			/* row 380 * 5760 */
++	movk	x14, #0x0021, lsl #16
+ 	add	x12, x12, x14
+-	mov	x14, #11520			/* 1440 * 8 pixels */
++	movz	x14, #0x86e0			/* rows 380..494: 115 * 1440 */
++	movk	x14, #0x0002, lsl #16
+ Lthor_fb_entry_loop:
+ 	str	w13, [x12], #4
+ 	subs	x14, x14, #1
+@@ -735,6 +779,15 @@
+ 	lsr		x5,  x24, #(ARM_TT_L2_SHIFT)
+ 	create_bootstrap_mapping x14, x15, x5, x3, x2, x9, x10, x11, x12, x13
+ 
++#if defined(GENERIC_PSCI_SMP)
++	/* Map the GOP framebuffer 1GB L1 block (VA 0x80000000-0xBFFFFFFF) as
++	 * Device (AttrIndx 3) in the V=P table so diagnostics stay writable after
++	 * set_mmu_ttb replaces the transition identity map. */
++	movz	x12, #0x060d
++	movk	x12, #0x8000, lsl #16		/* 0x8000060d: 1GB block @ PA 0x80000000 */
++	str	x12, [x25, #(2 * 8)]		/* V=P L1 index 2 */
++#endif
++
+ 	b Lbootstrap_tables_ready
+ Lbootstrap_tables_exhausted:
+ 	// MMU is still off. Stop with the offending cursor/end preserved for
+@@ -745,14 +798,15 @@
+ 	dsb		ish
+ 
+ #if defined(GENERIC_PSCI_SMP)
+-	/* Row 560: bootstrap page tables completed while identity FB map is live. */
++	/* Row 535: bootstrap page tables completed while identity FB map is live. */
+ 	movz	x12, #0x0000
+ 	movk	x12, #0xb800, lsl #16
+-	movz	x14, #0x3800			/* 560 * (1440 * 4) bytes */
+-	movk	x14, #0x0031, lsl #16
++	movz	x14, #0x0580			/* row 535 * 5760 */
++	movk	x14, #0x002f, lsl #16
+ 	add	x12, x12, x14
+-	movz	w13, #0x00ff			/* 0x000000ff */
+-	mov	x14, #11520			/* 1440 * 8 pixels */
++	movz	w13, #0x00ff			/* blue */
++	movz	x14, #0x86e0			/* 115 * 1440 */
++	movk	x14, #0x0002, lsl #16
+ Lthor_fb_precommon_loop:
+ 	str	w13, [x12], #4
+ 	subs	x14, x14, #1
+@@ -782,14 +836,16 @@
+ common_start:
+ 
+ #if defined(GENERIC_PSCI_SMP)
+-	/* Row 600: common_start reached while transition identity FB map is live. */
++	/* Row 690: common_start reached while transition identity FB map is live. */
+ 	movz	x12, #0x0000
+ 	movk	x12, #0xb800, lsl #16
+-	movz	x14, #0xbc00
+-	movk	x14, #0x0034, lsl #16
++	movz	x14, #0xa500			/* row 690 * 5760 */
++	movk	x14, #0x003c, lsl #16
+ 	add	x12, x12, x14
+-	movz	w13, #0x0ff0
+-	mov	x14, #11520
++	movz	w13, #0xffff			/* white */
++	movk	w13, #0x00ff, lsl #16
++	movz	x14, #0x86e0			/* 115 * 1440 */
++	movk	x14, #0x0002, lsl #16
+ Lthor_fb_common_loop:
+ 	str	w13, [x12], #4
+ 	subs	x14, x14, #1
+@@ -810,14 +866,15 @@
+ 	MSR_TCR_EL1_X1
+ 
+ #if defined(GENERIC_PSCI_SMP)
+-	/* Row 640: TCR programmed; TTBR0 is still the transition identity map. */
++	/* Row 845: TCR programmed; TTBR0 is still the transition identity map. */
+ 	movz	x12, #0x0000
+ 	movk	x12, #0xb800, lsl #16
+-	movz	x14, #0x4000
+-	movk	x14, #0x0038, lsl #16
++	movz	x14, #0x4480			/* row 845 * 5760 */
++	movk	x14, #0x004a, lsl #16
+ 	add	x12, x12, x14
+-	movz	w13, #0xf00f
+-	mov	x14, #11520
++	movz	w13, #0xff00			/* green */
++	movz	x14, #0x86e0			/* 115 * 1440 */
++	movk	x14, #0x0002, lsl #16
+ Lthor_fb_after_tcr_loop:
+ 	str	w13, [x12], #4
+ 	subs	x14, x14, #1
+@@ -837,14 +894,15 @@
+ 	and		x0, x25, #(TTBR_BADDR_MASK)
+ 	mov		x19, lr
+ #if defined(GENERIC_PSCI_SMP)
+-	/* Row 680: immediately before replacing TTBR0 with the XNU V=P table. */
++	/* Row 1000: immediately before replacing TTBR0 with the XNU V=P table. */
+ 	movz	x12, #0x0000
+ 	movk	x12, #0xb800, lsl #16
+-	movz	x14, #0xc400
+-	movk	x14, #0x003b, lsl #16
++	movz	x14, #0xe400			/* row 1000 * 5760 */
++	movk	x14, #0x0057, lsl #16
+ 	add	x12, x12, x14
+-	movz	w13, #0xffff
+-	mov	x14, #11520
++	movz	w13, #0xffff			/* cyan */
++	movz	x14, #0x86e0			/* 115 * 1440 */
++	movk	x14, #0x0002, lsl #16
+ Lthor_fb_before_ttb_loop:
+ 	str	w13, [x12], #4
+ 	subs	x14, x14, #1
+@@ -939,6 +997,15 @@
+ 	MOV64   x0, SCTLR_EL1_DEFAULT
+ 	MSR_SCTLR_EL1_X0
+ 	isb		sy
++	/* thor heartbeat 4: MMU/caches on; the address below is a kernel VA. */
++	adrp	x9, EXT(thor_secondary_mmu_magic)@page
++	add		x9, x9, EXT(thor_secondary_mmu_magic)@pageoff
++	add		x9, x9, x22
++	sub		x9, x9, x23
++	mrs		x10, MPIDR_EL1
++	str		x10, [x9]
++	dc		cvac, x9
++	dsb		sy
+ 
+ #if !VMAPPLE
+ 	MOV64   x1, SCTLR_EL1_DEFAULT
+@@ -1004,6 +1071,24 @@
+ 	mov	lr, x21
+ #endif
+ 
++#if defined(GENERIC_PSCI_SMP)
++	/* Row 1155: common_start completed; about to return to arm_init. */
++	movz	x12, #0x0000
++	movk	x12, #0xb800, lsl #16
++	movz	x14, #0x8380			/* row 1155 * 5760 */
++	movk	x14, #0x0065, lsl #16
++	add	x12, x12, x14
++	movz	w13, #0x00ff
++	movk	w13, #0x00ff, lsl #16		/* magenta */
++	movz	x14, #0x86e0			/* 115 * 1440 */
++	movk	x14, #0x0002, lsl #16
++Lthor_fb_after_common_loop:
++	str	w13, [x12], #4
++	subs	x14, x14, #1
++	b.ne	Lthor_fb_after_common_loop
++	dsb	sy
++#endif
++
+ 	// Return to arm_init()
+ 	ret
+ 

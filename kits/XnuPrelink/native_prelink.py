@@ -127,7 +127,7 @@ def unique_kernel_binding(address, original_exports, native_by_name):
     return next(iter(choices))
 
 
-def plan(native_data, original_data, roots, slide, verify_images=True):
+def plan(native_data, original_data, roots, slide, verify_images=True, kernel_provided=()):
     if slide % 4096:
         raise ValueError('Rebasing must preserve native 4K alignment')
     native, original = macho(native_data), macho(original_data)
@@ -144,6 +144,13 @@ def plan(native_data, original_data, roots, slide, verify_images=True):
             raise ValueError('Duplicate prelink identifier')
         entries[identifier] = entry
     selected, interfaces = set(), set()
+    # Kexts whose code is already linked into the native kernel (built from
+    # source) must not be merged again: their classes are registered as
+    # __kernel__, so a second registration panics in OSMetaClass.
+    provided = set(kernel_provided)
+    for identifier in provided:
+        if identifier not in entries:
+            raise ValueError(f'Kernel-provided identifier missing from prelink info: {identifier}')
     pending = list(roots)
     while pending:
         identifier = pending.pop()
@@ -152,6 +159,9 @@ def plan(native_data, original_data, roots, slide, verify_images=True):
         if identifier not in entries:
             raise ValueError(f'Missing declared dependency {identifier}')
         entry = entries[identifier]
+        if identifier in provided:
+            interfaces.add(identifier)
+            continue
         if entry.get('OSKernelResource') is True:
             interfaces.add(identifier)
             continue

@@ -115,8 +115,9 @@ def instruction_inventory(original_data, parent, modules):
             'register_dataflow_qualified': False}
 
 
-def emit(native_data, original_data, roots, slide, early_security_init=None, verify_images=True):
-    report = plan(native_data, original_data, roots, slide, verify_images=verify_images)
+def emit(native_data, original_data, roots, slide, early_security_init=None, verify_images=True, kernel_provided=()):
+    report = plan(native_data, original_data, roots, slide, verify_images=verify_images,
+                  kernel_provided=kernel_provided)
     native, original = macho(native_data), macho(original_data)
     marker = [address for address, names in exports(native_data, native).items()
               if '_kalloc_sparse_prelink_index_version' in names]
@@ -333,6 +334,8 @@ def main():
     parser.add_argument('--root', required=True, action='append')
     parser.add_argument('--slide', required=True, type=lambda value: int(value, 0))
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--kernel-provided', action='append', default=[], metavar='BUNDLE',
+                        help='bundle already linked into the kernel; do not merge it again')
     parser.add_argument('--early-security-init', action='append', default=[], metavar='BUNDLE=ORIGINAL_VA',
                         help='Explicit original void(void) policy initializer, called before lockdown; requires source ABI')
     args = parser.parse_args()
@@ -342,7 +345,7 @@ def main():
         if not separator or not identifier or identifier in initializers:
             parser.error('Use one BUNDLE=ORIGINAL_VA initializer per module')
         initializers[identifier] = int(address, 0)
-    image, report = emit(args.kernel.read_bytes(), args.prelinked.read_bytes(), args.root, args.slide, initializers)
+    image, report = emit(args.kernel.read_bytes(), args.prelinked.read_bytes(), args.root, args.slide, initializers, kernel_provided=args.kernel_provided)
     if args.output.exists():
         raise SystemExit('Refuse to overwrite an existing candidate')
     args.output.parent.mkdir(parents=True, exist_ok=True)

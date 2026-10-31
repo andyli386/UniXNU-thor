@@ -1,0 +1,16 @@
+diff --git a/pexpert/pexpert/arm64/board_config.h b/pexpert/pexpert/arm64/board_config.h
+--- a/pexpert/pexpert/arm64/board_config.h
++++ b/pexpert/pexpert/arm64/board_config.h
+@@ -92,7 +92,11 @@
+ 
+ #define MAX_L2_CLINE                   6
+ #define MAX_CPUS                       8
+-#define MAX_CPU_CLUSTERS               1
++/* SM8475 is big.LITTLE without the Apple HAS_CLUSTER path: ml_parse_cpu_topology
++ * derives phys_cluster_id from cluster_type, so E and P cores need two slots.
++ * With 1, the first P core fails assert(phys_cluster_id <= MAX_CPU_CLUSTER_PHY_ID)
++ * and panics before any CPU is brought up. */
++#define MAX_CPU_CLUSTERS               2
+ 
+ #define CORE_NCTRS                     8 /* Placeholder; KPC is not enabled for this target */
+ #endif  /* ARM64_BOARD_CONFIG_BCM2837 */

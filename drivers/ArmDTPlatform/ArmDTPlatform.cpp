@@ -180,6 +180,8 @@ bool ArmDTPlatform::configure (IOService *provider)
     }
   }
   iterator->release ();
+  printf ("THOR ArmDTPlatform: children=%u cpus=%u bus=%u defaults=%u\n",
+    count, cpuCount, busCount, defaultsCount);
   armdt_platform_child_count = count;
   armdt_platform_cpu_count = cpuCount;
   armdt_platform_bus_count = busCount;

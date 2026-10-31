@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <IOKit/IOCPU.h>
 #include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/IOLib.h>
 #include <IOKit/IOMemoryDescriptor.h>
 #include <libkern/c++/OSData.h>
 #include <libkern/c++/OSSymbol.h>
 #include <machine/machine_routines.h>
 #include <pexpert/pexpert.h>
+#include <kern/clock.h>
+#include <libkern/kernel_mach_header.h>
 
 // Exact private entry from Darwin 23 arm/rtclock.h. Its full data header is
 // not exported to IOKit; the IRQ path calls the real kernel implementation.
 extern "C" void rtclock_intr (unsigned int);
 // Kernel-internal entries used for secondary CPU startup (Darwin 23 osfmk).
 extern "C" vm_offset_t ml_static_vtop (vm_offset_t);
+extern "C" vm_offset_t ml_io_map (vm_offset_t phys_addr, vm_size_t size);
 extern "C" char LowResetVectorBase[], LowResetVectorEnd[], ResetHandlerData[], const_boot_args[];
 extern "C" kern_return_t processor_start (processor_t);
 extern "C" kern_return_t kernel_thread_start (void (*) (void *, wait_result_t), void *, thread_t *);
@@ -36,12 +40,34 @@ volatile uint32_t armcpu_irq_phase = 0,armcpu_irq_id = 1023;
 volatile uint32_t armcpu_quiesce_calls = 0,armcpu_halt_calls = 0;
 // Secondary-CPU bring-up evidence (sheng-smp=1). Step values: 1 nub started, 2 registered, 3 start thread running,
 // 4 PSCI CPU_ON issued, 5 entered initCPU on the new core, 6 GIC redistributor ready, 7 running.
+extern "C" kern_return_t psci_smp_start_cpu (int cpu);
+extern "C" void psci_smp_cpu_running (void);
+extern "C" void *processor_array[];   /* slot occupancy only; struct processor is private */
+extern "C" void psci_smp_init (void);
+extern "C" volatile uint64_t thor_secondary_entry_magic;
+extern "C" volatile uint64_t thor_secondary_handler_magic;
+extern "C" volatile uint64_t thor_secondary_start_magic;
+extern "C" volatile uint64_t thor_secondary_mmu_magic;
+extern "C" volatile uint64_t thor_secondary_arminit_magic;
+extern "C" volatile uint64_t thor_secondary_cpuinit_magic;
+extern "C" volatile uint64_t thor_secondary_timebase_magic;
+extern "C" volatile uint64_t thor_secondary_peinitcpu_magic;
+extern "C" volatile uint64_t thor_secondary_fiq_magic;
+extern "C" volatile uint64_t thor_secondary_resync_magic;
+extern "C" volatile uint64_t thor_secondary_cpumachine_magic;
+extern "C" volatile uint64_t thor_secondary_slavemain_magic;
+extern "C" volatile uint64_t thor_secondary_startthread_magic;   /* written by reset_vector */
+extern "C" volatile uint64_t thor_secondary_cacheinit_magic;
+extern "C" volatile uint64_t thor_secondary_pemach_magic;
+
 volatile uint32_t armcpu_smp_requested = 0, armcpu_smp_running = 0, armcpu_smp_conduit = 0;
 volatile uint32_t armcpu_smp_step[8], armcpu_smp_mpidr[8], armcpu_smp_seen_mpidr[8], armcpu_smp_fail[8], armcpu_boot_mpidr = 0;
 // System registers seen on each secondary core at initCPU entry: CurrentEL, SCTLR_EL1, TCR_EL1, MAIR_EL1 (low words), MIDR_EL1.
 volatile uint32_t armcpu_smp_sys[8][5], armcpu_boot_sys[5];
 volatile int32_t armcpu_smp_psci_rc[8];
 }
+
+static void fb_report_cpu (uint32_t cpu, uint32_t color);
 
 #define ARMCPU_SMP_SLOTS 8
 
@@ -375,6 +401,10 @@ bool ArmCpu::start (IOService *provider)
   memcpy (&physical, reg->getBytesNoCopy (), sizeof (physical));
   logicalId = static_cast<uint32_t> (ml_get_cpu_number (physical));
   secondary = logicalId != static_cast<uint32_t> (ml_get_boot_cpu_number ());
+  printf ("THOR ArmCpu::start matched id=%u mpidr=0x%x secondary=%d\n",
+    logicalId, physical, secondary);
+  // Breadcrumb: this driver instance matched a CPU node. Band 0 (boot) = cyan; bands 1..7 = yellow.
+  fb_report_cpu (logicalId, secondary ? 0x0000FFFF : 0x00FFFF00);
   if (secondary) {
     if (!IOCPU::start (provider)) { return false; }
     armcpu_smp_step[logicalId] = 1;
@@ -423,6 +453,7 @@ bool ArmCpu::start (IOService *provider)
     panic ("ArmCpu: CPU IRQ action registration failed");
   }
   gController = controller;
+  psci_smp_init ();
   initCPU (true);
   registerService ();
   __atomic_store_n (&gBootRegistered, 1U, __ATOMIC_RELEASE);
@@ -452,6 +483,7 @@ bool ArmCpu::finishSecondary (void)
   info.cluster_type = ml_get_boot_cluster_type ();
   perfmon_interrupt_handler_func pmi = nullptr;
   kern_return_t status = ml_processor_register (&info, &machProcessor, &ipi_handler, &pmi);
+  printf ("THOR finishSecondary id=%u ml_processor_register=%d\n", logicalId, status);
   if (status != KERN_SUCCESS) { armcpu_smp_fail[logicalId] = 4; return false; }
   setCPUNumber (info.log_id);
   armcpu_smp_step[logicalId] = 2;
@@ -462,7 +494,7 @@ bool ArmCpu::finishSecondary (void)
 }
 
 // PSCI conduit comes from the /psci node of the device tree ("smc" or "hvc"); no default is assumed.
-static bool psciConduit (bool *hvc)
+__attribute__((unused)) static bool psciConduit (bool *hvc)
 {
   IORegistryEntry *psci = IORegistryEntry::fromPath ("/psci", gIODTPlane);
   if (psci == nullptr) { return false; }
@@ -477,7 +509,7 @@ static bool psciConduit (bool *hvc)
   return ok;
 }
 
-static int64_t psciCall (bool hvc, uint64_t function, uint64_t a, uint64_t b, uint64_t c)
+__attribute__((unused)) static int64_t psciCall (bool hvc, uint64_t function, uint64_t a, uint64_t b, uint64_t c)
 {
   register uint64_t x0 __asm__ ("x0") = function;
   register uint64_t x1 __asm__ ("x1") = a;
@@ -513,11 +545,19 @@ void ArmCpu::startSecondary (void)
 void ArmCpu::initCPU (bool boot)
 {
   if (secondary) {
-    if (!boot) { panic ("ArmCpu: secondary resume is unsupported"); }
+    /* XNU calls this with bootb = !started, which is false on a cold secondary.
+     * Pong ignores the flag for the same reason; treating it as "resume" and
+     * panicking wedged cpu 1 inside initCPU and left every other core stalled
+     * in load_context(). */
+    (void)boot;
     armcpu_smp_step[logicalId] = 5;
     uint64_t mpidr;
     __asm__ volatile ("mrs %0, mpidr_el1" : "=r" (mpidr));
     armcpu_smp_seen_mpidr[logicalId] = static_cast<uint32_t> (mpidr);
+    /* printf, not IOLog: this runs on the new core with interrupts still
+     * disabled, and IOLib asserts on IOLog in that context (IOLib.cpp:1592). */
+    printf ("ArmCpu initCPU: logicalId=%u mpidr=0x%llx affinity=0x%llx (low16 0x%llx vs 0x%llx)\n",
+      logicalId, mpidr, affinity, mpidr & 0xffff, affinity & 0xffff);
     // A failure is recorded and the core parked (rather than a panic that hides the other cores' state).
     if ((mpidr & 0xffff) != (affinity & 0xffff)) { armcpu_smp_fail[logicalId] = 1; for (;;) { __asm__ volatile ("wfe"); } }
     if (!gRemoteGic && !wakeRedistributor (true)) { armcpu_smp_fail[logicalId] = 2; for (;;) { __asm__ volatile ("wfe"); } }
@@ -531,6 +571,7 @@ void ArmCpu::initCPU (bool boot)
     setCPUState (kIOCPUStateRunning);
     armcpu_smp_step[logicalId] = 7;
     armcpu_smp_running = armcpu_smp_running + 1;
+    psci_smp_cpu_running ();
     // XNU clears SIGPdisabled for a core the first time that core takes an IPI, and cpu_signal() silently skips a core until then; Apple's
     // CPU driver provokes it with a self-IPI from initCPU (osfmk/kern/machine.c, processor_up).
     if (gSelfIpi) { signalCPU (this); }
@@ -747,7 +788,7 @@ void ArmCpu::haltCPU (void)
 // The new core runs with its MMU and caches off until start_cpu enables them, so it reads the reset vector, ResetHandlerData
 // and the boot arguments from memory. Write those lines back to the point of coherency first: on this SoC the boot CPU's
 // dirty cache lines are not guaranteed to be visible to a core with caches off (XNU only flushes the per-CPU data).
-static void cleanToMemory (const void *start, size_t length)
+__attribute__((unused)) static void cleanToMemory (const void *start, size_t length)
 {
   uint64_t ctr;
   __asm__ volatile ("mrs %0, ctr_el0" : "=r" (ctr));
@@ -757,22 +798,103 @@ static void cleanToMemory (const void *start, size_t length)
   __asm__ volatile ("dsb sy; isb" ::: "memory");
 }
 
+// Left by a core that took an exception between its first instruction and common_start
+// (Lsecondary_early_exception in start.s): { valid, MPIDR, ESR, ELR, FAR, LR, SP }.
+extern "C" uint64_t psci_smp_start_fault[8];
+// C linkage cache maintenance (defined in osfmk/arm64/caches_asm.s).
+extern "C" void CleanPoC_DcacheRegion (vm_offset_t va, size_t length);
+extern "C" void FlushPoC_DcacheRegion (vm_offset_t va, size_t length);
+
+// The new core runs with its MMU and caches off until start_cpu switches to the kernel pmap, so it reads from
+// memory everything the MMU-enable path touches and that the three cleanToMemory calls above do not cover: the
+// page tables (bootstrap_pagetables, cpu_ttep), the TCR value (sysreg_restore), the exception vectors, and the
+// CpuDataEntries table. They all live in the kernel's own segments. On this SoC a line still dirty in the boot
+// CPU's cache is not visible to a core with its caches off, so clean (not flush) every segment, exactly as
+// pong's psci_smp_start_cpu() does; the running processors keep using their cached copies.
+__attribute__((unused)) static void cleanKernelSegmentsForCpuOn (void)
+{
+  static const char *const segments[] = { "__TEXT", "__DATA_CONST", "__TEXT_EXEC", "__DATA", "__BOOTDATA" };
+  for (size_t i = 0; i < sizeof (segments) / sizeof (segments[0]); i++) {
+    unsigned long size = 0;
+    vm_offset_t start = static_cast<vm_offset_t> (reinterpret_cast<uintptr_t> (
+      getsegdatafromheader (&_mh_execute_header, segments[i], &size)));
+    if (start != 0 && size != 0) { CleanPoC_DcacheRegion (start, size); }
+  }
+}
+
+// UEFI GOP framebuffer, still live after ExitBootServices. Read the physical
+// base and geometry from PE's boot video state instead of assuming the current
+// panel allocation. The early-video patch tags a physical base in bit 0, so
+// clear the low two bits before mapping it.
+static void fb_report_cpu (uint32_t cpu, uint32_t color)
+{
+  PE_Video video = {};
+  if (PE_current_console (&video) != 0 || video.v_baseAddr == 0 ||
+      video.v_rowBytes < video.v_width * 4 || video.v_width == 0 || video.v_height == 0 ||
+      video.v_width > 16384 || video.v_height > 16384 || video.v_depth != 32) { return; }
+  const uintptr_t fbBase = static_cast<uintptr_t> (video.v_baseAddr & ~3UL);
+  const uint32_t stride = static_cast<uint32_t> (video.v_rowBytes / 4);
+  const uint32_t band = 200;
+  if (cpu > 7) { return; }
+  const uint32_t y0 = cpu * band;
+  if (y0 >= video.v_height) { return; }
+  const uint32_t y1 = (y0 + band < video.v_height) ? y0 + band : static_cast<uint32_t> (video.v_height);
+  const vm_size_t bytes = static_cast<vm_size_t> (video.v_rowBytes) * video.v_height;
+  OSSharedPtr<IOMemoryDescriptor> memory (IOMemoryDescriptor::withPhysicalAddress (
+      fbBase, bytes, kIODirectionInOut), OSNoRetain);
+  if (!memory) { return; }
+  OSSharedPtr<IOMemoryMap> mapping (memory->map (kIOMapAnywhere | kIOMapInhibitCache), OSNoRetain);
+  if (!mapping || mapping->getVirtualAddress () == 0) { return; }
+  volatile uint32_t *p = reinterpret_cast<volatile uint32_t *> (mapping->getVirtualAddress ());
+  for (uint32_t y = y0; y < y1; y++) {
+    for (uint32_t x = 0; x < video.v_width; x++) { p[static_cast<size_t> (y) * stride + x] = color; }
+  }
+  __asm__ volatile ("dsb oshst" ::: "memory");
+}
+
 kern_return_t ArmCpu::startCPU (vm_offset_t, vm_offset_t)
 {
+  /* Control experiment (pong parity): hand secondary startup to the kernel's
+   * psci_smp.c instead of running CPU_ON inline here. */
   if (!secondary) { return KERN_NOT_SUPPORTED; }
-  bool hvc = false;
-  if (!psciConduit (&hvc)) { armcpu_smp_psci_rc[logicalId] = -1001; return KERN_NOT_SUPPORTED; }
-  armcpu_smp_conduit = hvc ? 2 : 1;
-  // PSCI 0.2 CPU_ON (SMC64 function id); the entry point is the kernel's physical reset vector page, whose reset
-  // code selects this core's cpu_data entry by MPIDR affinity. The context id is unused by that code.
-  uint64_t entry = static_cast<uint64_t> (ml_static_vtop (reinterpret_cast<vm_offset_t> (LowResetVectorBase)));
-  cleanToMemory (LowResetVectorBase, 0x10000);   // reset vector, start_cpu and the code up to the MMU enable
-  cleanToMemory (ResetHandlerData, 0x1000);
-  cleanToMemory (const_boot_args, 0x1000);
   armcpu_smp_step[logicalId] = 4;
-  int64_t result = psciCall (hvc, 0xc4000003ULL, affinity & 0xff00ffffffULL, entry, 0);
-  armcpu_smp_psci_rc[logicalId] = static_cast<int32_t> (result);
-  return result == 0 ? KERN_SUCCESS : KERN_FAILURE;
+  kern_return_t kr = psci_smp_start_cpu (static_cast<int> (logicalId));
+  armcpu_smp_psci_rc[logicalId] = static_cast<int32_t> (kr);
+  printf ("THOR startCPU(pong-path) id=%u kr=%d\n", logicalId, kr);
+  {
+    struct { const char *name; volatile uint64_t *slot; } magic[] = {
+      {"entry", &thor_secondary_entry_magic},
+      {"handler", &thor_secondary_handler_magic},
+      {"start", &thor_secondary_start_magic},
+      {"mmu", &thor_secondary_mmu_magic},
+      {"arminit", &thor_secondary_arminit_magic},
+      {"cpuinit", &thor_secondary_cpuinit_magic},
+      {"timebase", &thor_secondary_timebase_magic},
+      {"peinitcpu", &thor_secondary_peinitcpu_magic},
+      {"fiq", &thor_secondary_fiq_magic},
+      {"resync", &thor_secondary_resync_magic},
+      {"slavemain", &thor_secondary_slavemain_magic},
+      {"startthread", &thor_secondary_startthread_magic},
+      {"cpumachine", &thor_secondary_cpumachine_magic},
+      {"cacheinit", &thor_secondary_cacheinit_magic},
+      {"pemach", &thor_secondary_pemach_magic},
+    };
+    for (unsigned i = 0; i < sizeof (magic) / sizeof (magic[0]); i++) {
+      FlushPoC_DcacheRegion ((vm_offset_t)magic[i].slot, sizeof (uint64_t));
+      printf ("THOR id=%u %s=0x%llx\n", logicalId, magic[i].name,
+        (unsigned long long)*magic[i].slot);
+    }
+    {
+      /* Scheduler-level truth: the processor object this CPU registered with. */
+      /* struct processor is private to the kernel; only slot occupancy is
+       * observable from a kext. */
+      void *p = processor_array[logicalId];
+      printf ("THOR id=%u smp_step=%u smp_fail=%u running=%u proc=%s\n",
+        logicalId, armcpu_smp_step[logicalId], armcpu_smp_fail[logicalId],
+        armcpu_smp_running, p ? "yes" : "NULL");
+    }
+  }
+  return kr;
 }
 
 const OSSymbol *ArmCpu::getCPUName (void)

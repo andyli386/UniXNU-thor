@@ -1,0 +1,98 @@
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -76,6 +76,51 @@
+ 
+ #include <console/serial_protos.h>
+ 
++#if defined(GENERIC_PSCI_SMP)
++/*
++ * The thor handoff supplies the GOP framebuffer in boot_args.Video.  Keep a
++ * early mapping of the upper-middle rows so arm_init can prove that XNU reached
++ * C code before IOKit matching.  This deliberately uses the handoff value,
++ * rather than a board constant, and WCOMB, which is the same attribute used
++ * by the later video-console mapping.
++ */
++static vm_offset_t thor_early_fb;
++static unsigned thor_early_fb_stride;
++
++static void
++thor_early_fb_mark(
++	boot_args *args,
++	unsigned row,
++	uint32_t color)
++{
++	if (args == NULL || args->Video.v_baseAddr == 0 ||
++	    args->Video.v_rowBytes < args->Video.v_width * sizeof(uint32_t) ||
++	    args->Video.v_width == 0 || args->Video.v_height <= row + 8 ||
++	    (args->Video.v_depth & kBootVideoDepthMask) != 32) {
++		return;
++	}
++
++	if (thor_early_fb == 0) {
++		thor_early_fb = ml_io_map_wcomb(
++		    (vm_offset_t)(args->Video.v_baseAddr & ~3UL),
++		    (vm_size_t)args->Video.v_rowBytes * 900);
++		thor_early_fb_stride = (unsigned)(args->Video.v_rowBytes / sizeof(uint32_t));
++	}
++	if (thor_early_fb == 0 || thor_early_fb_stride == 0) {
++		return;
++	}
++
++	volatile uint32_t *fb = (volatile uint32_t *)(thor_early_fb +
++	    (vm_offset_t)row * args->Video.v_rowBytes);
++	for (unsigned y = 0; y < 8; y++) {
++		for (unsigned x = 0; x < args->Video.v_width; x++) {
++			fb[(size_t)y * thor_early_fb_stride + x] = color;
++		}
++	}
++	__asm__ volatile ("dsb sy" ::: "memory");
++}
++#endif
++
+ #if CONFIG_TELEMETRY
+ #include <kern/telemetry.h>
+ #endif
+@@ -339,6 +384,10 @@
+ arm_init(
+ 	boot_args       *args)
+ {
++#if defined(GENERIC_PSCI_SMP)
++	/* Cyan: arm_init was entered, before topology parsing or VM setup. */
++	thor_early_fb_mark(args, 720, 0x00FFFF00);
++#endif
+ 	unsigned int    maxmem;
+ 	uint32_t        memsize;
+ 	uint64_t        xmaxmem;
+@@ -362,6 +411,10 @@
+ #endif /* defined(HAS_APPLE_PAC) */
+ 
+ 	PE_init_platform(FALSE, args); /* Get platform expert set up */
++#if defined(GENERIC_PSCI_SMP)
++	/* Yellow: PE_init_platform returned. */
++	thor_early_fb_mark(args, 760, 0x0000FFFF);
++#endif
+ 
+ #if __arm64__
+ 	configure_timer_apple_regs();
+@@ -423,6 +476,10 @@
+ #endif
+ 
+ 	ml_parse_cpu_topology();
++#if defined(GENERIC_PSCI_SMP)
++	/* Blue: topology parsing returned. */
++	thor_early_fb_mark(args, 800, 0x00FF0000);
++#endif
+ 
+ 
+ 	master_cpu = ml_get_boot_cpu_number();
+@@ -514,6 +571,10 @@
+ #endif  /* __ARM_PAN_AVAILABLE__ */
+ 
+ 	arm_vm_init(xmaxmem, args);
++#if defined(GENERIC_PSCI_SMP)
++	/* White: VM setup returned; IOKit has not started matching yet. */
++	thor_early_fb_mark(args, 840, 0x00FFFFFF);
++#endif
+ 
+ 	if (debug_boot_arg) {
+ 		patch_low_glo();

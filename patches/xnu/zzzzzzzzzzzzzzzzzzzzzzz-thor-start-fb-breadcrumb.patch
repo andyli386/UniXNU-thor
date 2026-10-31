@@ -1,0 +1,118 @@
+diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
+index d4909c7..3fee487 100644
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -458,6 +458,27 @@ start_cpu:
+ 	.globl EXT(start_first_cpu)
+ LEXT(start_first_cpu)
+ 
++#if defined(GENERIC_PSCI_SMP)
++	/*
++	 * The transition installs a temporary TTBR0 identity map for the GOP
++	 * framebuffer at 0xb8000000. Mark rows 520-527 before XNU
++	 * touches its own bootstrap tables; this proves that the physical kernel
++	 * entry reached start_first_cpu without depending on ml_io_map().
++	 */
++	movz	x12, #0x0000
++	movk	x12, #0xb800, lsl #16
++	movz	w13, #0xffff
++	movz	x14, #0xb400			/* 520 * (1440 * 4) bytes */
++	movk	x14, #0x002d, lsl #16
++	add	x12, x12, x14
++	mov	x14, #11520			/* 1440 * 8 pixels */
++Lthor_fb_entry_loop:
++	str	w13, [x12], #4
++	subs	x14, x14, #1
++	b.ne	Lthor_fb_entry_loop
++	dsb	sy
++#endif
++
+ 	// Unlock the core for debugging
+ 	msr		OSLAR_EL1, xzr
+ 	msr		DAIFSet, #(DAIFSC_ALL)				// Disable all interrupts
+@@ -614,6 +632,22 @@ Lkernelcache_base_found:
+ 	/* Ensure TTEs are visible */
+ 	dsb		ish
+ 
++#if defined(GENERIC_PSCI_SMP)
++	/* Row 560: bootstrap page tables completed while identity FB map is live. */
++	movz	x12, #0x0000
++	movk	x12, #0xb800, lsl #16
++	movz	x14, #0x3800			/* 560 * (1440 * 4) bytes */
++	movk	x14, #0x0031, lsl #16
++	add	x12, x12, x14
++	movz	w13, #0x00ff			/* 0x000000ff */
++	mov	x14, #11520			/* 1440 * 8 pixels */
++Lthor_fb_precommon_loop:
++	str	w13, [x12], #4
++	subs	x14, x14, #1
++	b.ne	Lthor_fb_precommon_loop
++	dsb	sy
++#endif
++
+ 
+ 	b		common_start
+ 
+@@ -636,3 +636,19 @@ common_start:
+ common_start:
+ 
++#if defined(GENERIC_PSCI_SMP)
++	/* Row 600: common_start reached while transition identity FB map is live. */
++	movz	x12, #0x0000
++	movk	x12, #0xb800, lsl #16
++	movz	x14, #0xbc00
++	movk	x14, #0x0034, lsl #16
++	add	x12, x12, x14
++	movz	w13, #0x0ff0
++	mov	x14, #11520
++Lthor_fb_common_loop:
++	str	w13, [x12], #4
++	subs	x14, x14, #1
++	b.ne	Lthor_fb_common_loop
++	dsb	sy
++#endif
++
+ #if HAS_NEX_PG
+@@ -644,7 +659,23 @@ common_start:
+ 	// Set the translation control register.
+ 	adrp	x0,     EXT(sysreg_restore)@page		// Load TCR value from the system register restore structure
+ 	add		x0, x0, EXT(sysreg_restore)@pageoff
+ 	ldr		x1, [x0, SR_RESTORE_TCR_EL1]
+ 	MSR_TCR_EL1_X1
+ 
++#if defined(GENERIC_PSCI_SMP)
++	/* Row 640: TCR programmed; TTBR0 is still the transition identity map. */
++	movz	x12, #0x0000
++	movk	x12, #0xb800, lsl #16
++	movz	x14, #0x4000
++	movk	x14, #0x0038, lsl #16
++	add	x12, x12, x14
++	movz	w13, #0xf00f
++	mov	x14, #11520
++Lthor_fb_after_tcr_loop:
++	str	w13, [x12], #4
++	subs	x14, x14, #1
++	b.ne	Lthor_fb_after_tcr_loop
++	dsb	sy
++#endif
++
+ 	/* Set up translation table base registers.
+@@ -659,3 +689,18 @@ common_start:
+ 	and		x0, x25, #(TTBR_BADDR_MASK)
+ 	mov		x19, lr
++#if defined(GENERIC_PSCI_SMP)
++	/* Row 680: immediately before replacing TTBR0 with the XNU V=P table. */
++	movz	x12, #0x0000
++	movk	x12, #0xb800, lsl #16
++	movz	x14, #0xc400
++	movk	x14, #0x003b, lsl #16
++	add	x12, x12, x14
++	movz	w13, #0xffff
++	mov	x14, #11520
++Lthor_fb_before_ttb_loop:
++	str	w13, [x12], #4
++	subs	x14, x14, #1
++	b.ne	Lthor_fb_before_ttb_loop
++	dsb	sy
++#endif
+ 	bl		EXT(set_mmu_ttb)
