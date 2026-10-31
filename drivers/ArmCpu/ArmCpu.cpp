@@ -862,37 +862,12 @@ kern_return_t ArmCpu::startCPU (vm_offset_t, vm_offset_t)
   armcpu_smp_psci_rc[logicalId] = static_cast<int32_t> (kr);
   printf ("THOR startCPU(pong-path) id=%u kr=%d\n", logicalId, kr);
   {
-    struct { const char *name; volatile uint64_t *slot; } magic[] = {
-      {"entry", &thor_secondary_entry_magic},
-      {"handler", &thor_secondary_handler_magic},
-      {"start", &thor_secondary_start_magic},
-      {"mmu", &thor_secondary_mmu_magic},
-      {"arminit", &thor_secondary_arminit_magic},
-      {"cpuinit", &thor_secondary_cpuinit_magic},
-      {"timebase", &thor_secondary_timebase_magic},
-      {"peinitcpu", &thor_secondary_peinitcpu_magic},
-      {"fiq", &thor_secondary_fiq_magic},
-      {"resync", &thor_secondary_resync_magic},
-      {"slavemain", &thor_secondary_slavemain_magic},
-      {"startthread", &thor_secondary_startthread_magic},
-      {"cpumachine", &thor_secondary_cpumachine_magic},
-      {"cacheinit", &thor_secondary_cacheinit_magic},
-      {"pemach", &thor_secondary_pemach_magic},
-    };
-    for (unsigned i = 0; i < sizeof (magic) / sizeof (magic[0]); i++) {
-      FlushPoC_DcacheRegion ((vm_offset_t)magic[i].slot, sizeof (uint64_t));
-      printf ("THOR id=%u %s=0x%llx\n", logicalId, magic[i].name,
-        (unsigned long long)*magic[i].slot);
-    }
-    {
-      /* Scheduler-level truth: the processor object this CPU registered with. */
-      /* struct processor is private to the kernel; only slot occupancy is
-       * observable from a kext. */
-      void *p = processor_array[logicalId];
-      printf ("THOR id=%u smp_step=%u smp_fail=%u running=%u proc=%s\n",
-        logicalId, armcpu_smp_step[logicalId], armcpu_smp_fail[logicalId],
-        armcpu_smp_running, p ? "yes" : "NULL");
-    }
+    /* One summary line per CPU: the per-stage magic dump cost a full console
+     * scroll per line (~1 s each) and has served its purpose. */
+    void *slot = processor_array[logicalId];
+    printf ("THOR id=%u smp_step=%u smp_fail=%u running=%u proc=%s\n",
+      logicalId, armcpu_smp_step[logicalId], armcpu_smp_fail[logicalId],
+      armcpu_smp_running, slot ? "yes" : "NULL");
   }
   return kr;
 }

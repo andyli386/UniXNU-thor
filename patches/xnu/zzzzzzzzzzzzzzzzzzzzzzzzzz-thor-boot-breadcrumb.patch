@@ -1,122 +1,144 @@
 diff --git a/osfmk/kern/startup.c b/osfmk/kern/startup.c
 --- a/osfmk/kern/startup.c
 +++ b/osfmk/kern/startup.c
-@@ -255,6 +255,9 @@
- 	}
+@@ -1,3 +1,8 @@
++/* thor: boot trace is off unless "thor_trace=1" is on the command line.
++ * Each line printed here costs a full video-console scroll (~1 s) in early
++ * boot, so the markers are opt-in. */
++int thor_boot_trace;
++#define THOR_TRACE(...) do { if (thor_boot_trace) printf(__VA_ARGS__); } while (0)
+ /*
+  * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+  *
+@@ -256,6 +261,9 @@
  	return a->subsystem > b->subsystem ? 1 : -1;
  }
-+
+ 
 +/* THOR diag: declared locally so libkern/osfmk ordering does not matter. */
 +extern unsigned int vm_page_free_count;
- 
++
  __startup_func
  void
-@@ -448,6 +451,7 @@
+ kernel_startup_bootstrap(void)
+@@ -265,6 +273,12 @@
+ 	 */
+ 	size_t n = startup_entries_end - startup_entries;
+ 
++	{
++		int trace = 0;
++		if (PE_parse_boot_argn("thor_trace", &trace, sizeof(trace))) {
++			thor_boot_trace = trace != 0;
++		}
++	}
+ 	if (n == 0) {
+ 		panic("Section %s,%s missing",
+ 		    STARTUP_HOOK_SEGMENT, STARTUP_HOOK_SECTION);
+@@ -448,6 +462,7 @@
  	atm_init();
  #endif
  	kernel_startup_initialize_upto(STARTUP_SUB_OSLOG);
-+	printf("THOR B1 oslog done (startup_debug=%u)\n", (unsigned)startup_debug);
++	THOR_TRACE ("THOR B1 oslog done (startup_debug=%u)\n", (unsigned)startup_debug);
  
  #if CONFIG_UBSAN_MINIMAL
  	kernel_bootstrap_log("UBSan minimal runtime init");
-@@ -462,6 +466,7 @@
+@@ -462,6 +477,7 @@
  #if CONFIG_TELEMETRY
  	kernel_bootstrap_log("telemetry_init");
  	telemetry_init();
-+	printf("THOR B2 telemetry done\n");
++	THOR_TRACE ("THOR B2 telemetry done\n");
  #endif
  
  	if (PE_i_can_has_debugger(NULL)) {
-@@ -476,19 +481,24 @@
+@@ -476,19 +492,24 @@
  
  	kernel_bootstrap_log("console_init");
  	console_init();
-+	printf("THOR B3 console_init done\n");
++	THOR_TRACE ("THOR B3 console_init done\n");
  
  	kernel_bootstrap_log("stackshot_init");
  	stackshot_init();
-+	printf("THOR B4 stackshot done\n");
++	THOR_TRACE ("THOR B4 stackshot done\n");
  
  	kernel_bootstrap_log("sched_init");
  	sched_init();
-+	printf("THOR B5 sched_init done\n");
++	THOR_TRACE ("THOR B5 sched_init done\n");
  
  #if CONFIG_MACF
  	kernel_bootstrap_log("mac_policy_init");
  	mac_policy_init();
-+	printf("THOR B6 macf done\n");
++	THOR_TRACE ("THOR B6 macf done\n");
  #endif
  
  	kernel_startup_initialize_upto(STARTUP_SUB_MACH_IPC);
-+	printf("THOR B7 mach_ipc done\n");
++	THOR_TRACE ("THOR B7 mach_ipc done\n");
  
  	/*
  	 * As soon as the virtual memory system is up, we record
-@@ -496,18 +506,23 @@
+@@ -496,18 +517,23 @@
  	 */
  	kernel_bootstrap_log("PMAP_ACTIVATE_KERNEL");
  	PMAP_ACTIVATE_KERNEL(master_cpu);
-+	printf("THOR B8 pmap_activate done\n");
++	THOR_TRACE ("THOR B8 pmap_activate done\n");
  
  	kernel_bootstrap_log("mapping_free_prime");
  	mapping_free_prime();                                           /* Load up with temporary mapping blocks */
-+	printf("THOR B9 mapping_free_prime done\n");
++	THOR_TRACE ("THOR B9 mapping_free_prime done\n");
  
  	kernel_bootstrap_log("machine_init");
  	machine_init();
-+	printf("THOR B10 machine_init done\n");
++	THOR_TRACE ("THOR B10 machine_init done\n");
  
  	kernel_bootstrap_log("thread_machine_init_template");
  	thread_machine_init_template();
-+	printf("THOR B11 thread_machine_init_template done\n");
++	THOR_TRACE ("THOR B11 thread_machine_init_template done\n");
  
  	kernel_bootstrap_log("clock_init");
  	clock_init();
-+	printf("THOR B12 clock_init done\n");
++	THOR_TRACE ("THOR B12 clock_init done\n");
  
  	/*
  	 *	Initialize the IPC, task, and thread subsystems.
-@@ -528,9 +543,11 @@
+@@ -528,9 +554,11 @@
  
  	kernel_bootstrap_log("task_init");
  	task_init();
-+	printf("THOR B13 task_init done\n");
++	THOR_TRACE ("THOR B13 task_init done\n");
  
  	kernel_bootstrap_log("thread_init");
  	thread_init();
-+	printf("THOR B14 thread_init done\n");
++	THOR_TRACE ("THOR B14 thread_init done\n");
  
  	kernel_bootstrap_log("restartable_init");
  	restartable_init();
-@@ -550,6 +567,7 @@
+@@ -550,6 +578,7 @@
  	/* initialize exceptions */
  	kernel_bootstrap_log("exception_init");
  	exception_init();
-+	printf("THOR B15 exception_init done\n");
++	THOR_TRACE ("THOR B15 exception_init done\n");
  
  #if CONFIG_SCHED_SFI
  	kernel_bootstrap_log("sfi_init");
-@@ -573,6 +591,7 @@
+@@ -573,6 +602,7 @@
  	thread_set_thread_name(thread, "kernel_bootstrap_thread");
  
  	thread_deallocate(thread);
-+	printf("THOR B16 bootstrap thread created\n");
++	THOR_TRACE ("THOR B16 bootstrap thread created\n");
  
  	kernel_bootstrap_log("load_context - done");
  	load_context(thread);
-@@ -603,6 +622,7 @@
+@@ -603,6 +633,7 @@
  	 * Create the idle processor thread.
  	 */
  	idle_thread_create(processor);
-+	printf("THOR B17 idle_thread_create done\n");
++	THOR_TRACE ("THOR B17 idle_thread_create done\n");
  
  	/*
  	 * N.B. Do not stick anything else
-@@ -612,17 +632,22 @@
+@@ -612,17 +643,22 @@
  	 */
  	kernel_bootstrap_thread_log("sched_startup");
  	sched_startup();
-+	printf("THOR B18 sched_startup done\n");
++	THOR_TRACE ("THOR B18 sched_startup done\n");
  
  	/*
  	 * Thread lifecycle maintenance (teardown, stack allocation)
@@ -125,45 +147,45 @@ diff --git a/osfmk/kern/startup.c b/osfmk/kern/startup.c
  	thread_daemon_init();
 +	extern void thor_dump_processors(void);
 +	thor_dump_processors();
-+	printf("THOR D1 thread_daemon_init done\n");
++	THOR_TRACE ("THOR D1 thread_daemon_init done\n");
  
  	/*
  	 * Thread callout service.
  	 */
  	kernel_startup_initialize_upto(STARTUP_SUB_THREAD_CALL);
-+	printf("THOR D2 thread_call subsystem done\n");
++	THOR_TRACE ("THOR D2 thread_call subsystem done\n");
  
  	/*
  	 * Remain on current processor as
-@@ -630,23 +655,27 @@
+@@ -630,23 +666,27 @@
  	 */
  	kernel_bootstrap_thread_log("thread_bind");
  	thread_bind(processor);
-+	printf("THOR D3 thread_bind done\n");
++	THOR_TRACE ("THOR D3 thread_bind done\n");
  
  	/*
  	 * Kick off memory mapping adjustments.
  	 */
  	kernel_bootstrap_thread_log("mapping_adjust");
  	mapping_adjust();
-+	printf("THOR D4 mapping_adjust done\n");
++	THOR_TRACE ("THOR D4 mapping_adjust done\n");
  
  	/*
  	 *	Create the clock service.
  	 */
  	kernel_bootstrap_thread_log("clock_service_create");
  	clock_service_create();
-+	printf("THOR D5 clock_service_create done\n");
++	THOR_TRACE ("THOR D5 clock_service_create done\n");
  
  	/*
  	 *	Create the device service.
  	 */
  	device_service_create();
-+	printf("THOR D6 device_service_create done\n");
++	THOR_TRACE ("THOR D6 device_service_create done\n");
  
  	phys_carveout_init();
  
-@@ -689,6 +718,8 @@
+@@ -689,6 +729,8 @@
  	PE_init_iokit();
  #endif
  
@@ -172,17 +194,17 @@ diff --git a/osfmk/kern/startup.c b/osfmk/kern/startup.c
  	assert(ml_get_interrupts_enabled() == FALSE);
  
  	/*
-@@ -706,7 +737,9 @@
+@@ -706,7 +748,9 @@
  	/*
  	 * This will start displaying progress to the user, start as early as possible
  	 */
-+	printf("THOR I5 interrupts enabled, initialize_screen enter\n");
++	THOR_TRACE ("THOR I5 interrupts enabled, initialize_screen enter\n");
  	initialize_screen(NULL, kPEAcquireScreen);
-+	printf("THOR I6 initialize_screen done\n");
++	THOR_TRACE ("THOR I6 initialize_screen done\n");
  
  	/*
  	 *	Initialize the shared region module.
-@@ -823,10 +856,28 @@
+@@ -823,10 +867,28 @@
   *	This path will also be used by the master processor
   *	after being offlined.
   */
@@ -211,7 +233,7 @@ diff --git a/osfmk/kern/startup.c b/osfmk/kern/startup.c
  	thread_t                thread;
  
  	/*
-@@ -865,6 +916,12 @@
+@@ -865,6 +927,12 @@
  {
  	processor_t             processor = current_processor();
  	thread_t                self = current_thread();
@@ -260,53 +282,62 @@ diff --git a/osfmk/kern/sched_prim.c b/osfmk/kern/sched_prim.c
 diff --git a/osfmk/kern/thread.c b/osfmk/kern/thread.c
 --- a/osfmk/kern/thread.c
 +++ b/osfmk/kern/thread.c
-@@ -1243,7 +1243,10 @@
+@@ -1,3 +1,8 @@
++/* thor: boot trace is off unless "thor_trace=1" is on the command line.
++ * Each line printed here costs a full video-console scroll (~1 s) in early
++ * boot, so the markers are opt-in. */
++extern int thor_boot_trace;
++#define THOR_TRACE(...) do { if (thor_boot_trace) printf(__VA_ARGS__); } while (0)
+ /*
+  * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+  *
+@@ -1243,7 +1248,10 @@
  {
  	kern_return_t   result;
  
 +	extern unsigned int vm_page_free_count;
-+	printf("THOR T0 thread_daemon_init enter free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR T0 thread_daemon_init enter free_pages=%u\n", vm_page_free_count);
  	thread_deallocate_daemon_init();
-+	printf("THOR T1 thread_deallocate_daemon_init done free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR T1 thread_deallocate_daemon_init done free_pages=%u\n", vm_page_free_count);
  
  	thread_deallocate_daemon_register_queue(&thread_terminate_queue,
  	    thread_terminate_queue_invoke);
-@@ -1254,10 +1257,12 @@
+@@ -1254,10 +1262,12 @@
  	smr_register_mpsc_queue();
  
  	ipc_object_deallocate_register_queue();
-+	printf("THOR T2 queue registration done\n");
++	THOR_TRACE ("THOR T2 queue registration done\n");
  
  	simple_lock_init(&crashed_threads_lock, 0);
  	queue_init(&crashed_threads_queue);
  
-+	printf("THOR T3 mpsc thread-stack enter\n");
++	THOR_TRACE ("THOR T3 mpsc thread-stack enter\n");
  	result = mpsc_daemon_queue_init_with_thread(&thread_stack_queue,
  	    thread_stack_queue_invoke, BASEPRI_PREEMPT_HIGH,
  	    "daemon.thread-stack", MPSC_DAEMON_INIT_NONE);
-@@ -1265,6 +1270,7 @@
+@@ -1265,6 +1275,7 @@
  		panic("thread_daemon_init: thread_stack_daemon");
  	}
  
-+	printf("THOR T4 mpsc thread-stack done\n");
++	THOR_TRACE ("THOR T4 mpsc thread-stack done\n");
  	result = mpsc_daemon_queue_init_with_thread(&thread_exception_queue,
  	    thread_exception_queue_invoke, MINPRI_KERNEL,
  	    "daemon.thread-exception", MPSC_DAEMON_INIT_NONE);
-@@ -1273,12 +1279,44 @@
+@@ -1273,6 +1284,7 @@
  		panic("thread_daemon_init: thread_exception_daemon");
  	}
  
-+	printf("THOR T5 mpsc thread-exception done\n");
++	THOR_TRACE ("THOR T5 mpsc thread-exception done\n");
  	result = mpsc_daemon_queue_init_with_thread(&thread_backtrace_queue,
  	    thread_backtrace_queue_invoke, MINPRI_KERNEL,
  	    "daemon.thread-backtrace", MPSC_DAEMON_INIT_NONE);
- 
+@@ -1280,8 +1292,39 @@
  	if (result != KERN_SUCCESS) {
  		panic("thread_daemon_init: thread_backtrace_daemon");
-+	}
-+	printf("THOR T6 thread_daemon_init done\n");
-+}
-+
+ 	}
++	THOR_TRACE ("THOR T6 thread_daemon_init done\n");
+ }
+ 
 +/* THOR diag: dump processor state so a thread bound to a not-yet-started CPU
 + * (or a CPU wrongly marked RUNNING) is visible instead of inferred. */
 +void
@@ -321,7 +352,7 @@ diff --git a/osfmk/kern/thread.c b/osfmk/kern/thread.c
 +			processor_t p = processor_array[i];
 +			st[i] = (p == PROCESSOR_NULL) ? -1 : (int)p->state;
 +		}
-+		printf("THOR SMP: online=%d states=%d,%d,%d,%d,%d,%d,%d,%d\n",
++		THOR_TRACE ("THOR SMP: online=%d states=%d,%d,%d,%d,%d,%d,%d,%d\n",
 +		    (st[0] == 6) + (st[1] == 6) + (st[2] == 6) + (st[3] == 6) +
 +		    (st[4] == 6) + (st[5] == 6) + (st[6] == 6) + (st[7] == 6),
 +		    st[0], st[1], st[2], st[3], st[4], st[5], st[6], st[7]);
@@ -329,48 +360,60 @@ diff --git a/osfmk/kern/thread.c b/osfmk/kern/thread.c
 +	for (unsigned i = 0; i < 8; i++) {
 +		processor_t p = processor_array[i];
 +		if (p == PROCESSOR_NULL) {
-+			printf("THOR proc %u: none\n", i);
++			THOR_TRACE ("THOR proc %u: none\n", i);
 +		} else {
-+			printf("THOR proc %u: state=%d cpu_id=%d\n",
++			THOR_TRACE ("THOR proc %u: state=%d cpu_id=%d\n",
 +			    i, (int)p->state, p->cpu_id);
 +		}
- 	}
- }
- 
++	}
++}
++
+ __options_decl(thread_create_internal_options_t, uint32_t, {
+ 	TH_OPTION_NONE          = 0x00,
+ 	TH_OPTION_NOSUSP        = 0x02,
 diff --git a/pexpert/arm/pe_init.c b/pexpert/arm/pe_init.c
 --- a/pexpert/arm/pe_init.c
 +++ b/pexpert/arm/pe_init.c
-@@ -297,7 +297,9 @@
+@@ -1,3 +1,8 @@
++/* thor: boot trace is off unless "thor_trace=1" is on the command line.
++ * Each line printed here costs a full video-console scroll (~1 s) in early
++ * boot, so the markers are opt-in. */
++extern int thor_boot_trace;
++#define THOR_TRACE(...) do { if (thor_boot_trace) printf(__VA_ARGS__); } while (0)
+ /*
+  * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+  *
+@@ -297,7 +302,9 @@
  		}
  	}
  
-+	printf("THOR I1 chosen/memory-map done\n");
++	THOR_TRACE ("THOR I1 chosen/memory-map done\n");
  	pe_prepare_images();
-+	printf("THOR I2 pe_prepare_images done\n");
++	THOR_TRACE ("THOR I2 pe_prepare_images done\n");
  
  	scale = PE_state.video.v_scale;
  	flip = 1;
-@@ -386,8 +388,11 @@
+@@ -386,8 +393,11 @@
  		KDBG_RELEASE(IOKDBG_CODE(DBG_BOOTER, 0), start_time_value, debug_wait_start_value, load_kernel_start_value, populate_registry_time_value);
  	}
  
-+	printf("THOR I2a InitIOKit enter\n");
++	THOR_TRACE ("THOR I2a InitIOKit enter\n");
  	InitIOKit(PE_state.deviceTreeHead);
-+	printf("THOR I2b InitIOKit done\n");
++	THOR_TRACE ("THOR I2b InitIOKit done\n");
  	ConfigureIOKit();
-+	printf("THOR I2c ConfigureIOKit done\n");
++	THOR_TRACE ("THOR I2c ConfigureIOKit done\n");
  }
  
  void
-@@ -405,8 +410,17 @@
+@@ -405,8 +415,17 @@
  	 * against a kernel which has not yet enabled the full set of available
  	 * hardware protections.
  	 */
-+	printf("THOR L1 lockdown iokit enter\n");
++	THOR_TRACE ("THOR L1 lockdown iokit enter\n");
  	zalloc_iokit_lockdown();
-+	printf("THOR L2 zalloc_iokit_lockdown done\n");
++	THOR_TRACE ("THOR L2 zalloc_iokit_lockdown done\n");
  	StartIOKitMatching();
-+	printf("THOR L3 StartIOKitMatching returned\n");
++	THOR_TRACE ("THOR L3 StartIOKitMatching returned\n");
 +	{
 +		/* Post-matching CPU census: a secondary only gets a processor object
 +		 * once it has actually entered the kernel and registered. */
@@ -383,35 +426,44 @@ diff --git a/pexpert/arm/pe_init.c b/pexpert/arm/pe_init.c
 diff --git a/iokit/Kernel/IOStartIOKit.cpp b/iokit/Kernel/IOStartIOKit.cpp
 --- a/iokit/Kernel/IOStartIOKit.cpp
 +++ b/iokit/Kernel/IOStartIOKit.cpp
-@@ -143,15 +143,23 @@
+@@ -1,3 +1,8 @@
++/* thor: boot trace is off unless "thor_trace=1" is on the command line.
++ * Each line printed here costs a full video-console scroll (~1 s) in early
++ * boot, so the markers are opt-in. */
++extern int thor_boot_trace;
++#define THOR_TRACE(...) do { if (thor_boot_trace) printf(__VA_ARGS__); } while (0)
+ /*
+  * Copyright (c) 1998-2010 Apple Inc. All rights reserved.
+  *
+@@ -143,15 +148,23 @@
  	// of iokit basic service initialisation, or better we have IOLib stuff
  	// initialise as basic OS services.
  	//
 +	extern unsigned int vm_page_free_count;
-+	printf("THOR J0 InitIOKit enter free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR J0 InitIOKit enter free_pages=%u\n", vm_page_free_count);
  	IOLibInit();
-+	printf("THOR J1 IOLibInit done free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR J1 IOLibInit done free_pages=%u\n", vm_page_free_count);
  	OSlibkernInit();
-+	printf("THOR J2 OSlibkernInit done free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR J2 OSlibkernInit done free_pages=%u\n", vm_page_free_count);
  	IOMachPortInitialize();
-+	printf("THOR J3 IOMachPortInitialize done free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR J3 IOMachPortInitialize done free_pages=%u\n", vm_page_free_count);
  
  	gIOProgressBackbufferKey  = OSSymbol::withCStringNoCopy(kIOProgressBackbufferKey);
  	gIORemoveOnReadProperties = OSSet::withObjects((const OSObject **) &gIOProgressBackbufferKey, 1);
  
-+	printf("THOR J4 symbols done free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR J4 symbols done free_pages=%u\n", vm_page_free_count);
  	interruptAccountingInit();
-+	printf("THOR J5 interruptAccountingInit done free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR J5 interruptAccountingInit done free_pages=%u\n", vm_page_free_count);
  
-+	printf("THOR J6 alloc root nub free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR J6 alloc root nub free_pages=%u\n", vm_page_free_count);
  	gRootNub = new IOPlatformExpertDevice;
  	if (__improbable(gRootNub == NULL)) {
  		panic("Failed to allocate IOKit root nub");
-@@ -161,6 +169,7 @@
+@@ -161,6 +174,7 @@
  		panic("Failed to initialize IOKit root nub");
  	}
  	gRootNub->attach(NULL);
-+	printf("THOR J7 root nub attached free_pages=%u\n", vm_page_free_count);
++	THOR_TRACE ("THOR J7 root nub attached free_pages=%u\n", vm_page_free_count);
  
  	/* If the bootstrap segment set up a function to record startup
  	 * extensions, call it now.
@@ -441,7 +493,16 @@ diff --git a/libkern/c++/OSMetaClass.cpp b/libkern/c++/OSMetaClass.cpp
 diff --git a/bsd/kern/bsd_init.c b/bsd/kern/bsd_init.c
 --- a/bsd/kern/bsd_init.c
 +++ b/bsd/kern/bsd_init.c
-@@ -990,6 +990,13 @@
+@@ -1,3 +1,8 @@
++/* thor: boot trace is off unless "thor_trace=1" is on the command line.
++ * Each line printed here costs a full video-console scroll (~1 s) in early
++ * boot, so the markers are opt-in. */
++extern int thor_boot_trace;
++#define THOR_TRACE(...) do { if (thor_boot_trace) printf(__VA_ARGS__); } while (0)
+ /*
+  * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+  *
+@@ -990,6 +995,13 @@
  		netboot = (mountroot == netboot_mountroot);
  #endif
  
@@ -449,7 +510,7 @@ diff --git a/bsd/kern/bsd_init.c b/bsd/kern/bsd_init.c
 +			/* thor: latest observable point before we block on root media, so
 +			 * asynchronously started secondary CPUs are already registered. */
 +			extern void thor_dump_processors(void);
-+			printf("THOR pre-root CPU census\n");
++			THOR_TRACE ("THOR pre-root CPU census\n");
 +			thor_dump_processors();
 +		}
  		bsd_init_kprintf("vfs_mountroot\n");
@@ -671,50 +732,26 @@ diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
  		kprintf("arm_cpu_init(): cpu %d online\n", cpu_data_ptr->cpu_number);
  	}
  
-diff --git a/osfmk/arm/cpu_common.c b/osfmk/arm/cpu_common.c
---- a/osfmk/arm/cpu_common.c
-+++ b/osfmk/arm/cpu_common.c
-@@ -694,11 +694,29 @@
- 	}
- #endif
- 	started = ((cpu_data_ptr->cpu_flags & StartedState) == StartedState);
-+#if defined(GENERIC_PSCI_SMP)
-+	{
-+		extern volatile uint64_t thor_secondary_cacheinit_magic;
-+		uint64_t mpidr;
-+		__asm__ volatile ("mrs %0, mpidr_el1" : "=r"(mpidr));
-+		thor_secondary_cacheinit_magic = mpidr;
-+		__asm__ volatile ("dc cvac, %0\n\tdsb sy" :: "r"(&thor_secondary_cacheinit_magic) : "memory");
-+	}
-+#endif
- 	if (cpu_data_ptr->cpu_cache_dispatch != NULL) {
- 		platform_cache_init();
- 	}
- 
- 	/* Note: this calls IOCPURunPlatformActiveActions when resuming on boot cpu */
-+#if defined(GENERIC_PSCI_SMP)
-+	{
-+		extern volatile uint64_t thor_secondary_pemach_magic;
-+		uint64_t mpidr;
-+		__asm__ volatile ("mrs %0, mpidr_el1" : "=r"(mpidr));
-+		thor_secondary_pemach_magic = mpidr;
-+		__asm__ volatile ("dc cvac, %0\n\tdsb sy" :: "r"(&thor_secondary_pemach_magic) : "memory");
-+	}
-+#endif
- 	PE_cpu_machine_init(cpu_data_ptr->cpu_id, !started);
- 
- 	cpu_data_ptr->cpu_flags |= StartedState;
 diff --git a/iokit/bsddev/IOKitBSDInit.cpp b/iokit/bsddev/IOKitBSDInit.cpp
 --- a/iokit/bsddev/IOKitBSDInit.cpp
 +++ b/iokit/bsddev/IOKitBSDInit.cpp
-@@ -968,6 +968,12 @@
+@@ -1,3 +1,8 @@
++/* thor: boot trace is off unless "thor_trace=1" is on the command line.
++ * Each line printed here costs a full video-console scroll (~1 s) in early
++ * boot, so the markers are opt-in. */
++extern int thor_boot_trace;
++#define THOR_TRACE(...) do { if (thor_boot_trace) printf(__VA_ARGS__); } while (0)
+ /*
+  * Copyright (c) 1998-2021 Apple Inc. All rights reserved.
+  *
+@@ -968,6 +973,12 @@
  			// The disk isn't found - have the user pick from System Recovery.
  			(void)IOSetRecoveryBoot(BSD_BOOTFAIL_MEDIA_MISSING, NULL, true);
  #elif XNU_TARGET_OS_IOS
 +			{
 +				/* thor: final SMP state, printed where it cannot scroll away. */
 +				extern void thor_dump_processors(void);
-+				printf("THOR SMP-FINAL before root-mount panic\n");
++				THOR_TRACE ("THOR SMP-FINAL before root-mount panic\n");
 +				thor_dump_processors();
 +			}
  			panic("Failed to mount root device");
