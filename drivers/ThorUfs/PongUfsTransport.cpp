@@ -23,6 +23,10 @@
 #include <pexpert/pexpert.h>
 #include <sys/param.h>
 #include <sys/types.h>
+#include <sys/vnode.h>
+#include <sys/vnode_internal.h>
+#include <sys/mount.h>
+#include <sys/vfs_context.h>
 #include "../ThorProbe.h"
 
 namespace {
@@ -521,12 +525,39 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
   completion->action(completion->target, completion->parameter, result, done);
   return kIOReturnSuccess;
 }
+// Ask VFS directly where /private/var lives. The apfs mountroot log only proves
+// the volume group was accepted; it says nothing about whether the Data volume
+// is mounted, and "Failed to open swap file 30" (EROFS) could mean either that
+// the data volume is missing or that this path still resolves to the read-only
+// root. One line, once, after the mount has had time to settle.
+static void pongVarMountProbe(void) {
+  vfs_context_t ctx = vfs_context_kernel();
+  const char *paths[] = { "/", "/private/var", "/private/var/vm" };
+  for (unsigned i = 0; i < 3; ++i) {
+    vnode_t vp = NULLVP;
+    int err = vnode_lookup(paths[i], 0, &vp, ctx);
+    if (err) {
+      printf("THOR VARMNT: %s lookup err=%d\n", paths[i], err);
+      continue;
+    }
+    mount_t mp = vnode_mount(vp);
+    struct vfsstatfs *sb = mp ? vfs_statfs(mp) : nullptr;
+    printf("THOR VARMNT: %s from=%s on=%s rdonly=%d\n", paths[i],
+           sb ? sb->f_mntfromname : "?", sb ? sb->f_mntonname : "?",
+           (mp && vfs_isrdonly(mp)) ? 1 : 0);
+    vnode_put(vp);
+  }
+}
 // The kernel now reaches launchd and keeps running, so the failure census that
 // only printed on a root-mount panic never shows. A slow heartbeat makes the
 // live state visible in any photograph.
 static void pongStatusLoop(void *, wait_result_t) {
+  unsigned ticks = 0;
   for (;;) {
     IOSleep(15000);
+    // ~60 s in: bsd_init, the swap-file attempt and launchd's first exec have
+    // all happened by then, so the mount picture is final.
+    if (++ticks == 4) pongVarMountProbe();
     uint64_t ramdisk_pa = 0, ramdisk_bytes = 0;
     IORegistryEntry *map = IORegistryEntry::fromPath("/chosen/memory-map", gIODTPlane);
     OSData *rd = map ? OSDynamicCast(OSData, map->getProperty("RAMDisk")) : nullptr;
