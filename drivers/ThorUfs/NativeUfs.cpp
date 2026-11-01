@@ -146,6 +146,7 @@ bool NativeUfs::start (IOService *provider)
   unsigned enabled = 1;
   PE_parse_boot_argn ("native-ufs", &enabled, sizeof (enabled));
   if (!enabled || !compatible (provider)) return false;
+  printf("THOR UFS-BUILD v13 first-read-marker\n");
   IOLog("PONG_UFS BUILD smmu-cap-v2: optional-probe=%u; transport=%s\n", mode,
         mode == 2 ? "disabled by diagnostic mode" : "read-only");
   if (mode == 2) PongProbeRecord (0, "ufs-registers", PongProbeRunning, "validate SM8475 DT and read registers");

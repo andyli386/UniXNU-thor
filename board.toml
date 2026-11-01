@@ -38,7 +38,10 @@ kernel = "build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.u
 # __PRELINK_TEXT base is 0xfffffff004fbc000, so this is the exact slide
 # required by the Thor loader's in-place Mach-O expansion contract.
 slide = "0x6044000"
-kernelcache_sha256 = "d260defcc2eaac258fd3a2234454dda46791dae45e97608c5416f9ba8fd366e9"
+# Patched copy: apfs is_root_hash_authentication_required (0xfffffff0063ce304)
+# returns false so a sealed root mounts unverified; original kept as
+# kernelcache.decompressed.orig.
+kernelcache_sha256 = "ee88160c66bb5fdfa427159d1f1152ab3cb7388028800b499e6871c066d1fc72"
 roots = [
   "com.apple.AppleFSCompression.AppleFSCompressionTypeZlib",
   "com.apple.driver.AppleEffaceableStorage",

@@ -5,6 +5,7 @@
 #include <IOKit/IOService.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOBSD.h>
+#include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/IOLib.h>
@@ -442,6 +443,15 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
                                       IOStorageAttributes *, IOStorageCompletion *completion) {
   const uint64_t rootBlocks = window.size / kRootLogicalBlock;
   const bool write = buffer && buffer->getDirection() == kIODirectionOut;
+  // Entry marker: proves the mount path reaches this device at all, even when
+  // every later stage fails. Printed once per boot.
+  {
+    static bool entered;
+    if (!entered) {
+      entered = true;
+      printf("THOR UFS-RD: entry block=%llu count=%llu write=%u\n", block, count, write ? 1u : 0u);
+    }
+  }
   if (!buffer || !completion || !completion->action || !count || block >= rootBlocks ||
       count > rootBlocks - block || count > UINT64_MAX / kRootLogicalBlock ||
       buffer->getLength() < count * kRootLogicalBlock ||
@@ -494,9 +504,58 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
   IOLockUnlock(mutex);
   if (result != kIOReturnSuccess && result != kIOReturnNotWritable)
     transportFailure(write ? "block write failed" : "block read failed");
+  // Heartbeat: one line per 128 MiB proves a long apfs root-hash validation is
+  // still making progress instead of deadlocking on a single command.
+  if (result == kIOReturnSuccess && !write) {
+    static uint64_t counted;
+    static bool first = true;
+    uint64_t before = counted;
+    counted += done;
+    if (first) {
+      first = false;
+      printf("THOR UFS-RD: first read %llu bytes at block %llu\n", done, block);
+    } else if ((before >> 27) != (counted >> 27)) {
+      printf("THOR UFS-RD: %llu MiB read\n", counted >> 20);
+    }
+  }
   completion->action(completion->target, completion->parameter, result, done);
   return kIOReturnSuccess;
 }
+// The kernel now reaches launchd and keeps running, so the failure census that
+// only printed on a root-mount panic never shows. A slow heartbeat makes the
+// live state visible in any photograph.
+static void pongStatusLoop(void *, wait_result_t) {
+  for (;;) {
+    IOSleep(15000);
+    uint64_t ramdisk_pa = 0, ramdisk_bytes = 0;
+    IORegistryEntry *map = IORegistryEntry::fromPath("/chosen/memory-map", gIODTPlane);
+    OSData *rd = map ? OSDynamicCast(OSData, map->getProperty("RAMDisk")) : nullptr;
+    if (rd && rd->getLength() == 16) {
+      const uint32_t *v = static_cast<const uint32_t *>(rd->getBytesNoCopy());
+      ramdisk_pa = uint64_t(v[0]) | (uint64_t(v[1]) << 32);
+      ramdisk_bytes = uint64_t(v[2]) | (uint64_t(v[3]) << 32);
+    }
+    OSSafeReleaseNULL(map);
+    unsigned media = 0, mnt = 0;
+    OSDictionary *matching = IOService::serviceMatching("IOMedia");
+    OSIterator *iterator = matching ? IOService::getMatchingServices(matching) : nullptr;
+    OSSafeReleaseNULL(matching);
+    while (iterator && iterator->getNextObject()) ++media;
+    OSSafeReleaseNULL(iterator);
+    matching = IOService::serviceMatching("IOMedia");
+    iterator = matching ? IOService::getMatchingServices(matching) : nullptr;
+    OSSafeReleaseNULL(matching);
+    while (iterator) {
+      IOService *svc = OSDynamicCast(IOService, iterator->getNextObject());
+      if (!svc) break;
+      if (OSDynamicCast(OSString, svc->getProperty("BSD Name")) &&
+          svc->getProperty("Content Hint")) ++mnt;
+    }
+    OSSafeReleaseNULL(iterator);
+    printf("THOR UFS-T: ramdisk=%llu media=%u ready=%u\n", ramdisk_bytes, media, gHost.ready ? 1u : 0u);
+  }
+}
+
 extern "C" bool pong_ufs_transport_start(IOService *provider) {
   if (gTransportAttempted) {
     IOLog("PONG_UFS: transport attempt already completed; skip duplicate match\n");
@@ -594,6 +653,10 @@ extern "C" bool pong_ufs_transport_start(IOService *provider) {
       return transportFailure("block allocation/attachment");
     if (!block->start(provider)) { block->detach(provider); return transportFailure("block start"); }
   }
+  {
+    thread_t thread = nullptr;
+    if (kernel_thread_start(pongStatusLoop, nullptr, &thread) == KERN_SUCCESS) thread_deallocate(thread);
+  }
   return true;
 }
 
@@ -649,6 +712,21 @@ extern "C" void pong_ufs_dump_state(void) {
     printf("THOR UFS4: win %u %s base=%llx bytes=%llx %s\n", i, gRootWindows[i].name,
            gRootWindows[i].baseByte, gRootWindows[i].size,
            gRootWindows[i].signature ? gRootWindows[i].signature : "-");
+  {
+    // Did the loader's root-media payload actually reach the kernel? The ADT
+    // carries it as /chosen/memory-map RAMDisk = {pa, bytes}.
+    IORegistryEntry *map = IORegistryEntry::fromPath("/chosen/memory-map", gIODTPlane);
+    OSData *rd = map ? OSDynamicCast(OSData, map->getProperty("RAMDisk")) : nullptr;
+    if (rd && rd->getLength() == 16) {
+      const uint32_t *v = static_cast<const uint32_t *>(rd->getBytesNoCopy());
+      uint64_t pa = uint64_t(v[0]) | (uint64_t(v[1]) << 32);
+      uint64_t len = uint64_t(v[2]) | (uint64_t(v[3]) << 32);
+      printf("THOR UFS9: chosen RAMDisk pa=%llx bytes=%llu\n", pa, len);
+    } else {
+      printf("THOR UFS9: chosen RAMDisk absent\n");
+    }
+    OSSafeReleaseNULL(map);
+  }
   // Published volumes: the APFS volume UUIDs are what the ADT root-match needs.
   OSDictionary *matching = IOService::serviceMatching("IOMedia");
   OSIterator *iterator = matching ? IOService::getMatchingServices(matching) : nullptr;
