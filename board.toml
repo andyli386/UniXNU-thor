@@ -53,6 +53,11 @@ roots = [
   "com.apple.kec.pthread",
   "com.apple.kext.CoreTrust",
   "com.apple.security.AppleImage4",
+  # The kernel proper dereferences amfi->... unconditionally (44 sites in
+  # ubc_subr.c, pmap.c, kern_trustcache.c), so exec of the first signed binary
+  # data-aborted at FAR 0x1a0 with amfi == NULL. AMFI has to be linked in, not
+  # merely disabled with amfi_get_out_of_my_way.
+  "com.apple.driver.AppleMobileFileIntegrity",
 ]
 
 [userdata]
