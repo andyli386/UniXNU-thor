@@ -27,6 +27,8 @@
 #include <sys/vnode_internal.h>
 #include <sys/mount.h>
 #include <sys/vfs_context.h>
+#include <sys/proc.h>
+#include <sys/proc_internal.h>
 #include "../ThorProbe.h"
 
 namespace {
@@ -531,6 +533,17 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
 // the data volume is missing or that this path still resolves to the read-only
 // root. One line, once, after the mount has had time to settle.
 static void pongVarMountProbe(void) {
+  // Is userspace alive at all? The kernel prints nothing when load_init_program
+  // succeeds, so "no error" in the log does not mean launchd is running. PID 1
+  // existing is the only cheap proof, and it decides whether /private/var is
+  // meant to be mounted by launchd or by the kernel.
+  proc_t init = proc_find(1);
+  if (init) {
+    printf("THOR VARMNT: pid1 comm=%s stat=%d\n", init->p_comm, init->p_stat);
+    proc_rele(init);
+  } else {
+    printf("THOR VARMNT: pid1 absent\n");
+  }
   vfs_context_t ctx = vfs_context_kernel();
   const char *paths[] = { "/", "/private/var", "/private/var/vm" };
   for (unsigned i = 0; i < 3; ++i) {
