@@ -9,7 +9,7 @@
 #include <libkern/c++/OSIterator.h>
 #include <kern/thread.h>
 #include <pexpert/pexpert.h>
-#include "../PongProbe.h"
+#include "../ThorProbe.h"
 extern "C" bool pong_ufs_transport_start(IOService *);
 
 extern "C" {

@@ -1,0 +1,10 @@
+--- a/iokit/KernelConfigTables.cpp
++++ b/iokit/KernelConfigTables.cpp
+@@ -91,7 +91,6 @@
+     "   ,{"
+     "     'IOClass'         = NativeUfs;"
+     "     'IOProviderClass' = IOPlatformDevice;"
+-    "     'IONameMatch'     = ufshc;"
+     "     'IOProbeScore'    = 1000:32;"
+     "   }"
+     "   ,{"

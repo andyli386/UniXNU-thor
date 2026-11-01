@@ -1,0 +1,39 @@
+--- a/bsd/kern/bsd_init.c
++++ b/bsd/kern/bsd_init.c
+@@ -999,6 +999,17 @@
+ 			/* thor: latest observable point before we block on root media, so
+ 			 * asynchronously started secondary CPUs are already registered. */
+ 			extern void thor_dump_processors(void);
++			/* thor: board drivers that run before root media report their
++			 * state here, so one photograph of the last screen shows whether
++			 * the UFS transport was ever matched and how far it got. */
++			extern uint32_t native_ufs_probe_calls, native_ufs_matched, native_ufs_status;
++			extern uint32_t pong_ufs_report[16];
++			printf ("THOR UFS: calls=%u matched=%u status=%u sid=%x ver=%08x hce=%08x\n",
++			    native_ufs_probe_calls, native_ufs_matched, native_ufs_status,
++			    pong_ufs_report[15], pong_ufs_report[11], pong_ufs_report[14]);
++			printf ("THOR UFS: gdsc=%08x axi=%08x ahb=%08x aggr=%08x cap=%08x is=%08x hcs=%08x\n",
++			    pong_ufs_report[0], pong_ufs_report[1], pong_ufs_report[2], pong_ufs_report[9],
++			    pong_ufs_report[10], pong_ufs_report[12], pong_ufs_report[13]);
+ 			THOR_TRACE ("THOR pre-root CPU census\n");
+ 			thor_dump_processors();
+ 		}
+--- a/iokit/bsddev/IOKitBSDInit.cpp
++++ b/iokit/bsddev/IOKitBSDInit.cpp
+@@ -978,6 +978,16 @@
+ 				extern void thor_dump_processors(void);
+ 				THOR_TRACE ("THOR SMP-FINAL before root-mount panic\n");
+ 				thor_dump_processors();
++				/* thor: board storage state at the one point every failed boot
++				 * reaches, so a photograph of the panic carries the UFS verdict. */
++				extern uint32_t native_ufs_probe_calls, native_ufs_matched, native_ufs_status;
++				extern uint32_t pong_ufs_report[16];
++				printf ("THOR UFS: calls=%u matched=%u status=%u sid=%x ver=%08x hce=%08x\n",
++				    native_ufs_probe_calls, native_ufs_matched, native_ufs_status,
++				    pong_ufs_report[15], pong_ufs_report[11], pong_ufs_report[14]);
++				printf ("THOR UFS: gdsc=%08x axi=%08x ahb=%08x aggr=%08x cap=%08x is=%08x hcs=%08x\n",
++				    pong_ufs_report[0], pong_ufs_report[1], pong_ufs_report[2], pong_ufs_report[9],
++				    pong_ufs_report[10], pong_ufs_report[12], pong_ufs_report[13]);
+ 			}
+ 			panic("Failed to mount root device");
+ #endif

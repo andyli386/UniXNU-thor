@@ -12,7 +12,7 @@ kit = "thor"
 # These are the only canonical components claimed by the first migration pass.
 # ThorUfs/ThorAdreno/ThorMetal remain device-owned staging code until their
 # interfaces are published as upstream component repositories.
-include = ["ArmDTPlatform", "ArmCpu", "RamBlock", "XnuPrelink", "DarwinBoot"]
+include = ["ArmDTPlatform", "ArmCpu", "RamBlock", "XnuPrelink", "DarwinBoot", "ThorUfs"]
 
 [ipsw]
 url = "https://updates.cdn-apple.com/2023SummerFCS/fullrestores/042-44385/366890C4-D9B5-4938-B399-C19FB58DBEE0/iPad_Pro_HFR_16.6.1_20G81_Restore.ipsw"
@@ -28,7 +28,7 @@ fetch = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,AppOS", "Cry
 defconfig = "thor_defconfig"
 config_fragments = ["arch:configs/common.config", "soc:configs/sm8475.config", "os:configs/ios16.config"]
 patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
-archives = ["build-io-storage-family.py"]
+archives = ["build-io-storage-family.py", "build-thor-ufs.py"]
 
 [kernel.prelink]
 tool = "kits/XnuPrelink/emit_prelink.py"
@@ -50,6 +50,17 @@ roots = [
   "com.apple.kec.pthread",
   "com.apple.kext.CoreTrust",
   "com.apple.security.AppleImage4",
+]
+
+[userdata]
+# GPT entry "userdata" measured on the phone by the thor UFS driver
+# (THOR UFS3/THOR UFS2: first=0x2dfa00 last=0x7683bfa, 4096-byte LBAs).
+first_lba = 0x2dfa00
+last_lba = 0x7683bfa
+lba_bytes = 4096
+windows = [
+  { name = "OS", component = "OS" },
+  { name = "SystemOS", component = "Cryptex1,SystemOS" },
 ]
 
 [device_tree]

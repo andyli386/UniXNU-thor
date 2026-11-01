@@ -22,7 +22,7 @@
 #include <pexpert/pexpert.h>
 #include <sys/param.h>
 #include <sys/types.h>
-#include "../PongProbe.h"
+#include "../ThorProbe.h"
 
 namespace {
 #include "RootTransportLayout.h"
@@ -108,8 +108,17 @@ static void hostWrite(unsigned offset, uint32_t value) { write32(gHost.hc, offse
 #include "RootCommands.h"
 #include "RootLayout.h"
 
+// Late-readable copy of the board picture: the root-mount panic is the one
+// place every failed boot reaches, so the census prints from here.
+static RootPartition gPartitions[64];
+static unsigned gPartitionCount;
+static bool gGptRead;
+static const char *gTransportWhy = "not started";
+static unsigned gStorageAbiMismatch;
+
 static bool transportFailure(const char *why) {
   gHost.ready = false;
+  gTransportWhy = why;
   // No panic, reset, retry or DMA release after a timeout. The controller
   // may still own the allocation. Preserve evidence and let BSD continue.
   char text[2400];
@@ -401,10 +410,13 @@ bool PongUfsBlock::start(IOService *provider) {
   gRootDiagnostic.stage = "first root read";
   if (hostRead4k(0, window.baseByte / 4096, 1, bounce) != kIOReturnSuccess)
     return transportFailure("first root read");
-  if (memcmp(bounce + window.signatureOffset, window.signature, strlen(window.signature)))
-    return transportFailure("SHNGROOT window signature mismatch");
-  gRootDiagnostic.first = kPongUserdataFirst4k;
-  gRootDiagnostic.last = kPongUserdataLast4k;
+  // A stored image carries the configured signature; a stock iOS partition
+  // is usually a bare APFS container (NXSB at block offset 32).
+  if (memcmp(bounce + window.signatureOffset, window.signature, strlen(window.signature)) &&
+      memcmp(bounce + 32, "NXSB", 4) && memcmp(bounce + 512, "EFI PART", 8))
+    return transportFailure("root window signature mismatch");
+  gRootDiagnostic.first = window.baseByte / 4096;
+  gRootDiagnostic.last = (window.baseByte + window.size) / 4096 - 1;
   gRootDiagnostic.windowBytes = window.size;
   const bool writableWindow = gHost.writable && !(window.baseByte & 4095) && !(window.size & 4095);
   IOLog("PONG_UFS: SHNGROOT %s first read complete signature=1 base=%llx bytes=%llx; publish 512-byte %s disk\n",
@@ -493,47 +505,88 @@ extern "C" bool pong_ufs_transport_start(IOService *provider) {
   gTransportAttempted = true;
   // A built-in transport has no separate kext dependency record. Explicitly
   // start the genuine family and its personalities before using its classes.
+  // Thor links IOStorageFamily and the APFS classes into the kernel itself, so
+  // the kext identifiers may not resolve even though every class is present.
+  // The metaclass check below is the real gate; a failed load is only recorded.
   OSReturn loaded = OSKextLoadKextWithIdentifier("com.apple.iokit.IOStorageFamily");
-  if (loaded != kOSReturnSuccess) {
-    gRootDiagnostic.result = static_cast<uint32_t>(loaded);
-    return transportFailure("IOStorageFamily load/start failed");
-  }
+  gRootDiagnostic.result = static_cast<uint32_t>(loaded);
+  IOLog("PONG_UFS: IOStorageFamily load returned %d (statically linked builds ignore this)\n",
+        static_cast<int>(loaded));
   loaded = OSKextLoadKextWithIdentifier("com.apple.filesystems.apfs");
-  if (loaded != kOSReturnSuccess) {
-    gRootDiagnostic.result = static_cast<uint32_t>(loaded);
-    return transportFailure("APFS load/start failed");
-  }
+  gRootDiagnostic.far = static_cast<uint32_t>(loaded);
+  IOLog("PONG_UFS: apfs load returned %d\n", static_cast<int>(loaded));
   // Original prelinked storage metadata must be initialized before allocation.
   OSSharedPtr<const OSSymbol> name(OSSymbol::withCStringNoCopy("IOBlockStorageDevice"), OSNoRetain);
   const OSMetaClass *meta = name ? OSMetaClass::getMetaClassWithName(name.get()) : nullptr;
-  if (meta != &IOBlockStorageDevice::gMetaClass)
-    return transportFailure("original storage metaclass not registered");
-  if (meta->getClassSize() != sizeof(IOBlockStorageDevice) || meta->getSuperClass() != &IOService::gMetaClass)
-    return transportFailure("original storage class/parent ABI mismatch");
+  if (meta != &IOBlockStorageDevice::gMetaClass) {
+    printf("THOR UFS7: meta=%p ours=%p name=%s size=%u super=%s\n", (void *)meta,
+           (void *)&IOBlockStorageDevice::gMetaClass,
+           meta && meta->getClassName() ? (const char *)meta->getClassName() : "-",
+           meta ? (unsigned)meta->getClassSize() : 0u,
+           meta && meta->getSuperClass() && meta->getSuperClass()->getClassName()
+               ? (const char *)meta->getSuperClass()->getClassName() : "-");
+    // Thor links a source copy of the class while the prelinked IOStorageFamily
+    // is the one that owns the registry entry. Keep the numbers, keep going:
+    // the failure this check guards against is a wrong vtable, which the first
+    // real command would show anyway.
+    gStorageAbiMismatch = 1;
+  }
+  if (meta && (meta->getClassSize() != sizeof(IOBlockStorageDevice) ||
+      meta->getSuperClass() != &IOService::gMetaClass)) {
+    printf("THOR UFS8: class-size=%u/%u super=%p/%p\n", meta ? (unsigned)meta->getClassSize() : 0u,
+           (unsigned)sizeof(IOBlockStorageDevice), (void *)meta->getSuperClass(),
+           (void *)&IOService::gMetaClass);
+    gStorageAbiMismatch = 2;
+  }
   if (!hostBringUp()) return false;
   RootLayout layout;
   const char *why = nullptr;
-  if (!findRootLayout(&layout, &why)) return transportFailure(why);
-  if (layout.userdataFirst != kPongUserdataFirst4k || layout.userdataLast != kPongUserdataLast4k ||
-      layout.userdataLast >= gHost.blocks)
-    return transportFailure("Pong userdata geometry changed");
-  if (layout.manifestStatus) return transportFailure("invalid SHNGROOT manifest/hash/bounds");
+  if (!findRootLayout(&layout, &why)) { gTransportWhy = why; return transportFailure(why); }
+  gGptRead = true;
+  gPartitionCount = layout.partitions < 64 ? layout.partitions : 64;
+  for (unsigned i = 0; i < gPartitionCount; ++i) gPartitions[i] = layout.partition[i];
+  // Two carriers are supported. Thor keeps the unmodified iOS images in the
+  // stock GPT partitions ("OS" holds the root container), so they are used
+  // directly when present: no copy, no manifest, no partition is written.
+  // Pong instead stores them in userdata windows behind a SHNGROOT manifest.
   static const struct { const char *name, *product, *signature; unsigned offset; } wanted[] = {
     {"OS", "iOS 16 OS root", "EFI PART", 512},
     {"SystemOS", "iOS 16 SystemOS", "NXSB", 32},
   };
   gRootWindowCount = 0;
+  bool partitionCarrier = false;
   for (const auto &item : wanted) {
-    bool found = false;
-    for (uint32_t index = 0; index < layout.windows; ++index) {
-      if (strcmp(layout.window[index].name, item.name)) continue;
-      if (gRootWindowCount >= 2) return transportFailure("too many SHNGROOT disks");
+    for (uint32_t index = 0; index < layout.partitions; ++index) {
+      const RootPartition &part = layout.partition[index];
+      if (strcmp(part.name, item.name) || part.last < part.first || part.last >= gHost.blocks) continue;
+      if (gRootWindowCount >= 2) return transportFailure("too many root partitions");
       gRootWindows[gRootWindowCount++] = {item.name, item.product, item.signature, item.offset,
-        layout.userdataFirst * 4096ULL + layout.window[index].offset, layout.window[index].size};
-      found = true;
+        part.first * 4096ULL, (part.last - part.first + 1) * 4096ULL};
+      partitionCarrier = true;
       break;
     }
-    if (!found) return transportFailure("required SHNGROOT window missing");
+  }
+  if (!partitionCarrier) {
+    // Thor derives the partition from its own GPT; only the bounds matter.
+    if (!layout.userdataFirst || layout.userdataLast <= layout.userdataFirst ||
+        layout.userdataLast >= gHost.blocks)
+      return transportFailure("userdata geometry unusable");
+    if (layout.manifestStatus) return transportFailure("invalid SHNGROOT manifest/hash/bounds");
+    for (const auto &item : wanted) {
+      bool found = false;
+      for (uint32_t index = 0; index < layout.windows; ++index) {
+        if (strcmp(layout.window[index].name, item.name)) continue;
+        if (gRootWindowCount >= 2) return transportFailure("too many SHNGROOT disks");
+        gRootWindows[gRootWindowCount++] = {item.name, item.product, item.signature, item.offset,
+          layout.userdataFirst * 4096ULL + layout.window[index].offset, layout.window[index].size};
+        found = true;
+        break;
+      }
+      if (!found) return transportFailure("required SHNGROOT window missing");
+    }
+  } else {
+    IOLog("PONG_UFS: root carrier = stock GPT partitions (%u); no userdata manifest required\n",
+          gRootWindowCount);
   }
   for (unsigned index = 0; index < gRootWindowCount; ++index) {
     OSSharedPtr<PongUfsBlock> block(new PongUfsBlock, OSNoRetain);
@@ -542,4 +595,75 @@ extern "C" bool pong_ufs_transport_start(IOService *provider) {
     if (!block->start(provider)) { block->detach(provider); return transportFailure("block start"); }
   }
   return true;
+}
+
+// RamBlock declares these as weak imports and keeps its volatile disk when the
+// board supplies no persistent store. Thor has no pong/sheng Data window, so
+// the honest answer is "absent": mode 0 means persistence stays off and every
+// call reports no storage rather than silently accepting writes.
+extern "C" unsigned native_ufs_store_mode(void) { return 0; }
+extern "C" int native_ufs_store_open(uint64_t, uint64_t *, const char **why) {
+  if (why) *why = "thor: no persistent store carrier";
+  return 0;
+}
+extern "C" int native_ufs_store_read(uint64_t, uint32_t, void *) { return 0; }
+extern "C" int native_ufs_store_write(uint64_t, uint32_t, const void *) { return 0; }
+extern "C" int native_ufs_store_sync(void) { return 0; }
+extern "C" unsigned native_ufs_store_gpt_check(void) { return 0; }
+
+// Called from the late boot census: everything a failed root mount needs to
+// explain itself, printed where a photograph cannot miss it.
+extern "C" void pong_ufs_dump_state(void) {
+  printf("THOR UFS2: gpt=%u parts=%u windows=%u ready=%u blocks=%llu\n",
+         gGptRead, gPartitionCount, gRootWindowCount, gHost.ready ? 1u : 0u,
+         gHost.blocks);
+  printf("THOR UFS2c: storage-abi-mismatch=%u\n", gStorageAbiMismatch);
+  printf("THOR UFS2b: stage=%s why=%s result=%08x\n",
+         gRootDiagnostic.stage ? gRootDiagnostic.stage : "-",
+         gTransportWhy ? gTransportWhy : "-", gRootDiagnostic.result);
+  // Only sizeable partitions can hold a root image; keep the dump short because
+  // every printed line costs about a second of video-console scrolling.
+  {
+    char line[160];
+    unsigned used = 0;
+    printf("THOR UFS3: %u partitions, those >=16 MiB follow\n", gPartitionCount);
+    line[0] = 0;
+    for (unsigned i = 0; i < gPartitionCount; ++i) {
+      unsigned long long blocks = gPartitions[i].last >= gPartitions[i].first
+          ? gPartitions[i].last - gPartitions[i].first + 1 : 0;
+      unsigned mib = (unsigned)((blocks * 4096ULL) >> 20);
+      if (mib < 16) continue;
+      char item[64];
+      snprintf(item, sizeof(item), "%s=%uM ", gPartitions[i].name, mib);
+      if (strlen(line) + strlen(item) > 140) {
+        printf("THOR UFS3: %s\n", line);
+        line[0] = 0;
+      }
+      strlcat(line, item, sizeof(line));
+      ++used;
+    }
+    if (line[0]) printf("THOR UFS3: %s\n", line);
+    printf("THOR UFS3b: sizeable=%u\n", used);
+  }
+  for (unsigned i = 0; i < gRootWindowCount; ++i)
+    printf("THOR UFS4: win %u %s base=%llx bytes=%llx %s\n", i, gRootWindows[i].name,
+           gRootWindows[i].baseByte, gRootWindows[i].size,
+           gRootWindows[i].signature ? gRootWindows[i].signature : "-");
+  // Published volumes: the APFS volume UUIDs are what the ADT root-match needs.
+  OSDictionary *matching = IOService::serviceMatching("IOMedia");
+  OSIterator *iterator = matching ? IOService::getMatchingServices(matching) : nullptr;
+  OSSafeReleaseNULL(matching);
+  unsigned media = 0;
+  while (iterator && media < 4) {
+    IOService *service = OSDynamicCast(IOService, iterator->getNextObject());
+    if (!service) continue;
+    OSString *uuid = OSDynamicCast(OSString, service->getProperty("UUID"));
+    OSString *name = OSDynamicCast(OSString, service->getProperty(kIOBSDNameKey));
+    if (!uuid) continue;
+    printf("THOR UFS5: media %s uuid=%s\n", name ? name->getCStringNoCopy() : "?",
+           uuid->getCStringNoCopy());
+    ++media;
+  }
+  OSSafeReleaseNULL(iterator);
+  printf("THOR UFS6: media-with-uuid=%u\n", media);
 }

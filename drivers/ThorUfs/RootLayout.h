@@ -9,7 +9,14 @@ struct RootWindow {
   uint8_t sha256[32];
 };
 
+struct RootPartition {
+  char name[32];
+  uint64_t first, last;                   // 4096-byte LBAs on LUN 0
+};
+
 struct RootLayout {
+  uint32_t partitions;                    // GPT entries recorded below
+  RootPartition partition[64];
   uint64_t userdataFirst, userdataLast;   // 4096-byte LBAs on LUN 0
   uint64_t imageBytes;                    // size of the flashed root image from the manifest (0 when none)
   uint64_t gptEntriesLba;                 // GPT facts recorded for the persistent store's before/after comparison
@@ -127,6 +134,19 @@ static bool findRootLayout (RootLayout *layout, const char **why)
         break;
       }
     }
+    if (layout->partitions < sizeof (layout->partition) / sizeof (layout->partition[0])) {
+      RootPartition &slot = layout->partition[layout->partitions];
+      unsigned length = 0;
+      for (; length + 1 < sizeof (slot.name); ++length) {
+        uint8_t low = entry[56 + 2 * length];
+        if (!low || entry[57 + 2 * length]) break;
+        slot.name[length] = static_cast<char> (low);
+      }
+      slot.name[length] = 0;
+      slot.first = entryFirst;
+      slot.last = entryLast;
+      ++layout->partitions;
+    }
     if (match) {
       if (found) {
         *why = "duplicate userdata partition";
@@ -137,8 +157,17 @@ static bool findRootLayout (RootLayout *layout, const char **why)
       found = true;
     }
   }
-  if (!found || layout->userdataLast < layout->userdataFirst) {
-    *why = "no userdata partition";
+  if (!found) {
+    // Thor keeps the root image in the stock OS partition, so a userdata
+    // manifest is optional: the transport selects partitions by name.
+    layout->userdataFirst = layout->userdataLast = 0;
+    layout->manifestStatus = 1;
+    *why = nullptr;
+    gRootDiagnostic.manifest = layout->manifestStatus;
+    return true;
+  }
+  if (layout->userdataLast < layout->userdataFirst) {
+    *why = "userdata partition bounds";
     return false;
   }
   gRootDiagnostic.first = layout->userdataFirst;
