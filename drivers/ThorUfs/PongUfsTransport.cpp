@@ -37,6 +37,10 @@ namespace {
 #include "TransferPoll.h"
 #include "SmmuTakeover.h"
 static UfsRootDiagnostics gRootDiagnostic;
+// Total successful reads, printed by the heartbeat: a stalled PID 1 exec and a
+// busy loop look identical on screen, but only one of them keeps this moving.
+static uint64_t gReadBytes;
+static uint64_t gReadCount;
 struct UfsHost {
   OSSharedPtr<IOMemoryMap> hcMap, smmuMap;
   uintptr_t hc = 0, smmu = 0, cb = 0;
@@ -513,15 +517,15 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
   // Heartbeat: one line per 128 MiB proves a long apfs root-hash validation is
   // still making progress instead of deadlocking on a single command.
   if (result == kIOReturnSuccess && !write) {
-    static uint64_t counted;
     static bool first = true;
-    uint64_t before = counted;
-    counted += done;
+    uint64_t before = gReadBytes;
+    gReadBytes += done;
+    ++gReadCount;
     if (first) {
       first = false;
       printf("THOR UFS-RD: first read %llu bytes at block %llu\n", done, block);
-    } else if ((before >> 27) != (counted >> 27)) {
-      printf("THOR UFS-RD: %llu MiB read\n", counted >> 20);
+    } else if ((before >> 27) != (gReadBytes >> 27)) {
+      printf("THOR UFS-RD: %llu MiB read\n", gReadBytes >> 20);
     }
   }
   completion->action(completion->target, completion->parameter, result, done);
@@ -560,6 +564,20 @@ static void pongVarMountProbe(void) {
            (mp && vfs_isrdonly(mp)) ? 1 : 0);
     vnode_put(vp);
   }
+  // Reproduce the init exec step by step. PID 1 spins inside exec with no I/O
+  // at all by 60 s, so the failing call cannot be a plain read; each step gets
+  // its own line first, because the one that hangs never prints its result.
+  struct { const char *path; } steps[] = {
+    { "/sbin" }, { "/sbin/launchd" }, { "/usr/lib/dyld" }, { "/etc/passwd" },
+  };
+  for (unsigned i = 0; i < sizeof(steps) / sizeof(steps[0]); ++i) {
+    vnode_t vp = NULLVP;
+    printf("THOR VARMNT: step lookup %s\n", steps[i].path);
+    int err = vnode_lookup(steps[i].path, 0, &vp, ctx);
+    printf("THOR VARMNT: step %s err=%d\n", steps[i].path, err);
+    if (err || !vp) continue;
+    vnode_put(vp);
+  }
 }
 // The kernel now reaches launchd and keeps running, so the failure census that
 // only printed on a root-mount panic never shows. A slow heartbeat makes the
@@ -596,7 +614,11 @@ static void pongStatusLoop(void *, wait_result_t) {
           svc->getProperty("Content Hint")) ++mnt;
     }
     OSSafeReleaseNULL(iterator);
-    printf("THOR UFS-T: ramdisk=%llu media=%u ready=%u\n", ramdisk_bytes, media, gHost.ready ? 1u : 0u);
+    proc_t init = proc_find(1);
+    int init_stat = init ? init->p_stat : -1;
+    if (init) proc_rele(init);
+    printf("THOR UFS-T: ramdisk=%llu media=%u ready=%u rd=%llu/%llu pid1=%d\n",
+           ramdisk_bytes, media, gHost.ready ? 1u : 0u, gReadCount, gReadBytes >> 20, init_stat);
   }
 }
 
