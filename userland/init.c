@@ -1,22 +1,34 @@
 /*
  * thor PID 1.
  *
- * XNU execs /sbin/launchd as init and never mounts the Data volume: on iOS
- * mountroot gives a read-only System volume plus a shadow fs_root, and
- * /private/var only becomes writable once a separate apfs volume is mounted
- * over it. Whoever does that on a real device, nothing in this kernel or in
- * launchd does it, so this helper takes PID 1, mounts the Data volume at
- * /private/var with the same apfs mount ABI pong uses, and then execs the
- * real launchd (installed as /sbin/launchd.ios).
+ * XNU execs /sbin/launchd as init and never mounts the Data volume: mountroot
+ * gives a read-only System volume plus a shadow fs_root, and nothing in this
+ * kernel or in launchd mounts the Data volume over /private/var. Pong solves
+ * it by replacing init; this does the same and then execs the real launchd
+ * (installed as /sbin/launchd.ios).
+ *
+ * Two things this version does differently from the first attempt, both
+ * because the previous one was observed alive as PID 1 but produced no output
+ * and never mounted anything:
+ *
+ *  - The mount happens before any console work. Opening /dev/console as PID 1
+ *    must not be able to delay or block the only step that matters.
+ *  - The result is reported through the process name, which the kernel-side
+ *    probe prints as pid1 comm=...: success execs /sbin/launchd.ios, failure
+ *    execs /sbin/thor-e<errno> (symlinks to launchd.ios), so one boot reports
+ *    the exact errno without a working console.
  *
  * Freestanding arm64, built like pong's init: no dyld, no libSystem.
  */
 #include "mini.h"
 
 #define SYS_unmount 159
+#define O_NONBLOCK  0x4
+
+static int gLastError = -1;
 
 /* apfs_mount_args as apfs 2142 consumes it: device path, flags, mode, and the
- * uid/gid pair at the tail. Copied from pong's qualified owner hook. */
+ * uid/gid pair at the tail (pong's qualified owner hook). */
 static int
 mount_data(const char *device)
 {
@@ -37,7 +49,6 @@ mount_data(const char *device)
 static void
 device_path(char *out, size_t cap, int disk, int slice)
 {
-    /* "/dev/disk" + digits + "s" + digits, written without printf. */
     const char *base = "/dev/disk";
     size_t n = 0;
     while (base[n] && n + 1 < cap) { out[n] = base[n]; n++; }
@@ -49,64 +60,103 @@ device_path(char *out, size_t cap, int disk, int slice)
     out[n] = 0;
 }
 
-/* Mount the Data volume over /private/var.
- *
- * The disk number is not stable across boots, so scan: every volume of the
- * mounted container has a device node, and the Data volume is the only one
- * whose device id differs from the root's (mounting the System volume again
- * yields the same apfs fsid). A wrong volume is unmounted and skipped.
- * Returns 0 when a different file system is mounted at /private/var.
- */
+/* Returns 0 when /private/var is a different file system than /. */
+static int
+data_separate(void)
+{
+    struct stat root, var;
+    if (stat("/", &root) != 0) return 0;
+    return stat("/private/var", &var) == 0 && var.st_dev != root.st_dev;
+}
+
+static int
+try_device(const char *device)
+{
+    struct stat st, root;
+    if (stat(device, &st) != 0) return -1;
+    if (stat("/", &root) != 0) return -1;
+    errno = 0;
+    if (mount_data(device) != 0) {
+        gLastError = errno;
+        return -1;
+    }
+    /* Mounting the System volume again lands on the same apfs fsid; only a
+     * different volume can make st_dev differ. */
+    if (data_separate()) return 0;
+    (void)mini_syscall(SYS_unmount, (long)(uintptr_t)"/private/var", 0, 0, 0, 0, 0);
+    gLastError = -2;
+    return -1;
+}
+
+static int
+bootarg_device(char *out, size_t cap)
+{
+    char args[1024];
+    size_t len = sizeof(args);
+    const char *key = "thor_data_device=";
+    size_t klen = 0;
+
+    if (sysctlbyname("kern.bootargs", args, &len, NULL, 0) != 0) return 0;
+    args[sizeof(args) - 1] = 0;
+    while (key[klen]) klen++;
+    for (char *p = args; *p;) {
+        while (*p == ' ') p++;
+        size_t i = 0;
+        while (i < klen && p[i] == key[i]) i++;
+        if (i == klen) {
+            p += klen;
+            size_t n = 0;
+            while (*p && *p != ' ' && n + 1 < cap) out[n++] = *p++;
+            out[n] = 0;
+            return n != 0;
+        }
+        while (*p && *p != ' ') p++;
+    }
+    return 0;
+}
+
+/* Mount the Data volume over /private/var. Returns 0 on success. */
 static int
 prepare_var(void)
 {
-    struct stat root, var;
-    char device[32];
-    int disk, slice;
+    char device[64];
 
-    if (stat("/", &root) != 0) return -1;
-    if (stat("/private/var", &var) == 0 && var.st_dev != root.st_dev) {
-        puts("thor init: Data volume already separate");
-        return 0;
+    if (data_separate()) return 0;
+    /* Explicit device first: the caller knows which slice carries the Data
+     * volume, so the common case costs one mount instead of a scan. */
+    if (bootarg_device(device, sizeof(device)) && try_device(device) == 0) return 0;
+    /* Fall back to slice 2 of every disk: the container's second volume is the
+     * Data volume, and the disk number is not stable across boots. */
+    for (int disk = 0; disk <= 9; disk++) {
+        device_path(device, sizeof(device), disk, 2);
+        if (try_device(device) == 0) return 0;
     }
-    for (disk = 0; disk <= 9; disk++) {
-        for (slice = 1; slice <= 6; slice++) {
-            struct stat st;
-            device_path(device, sizeof(device), disk, slice);
-            if (stat(device, &st) != 0) continue;
-            if (mount_data(device) != 0) continue;
-            if (stat("/private/var", &var) == 0 && var.st_dev != root.st_dev) {
-                printf("thor init: Data volume mounted from %s\n", device);
-                return 0;
-            }
-            /* Same file system as root: not the Data volume. */
-            (void)mini_syscall(SYS_unmount, (long)(uintptr_t)"/private/var", 0, 0, 0, 0, 0);
-        }
-    }
-    puts("thor init: no separate Data volume; /private/var stays read-only");
     return -1;
 }
 
 static void
-prepare_root_skeleton(void)
+report_failure(void)
 {
-    /* The System image carries a read-only /private/var tree; once the Data
-     * volume is on top, the few directories swap and launchd need first must
-     * exist there. mkdir on an existing path is harmless. */
-    mkdir("/private/var/vm", 0755);
-    mkdir("/private/var/run", 0755);
-    mkdir("/private/var/log", 0755);
-    mkdir("/private/var/tmp", 01777);
-    mkdir("/private/var/db", 0755);
+    /* /sbin/thor-e<errno> is a symlink to launchd.ios; p_comm becomes the last
+     * path component, which the kernel probe prints. */
+    char path[64];
+    const char *base = "/sbin/thor-e";
+    size_t n = 0;
+    int value = gLastError < 0 ? 99 : gLastError;
+    while (base[n]) { path[n] = base[n]; n++; }
+    if (value >= 100) { path[n++] = (char)('0' + value / 100); value %= 100; }
+    if (n > 11) { path[n++] = (char)('0' + value / 10); value %= 10; }
+    path[n++] = (char)('0' + value);
+    path[n] = 0;
+    char *argv[] = { "/sbin/launchd", NULL };
+    char *env[] = { "PATH=/usr/bin:/bin:/usr/sbin:/sbin", NULL };
+    execve(path, argv, env);
 }
 
 int
 main(int argc, char **argv, char **envp)
 {
     (void)argc; (void)argv; (void)envp;
-    /* launchd keeps its own name in argv[0]; the iOS launchd refuses to run
-     * as PID 1 with an interactive stdout, so stdin/stdout go to /dev/null and
-     * diagnostics stay on the console (fd 2). */
     char *next[] = { "/sbin/launchd", NULL };
     char *env[] = {
         "PATH=/usr/bin:/bin:/usr/sbin:/sbin",
@@ -114,27 +164,28 @@ main(int argc, char **argv, char **envp)
         "TMPDIR=/var/tmp/",
         NULL
     };
-    int fd;
+    int mounted;
 
-    fd = open("/dev/console", O_RDWR, 0);
+    (void)chdir("/");
+
+    /* Mount first: this is the only step that cannot wait on anything. */
+    mounted = prepare_var();
+
+    /* Console is best effort and must never block the hand-off. */
+    int fd = open("/dev/console", O_RDWR | O_NONBLOCK, 0);
     if (fd >= 0) {
         dup2(fd, 0); dup2(fd, 1); dup2(fd, 2);
         if (fd > 2) close(fd);
     }
-    (void)chmod("/dev/console", 0666);
-    (void)chdir("/");
-    puts("thor init: static arm64 PID 1");
-
-    if (prepare_var() == 0) prepare_root_skeleton();
-
-    puts("thor init: exec /sbin/launchd.ios");
-    int nullfd = open("/dev/null", O_RDWR, 0);
-    if (nullfd >= 0) {
-        dup2(nullfd, 0);
-        dup2(nullfd, 1);
-        if (nullfd > 2) close(nullfd);
+    if (mounted == 0) {
+        puts("thor init: Data volume mounted; exec launchd.ios");
+    } else {
+        puts("thor init: no separate Data volume; exec launchd.ios anyway");
     }
+
+    if (mounted != 0) report_failure();
     execve("/sbin/launchd.ios", next, env);
-    printf("thor init: launchd exec failed: errno=%d\n", errno);
-    return 127;
+    /* launchd.ios missing: leave the errno visible rather than spinning. */
+    report_failure();
+    for (;;) { usleep(1000000); }
 }
