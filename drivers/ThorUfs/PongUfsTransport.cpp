@@ -26,9 +26,21 @@
 #include <sys/vnode.h>
 #include <sys/vnode_internal.h>
 #include <sys/mount.h>
+#include <sys/fcntl.h>
+#include <sys/uio.h>
 #include <sys/vfs_context.h>
 #include <sys/proc.h>
 #include <sys/proc_internal.h>
+extern "C" {
+#include <sys/bsdtask_info.h>
+}
+#include <kern/task.h>
+#include <kern/thread.h>
+#include <mach/arm/thread_status.h>
+#include <mach/thread_act.h>
+/* Declared in kern/thread.h, but behind a guard this kext build does not open. */
+extern "C" kern_return_t machine_thread_get_state(thread_t, thread_flavor_t,
+    thread_state_t, mach_msg_type_number_t *);
 #include "../ThorProbe.h"
 
 namespace {
@@ -548,6 +560,20 @@ static void pongVarMountProbe(void) {
   } else {
     printf("THOR VARMNT: pid1 absent\n");
   }
+  // Did PID 1 ever execute a user instruction? proc_taskinfo counts Unix
+  // syscalls and faults without touching thread internals — the thread-state
+  // APIs panicked in zalloc, and a fault loop at the entry point looks exactly
+  // like "alive and stuck" from the outside.
+  if (init) {
+    struct proc_taskinfo_internal info;
+    memset(&info, 0, sizeof(info));
+    fill_taskprocinfo(proc_task(init), &info);
+    printf("THOR PID1TASK: unix=%d faults=%d pageins=%d csw=%d threads=%d usr=%llu sys=%llu\n",
+           info.pti_syscalls_unix, info.pti_faults, info.pti_pageins, info.pti_csw,
+           info.pti_threadnum,
+           (unsigned long long)info.pti_total_user,
+           (unsigned long long)info.pti_total_system);
+  }
   vfs_context_t ctx = vfs_context_kernel();
   const char *paths[] = { "/", "/private/var", "/private/var/vm" };
   for (unsigned i = 0; i < 3; ++i) {
@@ -579,6 +605,57 @@ static void pongVarMountProbe(void) {
     vnode_put(vp);
   }
 }
+// Reproduce PID 1's second syscall in a thread of our own. proc_taskinfo says
+// PID 1 completed exactly one Unix syscall (chdir) and then burned kernel time
+// on the next one, which for this init is stat("/"); a getattr that has to be
+// observed from a thread that cannot take the heartbeat down with it.
+static void pongGetattrProbe(void *, wait_result_t) {
+  IOSleep(50000);
+  vfs_context_t ctx = vfs_context_kernel();
+  vnode_t vp = NULLVP;
+  printf("THOR GATTR: begin\n");
+  if (vnode_lookup("/", 0, &vp, ctx) != 0 || !vp) {
+    printf("THOR GATTR: lookup failed\n");
+    return;
+  }
+  struct vnode_attr va;
+  VATTR_INIT(&va);
+  VATTR_WANTED(&va, va_mode);
+  VATTR_WANTED(&va, va_data_size);
+  printf("THOR GATTR: calling vnode_getattr on /\n");
+  int err = vnode_getattr(vp, &va, ctx);
+  printf("THOR GATTR: err=%d mode=%o size=%lld\n", err, (unsigned)va.va_mode,
+         (long long)va.va_data_size);
+  vnode_put(vp);
+}
+
+// Pre-load the init's own pages into the UBC before PID 1 faults on them.
+// Its first missing page never completes (the data request reaches the pager,
+// returns success, and no I/O is ever issued), so the only way past it without
+// fixing the pager is to make the page resident first.
+static void pongPrewarm(void) {
+  vfs_context_t ctx = vfs_context_kernel();
+  vnode_t vp = NULLVP;
+  int err = vnode_open("/sbin/launchd", O_RDONLY, 0, 0, &vp, ctx);
+  if (err || !vp) {
+    printf("THOR WARM: open err=%d\n", err);
+    return;
+  }
+  char buf[4096];
+  int total = 0;
+  err = 0;
+  for (int i = 0; i < 16; i++) {
+    int resid = 0;
+    err = vn_rdwr(UIO_READ, vp, buf, (int)sizeof(buf), (off_t)(i * sizeof(buf)),
+                  UIO_SYSSPACE, IO_NODELOCKED, vfs_context_ucred(ctx), &resid, NULL);
+    if (err) break;
+    total += (int)sizeof(buf) - resid;
+    if (resid) break;
+  }
+  printf("THOR WARM: read=%d err=%d\n", total, err);
+  vnode_close(vp, FREAD, ctx);
+}
+
 // The kernel now reaches launchd and keeps running, so the failure census that
 // only printed on a root-mount panic never shows. A slow heartbeat makes the
 // live state visible in any photograph.
@@ -586,9 +663,24 @@ static void pongStatusLoop(void *, wait_result_t) {
   unsigned ticks = 0;
   for (;;) {
     IOSleep(15000);
+    ++ticks;
     // ~60 s in: bsd_init, the swap-file attempt and launchd's first exec have
     // all happened by then, so the mount picture is final.
-    if (++ticks == 4) pongVarMountProbe();
+    if (ticks == 2) pongPrewarm();
+    if (ticks == 4) pongVarMountProbe();
+    // Every fourth tick (~60 s): does PID 1 keep faulting, or is it parked?
+    // A frozen fault/pagein/unix triple means blocked; a moving one means loop.
+    if (ticks > 4 && (ticks % 4) == 0) {
+      proc_t init = proc_find(1);
+      if (init) {
+        struct proc_taskinfo_internal info;
+        memset(&info, 0, sizeof(info));
+        fill_taskprocinfo(proc_task(init), &info);
+        printf("THOR PID1TASK: unix=%d faults=%d pageins=%d csw=%d\n",
+               info.pti_syscalls_unix, info.pti_faults, info.pti_pageins, info.pti_csw);
+        proc_rele(init);
+      }
+    }
     uint64_t ramdisk_pa = 0, ramdisk_bytes = 0;
     IORegistryEntry *map = IORegistryEntry::fromPath("/chosen/memory-map", gIODTPlane);
     OSData *rd = map ? OSDynamicCast(OSData, map->getProperty("RAMDisk")) : nullptr;
@@ -722,6 +814,7 @@ extern "C" bool pong_ufs_transport_start(IOService *provider) {
   {
     thread_t thread = nullptr;
     if (kernel_thread_start(pongStatusLoop, nullptr, &thread) == KERN_SUCCESS) thread_deallocate(thread);
+    if (kernel_thread_start(pongGetattrProbe, nullptr, &thread) == KERN_SUCCESS) thread_deallocate(thread);
   }
   return true;
 }
