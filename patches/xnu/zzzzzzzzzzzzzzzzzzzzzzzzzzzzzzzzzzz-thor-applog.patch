@@ -1,0 +1,76 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -2642,6 +2642,63 @@
+  *		the child following operations the child may in fact not be
+  *		normally permitted to perform.
+  */
++/*
++ * THOR: pong's applog. launchd sends every service's stdin/stdout to
++ * /dev/null, which hides the one thing that says why a daemon dies. With
++ * applog=1 the selected programs get their fd 1/2 pointed at the console
++ * instead; applog_name is a comma separated list matched against the last
++ * path component. Nothing else about the spawn changes.
++ */
++static const char *
++thor_applog_path(struct image_params *imgp, int fd, const char *path)
++{
++	static char names[128];
++	static int loaded;
++	uint32_t enabled = 0;
++
++	if (fd != 1 && fd != 2) {
++		return path;
++	}
++	if (strcmp(path, "/dev/null") != 0) {
++		return path;
++	}
++	if (!loaded) {
++		if (!PE_parse_boot_argn("applog", &enabled, sizeof(enabled))) {
++			enabled = 0;
++		}
++		if (!PE_parse_boot_argn("applog_name", names, sizeof(names))) {
++			names[0] = 0;
++		}
++		loaded = 1;
++	}
++	if (!enabled || !names[0] || imgp->ip_ndp == NULL) {
++		return path;
++	}
++	const char *name = imgp->ip_ndp->ni_cnd.cn_nameptr;
++	if (name == NULL) {
++		return path;
++	}
++	const char *base = strrchr(name, '/');
++	if (base != NULL) {
++		name = base + 1;
++	}
++	const char *p = names;
++	while (*p) {
++		const char *word = p;
++		while (*p && *p != ',') {
++			p++;
++		}
++		size_t len = (size_t)(p - word);
++		if (len && strncmp(name, word, len) == 0 && name[len] == 0) {
++			return "/dev/console";
++		}
++		if (*p) {
++			p++;
++		}
++	}
++	return path;
++}
++
+ errno_t
+ exec_handle_file_actions(struct image_params *imgp, short psa_flags)
+ {
+@@ -2693,7 +2750,8 @@
+ 			AUDIT_SUBCALL_ENTER(OPEN, p, uthread);
+ 
+ 			NDINIT(ndp, LOOKUP, OP_OPEN, FOLLOW | AUDITVNPATH1, UIO_SYSSPACE,
+-			    CAST_USER_ADDR_T(psfa->psfaa_openargs.psfao_path),
++			    CAST_USER_ADDR_T(thor_applog_path(imgp, psfa->psfaa_filedes,
++			    (const char *)psfa->psfaa_openargs.psfao_path)),
+ 			    imgp->ip_vfs_context);
+ 
+ 			error = open1(imgp->ip_vfs_context, ndp,
