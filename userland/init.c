@@ -3,20 +3,15 @@
  *
  * XNU execs /sbin/launchd as init and never mounts the Data volume: mountroot
  * gives a read-only System volume plus a shadow fs_root, and nothing in this
- * kernel or in launchd mounts the Data volume over /private/var. Pong solves
- * it by replacing init; this does the same and then execs the real launchd
- * (installed as /sbin/launchd.ios).
+ * kernel or in launchd mounts the Data volume over /private/var.
  *
- * Two things this version does differently from the first attempt, both
- * because the previous one was observed alive as PID 1 but produced no output
- * and never mounted anything:
- *
- *  - The mount happens before any console work. Opening /dev/console as PID 1
- *    must not be able to delay or block the only step that matters.
- *  - The result is reported through the process name, which the kernel-side
- *    probe prints as pid1 comm=...: success execs /sbin/launchd.ios, failure
- *    execs /sbin/thor-e<errno> (symlinks to launchd.ios), so one boot reports
- *    the exact errno without a working console.
+ * This version calls no stat() at all. proc_taskinfo on v5 showed exactly one
+ * completed Unix syscall — chdir("/") — with the next one never returning, and
+ * that next one was stat("/"). Since the goal is the mount, the mount is tried
+ * directly: the device comes from a boot argument (or a short slice-2 scan),
+ * and the mount result is reported through the process name, which the kernel
+ * probe prints as pid1 comm=... . Every syscall this binary makes is one the
+ * mount actually needs.
  *
  * Freestanding arm64, built like pong's init: no dyld, no libSystem.
  */
@@ -43,11 +38,14 @@ mount_data(const char *device)
     memcpy(payload + 16, &mode, 2);
     memcpy(payload + 0x144, &owner, 4);
     memcpy(payload + 0x148, &owner, 4);
-    return mount("apfs", "/private/var", 0, payload);
+    errno = 0;
+    if (mount("apfs", "/private/var", 0, payload) == 0) return 0;
+    gLastError = errno;
+    return -1;
 }
 
 static void
-device_path(char *out, size_t cap, int disk, int slice)
+device_path(char *out, size_t cap, int disk)
 {
     const char *base = "/dev/disk";
     size_t n = 0;
@@ -55,37 +53,8 @@ device_path(char *out, size_t cap, int disk, int slice)
     if (disk >= 10) { out[n++] = (char)('0' + disk / 10); }
     out[n++] = (char)('0' + disk % 10);
     out[n++] = 's';
-    if (slice >= 10) { out[n++] = (char)('0' + slice / 10); }
-    out[n++] = (char)('0' + slice % 10);
+    out[n++] = '2';
     out[n] = 0;
-}
-
-/* Returns 0 when /private/var is a different file system than /. */
-static int
-data_separate(void)
-{
-    struct stat root, var;
-    if (stat("/", &root) != 0) return 0;
-    return stat("/private/var", &var) == 0 && var.st_dev != root.st_dev;
-}
-
-static int
-try_device(const char *device)
-{
-    struct stat st, root;
-    if (stat(device, &st) != 0) return -1;
-    if (stat("/", &root) != 0) return -1;
-    errno = 0;
-    if (mount_data(device) != 0) {
-        gLastError = errno;
-        return -1;
-    }
-    /* Mounting the System volume again lands on the same apfs fsid; only a
-     * different volume can make st_dev differ. */
-    if (data_separate()) return 0;
-    (void)mini_syscall(SYS_unmount, (long)(uintptr_t)"/private/var", 0, 0, 0, 0, 0);
-    gLastError = -2;
-    return -1;
 }
 
 static int
@@ -115,37 +84,19 @@ bootarg_device(char *out, size_t cap)
     return 0;
 }
 
-/* Mount the Data volume over /private/var. Returns 0 on success. */
-static int
-prepare_var(void)
-{
-    char device[64];
-
-    if (data_separate()) return 0;
-    /* Explicit device first: the caller knows which slice carries the Data
-     * volume, so the common case costs one mount instead of a scan. */
-    if (bootarg_device(device, sizeof(device)) && try_device(device) == 0) return 0;
-    /* Fall back to slice 2 of every disk: the container's second volume is the
-     * Data volume, and the disk number is not stable across boots. */
-    for (int disk = 0; disk <= 9; disk++) {
-        device_path(device, sizeof(device), disk, 2);
-        if (try_device(device) == 0) return 0;
-    }
-    return -1;
-}
-
 static void
-report_failure(void)
+report(const char *tag)
 {
-    /* /sbin/thor-e<errno> is a symlink to launchd.ios; p_comm becomes the last
-     * path component, which the kernel probe prints. */
+    (void)tag;
+    /* /sbin/thor-e<errno> is a symlink to launchd.ios; the kernel takes p_comm
+     * from the last path component, so one boot reports the exact errno. */
     char path[64];
     const char *base = "/sbin/thor-e";
     size_t n = 0;
     int value = gLastError < 0 ? 99 : gLastError;
     while (base[n]) { path[n] = base[n]; n++; }
     if (value >= 100) { path[n++] = (char)('0' + value / 100); value %= 100; }
-    if (n > 11) { path[n++] = (char)('0' + value / 10); value %= 10; }
+    if (value >= 10 || n > 11) { path[n++] = (char)('0' + value / 10); value %= 10; }
     path[n++] = (char)('0' + value);
     path[n] = 0;
     char *argv[] = { "/sbin/launchd", NULL };
@@ -164,28 +115,58 @@ main(int argc, char **argv, char **envp)
         "TMPDIR=/var/tmp/",
         NULL
     };
-    int mounted;
+    char device[64];
+    int mounted = 0;
 
-    (void)chdir("/");
+    /* Ladder, one syscall per rung, so `unix=` names the rung that stops:
+     *   1..10  getpid        - no VFS at all
+     *   11     open("/")     - namei + vnode_authorize(SEARCH) + copyin of path
+     *   12     chdir("/")    - the above plus proc_dirs_lock and vnode_ref
+     *   13..   mount(...)    - the work we actually need
+     * Twenty getpids proved syscalls return at all; the question left is
+     * which VFS entry point blocks.
+     */
+    int probe_fd = -1;
+    char args[1024];
+    size_t argsLen = sizeof(args);
+    for (int spin = 0; spin < 10; spin++) (void)getpid();   /* 1..10  no pointers */
+    (void)getppid();                                          /* 11     no pointers */
+    (void)sysctlbyname("kern.bootargs", args, &argsLen, NULL, 0); /* 12 copyin + copyout */
+    probe_fd = open("/", O_RDONLY, 0);                        /* 13     + namei + fd alloc */
+    (void)chdir("/");                                         /* 14     + dirs lock */
+    if (probe_fd >= 0) close(probe_fd);
 
-    /* Mount first: this is the only step that cannot wait on anything. */
-    mounted = prepare_var();
-
-    /* Console is best effort and must never block the hand-off. */
-    int fd = open("/dev/console", O_RDWR | O_NONBLOCK, 0);
-    if (fd >= 0) {
-        dup2(fd, 0); dup2(fd, 1); dup2(fd, 2);
-        if (fd > 2) close(fd);
+    /* The device to try: whatever the loader was told, else slice 2 of each
+     * disk (the container's second volume is the Data volume). */
+    if (bootarg_device(device, sizeof(device)) && mount_data(device) == 0) mounted = 1;
+    for (int disk = 0; !mounted && disk <= 9; disk++) {
+        device_path(device, sizeof(device), disk);
+        if (mount_data(device) == 0) mounted = 1;
     }
-    if (mounted == 0) {
-        puts("thor init: Data volume mounted; exec launchd.ios");
+
+    /* Descriptor hand-off.  The 20G81 launchd rejects a terminal on stdout at
+     * entry -- it calls isatty(1) and exits with "cannot be run directly
+     * (stdout: 1)" -- so stdin and stdout go to /dev/null while stderr keeps
+     * the console, which is also where our own milestones must go now. */
+    int con = open("/dev/console", O_RDWR | O_NONBLOCK, 0);
+    if (con >= 0) {
+        dup2(con, 2);
+        if (con > 2) close(con);
+    }
+    int nul = open("/dev/null", O_RDWR, 0);
+    if (nul >= 0) {
+        dup2(nul, 0);
+        dup2(nul, 1);
+        if (nul > 2) close(nul);
+    }
+    if (mounted) {
+        (void)write(2, "thor init: Data volume mounted\n", 31);
     } else {
-        puts("thor init: no separate Data volume; exec launchd.ios anyway");
+        (void)write(2, "thor init: Data mount failed\n", 29);
     }
 
-    if (mounted != 0) report_failure();
+    if (!mounted) report("fail");
     execve("/sbin/launchd.ios", next, env);
-    /* launchd.ios missing: leave the errno visible rather than spinning. */
-    report_failure();
+    report("no-launchd");
     for (;;) { usleep(1000000); }
 }
