@@ -24,8 +24,10 @@ static int gLastError = -1;
 
 /* apfs_mount_args as apfs 2142 consumes it: device path, flags, mode, and the
  * uid/gid pair at the tail (pong's qualified owner hook). */
+/* apfs_mount_args as apfs 2142 consumes it: device path, flags, mode, and the
+ * uid/gid pair at the tail. */
 static int
-mount_data(const char *device)
+mount_apfs(const char *device, const char *where)
 {
     uint8_t payload[0x150];
     uint64_t fspec = (uint64_t)(uintptr_t)device, flags = 0;
@@ -39,13 +41,53 @@ mount_data(const char *device)
     memcpy(payload + 0x144, &owner, 4);
     memcpy(payload + 0x148, &owner, 4);
     errno = 0;
-    if (mount("apfs", "/private/var", 0, payload) == 0) return 0;
+    return mount("apfs", where, 0, payload);
+}
+
+static int
+mount_data(const char *device)
+{
+    if (mount_apfs(device, "/private/var") == 0) return 0;
     gLastError = errno;
     return -1;
 }
 
+/* The dyld shared cache does not live on the root volume in iOS 16: it is on
+ * the SystemOS (SystemCryptex) volume, which the UFS driver publishes as its
+ * own disk.  The kernel's own exec hook mounts that volume at
+ * /private/preboot and hands dyld DYLD_SHARED_CACHE_DIR pointing at it
+ * (bsd/kern/kern_exec.c); without it vm_shared_region_start_address() fails
+ * and dyld has no cache to map.  Here the same mount is done from PID 1
+ * because this kernel runs the hook disabled.
+ *
+ * Every candidate is tried and unmounted again unless it actually carries
+ * System/Library/Caches/com.apple.dyld, so re-mounting the root or Data
+ * volume here is harmless. */
+static const char kCacheDir[] = "/private/preboot/System/Library/Caches/com.apple.dyld";
+
+static void device_path(char *out, size_t cap, int disk, int slice);
+
+static int
+mount_cryptex(void)
+{
+    char dev[64];
+    for (int disk = 0; disk <= 9; disk++) {
+        for (int slice = 1; slice <= 2; slice++) {
+            device_path(dev, sizeof(dev), disk, slice);
+            if (mount_apfs(dev, "/private/preboot") != 0) continue;
+            int fd = open(kCacheDir, O_RDONLY | O_DIRECTORY, 0);
+            if (fd >= 0) {
+                close(fd);
+                return 0;
+            }
+            (void)mini_syscall(SYS_unmount, (long)(uintptr_t)"/private/preboot", 0, 0, 0, 0, 0);
+        }
+    }
+    return -1;
+}
+
 static void
-device_path(char *out, size_t cap, int disk)
+device_path(char *out, size_t cap, int disk, int slice)
 {
     const char *base = "/dev/disk";
     size_t n = 0;
@@ -53,7 +95,7 @@ device_path(char *out, size_t cap, int disk)
     if (disk >= 10) { out[n++] = (char)('0' + disk / 10); }
     out[n++] = (char)('0' + disk % 10);
     out[n++] = 's';
-    out[n++] = '2';
+    out[n++] = (char)('0' + slice);
     out[n] = 0;
 }
 
@@ -109,10 +151,14 @@ main(int argc, char **argv, char **envp)
 {
     (void)argc; (void)argv; (void)envp;
     char *next[] = { "/sbin/launchd", NULL };
+    /* DYLD_SHARED_CACHE_DIR is what bsd/kern/kern_exec.c would have set from
+     * the owner-cache hook; dyld needs it to find the cache on the cryptex
+     * volume once that volume is mounted at /private/preboot. */
     char *env[] = {
         "PATH=/usr/bin:/bin:/usr/sbin:/sbin",
         "HOME=/var/root",
         "TMPDIR=/var/tmp/",
+        "DYLD_SHARED_CACHE_DIR=/private/preboot/System/Library/Caches/com.apple.dyld",
         NULL
     };
     char device[64];
@@ -140,9 +186,13 @@ main(int argc, char **argv, char **envp)
      * disk (the container's second volume is the Data volume). */
     if (bootarg_device(device, sizeof(device)) && mount_data(device) == 0) mounted = 1;
     for (int disk = 0; !mounted && disk <= 9; disk++) {
-        device_path(device, sizeof(device), disk);
+        device_path(device, sizeof(device), disk, 2);
         if (mount_data(device) == 0) mounted = 1;
     }
+
+    /* Must happen before the exec: dyld reads the cache directory from the
+     * environment and maps the shared cache before launchd gets to run. */
+    int cryptex = mount_cryptex();
 
     /* Descriptor hand-off.  The 20G81 launchd rejects a terminal on stdout at
      * entry -- it calls isatty(1) and exits with "cannot be run directly
@@ -163,6 +213,11 @@ main(int argc, char **argv, char **envp)
         (void)write(2, "thor init: Data volume mounted\n", 31);
     } else {
         (void)write(2, "thor init: Data mount failed\n", 29);
+    }
+    if (cryptex == 0) {
+        (void)write(2, "thor init: cryptex mounted at /private/preboot\n", 47);
+    } else {
+        (void)write(2, "thor init: cryptex mount failed (no dyld cache)\n", 48);
     }
 
     if (!mounted) report("fail");
