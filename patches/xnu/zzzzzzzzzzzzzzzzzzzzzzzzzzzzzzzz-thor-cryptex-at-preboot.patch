@@ -1,0 +1,32 @@
+--- a/bsd/vm/vm_unix.c
++++ b/bsd/vm/vm_unix.c
+@@ -2618,6 +2618,29 @@
+ #define PREBOOT_CRYPTEX_PATH "/private/preboot/Cryptexes"
+ #endif
+ 			error = vnode_lookup(PREBOOT_CRYPTEX_PATH, 0, &preboot_vp, vfs_context_current());
++			/*
++			 * THOR: this board has no preboot volume.  The SystemCryptex
++			 * volume that carries the dyld shared cache is mounted at
++			 * /private/preboot itself, so the cache's mount is neither the
++			 * process root nor whatever /private/preboot/Cryptexes resolves
++			 * to.  Accept the cache when it lives on the volume mounted at
++			 * /private/preboot, which is the same guarantee the check below
++			 * is trying to make.
++			 */
++			if (error != 0 && srfmp->vp->v_mount != rdir_vp->v_mount) {
++				vnode_t thor_preboot_vp = NULL;
++				if (vnode_lookup("/private/preboot", 0, &thor_preboot_vp,
++				    vfs_context_current()) == 0) {
++					if (srfmp->vp->v_mount == thor_preboot_vp->v_mount) {
++						error = 0;
++						preboot_vp = thor_preboot_vp;
++						thor_preboot_vp = NULL;
++					}
++					if (thor_preboot_vp) {
++						(void)vnode_put(thor_preboot_vp);
++					}
++				}
++			}
+ 			if ((error || srfmp->vp->v_mount != preboot_vp->v_mount)
+ #if defined(XNU_OWNER_CACHE_CARRIER) && XNU_OWNER_CACHE_CARRIER
+ 			    && !owner_carrier
