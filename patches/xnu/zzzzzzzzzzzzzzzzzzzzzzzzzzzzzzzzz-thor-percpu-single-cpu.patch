@@ -1,0 +1,21 @@
+--- a/osfmk/arm/cpu_common.c
++++ b/osfmk/arm/cpu_common.c
+@@ -730,7 +730,17 @@
+ 
+ 	percpu_base.size = percpu_section_size();
+ 	if (ml_get_cpu_count() == 1) {
+-		percpu_base.start = VM_MAX_KERNEL_ADDRESS;
++		/*
++		 * THOR: an empty range has to be empty for the comparison that is
++		 * actually generated.  start = VM_MAX_KERNEL_ADDRESS (0xfffffffb…)
++		 * is "larger than any end" only unsigned; the bounded-pointer
++		 * helpers compile this to a signed compare, where that value is
++		 * negative, so percpu_foreach_secondary() walked one bogus slot and
++		 * a data abort followed (mbuf_mtypes_sync, first CPU-count-1 boot).
++		 * 1 > 0 holds under both signednesses.
++		 */
++		percpu_base.start = 1;
++		percpu_base.end = 0;
+ 		return;
+ 	}
+ 

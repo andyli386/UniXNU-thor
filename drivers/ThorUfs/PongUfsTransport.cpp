@@ -2,6 +2,10 @@
 // Pong/SM8475 UFS transport. Writes are boot-arg gated and limited to the
 // two validated SHNGROOT windows. Shared queue/protocol code derives
 // from Sheng; board addresses and stream ID come from Pong's live DT.
+// Bump this with every debug image: the probes are otherwise indistinguishable
+// in a screenshot, and knowing which build a log came from matters.
+#define THOR_BUILD_TAG "ufs83"
+
 #include <IOKit/IOService.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOBSD.h>
@@ -52,6 +56,7 @@ extern unsigned long long thor_sys_count, thor_sys_num;
 extern unsigned long long thor_block_count, thor_block_ra, thor_block_ra2, thor_block_cont;
 extern unsigned long long thor_block_proc;
 extern void *thor_watch_proc;
+extern void thor_dump_task_threads(task_t, const char *);
 extern unsigned long long thor_sys_x0, thor_sys_x1, thor_sys_x2, thor_sys_x3;
 extern unsigned int thor_sysctl_name[4];
 extern int thor_sysctl_n;
@@ -254,6 +259,9 @@ static bool hostBringUp() {
   gHost.blocks = uint64_t(last) + 1;
   IOLog("PONG_UFS: transport ready LUN=0 block=4096 blocks=%llu; WRITE(10) FUA=%s; writes stay inside OS/SystemOS windows\n",
         gHost.blocks, gHost.writable ? "enabled" : "disabled");
+  // Which image is this? Every debug build carries probes that look identical
+  // in a photograph, so the tag has to come from the binary itself.
+  printf("THOR BUILD: %s\n", THOR_BUILD_TAG);
   return true;
 }
 }
@@ -762,6 +770,7 @@ static void pongStatusLoop(void *, wait_result_t) {
         printf("THOR PID1BLK: n=%llu ra=%llx ra2=%llx cont=%llx bproc=%llx pid1proc=%llx\n",
                thor_block_count, thor_block_ra, thor_block_ra2, thor_block_cont,
                thor_block_proc, (unsigned long long)(uintptr_t)init);
+        thor_dump_task_threads(proc_task(init), "1");
         printf("THOR PID1SYS: num=%llx x0=%llx x1=%llx x2=%llx x3=%llx ctl_n=%d ctl=[%u,%u,%u,%u]\n",
                thor_sys_num, thor_sys_x0, thor_sys_x1, thor_sys_x2, thor_sys_x3,
                thor_sysctl_n, thor_sysctl_name[0], thor_sysctl_name[1],
