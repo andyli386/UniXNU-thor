@@ -1,0 +1,26 @@
+--- a/bsd/kern/ubc_subr.c
++++ b/bsd/kern/ubc_subr.c
+@@ -4753,6 +4753,23 @@
+ 		OS_PTRAUTH_DISCRIMINATOR("cs_blob.csb_entitlements")));
+ #endif
+ 
++	/*
++	 * THOR: CS_PLATFORM_BINARY is normally set by AMFI from the trust cache.
++	 * There is no AMFI interface on this machine, so no binary is ever
++	 * promoted and launchd refuses to spawn services that are not platform
++	 * binaries -- SpringBoard dies with "unexpected exec of non-platform
++	 * binary". Under the explicit hard bypass, a signature that validated
++	 * above is treated as good as a platform one.
++	 */
++	if (!(cs_flags & CS_PLATFORM_BINARY)) {
++		code_signing_config_t config = 0;
++		code_signing_configuration(NULL, &config);
++		if ((config & (CS_CONFIG_ENFORCEMENT_DISABLED | CS_CONFIG_GET_OUT_OF_MY_WAY)) ==
++		    (CS_CONFIG_ENFORCEMENT_DISABLED | CS_CONFIG_GET_OUT_OF_MY_WAY)) {
++			cs_flags |= CS_PLATFORM_BINARY;
++		}
++	}
++
+ 	tmp_blob.csb_flags = cs_flags;
+ 	tmp_blob.csb_signer_type = signer_type;
+ 

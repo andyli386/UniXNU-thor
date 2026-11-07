@@ -10,3 +10,4 @@ zzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-ufs-personality.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-amfi-absent-guards.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-cryptex-at-preboot.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-percpu-single-cpu.patch
+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-platform-binary.patch
