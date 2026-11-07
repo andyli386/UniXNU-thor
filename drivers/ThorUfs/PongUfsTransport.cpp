@@ -49,8 +49,15 @@ extern void *thor_watch_task;
 extern unsigned long long thor_exc_count, thor_exc_va, thor_exc_pc;
 extern unsigned int thor_exc_esr, thor_exc_class;
 extern unsigned long long thor_sys_count, thor_sys_num;
-extern unsigned long long thor_block_count, thor_block_ra, thor_block_ra2;
+extern unsigned long long thor_block_count, thor_block_ra, thor_block_ra2, thor_block_cont;
+extern unsigned long long thor_block_proc;
+extern void *thor_watch_proc;
+extern unsigned long long thor_sys_x0, thor_sys_x1, thor_sys_x2, thor_sys_x3;
+extern unsigned int thor_sysctl_name[4];
+extern int thor_sysctl_n;
 extern unsigned long long thor_exc_all, thor_sys_all;
+extern void *thor_last_exc_task;
+extern void *thor_last_sys_task;
 }
 #include "../ThorProbe.h"
 
@@ -621,8 +628,9 @@ static void pongVarMountProbe(void) {
            (unsigned long long)info.pti_total_system);
   }
   vfs_context_t ctx = vfs_context_kernel();
-  const char *paths[] = { "/", "/private/var", "/private/var/vm" };
-  for (unsigned i = 0; i < 3; ++i) {
+  const char *paths[] = { "/", "/private/var", "/private/var/vm",
+                          "/private/preboot", "/private/preboot/System" };
+  for (unsigned i = 0; i < sizeof(paths) / sizeof(paths[0]); ++i) {
     vnode_t vp = NULLVP;
     int err = vnode_lookup(paths[i], 0, &vp, ctx);
     if (err) {
@@ -641,6 +649,16 @@ static void pongVarMountProbe(void) {
   // its own line first, because the one that hangs never prints its result.
   struct { const char *path; } steps[] = {
     { "/sbin" }, { "/sbin/launchd" }, { "/usr/lib/dyld" }, { "/etc/passwd" },
+    // What launchd needs right after libignition: the job cache, the daemon
+    // directory and the dyld shared cache it failed to start a region for.
+    { "/System/Library/xpc/launchd.plist" },
+    { "/System/Library/LaunchDaemons" },
+    { "/System/Library/Caches/com.apple.dyld" },
+    { "/private/preboot" },
+    // Did PID 1 manage to mount the cryptex, and is the shared cache actually
+    // reachable through the path the kernel and dyld look at?
+    { "/private/preboot/System/Library/Caches/com.apple.dyld" },
+    { "/private/preboot/System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64" },
   };
   for (unsigned i = 0; i < sizeof(steps) / sizeof(steps[0]); ++i) {
     vnode_t vp = NULLVP;
@@ -717,6 +735,7 @@ static void pongStatusLoop(void *, wait_result_t) {
       proc_t p = proc_find(1);
       if (p) {
         thor_watch_task = (void *)proc_task(p);
+        thor_watch_proc = (void *)p;
         proc_rele(p);
       }
     }
@@ -733,18 +752,25 @@ static void pongStatusLoop(void *, wait_result_t) {
         memset(&info, 0, sizeof(info));
         fill_taskprocinfo(proc_task(init), &info);
         thor_watch_task = (void *)proc_task(init);
-        printf("THOR PID1TASK: unix=%d mach=%d faults=%d pageins=%d csw=%d\n",
+        thor_watch_proc = (void *)init;
+        printf("THOR PID1TASK: unix=%d mach=%d faults=%d pageins=%d csw=%d thr=%d stat=%d\n",
                info.pti_syscalls_unix, info.pti_syscalls_mach, info.pti_faults,
-               info.pti_pageins, info.pti_csw);
+               info.pti_pageins, info.pti_csw, info.pti_threadnum, init->p_stat);
         printf("THOR PID1EXC: exc=%llu va=%llx pc=%llx esr=%x class=%u sys=%llu num=%llx\n",
                thor_exc_count, thor_exc_va, thor_exc_pc, thor_exc_esr, thor_exc_class,
                thor_sys_count, thor_sys_num);
-        printf("THOR PID1BLK: n=%llu ra=%llx ra2=%llx\n",
-               thor_block_count, thor_block_ra, thor_block_ra2);
+        printf("THOR PID1BLK: n=%llu ra=%llx ra2=%llx cont=%llx bproc=%llx pid1proc=%llx\n",
+               thor_block_count, thor_block_ra, thor_block_ra2, thor_block_cont,
+               thor_block_proc, (unsigned long long)(uintptr_t)init);
+        printf("THOR PID1SYS: num=%llx x0=%llx x1=%llx x2=%llx x3=%llx ctl_n=%d ctl=[%u,%u,%u,%u]\n",
+               thor_sys_num, thor_sys_x0, thor_sys_x1, thor_sys_x2, thor_sys_x3,
+               thor_sysctl_n, thor_sysctl_name[0], thor_sysctl_name[1],
+               thor_sysctl_name[2], thor_sysctl_name[3]);
         // Totals across every task: if these move while the filtered counters
         // stay at zero, the watch pointer is wrong, not the system idle.
-        printf("THOR PID1ALL: exc=%llu sys=%llu watch=%p kern=%p\n",
-               thor_exc_all, thor_sys_all, thor_watch_task, (void *)kernel_task);
+        printf("THOR PID1ALL: exc=%llu sys=%llu watch=%p kern=%p lastexc=%p lastsys=%p\n",
+               thor_exc_all, thor_sys_all, thor_watch_task, (void *)kernel_task,
+               thor_last_exc_task, thor_last_sys_task);
         proc_rele(init);
       }
     }
