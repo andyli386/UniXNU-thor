@@ -477,11 +477,34 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
   if (!buffer || !completion || !completion->action || !count || block >= rootBlocks ||
       count > rootBlocks - block || count > UINT64_MAX / kRootLogicalBlock ||
       buffer->getLength() < count * kRootLogicalBlock ||
-      (buffer->getDirection() != kIODirectionIn && !write))
+      (buffer->getDirection() != kIODirectionIn && !write)) {
+    // Rejecting here skips transportFailure() and the read counters, so a
+    // page-in turned away as a bad argument used to be completely invisible.
+    static bool badArgLogged;
+    if (!badArgLogged) {
+      badArgLogged = true;
+      printf("THOR UFS-BA: block=%llu count=%llu root=%llu write=%u len=%llu dir=%u buf=%d comp=%d act=%d\n",
+             (unsigned long long)block, (unsigned long long)count,
+             (unsigned long long)rootBlocks, write ? 1u : 0u,
+             buffer ? (unsigned long long)buffer->getLength() : 0ull,
+             buffer ? static_cast<unsigned>(buffer->getDirection()) : 0u,
+             buffer != nullptr, completion != nullptr,
+             completion && completion->action ? 1 : 0);
+    }
     return kIOReturnBadArgument;
+  }
   if (write && (!gHost.writable || (window.baseByte & 4095) || (window.size & 4095)))
     return kIOReturnNotWritable;
-  if (!online || !gHost.ready) return kIOReturnNotReady;
+  if (!online || !gHost.ready) {
+    static bool notReadyLogged;
+    if (!notReadyLogged) {
+      notReadyLogged = true;
+      printf("THOR UFS-NR: online=%d ready=%u block=%llu count=%llu\n",
+             online ? 1 : 0, gHost.ready ? 1u : 0u,
+             (unsigned long long)block, (unsigned long long)count);
+    }
+    return kIOReturnNotReady;
+  }
   uint64_t done = 0, bytes = count * kRootLogicalBlock;
   IOReturn result = kIOReturnSuccess;
   IOLockLock(mutex);
@@ -533,6 +556,18 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
     uint64_t before = gReadBytes;
     gReadBytes += done;
     ++gReadCount;
+    {
+      // Page-sized and smaller reads are the page-in path; log the first few
+      // so a cluster_io that never reaches the device is easy to tell apart
+      // from one that does.
+      static int smallN;
+      if (count <= 128 && smallN < 12) {
+        ++smallN;
+        printf("THOR UFS-PG: #%d block=%llu count=%llu bytes=%llu\n", smallN,
+               (unsigned long long)block, (unsigned long long)count,
+               (unsigned long long)done);
+      }
+    }
     if (first) {
       first = false;
       printf("THOR UFS-RD: first read %llu bytes at block %llu\n", done, block);
