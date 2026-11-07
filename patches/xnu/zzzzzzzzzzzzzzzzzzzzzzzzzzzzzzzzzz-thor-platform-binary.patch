@@ -1,6 +1,6 @@
 --- a/bsd/kern/ubc_subr.c
 +++ b/bsd/kern/ubc_subr.c
-@@ -4753,6 +4753,23 @@
+@@ -4753,6 +4753,29 @@
  		OS_PTRAUTH_DISCRIMINATOR("cs_blob.csb_entitlements")));
  #endif
  
@@ -12,12 +12,18 @@
 +	 * binary". Under the explicit hard bypass, a signature that validated
 +	 * above is treated as good as a platform one.
 +	 */
-+	if (!(cs_flags & CS_PLATFORM_BINARY)) {
++	{
 +		code_signing_config_t config = 0;
 +		code_signing_configuration(NULL, &config);
 +		if ((config & (CS_CONFIG_ENFORCEMENT_DISABLED | CS_CONFIG_GET_OUT_OF_MY_WAY)) ==
 +		    (CS_CONFIG_ENFORCEMENT_DISABLED | CS_CONFIG_GET_OUT_OF_MY_WAY)) {
-+			cs_flags |= CS_PLATFORM_BINARY;
++			/*
++			 * CS_SIGNED is what makes the kernel consult a process's
++			 * signature at all; without it the platform bit below is
++			 * never looked at.  Upstream (pong's miniamfi) does exactly
++			 * this pair in mpo_vnode_check_signature.
++			 */
++			cs_flags |= CS_SIGNED | CS_PLATFORM_BINARY;
 +		}
 +	}
 +
