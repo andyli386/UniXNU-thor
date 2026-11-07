@@ -41,6 +41,17 @@ extern "C" {
 /* Declared in kern/thread.h, but behind a guard this kext build does not open. */
 extern "C" kern_return_t machine_thread_get_state(thread_t, thread_flavor_t,
     thread_state_t, mach_msg_type_number_t *);
+// Recorded by osfmk/arm64/sleh.c for the task the heartbeat watches: the last
+// user exception and the last syscall.  A zero syscall count with a growing
+// exception count separates "blocked in a syscall" from "never got there".
+extern "C" {
+extern void *thor_watch_task;
+extern unsigned long long thor_exc_count, thor_exc_va, thor_exc_pc;
+extern unsigned int thor_exc_esr, thor_exc_class;
+extern unsigned long long thor_sys_count, thor_sys_num;
+extern unsigned long long thor_block_count, thor_block_ra, thor_block_ra2;
+extern unsigned long long thor_exc_all, thor_sys_all;
+}
 #include "../ThorProbe.h"
 
 namespace {
@@ -699,6 +710,16 @@ static void pongStatusLoop(void *, wait_result_t) {
   for (;;) {
     IOSleep(15000);
     ++ticks;
+    // Re-arm the sleh recorder every tick from PID 1's own proc: the first
+    // arm point (inside load_init_program) still sees the kernel thread's
+    // task, and exec can only be trusted once the proc owns it.
+    {
+      proc_t p = proc_find(1);
+      if (p) {
+        thor_watch_task = (void *)proc_task(p);
+        proc_rele(p);
+      }
+    }
     // ~60 s in: bsd_init, the swap-file attempt and launchd's first exec have
     // all happened by then, so the mount picture is final.
     if (ticks == 2) pongPrewarm();
@@ -711,8 +732,19 @@ static void pongStatusLoop(void *, wait_result_t) {
         struct proc_taskinfo_internal info;
         memset(&info, 0, sizeof(info));
         fill_taskprocinfo(proc_task(init), &info);
-        printf("THOR PID1TASK: unix=%d faults=%d pageins=%d csw=%d\n",
-               info.pti_syscalls_unix, info.pti_faults, info.pti_pageins, info.pti_csw);
+        thor_watch_task = (void *)proc_task(init);
+        printf("THOR PID1TASK: unix=%d mach=%d faults=%d pageins=%d csw=%d\n",
+               info.pti_syscalls_unix, info.pti_syscalls_mach, info.pti_faults,
+               info.pti_pageins, info.pti_csw);
+        printf("THOR PID1EXC: exc=%llu va=%llx pc=%llx esr=%x class=%u sys=%llu num=%llx\n",
+               thor_exc_count, thor_exc_va, thor_exc_pc, thor_exc_esr, thor_exc_class,
+               thor_sys_count, thor_sys_num);
+        printf("THOR PID1BLK: n=%llu ra=%llx ra2=%llx\n",
+               thor_block_count, thor_block_ra, thor_block_ra2);
+        // Totals across every task: if these move while the filtered counters
+        // stay at zero, the watch pointer is wrong, not the system idle.
+        printf("THOR PID1ALL: exc=%llu sys=%llu watch=%p kern=%p\n",
+               thor_exc_all, thor_sys_all, thor_watch_task, (void *)kernel_task);
         proc_rele(init);
       }
     }
