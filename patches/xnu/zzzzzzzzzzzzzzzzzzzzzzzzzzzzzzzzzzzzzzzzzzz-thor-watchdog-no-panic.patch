@@ -1,0 +1,28 @@
+@@ kern_exit.c: watchdog exits never panic (any crash behaviour) @@
++/* THOR: does this exit belong to the watchdog? It arrives with PANIC_ON_CRASH
++ * rather than PANIC_ON_EXIT, so the check has to be ahead of every branch. */
++static bool
++thor_is_watchdog(proc_t p)
++{
++	return strncmp(p->p_comm, "watchdogd", 9) == 0 ||
++	       (p->p_name != NULL &&
++	       strnstr(p->p_name, "watchdogd", strlen(p->p_name)) != NULL);
++}
++
++static bool
++proc_should_trigger_panic(proc_t p, int rv)
++{
++	/*
++	 * THOR: watchdogd takes the whole machine down when one of the services
++	 * it watches misses its check-in. Without the hardware (no logd socket,
++	 * no Wi-Fi, no SEP, no modem) several of those services simply cannot
++	 * check in, so the watchdog fires on an environment it was never meant
++	 * to police. Record it and let launchd restart it instead of rebooting.
++	 * initproc keeps its unconditional panic.
++	 */
++	if (p != initproc && thor_is_watchdog(p)) {
++		printf("THOR WATCHDOG: pid %d (%s) exited rv=%d behavior=%x; not panicking\n",
++		    proc_getpid(p), p->p_name ? p->p_name : "?", rv,
++		    p->p_crash_behavior);
++		return false;
++	}

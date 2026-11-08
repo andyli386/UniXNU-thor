@@ -19,3 +19,4 @@ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-display-followups.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-keybag-panel.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-exec-inject.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-no-stalling-cores.patch
+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-watchdog-no-panic.patch
