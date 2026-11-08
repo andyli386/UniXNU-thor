@@ -1,0 +1,16 @@
+@@ kern_core.c: coredump() early-out @@
++	/*
++	 * THOR: a core file of one of these processes is hundreds of megabytes
++	 * written through the same single UFS queue everything else uses; the
++	 * machine stops making progress for tens of seconds while it drains
++	 * (watchdogd's 417 GB of mappings, SpringBoard's far more). Their death
++	 * is already reported on the console through launchd and applog, so the
++	 * dump buys nothing here and costs the boot.
++	 */
++	if (core_proc != NULL &&
++	    (strncmp(core_proc->p_comm, "watchdogd", 9) == 0 ||
++	    strncmp(core_proc->p_comm, "SpringBoard", 11) == 0)) {
++		printf("THOR: skipping %s core dump; it would stall the storage queue\n",
++		    core_proc->p_comm);
++		return 0;
++	}
