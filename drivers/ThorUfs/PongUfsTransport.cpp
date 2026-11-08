@@ -4,7 +4,12 @@
 // from Sheng; board addresses and stream ID come from Pong's live DT.
 // Bump this with every debug image: the probes are otherwise indistinguishable
 // in a screenshot, and knowing which build a log came from matters.
-#define THOR_BUILD_TAG "ufs100"
+#define THOR_BUILD_TAG "ufs102"
+
+/* THOR: the boot trace in osfmk/kern/startup.c. The per-minute PID 1 thread
+ * dump is the noisiest thing this driver prints, so it follows "thor_trace=1"
+ * like the page-in probes; the one-line PID1TASK heartbeat stays on always. */
+extern "C" int thor_boot_trace;
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
@@ -791,22 +796,28 @@ static void pongStatusLoop(void *, wait_result_t) {
         printf("THOR PID1TASK: unix=%d mach=%d faults=%d pageins=%d csw=%d thr=%d stat=%d\n",
                info.pti_syscalls_unix, info.pti_syscalls_mach, info.pti_faults,
                info.pti_pageins, info.pti_csw, info.pti_threadnum, init->p_stat);
-        printf("THOR PID1EXC: exc=%llu va=%llx pc=%llx esr=%x class=%u sys=%llu num=%llx\n",
-               thor_exc_count, thor_exc_va, thor_exc_pc, thor_exc_esr, thor_exc_class,
-               thor_sys_count, thor_sys_num);
-        printf("THOR PID1BLK: n=%llu ra=%llx ra2=%llx cont=%llx bproc=%llx pid1proc=%llx\n",
-               thor_block_count, thor_block_ra, thor_block_ra2, thor_block_cont,
-               thor_block_proc, (unsigned long long)(uintptr_t)init);
-        thor_dump_task_threads(proc_task(init), "1");
-        printf("THOR PID1SYS: num=%llx x0=%llx x1=%llx x2=%llx x3=%llx ctl_n=%d ctl=[%u,%u,%u,%u]\n",
-               thor_sys_num, thor_sys_x0, thor_sys_x1, thor_sys_x2, thor_sys_x3,
-               thor_sysctl_n, thor_sysctl_name[0], thor_sysctl_name[1],
-               thor_sysctl_name[2], thor_sysctl_name[3]);
-        // Totals across every task: if these move while the filtered counters
-        // stay at zero, the watch pointer is wrong, not the system idle.
-        printf("THOR PID1ALL: exc=%llu sys=%llu watch=%p kern=%p lastexc=%p lastsys=%p\n",
-               thor_exc_all, thor_sys_all, thor_watch_task, (void *)kernel_task,
-               thor_last_exc_task, thor_last_sys_task);
+        /* Everything below is a deep state dump: one line per thread plus the
+         * last exception/syscall registers. It answered the page-in stall and
+         * is only wanted again when reproducing one, so it stays behind
+         * thor_trace=1 instead of printing every minute on a normal boot. */
+        if (thor_boot_trace) {
+          printf("THOR PID1EXC: exc=%llu va=%llx pc=%llx esr=%x class=%u sys=%llu num=%llx\n",
+                 thor_exc_count, thor_exc_va, thor_exc_pc, thor_exc_esr, thor_exc_class,
+                 thor_sys_count, thor_sys_num);
+          printf("THOR PID1BLK: n=%llu ra=%llx ra2=%llx cont=%llx bproc=%llx pid1proc=%llx\n",
+                 thor_block_count, thor_block_ra, thor_block_ra2, thor_block_cont,
+                 thor_block_proc, (unsigned long long)(uintptr_t)init);
+          thor_dump_task_threads(proc_task(init), "1");
+          printf("THOR PID1SYS: num=%llx x0=%llx x1=%llx x2=%llx x3=%llx ctl_n=%d ctl=[%u,%u,%u,%u]\n",
+                 thor_sys_num, thor_sys_x0, thor_sys_x1, thor_sys_x2, thor_sys_x3,
+                 thor_sysctl_n, thor_sysctl_name[0], thor_sysctl_name[1],
+                 thor_sysctl_name[2], thor_sysctl_name[3]);
+          /* Totals across every task: if these move while the filtered counters
+           * stay at zero, the watch pointer is wrong, not the system idle. */
+          printf("THOR PID1ALL: exc=%llu sys=%llu watch=%p kern=%p lastexc=%p lastsys=%p\n",
+                 thor_exc_all, thor_sys_all, thor_watch_task, (void *)kernel_task,
+                 thor_last_exc_task, thor_last_sys_task);
+        }
         proc_rele(init);
       }
     }
