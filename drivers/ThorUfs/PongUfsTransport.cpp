@@ -4,7 +4,7 @@
 // from Sheng; board addresses and stream ID come from Pong's live DT.
 // Bump this with every debug image: the probes are otherwise indistinguishable
 // in a screenshot, and knowing which build a log came from matters.
-#define THOR_BUILD_TAG "ufs96"
+#define THOR_BUILD_TAG "ufs97"
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
@@ -642,30 +642,6 @@ static void pongVarMountProbe(void) {
       proc_rele(p);
     }
     printf("THOR PROCS: count=%d springboard=%d\n", count, found);
-  // The kernel writes crash cores to /private/var/cores. If that directory is
-  // missing the dump fails with ENOENT after walking the whole map (seconds),
-  // and the one record that says why a process died is lost.
-  {
-    vfs_context_t cctx = vfs_context_kernel();
-    vnode_t dvp = NULLVP;
-    if (vnode_lookup("/private/var", 0, &dvp, cctx) == 0) {
-      struct componentname cn;
-      struct vnode_attr va;
-      vnode_t made = NULLVP;
-      memset(&cn, 0, sizeof(cn));
-      cn.cn_nameptr = (char *)"cores";
-      cn.cn_namelen = 5;
-      VATTR_INIT(&va);
-      VATTR_SET(&va, va_mode, 0755);
-      VATTR_SET(&va, va_type, VDIR);
-      int mkerr = VNOP_MKDIR(dvp, &made, &cn, &va, cctx);
-      if (made) vnode_put(made);
-      vnode_put(dvp);
-      printf("THOR CORES: mkdir /private/var/cores err=%d\n", mkerr);
-    }
-  }
-
-    printf("THOR PROCS: %s\n", names);
   }
   // Did PID 1 ever execute a user instruction? proc_taskinfo counts Unix
   // syscalls and faults without touching thread internals — the thread-state
