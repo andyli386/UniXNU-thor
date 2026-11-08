@@ -194,6 +194,23 @@ main(int argc, char **argv, char **envp)
      * environment and maps the shared cache before launchd gets to run. */
     int cryptex = mount_cryptex();
 
+    /* pong's software UI adapter has to be loaded into the processes that
+     * draw; the kernel appends DYLD_INSERT_LIBRARIES from kern.exec_inject.
+     * Only arm it when the library really exists: a DYLD_INSERT_LIBRARIES
+     * entry that dyld cannot load aborts the process it was injected into. */
+    int ui = 0;
+    {
+        const char *lib = "/private/var/pong/libpong-ui.dylib";
+        int fd = open(lib, O_RDONLY, 0);
+        if (fd >= 0) {
+            close(fd);
+            static const char conf[] =
+                "/private/var/pong/libpong-ui.dylib SpringBoard backboardd "
+                "containermanagerd containermanagerd_system Preferences";
+            ui = sysctlbyname("kern.exec_inject", NULL, NULL, conf, sizeof(conf)) == 0;
+        }
+    }
+
     /* Descriptor hand-off.  The 20G81 launchd rejects a terminal on stdout at
      * entry -- it calls isatty(1) and exits with "cannot be run directly
      * (stdout: 1)" -- so stdin and stdout go to /dev/null while stderr keeps
@@ -218,6 +235,11 @@ main(int argc, char **argv, char **envp)
         (void)write(2, "thor init: cryptex mounted at /private/preboot\n", 47);
     } else {
         (void)write(2, "thor init: cryptex mount failed (no dyld cache)\n", 48);
+    }
+    if (ui) {
+        (void)write(2, "thor init: UI library injection armed\n", 38);
+    } else {
+        (void)write(2, "thor init: no UI library, injection skipped\n", 43);
     }
 
     if (!mounted) report("fail");

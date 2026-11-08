@@ -4,7 +4,7 @@
 // from Sheng; board addresses and stream ID come from Pong's live DT.
 // Bump this with every debug image: the probes are otherwise indistinguishable
 // in a screenshot, and knowing which build a log came from matters.
-#define THOR_BUILD_TAG "ufs92"
+#define THOR_BUILD_TAG "ufs96"
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
@@ -621,6 +621,52 @@ static void pongVarMountProbe(void) {
   } else {
     printf("THOR VARMNT: pid1 absent\n");
   }
+  // Who is alive right now? launchd keeps respawning the services that crash,
+  // so a PID from an earlier line proves nothing; count them and look for the
+  // one whose name matches.
+  {
+    static char names[400];
+    int found = -1, count = 0, used = 0;
+    names[0] = 0;
+    for (int pid = 1; pid <= 400; ++pid) {
+      proc_t p = proc_find(pid);
+      if (p == nullptr) continue;
+      ++count;
+      if (found < 0 && strncmp(p->p_comm, "SpringBoard", 11) == 0) found = pid;
+      // Which services actually exist matters more than the count: watchdogd
+      // traps when one it watches never checks in.
+      if (used < (int)sizeof(names) - 40) {
+        int n = snprintf(names + used, sizeof(names) - used, "%s ", p->p_comm);
+        if (n > 0) used += n;
+      }
+      proc_rele(p);
+    }
+    printf("THOR PROCS: count=%d springboard=%d\n", count, found);
+  // The kernel writes crash cores to /private/var/cores. If that directory is
+  // missing the dump fails with ENOENT after walking the whole map (seconds),
+  // and the one record that says why a process died is lost.
+  {
+    vfs_context_t cctx = vfs_context_kernel();
+    vnode_t dvp = NULLVP;
+    if (vnode_lookup("/private/var", 0, &dvp, cctx) == 0) {
+      struct componentname cn;
+      struct vnode_attr va;
+      vnode_t made = NULLVP;
+      memset(&cn, 0, sizeof(cn));
+      cn.cn_nameptr = (char *)"cores";
+      cn.cn_namelen = 5;
+      VATTR_INIT(&va);
+      VATTR_SET(&va, va_mode, 0755);
+      VATTR_SET(&va, va_type, VDIR);
+      int mkerr = VNOP_MKDIR(dvp, &made, &cn, &va, cctx);
+      if (made) vnode_put(made);
+      vnode_put(dvp);
+      printf("THOR CORES: mkdir /private/var/cores err=%d\n", mkerr);
+    }
+  }
+
+    printf("THOR PROCS: %s\n", names);
+  }
   // Did PID 1 ever execute a user instruction? proc_taskinfo counts Unix
   // syscalls and faults without touching thread internals — the thread-state
   // APIs panicked in zalloc, and a fault loop at the entry point looks exactly
@@ -657,6 +703,11 @@ static void pongVarMountProbe(void) {
   // its own line first, because the one that hangs never prints its result.
   struct { const char *path; } steps[] = {
     { "/sbin" }, { "/sbin/launchd" }, { "/usr/lib/dyld" }, { "/etc/passwd" },
+    // SpringBoard died on "couldn't dlopen libobjc-trampolines.dylib" until
+    // that cryptex-only file was copied into the root volume; these lines say
+    // whether the kernel can see it now.
+    { "/usr/lib/libobjc-trampolines.dylib" },
+    { "/usr/lib/libstdc++.6.0.9.dylib" },
     // What launchd needs right after libignition: the job cache, the daemon
     // directory and the dyld shared cache it failed to start a region for.
     { "/System/Library/xpc/launchd.plist" },
