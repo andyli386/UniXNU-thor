@@ -110,12 +110,24 @@ static uint32_t (*matching_service)(uint32_t,CFDictionaryRef);
 static int (*release_service)(uint32_t);
 static void say(const char *fmt, ...);
 
+/*
+ * THOR: /dev/console opened by the library itself. fd 2 only reaches the
+ * console when the applog redirection happens to be in effect for this
+ * program; if it is not, every message this library prints disappears into
+ * /dev/null and "no Pong UI line" cannot be told apart from "library never
+ * loaded". Writing to the character device directly removes that ambiguity.
+ */
+static int console_fd = -2;   /* -2 = not tried, -1 = unavailable */
+
 static void say(const char *fmt, ...)
 {
     char b[768]; va_list ap; va_start(ap, fmt);
     int n=vsnprintf(b,sizeof(b),fmt,ap); va_end(ap);
     if (n>0) {
-        (void)write(2,b,(size_t)n<sizeof(b)?(size_t)n:sizeof(b)-1);
+        size_t len = (size_t)n<sizeof(b)?(size_t)n:sizeof(b)-1;
+        (void)write(2,b,len);
+        if (console_fd == -2) console_fd = open("/dev/console", O_WRONLY|O_NOCTTY);
+        if (console_fd >= 0) (void)write(console_fd,b,len);
         if (is_settings) settings_record(b);
     }
 }

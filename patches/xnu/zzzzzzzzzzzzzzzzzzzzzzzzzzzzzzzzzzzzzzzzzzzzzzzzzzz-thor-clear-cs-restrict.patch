@@ -1,0 +1,45 @@
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_exec.c work/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c	2026-11-10 01:01:24
++++ b/bsd/kern/kern_exec.c	2026-11-10 00:58:38
+@@ -5510,21 +5510,28 @@
+ 			 * library that dyld silently drops looks identical to one
+ 			 * that was never requested. */
+ 			static int thor_inject_prints;
+-			if (thor_inject_prints < 12) {
+-				thor_inject_prints++;
+-				printf("THOR INJECT: %.*s <- %.*s\n",
+-				    (int)imgp->ip_ndp->ni_cnd.cn_namelen, name,
+-				    (int)liblen, library);
++			{
++				uint64_t cs_before = proc_getcsflags(current_proc());
+ 				/*
+-				 * dyld drops every DYLD_* variable for a restricted
+-				 * process (CS_RESTRICT) even when AMFI allows them; this
+-				 * line says which case the target is in.
++				 * THOR: dyld drops every DYLD_* variable for a process
++				 * whose code-signing flags say restricted (CS_RESTRICT),
++				 * hard (CS_HARD) or require-library-validation
++				 * (CS_REQUIRE_LV) - unless AMFI explicitly allows it.
++				 * This kernel enforces none of those, so clear them on
++				 * the processes we inject into; that is exactly what the
++				 * bypass is for, and it removes dyld's reason to prune.
+ 				 */
+-				printf("THOR CS: %.*s flags=%#x restricted=%d require_lv=%d\n",
+-				    (int)imgp->ip_ndp->ni_cnd.cn_namelen, name,
+-				    proc_getcsflags(current_proc()),
+-				    (proc_getcsflags(current_proc()) & CS_RESTRICT) ? 1 : 0,
+-				    (proc_getcsflags(current_proc()) & CS_REQUIRE_LV) ? 1 : 0);
++				proc_csflags_clear(current_proc(),
++				    CS_RESTRICT | CS_HARD | CS_REQUIRE_LV);
++				if (thor_inject_prints < 12) {
++					thor_inject_prints++;
++					printf("THOR INJECT: %.*s <- %.*s\n",
++					    (int)imgp->ip_ndp->ni_cnd.cn_namelen, name,
++					    (int)liblen, library);
++					printf("THOR CS: %.*s before=%#llx after=%#llx\n",
++					    (int)imgp->ip_ndp->ni_cnd.cn_namelen, name,
++					    cs_before, proc_getcsflags(current_proc()));
++				}
+ 			}
+ 			if (used + (any ? 1 : 0) + liblen >= size) {
+ 				return false;
