@@ -28,7 +28,7 @@
 
 extern const void *_dyld_get_shared_cache_range(size_t *);
 static pthread_mutex_t hooks_lock = PTHREAD_MUTEX_INITIALIZER;
-static bool is_springboard, is_media, is_settings;
+static bool is_springboard, is_media, is_settings, is_backboard;
 static IMP persona_original, snapshot_original, activation_original, setup_original;
 static ptrdiff_t activation_offset = -1;
 static IMP battery_original;
@@ -511,8 +511,9 @@ static void install_objc_hooks(void)
     pthread_mutex_unlock(&hooks_lock);
 }
 
+static void install_renderer_hook(void);
 static void image_added(const struct mach_header *h, intptr_t slide)
-{ (void)h;(void)slide;install_objc_hooks(); }
+{ (void)h;(void)slide;install_objc_hooks();install_renderer_hook(); }
 
 /* HackiOS's delayed unlock is needed while Pong has no input path into the
  * iOS lock screen. Use the actual 20G81 int argument (20F66 used long in the
@@ -696,12 +697,22 @@ static uintptr_t render_update(void *server, void *update, unsigned *flags)
     return result;
 }
 
+static bool cache_range_reported;
+
 static bool replace_virtual(const char *name, uintptr_t slot_address, uintptr_t method_address,
                             void *replacement, uintptr_t *original)
 {
     size_t length=0;
     uintptr_t base=(uintptr_t)_dyld_get_shared_cache_range(&length);
-    if (!base || length<sizeof(uintptr_t) || base>UINTPTR_MAX-length) return false;
+    if (!base || length<sizeof(uintptr_t) || base>UINTPTR_MAX-length) {
+        /* Silent before: a zero range looked exactly like "hook not needed". */
+        if (!cache_range_reported) {
+            cache_range_reported=true;
+            say("Pong UI: shared cache range unavailable (base=%p len=%zu)\n",
+                (void *)base,length);
+        }
+        return false;
+    }
     uintptr_t slide=base-0x180000000ULL;
     uintptr_t slot=slot_address+slide, expected=method_address+slide;
     if (slot<base || slot>base+length-sizeof(uintptr_t)) return false;
@@ -764,34 +775,50 @@ static void install_software_compositor_policy(void)
     say("Pong UI:desktop uses stock software composition; Metal remains available (%d)\n",result);
 }
 
+static bool renderer_hooks_done;
+static bool renderer_policy_attempted;
+
 static void install_renderer_hook(void)
 {
-    install_software_compositor_policy();
-    replace_virtual("native scanout format",0x1d586c7c0ULL,0x1884aa47cULL,
+    /* Our constructor can run before dyld has loaded QuartzCore; the first
+     * attempt then prints "QuartzCore ... ABI unavailable; SKIP" for every
+     * slot. image_added() calls back in, so retry until every replacement
+     * lands instead of giving up for the life of the process. */
+    if (renderer_hooks_done) return;
+    if (!is_backboard) return;   /* the software-compositor policy is backboardd's */
+    if (!renderer_policy_attempted) {
+        renderer_policy_attempted=true;
+        install_software_compositor_policy();
+    }
+    bool ok=replace_virtual("native scanout format",0x1d586c7c0ULL,0x1884aa47cULL,
                     (void *)framebuffer_format,&original_format);
-    replace_virtual("display readiness",0x1d586c7c8ULL,0x1882787f4ULL,
-                    (void *)display_ready,&original_ready);
-    replace_virtual("display update gate",0x1d586c850ULL,0x188268b60ULL,
-                    (void *)ignore_update,&original_ignore);
-    replace_virtual("display begin update",0x1d586c890ULL,0x188265c74ULL,
-                    (void *)begin_update,&original_begin);
+    ok=replace_virtual("display readiness",0x1d586c7c8ULL,0x1882787f4ULL,
+                    (void *)display_ready,&original_ready) && ok;
+    ok=replace_virtual("display update gate",0x1d586c850ULL,0x188268b60ULL,
+                    (void *)ignore_update,&original_ignore) && ok;
+    ok=replace_virtual("display begin update",0x1d586c890ULL,0x188265c74ULL,
+                    (void *)begin_update,&original_begin) && ok;
     /* EAGLServer's 20G81 render_update slot; no graphics driver is added. */
-    replace_virtual("compositor render update",0x1d586dfd8ULL,0x1882df668ULL,
-                    (void *)render_update,&original_render);
+    ok=replace_virtual("compositor render update",0x1d586dfd8ULL,0x1882df668ULL,
+                    (void *)render_update,&original_render) && ok;
+    renderer_hooks_done=ok;
 }
 
 __attribute__((constructor)) static void pong_ui_init(void)
 {
     const char *name=getprogname();
     if (!name) return;
+    /* HackiOS exposes the actual driver's last printf before a process aborts.
+     * Print before the name filter: this line is the only proof that dyld
+     * accepted DYLD_INSERT_LIBRARIES and ran our constructor at all. */
+    (void)dup2(2,1); setvbuf(stdout,NULL,_IONBF,0); setvbuf(stderr,NULL,_IONBF,0);
+    say("Pong UI: 20G81 compatibility library entered %s\n",name);
     is_springboard=strcmp(name,"SpringBoard")==0;
     is_media=strcmp(name,"mediaserverd")==0;
     is_settings=strcmp(name,"Preferences")==0;
     bool backboard=strcmp(name,"backboardd")==0;
+    is_backboard=backboard;
     if (!is_springboard && !backboard && !is_media && !is_settings && strncmp(name,"containermanagerd",17)!=0) return;
-    /* HackiOS exposes the actual driver's last printf before a process aborts. */
-    (void)dup2(2,1); setvbuf(stdout,NULL,_IONBF,0); setvbuf(stderr,NULL,_IONBF,0);
-    say("Pong UI: 20G81 compatibility library entered %s\n",name);
     if (is_settings) {
         settings_record_init();
         pong_settings_icons_start(settings_record);
