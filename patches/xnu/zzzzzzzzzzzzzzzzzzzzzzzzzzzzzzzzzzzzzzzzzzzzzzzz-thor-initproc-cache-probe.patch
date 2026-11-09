@@ -1,0 +1,29 @@
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_exit.c work/bsd/kern/kern_exit.c
+--- a/bsd/kern/kern_exit.c	2026-11-09 23:27:46
++++ b/bsd/kern/kern_exit.c	2026-11-09 23:27:06
+@@ -1922,6 +1922,25 @@
+ 		prefix_str = prefix_str_buf;
+ 	}
+ 
++	/*
++	 * THOR: when PID 1 dies because dyld could not find the shared cache,
++	 * the only question that matters is whether the cryptex was mounted at
++	 * that moment. Ask the VFS directly, before the coredump and the panic
++	 * make the console unreadable.
++	 */
++	if (p == initproc) {
++		vfs_context_t thor_ctx = vfs_context_kernel();
++		vnode_t thor_vp = NULLVP;
++		int thor_err = vnode_lookup(
++		    "/private/preboot/System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64",
++		    0, &thor_vp, thor_ctx);
++		printf("THOR EXIT3: dyld cache lookup err=%d%s\n", thor_err,
++		    thor_err == 0 ? " (cryptex mounted)" : " (cryptex missing?)");
++		if (thor_err == 0 && thor_vp != NULLVP) {
++			vnode_put(thor_vp);
++		}
++	}
++
+ 	proc_crash_coredump(p);
+ 
+ 	sync(p, (void *)NULL, (int *)NULL);
