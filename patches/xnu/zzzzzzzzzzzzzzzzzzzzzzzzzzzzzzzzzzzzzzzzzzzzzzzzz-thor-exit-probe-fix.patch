@@ -1,0 +1,73 @@
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_exit.c work/bsd/kern/kern_exit.c
+--- a/bsd/kern/kern_exit.c	2026-11-10 00:03:13
++++ b/bsd/kern/kern_exit.c	2026-11-10 00:00:30
+@@ -1740,30 +1740,12 @@
+ 	}
+ 
+ 	/*
+-	 * THOR: SpringBoard died five times in a row on 2026-11-09 with only
+-	 * "Too many corpses" on the console. The signal, the exit status and the
+-	 * exit reason are what tells a library-load abort (SIGABRT/SIGKILL) apart
+-	 * from a real crash (SIGSEGV/SIGBUS), so record them for the first few
+-	 * exits of that one program.
++	 * THOR: the SpringBoard exit report moved to proc_prepareexit(), which
++	 * runs for every exit. This function only runs when p_crash_behavior is
++	 * non-zero (kern_exit.c:1975), and SpringBoard's is zero unless launchd
++	 * explicitly asks for a panic - that is why ufs106 printed nothing for
++	 * the five SpringBoard deaths.
+ 	 */
+-	if (strcmp(p->p_comm, "SpringBoard") == 0) {
+-		static int thor_sb_exits;
+-		if (thor_sb_exits < 20) {
+-			os_reason_t sb_reason = p->p_exit_reason;
+-			thor_sb_exits++;
+-			printf("THOR EXIT: SpringBoard[%d] rv=%#x signaled=%d sig=%d "
+-			    "exited=%d status=%d behavior=%#x\n",
+-			    proc_getpid(p), rv,
+-			    WIFSIGNALED(rv) ? 1 : 0, WIFSIGNALED(rv) ? WTERMSIG(rv) : 0,
+-			    WIFEXITED(rv) ? 1 : 0, WIFEXITED(rv) ? WEXITSTATUS(rv) : -1,
+-			    p->p_crash_behavior);
+-			if (sb_reason != OS_REASON_NULL) {
+-				printf("THOR EXIT: reason ns=%u code=%#llx flags=%#llx\n",
+-				    sb_reason->osr_namespace, sb_reason->osr_code,
+-				    sb_reason->osr_flags);
+-			}
+-		}
+-	}
+ 
+ 	if (p == initproc || (p->p_crash_behavior & POSIX_SPAWN_PANIC_ON_EXIT) != 0) {
+ 		/* Always panic for launchd or equivalents */
+@@ -1968,6 +1950,33 @@
+ 	struct rusage_superset *rup;
+ 	int kr = 0;
+ 	int create_corpse = FALSE;
++
++	/*
++	 * THOR: SpringBoard died five times in a row on 2026-11-09 and the only
++	 * console evidence was "Too many corpses being created", which is the
++	 * corpse-budget message, not a cause. Report the signal, the exit status
++	 * and the exit reason here, in the one path every exit goes through, so
++	 * a library-load abort (SIGABRT) is distinguishable from a real crash
++	 * (SIGSEGV/SIGBUS) and from a kill (SIGKILL).
++	 */
++	if (strcmp(p->p_comm, "SpringBoard") == 0) {
++		static int thor_sb_exits;
++		if (thor_sb_exits < 20) {
++			os_reason_t sb_reason = p->p_exit_reason;
++			thor_sb_exits++;
++			printf("THOR EXIT: SpringBoard[%d] rv=%#x signaled=%d sig=%d "
++			    "exited=%d status=%d behavior=%#x\n",
++			    proc_getpid(p), rv,
++			    WIFSIGNALED(rv) ? 1 : 0, WIFSIGNALED(rv) ? WTERMSIG(rv) : 0,
++			    WIFEXITED(rv) ? 1 : 0, WIFEXITED(rv) ? WEXITSTATUS(rv) : -1,
++			    p->p_crash_behavior);
++			if (sb_reason != OS_REASON_NULL) {
++				printf("THOR EXIT: reason ns=%u code=%#llx flags=%#llx\n",
++				    sb_reason->osr_namespace, sb_reason->osr_code,
++				    sb_reason->osr_flags);
++			}
++		}
++	}
+ 
+ 	if (p->p_crash_behavior != 0 || p == initproc) {
+ 		proc_handle_critical_exit(p, rv);
