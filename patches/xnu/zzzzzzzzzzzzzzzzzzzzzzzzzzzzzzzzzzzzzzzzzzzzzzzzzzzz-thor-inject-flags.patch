@@ -1,0 +1,63 @@
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_exec.c work/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c	2026-11-10 07:57:45
++++ b/bsd/kern/kern_exec.c	2026-11-10 07:57:06
+@@ -5515,6 +5515,16 @@
+ 				printf("THOR INJECT: %.*s <- %.*s\n",
+ 				    (int)imgp->ip_ndp->ni_cnd.cn_namelen, name,
+ 				    (int)liblen, library);
++				/*
++				 * THOR: the flags the target will get (process_signature()
++				 * copies imgp->ip_csflags onto it after this point). Only
++				 * informational: dyld only prunes DYLD_* on macOS, iOSMac
++				 * and driverKit (DyldProcessConfig.cpp, dyld-1042.1), so on
++				 * iOS these flags do not affect the insertion.
++				 */
++				printf("THOR CS: %.*s ip_csflags=%#llx\n",
++				    (int)imgp->ip_ndp->ni_cnd.cn_namelen, name,
++				    imgp->ip_csflags);
+ 			}
+ 			if (used + (any ? 1 : 0) + liblen >= size) {
+ 				return false;
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_minimac.c work/bsd/kern/kern_minimac.c
+--- a/bsd/kern/kern_minimac.c	2026-11-10 07:57:45
++++ b/bsd/kern/kern_minimac.c	2026-11-10 07:57:10
+@@ -71,7 +71,16 @@
+  * our own library be loaded into stock daemons (DYLD_INSERT_LIBRARIES).
+  */
+ #define AMFI_SYSCALL_CHECK_DYLD_POLICY  0x5a
+-#define AMFI_DYLD_OUTPUT_ALLOW_ALL      0xffULL
++/*
++ * Everything is allowed - @paths, the DYLD_* variables, interposing, embedded
++ * vars - except AMFI_DYLD_OUTPUT_ALLOW_FAILED_LIBRARY_INSERTION (0x20).
++ * With that bit set dyld only warns when DYLD_INSERT_LIBRARIES names a
++ * library it cannot load, and the process carries on, which is exactly how
++ * a broken injection can look like a working one. Without it dyld aborts the
++ * process, so a failed insertion becomes a SIGABRT that the THOR EXIT line
++ * reports instead of silence.
++ */
++#define AMFI_DYLD_OUTPUT_ALLOW_ALL      0xdfULL
+ 
+ /*
+  * Request 0x60, "query boot-arg state" (amfi_interface_query_bootarg_state() in libamfi): the
+@@ -99,6 +108,21 @@
+ 	uint64_t flags = AMFI_DYLD_OUTPUT_ALLOW_ALL;
+ 	uint64_t state = AMFI_BOOTARG_STATE_NOT_ENFORCING;
+ 	int error;
++
++	/*
++	 * THOR: dyld asks request 0x5a to learn whether it may honour the
++	 * DYLD_* environment variables. If the call never arrives, dyld has
++	 * decided AMFI is unavailable and prunes them itself, which would
++	 * explain why the injected library is never loaded even though the
++	 * kernel put DYLD_INSERT_LIBRARIES in the environment.
++	 */
++	{
++		static unsigned thor_amfi_calls;
++		if (thor_amfi_calls < 40) {
++			thor_amfi_calls++;
++			printf("THOR AMFI: pid %d call %#x\n", proc_getpid(p), call);
++		}
++	}
+ 
+ 	if (call == AMFI_SYSCALL_QUERY_BOOTARG_STATE) {
+ 		return copyout(&state, arg, sizeof(state));

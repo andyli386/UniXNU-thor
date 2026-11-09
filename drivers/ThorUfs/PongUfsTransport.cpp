@@ -4,7 +4,7 @@
 // from Sheng; board addresses and stream ID come from Pong's live DT.
 // Bump this with every debug image: the probes are otherwise indistinguishable
 // in a screenshot, and knowing which build a log came from matters.
-#define THOR_BUILD_TAG "ufs111"
+#define THOR_BUILD_TAG "ufs112"
 
 /* THOR: the boot trace in osfmk/kern/startup.c. The per-minute PID 1 thread
  * dump is the noisiest thing this driver prints, so it follows "thor_trace=1"
