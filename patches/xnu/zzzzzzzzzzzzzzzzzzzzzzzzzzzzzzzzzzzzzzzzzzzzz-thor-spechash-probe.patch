@@ -1,0 +1,101 @@
+diff --color -ruN -x *.orig -x *.rej base/bsd/vfs/vfs_subr.c work/bsd/vfs/vfs_subr.c
+--- a/bsd/vfs/vfs_subr.c	2026-11-09 20:52:58
++++ b/bsd/vfs/vfs_subr.c	2026-11-09 20:51:47
+@@ -2167,6 +2167,29 @@
+  * the existing contents and return the aliased vnode. The
+  * caller is responsible for filling it with its new contents.
+  */
++/*
++ * THOR: boot-arg gate for the device-vnode hash trace (thor_spec_trace=1).
++ * speclisth[11] was seen holding 0x271 during the Data mount; these lines name
++ * every insert and removal together with the CPU so the first bad write can be
++ * attributed. cpu_number() is declared here to avoid a header dependency.
++ */
++extern int cpu_number(void);
++
++static bool
++thor_spec_trace(void)
++{
++	static int state = -1;
++
++	if (state < 0) {
++		int value = 0;
++		if (!PE_parse_boot_argn("thor_spec_trace", &value, sizeof(value))) {
++			value = 0;
++		}
++		state = value != 0;
++	}
++	return state != 0;
++}
++
+ static vnode_t
+ checkalias(struct vnode *nvp, dev_t nvp_rdev)
+ {
+@@ -2179,6 +2202,19 @@
+ loop:
+ 	SPECHASH_LOCK();
+ 
++	/*
++	 * THOR: speclisth[11] was found holding 0x271 on CPU 1 during the Data
++	 * mount, so a bucket head that is not a vnode pointer must be reported
++	 * before it is dereferenced. Repairing the bucket keeps the boot going
++	 * and the line names the bucket, so the next run can correlate it with
++	 * the insert/remove trace below.
++	 */
++	if (*vpp != NULL && (uintptr_t)*vpp < 0xffff000000000000ULL) {
++		printf("THOR SPEC!: bucket %d head=%p is not a vnode (dev=%#x); cleared\n",
++		    (int)(vpp - speclisth), (void *)*vpp, nvp_rdev);
++		*vpp = NULL;
++	}
++
+ 	for (vp = *vpp; vp; vp = vp->v_specnext) {
+ 		if (nvp_rdev == vp->v_rdev && nvp->v_type == vp->v_type) {
+ 			vid = vp->v_id;
+@@ -2242,6 +2278,15 @@
+ 
+ 		nvp->v_hashchain = vpp;
+ 		nvp->v_specnext = *vpp;
++		/* THOR: who put which vnode at the head of which bucket. */
++		{
++			static unsigned thor_ins;
++			if (thor_spec_trace() && thor_ins++ < 400) {
++				printf("THOR SPEC+: h=%d dev=%#x nvp=%p oldhead=%p cpu=%d\n",
++				    (int)(vpp - speclisth), nvp_rdev, (void *)nvp,
++				    (void *)*vpp, cpu_number());
++			}
++		}
+ 		*vpp = nvp;
+ 
+ 		if (vp != NULLVP) {
+@@ -3314,8 +3359,30 @@
+ 	 * If special device, remove it from special device alias list
+ 	 * if it is on one.
+ 	 */
+-	if ((vp->v_type == VBLK || vp->v_type == VCHR) && vp->v_specinfo != 0) {
++	/*
++	 * THOR: a specinfo whose hash chain does not point into speclisth can
++	 * only be a stale or reused structure; writing through it is exactly how
++	 * a bucket head becomes a non-vnode value. Report it and leave the
++	 * structure alone instead of following the bad pointer.
++	 */
++	if ((vp->v_type == VBLK || vp->v_type == VCHR) && vp->v_specinfo != 0 &&
++	    (vp->v_hashchain < speclisth || vp->v_hashchain >= speclisth + SPECHSZ)) {
++		printf("THOR SPEC-!: dev=%#x vp=%p chain=%p outside speclisth; removal skipped\n",
++		    (int)vp->v_rdev, (void *)vp, (void *)vp->v_hashchain);
++	}
++	if ((vp->v_type == VBLK || vp->v_type == VCHR) && vp->v_specinfo != 0 &&
++	    vp->v_hashchain >= speclisth && vp->v_hashchain < speclisth + SPECHSZ) {
+ 		SPECHASH_LOCK();
++		/* THOR: which vnode leaves which bucket, and with what neighbours. */
++		if (thor_spec_trace()) {
++			static unsigned thor_rm;
++			if (thor_rm++ < 400) {
++				printf("THOR SPEC-: dev=%#x vp=%p chain=%p head=%p next=%p cpu=%d\n",
++				    (int)vp->v_rdev, (void *)vp, (void *)vp->v_hashchain,
++				    (void *)*vp->v_hashchain, (void *)vp->v_specnext,
++				    cpu_number());
++			}
++		}
+ 		if (*vp->v_hashchain == vp) {
+ 			*vp->v_hashchain = vp->v_specnext;
+ 		} else {

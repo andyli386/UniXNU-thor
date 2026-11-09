@@ -18,3 +18,4 @@ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-minimac-sandbox.patch
 # later hand edits, so no clean tree could apply them (see PROJECT-HANDOFF).
 # Their content, plus the remaining hand edits, is this delta.
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-bringup-delta.patch
+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-spechash-probe.patch
