@@ -1,0 +1,87 @@
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_exec.c work/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c	2026-11-09 21:15:27
++++ b/bsd/kern/kern_exec.c	2026-11-09 21:14:33
+@@ -5458,6 +5458,24 @@
+ 	size_t used;
+ 	bool any = false;
+ 
++	/*
++	 * THOR: pong_no_inject=1 suppresses the insertion without touching the
++	 * configured list, so one image can A/B whether the compatibility library
++	 * is what kills SpringBoard.
++	 */
++	{
++		static int disabled = -1;
++		if (disabled < 0) {
++			int value = 0;
++			if (!PE_parse_boot_argn("pong_no_inject", &value, sizeof(value))) {
++				value = 0;
++			}
++			disabled = value != 0;
++		}
++		if (disabled) {
++			return false;
++		}
++	}
+ 	if (imgp->ip_ndp == NULL) {
+ 		return false;
+ 	}
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_exit.c work/bsd/kern/kern_exit.c
+--- a/bsd/kern/kern_exit.c	2026-11-09 21:15:27
++++ b/bsd/kern/kern_exit.c	2026-11-09 21:14:37
+@@ -1739,6 +1739,32 @@
+ 		}
+ 	}
+ 
++	/*
++	 * THOR: SpringBoard died five times in a row on 2026-11-09 with only
++	 * "Too many corpses" on the console. The signal, the exit status and the
++	 * exit reason are what tells a library-load abort (SIGABRT/SIGKILL) apart
++	 * from a real crash (SIGSEGV/SIGBUS), so record them for the first few
++	 * exits of that one program.
++	 */
++	if (strcmp(p->p_comm, "SpringBoard") == 0) {
++		static int thor_sb_exits;
++		if (thor_sb_exits < 20) {
++			os_reason_t sb_reason = p->p_exit_reason;
++			thor_sb_exits++;
++			printf("THOR EXIT: SpringBoard[%d] rv=%#x signaled=%d sig=%d "
++			    "exited=%d status=%d behavior=%#x\n",
++			    proc_getpid(p), rv,
++			    WIFSIGNALED(rv) ? 1 : 0, WIFSIGNALED(rv) ? WTERMSIG(rv) : 0,
++			    WIFEXITED(rv) ? 1 : 0, WIFEXITED(rv) ? WEXITSTATUS(rv) : -1,
++			    p->p_crash_behavior);
++			if (sb_reason != OS_REASON_NULL) {
++				printf("THOR EXIT: reason ns=%u code=%#llx flags=%#llx\n",
++				    sb_reason->osr_namespace, sb_reason->osr_code,
++				    sb_reason->osr_flags);
++			}
++		}
++	}
++
+ 	if (p == initproc || (p->p_crash_behavior & POSIX_SPAWN_PANIC_ON_EXIT) != 0) {
+ 		/* Always panic for launchd or equivalents */
+ 		if (p == initproc) {
+diff --color -ruN -x *.orig -x *.rej base/osfmk/kern/lock_rw.c work/osfmk/kern/lock_rw.c
+--- a/osfmk/kern/lock_rw.c	2026-11-09 21:15:26
++++ b/osfmk/kern/lock_rw.c	2026-11-09 21:14:26
+@@ -2393,6 +2393,19 @@
+ 	default:
+ 		break;
+ 	}
++	/*
++	 * THOR: the panic return address is inside lck_rw_assert itself, so it
++	 * names nothing. Print the caller that demanded the lock plus the whole
++	 * lock state before panicking: that identifies the subsystem and says
++	 * whether the lock is idle, shared by others, or owned by another tid.
++	 */
++	printf("THOR RWLOCK: lock=%p mode=%u caller=%p caller2=%p shared=%u owner=%#llx "
++	    "want_excl=%u want_upgrade=%u thread=%p tid=%#llx\n",
++	    lck, type, __builtin_return_address(0), __builtin_return_address(1),
++	    (unsigned)lck->lck_rw_shared_count,
++	    (unsigned long long)lck->lck_rw_owner,
++	    (unsigned)lck->lck_rw_want_excl, (unsigned)lck->lck_rw_want_upgrade,
++	    (void *)thread, (unsigned long long)thread->ctid);
+ 	panic("rw lock (%p)%s held (mode=%u)", lck, (type == LCK_RW_ASSERT_NOTHELD ? "" : " not"), type);
+ }
+ 
