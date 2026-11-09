@@ -1,0 +1,66 @@
+diff --color -ruN -x *.orig -x *.rej base/bsd/miscfs/specfs/spec_vnops.c work/bsd/miscfs/specfs/spec_vnops.c
+--- a/bsd/miscfs/specfs/spec_vnops.c	2026-11-09 23:23:41
++++ b/bsd/miscfs/specfs/spec_vnops.c	2026-11-09 23:23:06
+@@ -2624,7 +2624,17 @@
+ 		if (mp->mnt_devbsdunit || (mp->mnt_throttle_mask != LOWPRI_MAX_NUM_DEV - 1 && mp->mnt_throttle_mask & 0x1)) {
+ 			inflight = TRUE;
+ 		}
+-		throttle_info = &_throttle_io_info[mp->mnt_devbsdunit];
++		/* THOR: last line of defence for an index that once reached 64. */
++		if (mp->mnt_devbsdunit >= LOWPRI_MAX_NUM_DEV) {
++			static int thor_bad_unit;
++			if (thor_bad_unit++ < 5) {
++				printf("THOR THROTTLE: strategy sees unit %u (mask %#llx); clamped\n",
++				    mp->mnt_devbsdunit, (unsigned long long)mp->mnt_throttle_mask);
++			}
++			throttle_info = &_throttle_io_info[LOWPRI_MAX_NUM_DEV - 1];
++		} else {
++			throttle_info = &_throttle_io_info[mp->mnt_devbsdunit];
++		}
+ 	} else {
+ 		throttle_info = &_throttle_io_info[LOWPRI_MAX_NUM_DEV - 1];
+ 	}
+diff --color -ruN -x *.orig -x *.rej base/bsd/vfs/vfs_subr.c work/bsd/vfs/vfs_subr.c
+--- a/bsd/vfs/vfs_subr.c	2026-11-09 23:23:41
++++ b/bsd/vfs/vfs_subr.c	2026-11-09 23:23:02
+@@ -4315,12 +4315,39 @@
+ 	int isvirtual = 0;
+ 
+ 
+-	VNOP_IOCTL(devvp, DKIOCGETTHROTTLEMASK, (caddr_t)&mp->mnt_throttle_mask, 0, NULL);
+ 	/*
++	 * THOR: num_trailing_0(0) is 64, and mnt_devbsdunit is used as an index
++	 * into _throttle_io_info[LOWPRI_MAX_NUM_DEV] (64 entries). A device that
++	 * answers DKIOCGETTHROTTLEMASK with success and a zero mask therefore
++	 * yields index 64: the structure one past the array, whose tier 0
++	 * timestamp shares an address with speclisth[11]. Every I/O then writes
++	 * the uptime seconds into that vnode hash bucket (0x33 / 0x271 were
++	 * exactly that), and the tier 2 queue tail is a null pointer, which is
++	 * the `str x19,[x9]` panic in throttle_lowpri_io.
++	 *
++	 * Treat "no usable mask" as the default mask the mount starts with, so
++	 * the index stays 0. The failure is reported once per mount so the
++	 * device that cannot answer can be identified.
++	 */
++	error = VNOP_IOCTL(devvp, DKIOCGETTHROTTLEMASK, (caddr_t)&mp->mnt_throttle_mask, 0, NULL);
++	if (error != 0 || mp->mnt_throttle_mask == 0) {
++		static int thor_throttle_reports;
++		if (thor_throttle_reports++ < 20) {
++			printf("THOR THROTTLE: ioctl err=%d mask=%#llx -> unit 0 (devvp=%p)\n",
++			    error, (unsigned long long)mp->mnt_throttle_mask, (void *)devvp);
++		}
++		mp->mnt_throttle_mask = LOWPRI_MAX_NUM_DEV - 1;
++	}
++	/*
+ 	 * as a reasonable approximation, only use the lowest bit of the mask
+ 	 * to generate a disk unit number
+ 	 */
+ 	mp->mnt_devbsdunit = num_trailing_0(mp->mnt_throttle_mask);
++	if (mp->mnt_devbsdunit >= LOWPRI_MAX_NUM_DEV) {
++		printf("THOR THROTTLE: unit %d for mask %#llx is out of range; clamped\n",
++		    mp->mnt_devbsdunit, (unsigned long long)mp->mnt_throttle_mask);
++		mp->mnt_devbsdunit = LOWPRI_MAX_NUM_DEV - 1;
++	}
+ 
+ 	if (devvp == rootvp) {
+ 		rootunit = mp->mnt_devbsdunit;
