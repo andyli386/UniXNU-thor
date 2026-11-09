@@ -1,0 +1,2108 @@
+diff --color -ruN -x *.orig -x *.rej base/bsd/conf/files b/bsd/conf/files
+--- a/bsd/conf/files	2026-11-09 08:50:57
++++ b/bsd/conf/files	2026-11-08 06:59:10
+@@ -594,3 +594,4 @@
+ bsd/skywalk/packet/pbufpool.c			optional skywalk
+ bsd/skywalk/packet/pbufpool_kern.c		optional skywalk
+ bsd/dev/cpu_copy_in_cksum_gen.c			optional skywalk
++bsd/kern/kern_minimac.c		optional config_macf
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/bsd_init.c b/bsd/kern/bsd_init.c
+--- a/bsd/kern/bsd_init.c	2026-11-09 08:50:57
++++ b/bsd/kern/bsd_init.c	2026-11-08 00:16:05
+@@ -1309,6 +1309,15 @@
+ 	extern void native_legacy_display_late_probe(void);
+ 	native_legacy_display_late_probe();
+ #endif
++#if (DEVELOPMENT || DEBUG) && !SECURE_KERNEL
++	/* THOR: start the IOSurface / IOMobileFramebuffer stand-ins once the
++	 * registry is up, so SpringBoard has a display to draw on.  Gated by
++	 * the pong_software_ui boot argument inside the function. */
++	if (result == KERN_SUCCESS) {
++		extern void native_pong_ui_services_start(void);
++		native_pong_ui_services_start();
++	}
++#endif
+ 	return result;
+ }
+ 
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/hvg_sysctl.c b/bsd/kern/hvg_sysctl.c
+--- a/bsd/kern/hvg_sysctl.c	2026-11-09 08:50:57
++++ b/bsd/kern/hvg_sysctl.c	2026-11-09 08:41:07
+@@ -29,6 +29,7 @@
+ #include <sys/sysctl.h>
+ #include <libkern/libkern.h>
+ #include <kern/hvg_hypercall.h>
++#include <pexpert/pexpert.h>
+ #include <stdbool.h>
+ 
+ /* Translate hypercall error code to syscall error code */
+@@ -140,7 +141,22 @@
+ 
+ #if defined(__arm64__)
+ 	extern int IODTGetDefault(const char *key, void *infoAddr, unsigned int infoSize );
+-	(void) IODTGetDefault("vmm-present", &vmm_present, sizeof(vmm_present));
++	/*
++	 * THOR: /defaults/vmm-present is a compatibility declaration, not a
++	 * hardware detection: there is no hypervisor under this kernel, but
++	 * watchdogd reads kern.hv_vmm_present and traps with SIGTRAP when it is
++	 * 0 (UniXNU's evb10 documents the same failure). thor_vmm_present=0|1
++	 * overrides the device tree per boot so one image can run the A/B
++	 * that proves or disproves that link.
++	 */
++	{
++		int override = 0;
++		if (PE_parse_boot_argn("thor_vmm_present", &override, sizeof(override))) {
++			vmm_present = override;
++		} else {
++			(void) IODTGetDefault("vmm-present", &vmm_present, sizeof(vmm_present));
++		}
++	}
+ #elif defined(__x86_64__)
+ 	extern boolean_t cpuid_vmm_present(void);
+ 	vmm_present = cpuid_vmm_present();
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_core.c b/bsd/kern/kern_core.c
+--- a/bsd/kern/kern_core.c	2026-11-09 08:50:57
++++ b/bsd/kern/kern_core.c	2026-11-09 08:40:46
+@@ -314,6 +314,26 @@
+ int
+ coredump(proc_t core_proc, uint32_t reserve_mb, int coredump_flags)
+ {
++	/*
++	 * THOR: a core file of one of these processes is hundreds of megabytes
++	 * written through the same single UFS queue everything else uses; the
++	 * machine stops making progress for tens of seconds while it drains
++	 * (watchdogd's 417 GB of virtual mappings, SpringBoard's far more).
++	 * Their death is already reported on the console through launchd and
++	 * applog, so the dump buys nothing here and costs the boot.
++	 *
++	 * ECANCELED rather than 0: callers treat 0 as "a core was written"
++	 * (kern_sig.c sets WCOREFLAG, proc_crash_coredump prints "Generated core
++	 * file"). This is a deliberate skip, so it must read as neither success
++	 * nor failure; both callers special-case ECANCELED.
++	 */
++	if (core_proc != NULL &&
++	    (strcmp(core_proc->p_comm, "watchdogd") == 0 ||
++	    strcmp(core_proc->p_comm, "SpringBoard") == 0)) {
++		printf("THOR: skipping %s core dump; it would stall the storage queue\n",
++		    core_proc->p_comm);
++		return ECANCELED;
++	}
+ /* Begin assumptions that limit us to only the current process */
+ 	vfs_context_t ctx = vfs_context_current();
+ 	vm_map_t        map = current_map();
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c	2026-11-09 08:50:57
++++ b/bsd/kern/kern_exec.c	2026-11-08 23:49:35
+@@ -2642,7 +2642,64 @@
+  *		the child following operations the child may in fact not be
+  *		normally permitted to perform.
+  */
+-static int
++/*
++ * THOR: pong's applog. launchd sends every service's stdin/stdout to
++ * /dev/null, which hides the one thing that says why a daemon dies. With
++ * applog=1 the selected programs get their fd 1/2 pointed at the console
++ * instead; applog_name is a comma separated list matched against the last
++ * path component. Nothing else about the spawn changes.
++ */
++static const char *
++thor_applog_path(struct image_params *imgp, int fd, const char *path)
++{
++	static char names[128];
++	static int loaded;
++	uint32_t enabled = 0;
++
++	if (fd != 1 && fd != 2) {
++		return path;
++	}
++	if (strcmp(path, "/dev/null") != 0) {
++		return path;
++	}
++	if (!loaded) {
++		if (!PE_parse_boot_argn("applog", &enabled, sizeof(enabled))) {
++			enabled = 0;
++		}
++		if (!PE_parse_boot_argn("applog_name", names, sizeof(names))) {
++			names[0] = 0;
++		}
++		loaded = 1;
++	}
++	if (!enabled || !names[0] || imgp->ip_ndp == NULL) {
++		return path;
++	}
++	const char *name = imgp->ip_ndp->ni_cnd.cn_nameptr;
++	if (name == NULL) {
++		return path;
++	}
++	const char *base = strrchr(name, '/');
++	if (base != NULL) {
++		name = base + 1;
++	}
++	const char *p = names;
++	while (*p) {
++		const char *word = p;
++		while (*p && *p != ',') {
++			p++;
++		}
++		size_t len = (size_t)(p - word);
++		if (len && strncmp(name, word, len) == 0 && name[len] == 0) {
++			return "/dev/console";
++		}
++		if (*p) {
++			p++;
++		}
++	}
++	return path;
++}
++
++errno_t
+ exec_handle_file_actions(struct image_params *imgp, short psa_flags)
+ {
+ 	int error = 0;
+@@ -2693,7 +2750,8 @@
+ 			AUDIT_SUBCALL_ENTER(OPEN, p, uthread);
+ 
+ 			NDINIT(ndp, LOOKUP, OP_OPEN, FOLLOW | AUDITVNPATH1, UIO_SYSSPACE,
+-			    CAST_USER_ADDR_T(psfa->psfaa_openargs.psfao_path),
++			    CAST_USER_ADDR_T(thor_applog_path(imgp, psfa->psfaa_filedes,
++			    (const char *)psfa->psfaa_openargs.psfao_path)),
+ 			    imgp->ip_vfs_context);
+ 
+ 			error = open1(imgp->ip_vfs_context, ndp,
+@@ -5366,6 +5424,96 @@
+  * to a pointer boundary so that the exec_path, env[i], and argv[i] pointers
+  * which preceed it on the stack are properly aligned.
+  */
++#if (DEVELOPMENT || DEBUG)
++/* THOR: see the call in exec_copyout_strings(). */
++static char exec_inject_conf[512];
++static LCK_MTX_DECLARE_ATTR(exec_inject_lock, &proc_lck_grp, &proc_lck_attr);
++
++static int
++sysctl_exec_inject(__unused struct sysctl_oid *oidp, __unused void *arg1,
++    __unused int arg2, struct sysctl_req *req)
++{
++	char conf[sizeof(exec_inject_conf)];
++	int changed = 0;
++
++	lck_mtx_lock(&exec_inject_lock);
++	strlcpy(conf, exec_inject_conf, sizeof(conf));
++	lck_mtx_unlock(&exec_inject_lock);
++	int error = sysctl_io_string(req, conf, sizeof(conf), 0, &changed);
++	if (error == 0 && changed) {
++		lck_mtx_lock(&exec_inject_lock);
++		strlcpy(exec_inject_conf, conf, sizeof(exec_inject_conf));
++		lck_mtx_unlock(&exec_inject_lock);
++	}
++	return error;
++}
++SYSCTL_PROC(_kern, OID_AUTO, exec_inject, CTLTYPE_STRING | CTLFLAG_RW | CTLFLAG_LOCKED,
++    0, 0, sysctl_exec_inject, "A", "LIBRARY NAME... [; LIBRARY NAME...]");
++
++static bool
++exec_inject_env(struct image_params *imgp, char *env, size_t size)
++{
++	char conf[sizeof(exec_inject_conf)];
++	const char *name, *p;
++	size_t used;
++	bool any = false;
++
++	if (imgp->ip_ndp == NULL) {
++		return false;
++	}
++	lck_mtx_lock(&exec_inject_lock);
++	strlcpy(conf, exec_inject_conf, sizeof(conf));
++	lck_mtx_unlock(&exec_inject_lock);
++	p = conf;
++	name = imgp->ip_ndp->ni_cnd.cn_nameptr;
++	used = strlcpy(env, "DYLD_INSERT_LIBRARIES=", size);
++	while (*p != 0) {
++		while (*p == ' ' || *p == ';') {
++			p++;
++		}
++		const char *library = p;
++		while (*p && *p != ' ' && *p != ';') {
++			p++;
++		}
++		size_t liblen = p - library;
++		bool matched = false;
++		while (*p == ' ') {
++			const char *word = ++p;
++			while (*p && *p != ' ' && *p != ';') {
++				p++;
++			}
++			if ((size_t)(p - word) == imgp->ip_ndp->ni_cnd.cn_namelen &&
++			    p != word && strncmp(word, name, p - word) == 0) {
++				matched = true;
++			}
++		}
++		if (matched && liblen && *library == '/') {
++			/* THOR: prove the injection reached this exec. Without it a
++			 * library that dyld silently drops looks identical to one
++			 * that was never requested. */
++			static int thor_inject_prints;
++			if (thor_inject_prints < 12) {
++				thor_inject_prints++;
++				printf("THOR INJECT: %.*s <- %.*s\n",
++				    (int)imgp->ip_ndp->ni_cnd.cn_namelen, name,
++				    (int)liblen, library);
++			}
++			if (used + (any ? 1 : 0) + liblen >= size) {
++				return false;
++			}
++			if (any) {
++				env[used++] = ':';
++			}
++			memcpy(env + used, library, liblen);
++			used += liblen;
++			env[used] = 0;
++			any = true;
++		}
++	}
++	return any;
++}
++#endif /* DEVELOPMENT || DEBUG */
++
+ __attribute__((noinline))
+ static int
+ exec_copyout_strings(struct image_params *imgp, user_addr_t *stackp)
+@@ -5744,6 +5892,30 @@
+ 	}
+ 
+ 	/* Save space for envv[] NULL terminator */
++#if (DEVELOPMENT || DEBUG)
++	/*
++	 * THOR: pong's per-program compatibility-library insertion. The software
++	 * UI adapter has to be loaded into the processes that draw (SpringBoard,
++	 * backboardd, ...) and there is no other way to add DYLD_INSERT_LIBRARIES
++	 * to a launchd-spawned service. Configuration is "LIBRARY NAME [NAME...]"
++	 * with ';' between entries, set through kern.exec_inject.
++	 */
++	{
++		char inject_env[512];
++		if (exec_inject_env(imgp, inject_env, sizeof(inject_env))) {
++			error = exec_add_user_string(imgp, CAST_USER_ADDR_T(inject_env), UIO_SYSSPACE, TRUE);
++			if (error) {
++				goto bad;
++			}
++			if (imgp->ip_argspace < new_ptr_size) {
++				error = E2BIG;
++				goto bad;
++			}
++			imgp->ip_argspace -= new_ptr_size;
++			imgp->ip_envc++;
++		}
++	}
++#endif
+ 	if (imgp->ip_argspace < new_ptr_size) {
+ 		error = E2BIG;
+ 		goto bad;
+@@ -7780,6 +7952,8 @@
+ }
+ #endif
+ 
++extern void *thor_watch_task;   /* THOR: defined in osfmk/arm64/sleh.c */
++
+ static int
+ load_init_program_at_path(proc_t p, user_addr_t scratch_addr, const char* path, user_addr_t envp)
+ {
+@@ -7860,7 +8034,16 @@
+ 	 */
+ 	set_security_token(p);
+ 
+-	return execve(p, &init_exec_args, retval);
++	error = execve(p, &init_exec_args, retval);
++
++	/* THOR: watch the init process itself.  current_task() here is still the
++	 * kernel thread that bsd_init started, so the recorder has to be armed
++	 * from the proc's own task or it watches kernel_task instead. */
++	if (error == 0) {
++		thor_watch_task = (void *)proc_task(p);
++	}
++
++	return error;
+ }
+ 
+ static const char * init_programs[] = {
+@@ -7908,6 +8091,8 @@
+ 	uint32_t i;
+ 	int error;
+ 	vm_map_t map = current_map();
++
++
+ 	mach_vm_offset_t scratch_addr = 0;
+ 	mach_vm_size_t map_page_size = vm_map_page_size(map);
+ 
+diff --color -ruN -x *.orig -x *.rej base/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+--- a/bsd/kern/kern_exit.c	2026-11-09 08:50:57
++++ b/bsd/kern/kern_exit.c	2026-11-09 08:40:55
+@@ -1451,6 +1451,11 @@
+ int
+ exit1(proc_t p, int rv, int *retval)
+ {
++	/* THOR: initproc exiting is supposed to panic, so if the system stays
++	 * alive while PID 1 stops, one of the two is not what it seems. */
++	if (p == initproc) {
++		printf("THOR EXIT1: init exit rv=%d\n", rv);
++	}
+ 	return exit1_internal(p, rv, retval, FALSE, TRUE, 0);
+ }
+ 
+@@ -1663,11 +1668,82 @@
+ 	return true;
+ }
+ 
++/* THOR: does this exit belong to the watchdog? It arrives with PANIC_ON_CRASH
++ * rather than PANIC_ON_EXIT, so the check has to be ahead of every branch.
++ *
++ * Exact match only: strncmp(..., "watchdogd", 9) also catches "watchdogdX",
++ * and p_name is a fixed array (never NULL) that a process may rewrite, so
++ * p_comm is the primary key and p_name counts only on an exact match too. */
+ static bool
++thor_is_watchdog(proc_t p)
++{
++	return strcmp(p->p_comm, "watchdogd") == 0 ||
++	       strcmp(p->p_name, "watchdogd") == 0;
++}
++
++/*
++ * THOR: the suppression is a bring-up workaround, not a fix for whatever makes
++ * watchdogd trap. thor_watchdog_guard=0 runs with it off so an A/B boot can
++ * show whether the underlying fault is actually gone.
++ */
++static bool
++thor_watchdog_guard_enabled(void)
++{
++	static int enabled = -1;
++
++	if (enabled < 0) {
++		int value = 1;
++		if (!PE_parse_boot_argn("thor_watchdog_guard", &value, sizeof(value))) {
++			value = 1;
++		}
++		enabled = value != 0;
++	}
++	return enabled != 0;
++}
++
++static bool
+ proc_should_trigger_panic(proc_t p, int rv)
+ {
++	/*
++	 * THOR: watchdogd takes the whole machine down when one of the services
++	 * it watches misses its check-in. Without the hardware (no logd socket,
++	 * no Wi-Fi, no SEP, no modem) several of those services simply cannot
++	 * check in, so the watchdog fires on an environment it was never meant
++	 * to police. Record it and let launchd restart it instead of rebooting.
++	 * initproc keeps its unconditional panic.
++	 *
++	 * The report prints whether or not the guard is on: it is the only place
++	 * that says *why* watchdogd died (signal vs exit status, crash behavior,
++	 * exit reason), and that reason is the actual bug to fix.
++	 */
++	if (thor_is_watchdog(p)) {
++		os_reason_t reason = p->p_exit_reason;
++		bool guarded = p != initproc && thor_watchdog_guard_enabled();
++
++		printf("THOR WATCHDOG: pid %d comm=%s name=%s rv=%#x signaled=%d sig=%d "
++		    "exited=%d status=%d behavior=%#x %s\n",
++		    proc_getpid(p), p->p_comm, p->p_name, rv,
++		    WIFSIGNALED(rv) ? 1 : 0, WIFSIGNALED(rv) ? WTERMSIG(rv) : 0,
++		    WIFEXITED(rv) ? 1 : 0, WIFEXITED(rv) ? WEXITSTATUS(rv) : -1,
++		    p->p_crash_behavior,
++		    guarded ? "-> not panicking (thor_watchdog_guard=1)" :
++		    "-> panicking (thor_watchdog_guard=0)");
++		if (reason != OS_REASON_NULL) {
++			printf("THOR WATCHDOG: exit reason ns=%u code=%#llx flags=%#llx\n",
++			    reason->osr_namespace, reason->osr_code, reason->osr_flags);
++		} else {
++			printf("THOR WATCHDOG: no exit reason recorded\n");
++		}
++		if (guarded) {
++			return false;
++		}
++	}
++
+ 	if (p == initproc || (p->p_crash_behavior & POSIX_SPAWN_PANIC_ON_EXIT) != 0) {
+ 		/* Always panic for launchd or equivalents */
++		if (p == initproc) {
++			printf("THOR EXIT2: initproc panic path, rv=%d\n", rv);
++		}
+ 		return true;
+ 	}
+ 
+@@ -1762,7 +1838,10 @@
+ 
+ 	tv_msec = tv_usec / 1000;
+ 
+-	if (err != 0) {
++	if (err == ECANCELED) {
++		/* THOR: coredump() chose not to write one (see kern_core.c). */
++		printf("Core file for pid: %d was skipped by policy\n", proc_getpid(p));
++	} else if (err != 0) {
+ 		printf("Failed to generate core file for pid: %d: error %d, took %d.%03d seconds\n",
+ 		    proc_getpid(p), err, (uint32_t)tv_sec, tv_msec);
+ 	} else {
+diff --color -ruN -x *.orig -x *.rej base/bsd/vfs/vfs_bio.c b/bsd/vfs/vfs_bio.c
+--- a/bsd/vfs/vfs_bio.c	2026-11-09 08:50:57
++++ b/bsd/vfs/vfs_bio.c	2026-11-09 00:11:51
+@@ -112,6 +112,10 @@
+ 
+ #include <sys/sdt.h>
+ 
++/* THOR: page-in probe, quiet unless "thor_trace=1" (see vfs_cluster.c). */
++extern int thor_boot_trace;
++#define THOR_TRACE(...) do { if (thor_boot_trace) printf(__VA_ARGS__); } while (0)
++
+ int     bcleanbuf(buf_t bp, boolean_t discard);
+ static int      brecover_data(buf_t bp);
+ static boolean_t incore(vnode_t vp, daddr64_t blkno);
+@@ -1447,6 +1451,16 @@
+ 			 * to deal with filesystem block sizes
+ 			 * that aren't equal to the page size
+ 			 */
++			{
++				static int thor_bs_n;
++				if (thor_bs_n < 12) {
++					thor_bs_n++;
++					THOR_TRACE("THOR BS: #%d bp=%p vp=%p devvp=%p bflags=%x lblk=%lld bcount=%u upl=%p uoff=%u\n",
++					    thor_bs_n, bp, bp->b_vp, devvp, bp->b_flags,
++					    (long long)bp->b_lblkno, bp->b_bcount,
++					    bp->b_upl, bp->b_uploffset);
++				}
++			}
+ 			DTRACE_IO1(start, buf_t, bp);
+ 			return cluster_bp(bp);
+ 		}
+diff --color -ruN -x *.orig -x *.rej base/bsd/vfs/vfs_cluster.c b/bsd/vfs/vfs_cluster.c
+--- a/bsd/vfs/vfs_cluster.c	2026-11-09 08:50:57
++++ b/bsd/vfs/vfs_cluster.c	2026-11-09 00:11:44
+@@ -101,6 +101,17 @@
+ 
+ #include <vfs/vfs_disk_conditioner.h>
+ 
++/*
++ * THOR: the page-in probes below fired on every file's first 8 KiB, which on a
++ * system with a hundred processes launching is thousands of lines and buries
++ * the one-off milestones (THOR PROCS, THOR WATCHDOG, THOR INJECT).  They now
++ * follow the same "thor_trace=1" boot argument as the rest of the boot trace,
++ * so a normal boot is quiet and one boot with the argument still reproduces
++ * every field that was used to close the page-in question.
++ */
++extern int thor_boot_trace;
++#define THOR_TRACE(...) do { if (thor_boot_trace) printf(__VA_ARGS__); } while (0)
++
+ #if 0
+ #undef KERNEL_DEBUG
+ #define KERNEL_DEBUG KERNEL_DEBUG_CONSTANT
+@@ -884,6 +895,17 @@
+ 		error = EIO;
+ 	}
+ 
++	/* THOR: how the block I/O actually completed (first 8 plus every failure) */
++	{
++		static int thor_iod_n;
++		if (thor_iod_n < 8 || error || total_resid) {
++			thor_iod_n++;
++			THOR_TRACE("THOR IOD: #%d err=%d resid=%llu size=%d flags=%x uoff=%d lblk=%lld\n",
++			    thor_iod_n, error, (unsigned long long)total_resid, transaction_size,
++			    b_flags, upl_offset, (long long)cbp_head->b_lblkno);
++		}
++	}
++
+ 	if (error == 0) {
+ 		int     (*cliodone_func)(buf_t, void *) = (int (*)(buf_t, void *))(cbp_head->b_cliodone);
+ 
+@@ -917,13 +939,19 @@
+ 			}
+ 		}
+ 
++		THOR_TRACE("THOR IODV: verify ctx blk=%lld len=%u bufmapped=%d\n",
++		    (long long)cbp_head->b_lblkno, (unsigned)verify_length, verify_buf != NULL);
++
+ 		error = VNOP_VERIFY(vp, start_off, (uint8_t *)verify_buf, verify_length, 0, &verify_ctx, verify_flags, NULL);
+ 
++		THOR_TRACE("THOR IODV2: verify returned err=%d\n", error);
++
+ 		if (verify_buf) {
+ 			(void)ubc_upl_unmap_range(upl, upl_offset, round_page(transaction_size));
+ 			verify_buf = NULL;
+ 		}
+ 	} else if (cbp_head->b_attr.ba_flags & BA_WILL_VERIFY) {
++		THOR_TRACE("THOR IODV3: BA_WILL_VERIFY set, no context -> EBADMSG\n");
+ 		error = EBADMSG;
+ 	}
+ 
+@@ -981,6 +1009,15 @@
+ 			ubc_upl_commit_range(upl, upl_offset - pg_offset, commit_size, upl_flags);
+ 		}
+ 	}
++	{
++		/* THOR: the commit is where a successful read can still be thrown away */
++		static int thor_iod2_n;
++		if (thor_iod2_n < 8 || error) {
++			thor_iod2_n++;
++			THOR_TRACE("THOR IOD2: #%d final_err=%d commit_size=%d upl_flags=%x off=%d bflags=%x\n",
++			    thor_iod2_n, error, commit_size, upl_flags, upl_offset - pg_offset, b_flags);
++		}
++	}
+ 	if (real_bp) {
+ 		if (error) {
+ 			real_bp->b_flags |= B_ERROR;
+@@ -1197,10 +1234,24 @@
+ }
+ 
+ 
++/*
++ * THOR: counters that survive a lost serial line.  A printf can go missing on
++ * this console, so the strategy count lets an exit record show whether
++ * VNOP_STRATEGY was reached even when the per-buffer line never appears.
++ */
++static unsigned thor_cio_seq;
++static unsigned thor_strat_calls;
++static long long thor_strat_last_off = -1;
++
+ static int
+ cluster_io(vnode_t vp, upl_t upl, vm_offset_t upl_offset, off_t f_offset, int non_rounded_size,
+     int flags, buf_t real_bp, struct clios *iostate, int (*callback)(buf_t, void *), void *callback_arg)
+ {
++	unsigned thor_seq = ++thor_cio_seq;
++	unsigned thor_strat_before = thor_strat_calls;
++	unsigned thor_size0 = 0;
++
++	if (f_offset < 0x2000) THOR_TRACE("THOR CIO: #%u enter vp=%p f_offset=%lld size=%d upl=%p uoff=%llu flags=%x\n", thor_seq, vp, (long long)f_offset, non_rounded_size, upl, (unsigned long long)upl_offset, flags);
+ 	buf_t   cbp;
+ 	u_int   size;
+ 	u_int   io_size;
+@@ -1223,6 +1274,7 @@
+ 	vm_offset_t upl_end_offset;
+ 	boolean_t   need_EOT = FALSE;
+ 	size_t verify_block_size = 0;
++	off_t   thor_fo0 = f_offset;   /* THOR: filter survives f_offset advancing */
+ 
+ 	/*
+ 	 * we currently don't support buffers larger than a page
+@@ -1266,6 +1318,7 @@
+ 		 */
+ 		size = non_rounded_size;
+ 	}
++	thor_size0 = size;
+ 	upl_end_offset = upl_offset + size;
+ 
+ 	KERNEL_DEBUG((FSDBG_CODE(DBG_FSRW, 22)) | DBG_FUNC_START, (int)f_offset, size, upl_offset, flags, 0);
+@@ -1323,6 +1376,11 @@
+ 		max_iosize = PAGE_SIZE;
+ 	}
+ 
++	/* THOR: limits that decide whether any I/O can be shaped at all */
++	if (f_offset < 0x2000) THOR_TRACE("THOR CIO1: #%u devbs=%u maxio=%u maxvec=%u size=%u uoff=%llu async=%d\n",
++	    thor_seq, mp->mnt_devblocksize, max_iosize, max_vectors, size,
++	    (unsigned long long)upl_offset, !!(flags & CL_ASYNC));
++
+ 	if (flags & CL_THROTTLE) {
+ 		if (!(flags & CL_PAGEOUT) && cluster_is_throttled(vp)) {
+ 			uint32_t max_throttle_size = calculate_max_throttle_size(vp);
+@@ -1456,6 +1514,8 @@
+ 		io_size_tmp = (size_t)io_size;
+ 
+ 		if ((error = VNOP_BLOCKMAP(vp, f_offset, io_size, &blkno, &io_size_tmp, NULL, bmap_flags, NULL))) {
++			if (f_offset < 0x2000) THOR_TRACE("THOR CIO2: BLOCKMAP err=%d off=%lld want=%u\n",
++			    error, (long long)f_offset, io_size_wanted);
+ 			break;
+ 		}
+ 
+@@ -1465,6 +1525,9 @@
+ 			io_size = (u_int)io_size_tmp;
+ 		}
+ 
++		if (f_offset < 0x2000) THOR_TRACE("THOR CIO3: #%u BLOCKMAP blkno=%lld iosz=%u want=%u bmapf=%x f_off=%lld\n",
++		    thor_seq, (long long)blkno, io_size, io_size_wanted, bmap_flags, (long long)f_offset);
++
+ 		if (real_bp && (real_bp->b_blkno == real_bp->b_lblkno)) {
+ 			real_bp->b_blkno = blkno;
+ 		}
+@@ -1481,6 +1544,8 @@
+ 			 * a real extent is returned with a blkno != -1 and a non-zero io_size
+ 			 */
+ 			error = EINVAL;
++			if (f_offset < 0x2000) THOR_TRACE("THOR CIO4: extent returned 0 at off=%lld\n",
++			    (long long)f_offset);
+ 			break;
+ 		}
+ 		if (!(flags & CL_READ) && blkno == -1) {
+@@ -1710,6 +1775,9 @@
+ 
+ 			pg_count = 0;
+ 
++			if (f_offset < 0x2000) THOR_TRACE("THOR CIO5: #%u HOLE read blkno=%lld iosz=%u zero=%d uoff=%llu\n",
++			    thor_seq, (long long)blkno, io_size, bytes_to_zero, (unsigned long long)upl_offset);
++
+ 			cluster_zero(upl, (upl_offset_t)upl_offset, bytes_to_zero, real_bp);
+ 
+ 			if (cbp_head) {
+@@ -1770,6 +1838,9 @@
+ 				    pg_count * PAGE_SIZE,
+ 				    UPL_COMMIT_CLEAR_DIRTY | UPL_COMMIT_FREE_ON_EMPTY);
+ 			}
++			if (f_offset < 0x2000) THOR_TRACE("THOR CIO6: #%u HOLE done pg=%u commit=%d size_left=%u\n",
++			    thor_seq, pg_count, !!(flags & CL_COMMIT), size);
++
+ 			upl_offset += io_size;
+ 			f_offset   += io_size;
+ 			size       -= io_size;
+@@ -1998,6 +2069,11 @@
+ 			cbp->b_attr.ba_flags |= BA_RAW_ENCRYPTED_IO;
+ 		}
+ 
++		++thor_strat_calls;
++		thor_strat_last_off = f_offset;
++		if (f_offset < 0x2000) THOR_TRACE("THOR CIO7: #%u STRATEGY blk=%lld nbytes=%llu pg=%u EOT=%d\n",
++		    thor_seq, (long long)cbp->b_blkno, (unsigned long long)cbp->b_bcount, pg_count, need_EOT);
++
+ 		(void) VNOP_STRATEGY(cbp);
+ 
+ 		if (need_EOT == TRUE) {
+@@ -2096,6 +2172,10 @@
+ 		panic("%s(): cbp_head is not NULL.", __FUNCTION__);
+ 	}
+ 
++	if (thor_fo0 < 0x2000) THOR_TRACE("THOR CIO8: #%u ret error=%d retval=%d size0=%u size_left=%u f_off0=%lld flags=%x strat=%u(+%u) lastoff=%lld\n",
++	    thor_seq, error, retval, thor_size0, size, (long long)thor_fo0, flags,
++	    thor_strat_calls, thor_strat_calls - thor_strat_before, thor_strat_last_off);
++
+ 	if (real_bp) {
+ 		/*
+ 		 * can get here if we either encountered an error
+@@ -2430,6 +2510,18 @@
+ 	}
+ 
+ 	f_offset = ubc_blktooff(bp->b_vp, bp->b_lblkno);
++
++	/* THOR: who hands a UPL-backed buffer to the cluster layer without B_CLUSTER? */
++	{
++		static int thor_cbp_n;
++		if (thor_cbp_n < 12) {
++			thor_cbp_n++;
++			THOR_TRACE("THOR CBP: #%d bp=%p vp=%p bflags=%x lblk=%lld blk=%lld bcount=%u upl=%p uoff=%u real=%p off=%lld\n",
++			    thor_cbp_n, bp, bp->b_vp, bp->b_flags,
++			    (long long)bp->b_lblkno, (long long)bp->b_blkno, bp->b_bcount,
++			    bp->b_upl, bp->b_uploffset, bp->b_real_bp, (long long)f_offset);
++		}
++	}
+ 
+ 	return cluster_io(bp->b_vp, bp->b_upl, 0, f_offset, bp->b_bcount, flags, bp, (struct clios *)NULL, callback, callback_arg);
+ }
+diff --color -ruN -x *.orig -x *.rej base/bsd/vm/vnode_pager.c b/bsd/vm/vnode_pager.c
+--- a/bsd/vm/vnode_pager.c	2026-11-09 08:50:57
++++ b/bsd/vm/vnode_pager.c	2026-11-09 00:11:53
+@@ -78,6 +78,10 @@
+ #include <sys/kdebug_triage.h>
+ #include <vfs/vfs_disk_conditioner.h>
+ 
++/* THOR: page-in probe, quiet unless "thor_trace=1" (see vfs_cluster.c). */
++extern int thor_boot_trace;
++#define THOR_TRACE(...) do { if (thor_boot_trace) printf(__VA_ARGS__); } while (0)
++
+ void
+ vnode_pager_throttle(void)
+ {
+@@ -555,6 +559,14 @@
+ 		pg_index += num_of_pages;
+ 	}
+ out:
++	{
++		static int thorPG2;
++		if (thorPG2 < 10 && f_offset < 0x20000) {
++			thorPG2++;
++			THOR_TRACE("THOR PG2: out f_off=%llx result=%d error=%d\n",
++			    (unsigned long long)f_offset, result, error);
++		}
++	}
+ 	vnode_put_from_pager(vp);
+ 
+ 	if (errorp) {
+@@ -613,6 +625,14 @@
+ 		panic("vnode_getalways returned %d for vp %p", error, vp);
+ 	}
+ 
++	{
++		static int thorPG0;
++		if (thorPG0 < 10 && f_offset < 0x20000) {
++			thorPG0++;
++			THOR_TRACE("THOR PG0: enter vp=%p f_off=%llx size=%u ubc=%d\n", vp,
++			    (unsigned long long)f_offset, (unsigned)size, UBCINFOEXISTS(vp));
++		}
++	}
+ 	if (UBCINFOEXISTS(vp) == 0) {
+ 		result = PAGER_ERROR;
+ 		error  = PAGER_ERROR;
+@@ -645,6 +665,14 @@
+ 			 * long as it continues to include the "must have" page... 'f_offset' + 'upl_offset'
+ 			 * identifies that page
+ 			 */
++			{
++				static int thorPG1;
++				if (thorPG1 < 10 && f_offset < 0x20000) {
++					thorPG1++;
++					THOR_TRACE("THOR PG1: before VNOP_PAGEIN f_off=%llx\n",
++					    (unsigned long long)f_offset);
++				}
++			}
+ 			if ((error = VNOP_PAGEIN(vp, NULL, upl_offset, (off_t)f_offset,
+ 			    size, flags, vfs_context_current()))) {
+ 				set_thread_pagein_error(current_thread(), error);
+diff --color -ruN -x *.orig -x *.rej base/iokit/Kernel/MiniAppleKeyStore.cpp b/iokit/Kernel/MiniAppleKeyStore.cpp
+--- a/iokit/Kernel/MiniAppleKeyStore.cpp	1970-01-01 08:00:00
++++ b/iokit/Kernel/MiniAppleKeyStore.cpp	2026-11-08 07:16:59
+@@ -0,0 +1,281 @@
++/*
++ * Pong development AppleKeyStore compatibility service, adapted from the
++ * supplied HackiOS MiniAppleKeyStore (MIT).
++ *
++ * This is explicitly a volatile software keybag with no passcode and no
++ * hardware-backed secrets. It implements HackiOS's complete development
++ * keybag protocol, including reversible software wrapping, so MobileKeyBag
++ * and keychain clients can run without a SEP. Wrapping is not encryption.
++ */
++#include <pexpert/arm64/board_config.h>
++#if (DEVELOPMENT || DEBUG) && !SECURE_KERNEL
++#include <IOKit/IOLib.h>
++#include <IOKit/IOKitKeys.h>
++#include <IOKit/IOService.h>
++#include <IOKit/IOUserClient.h>
++#include <IOKit/IOMemoryDescriptor.h>
++#include <sys/proc.h>
++#include <sys/systm.h>
++
++#include "MiniDrivers.h"
++
++enum {
++	kAKSOpenCheck           = 0x00,
++	kAKSGetLockState        = 0x07,
++	kAKSLockDevice          = 0x08,
++	kAKSUnlockDevice        = 0x09,
++	kAKSWrapKey             = 0x0a,
++	kAKSUnwrapKey           = 0x0b,
++	kAKSUnlockBag           = 0x0c,
++	kAKSGetSystem           = 0x0e,
++	kAKSGetDeviceState      = 0x11,
++	kAKSGetBagUUID          = 0x17,
++	kAKSAssertHold          = 0x1a,
++	kAKSAssertDrop          = 0x1b,
++	kAKSGetConfiguration    = 0x1f,
++	kAKSLockDeviceNow       = 0x20,
++	kAKSGetExtendedState    = 0x23,
++	kAKSGeneration          = 0x28,
++	kAKSAssertPromote       = 0x64,
++	kAKSAssertConsume       = 0x65,
++	kAKSNotifyStateSet      = 0x66,
++	kAKSNotifyStateIsSet    = 0x67,
++	kAKSPrewarm             = 0x73,
++};
++
++#define kAKSStateFlags        0x6 /* no passcode, unlocked since boot */
++#define kAKSLockStateDisabled 3
++
++static uint64_t gAKSLogged[4];
++static bool gAKSNotifyState;
++
++static size_t
++derPut(uint8_t *buf, size_t length, const char *key, uint8_t value)
++{
++	size_t keyLength = strlen(key);
++	buf[length++] = 0x30;
++	buf[length++] = (uint8_t)(keyLength + 5);
++	buf[length++] = 0x0c;
++	buf[length++] = (uint8_t)keyLength;
++	memcpy(buf + length, key, keyLength);
++	length += keyLength;
++	buf[length++] = 0x02;
++	buf[length++] = 0x01;
++	buf[length++] = value;
++	return length;
++}
++
++static size_t
++deviceState(uint8_t *buf)
++{
++	size_t length = 2;
++	length = derPut(buf, length, "sb", 0);
++	length = derPut(buf, length, "sr", 0);
++	length = derPut(buf, length, "ss", kAKSStateFlags);
++	length = derPut(buf, length, "sas", 0);
++	length = derPut(buf, length, "sfa", 0);
++	length = derPut(buf, length, "sgs", 0);
++	length = derPut(buf, length, "sls", kAKSLockStateDisabled);
++	length = derPut(buf, length, "sgpe", 0);
++	length = derPut(buf, length, "srcd", 0);
++	buf[0] = 0x31;
++	buf[1] = (uint8_t)(length - 2);
++	return length;
++}
++
++static size_t
++configuration(uint8_t *buf)
++{
++	size_t length = 2;
++	length = derPut(buf, length, "bd", 0);
++	length = derPut(buf, length, "gp", 0);
++	length = derPut(buf, length, "mua", 10);
++	buf[0] = 0x31;
++	buf[1] = (uint8_t)(length - 2);
++	return length;
++}
++
++class AppleKeyStore : public IOService
++{
++	OSDeclareDefaultStructors(AppleKeyStore);
++public:
++	bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
++};
++OSDefineMetaClassAndStructors(AppleKeyStore, IOService);
++
++bool
++AppleKeyStore::start(IOService *provider)
++{
++	if (!IOService::start(provider)) return false;
++	setProperty(kIOUserClientClassKey, "AppleKeyStoreUserClient");
++	setProperty("PongVolatileSoftwareKeybag", kOSBooleanTrue);
++	setName("AppleKeyStore");
++	registerService();
++	IOLog("MiniAppleKeyStore: no-passcode software keybag published; software wrap/unwrap enabled\n");
++	return true;
++}
++
++class AppleKeyStoreUserClient : public IOUserClient
++{
++	OSDeclareDefaultStructors(AppleKeyStoreUserClient);
++	static IOReturn answer(IOExternalMethodArguments *, const uint8_t *, size_t);
++public:
++	IOReturn clientClose(void) APPLE_KEXT_OVERRIDE;
++	IOReturn registerNotificationPort(mach_port_t, UInt32, io_user_reference_t) APPLE_KEXT_OVERRIDE;
++	IOReturn externalMethod(uint32_t, IOExternalMethodArguments *,
++	    IOExternalMethodDispatch *, OSObject *, void *) APPLE_KEXT_OVERRIDE;
++};
++OSDefineMetaClassAndStructors(AppleKeyStoreUserClient, IOUserClient);
++
++IOReturn
++AppleKeyStoreUserClient::clientClose(void)
++{
++	if (!isInactive()) terminate();
++	return kIOReturnSuccess;
++}
++
++IOReturn
++AppleKeyStoreUserClient::registerNotificationPort(mach_port_t port,
++    __unused UInt32 type, __unused io_user_reference_t refCon)
++{
++	/* No hardware-backed keys/bags are ever queued for backup. */
++	releaseNotificationPort(port);
++	return kIOReturnSuccess;
++}
++
++/* Match the upstream development format; the fixed pattern is not a secret. */
++static const uint8_t kWrapMark[4] = { 'H', 'K', 'w', 'r' };
++
++static void
++wrapMix(uint8_t *bytes, size_t length)
++{
++	for (size_t i = 0; i < length; i++) {
++		bytes[i] ^= (uint8_t)(0x5a + 37 * i);
++	}
++}
++
++IOReturn
++AppleKeyStoreUserClient::answer(IOExternalMethodArguments *args,
++    const uint8_t *bytes, size_t length)
++{
++	if (args->structureOutputDescriptor) {
++		IOMemoryDescriptor *out = args->structureOutputDescriptor;
++		if (out->getLength() < length) return kIOReturnNoSpace;
++		IOReturn ret = out->prepare();
++		if (ret == kIOReturnSuccess) {
++			out->writeBytes(0, bytes, length);
++			out->complete();
++			args->structureOutputDescriptorSize = (uint32_t)length;
++		}
++		return ret;
++	}
++	if (!args->structureOutput || args->structureOutputSize < length)
++		return kIOReturnNoSpace;
++	memcpy(args->structureOutput, bytes, length);
++	args->structureOutputSize = (uint32_t)length;
++	return kIOReturnSuccess;
++}
++
++IOReturn
++AppleKeyStoreUserClient::externalMethod(uint32_t selector,
++    IOExternalMethodArguments *args, __unused IOExternalMethodDispatch *dispatch,
++    __unused OSObject *target, __unused void *reference)
++{
++	static const uint8_t bagUUID[16] = {
++		'P','o','n','g','V','o','l','a','t','i','l','e',0,0,0,1
++	};
++	uint8_t der[128];
++	uint64_t *out = args->scalarOutput;
++	switch (selector) {
++	case kAKSOpenCheck:
++	case kAKSLockDevice:
++	case kAKSLockDeviceNow:
++	case kAKSUnlockDevice:
++	case kAKSUnlockBag:
++	case kAKSAssertHold:
++	case kAKSAssertDrop:
++	case kAKSAssertPromote:
++	case kAKSAssertConsume:
++	case kAKSPrewarm:
++		return kIOReturnSuccess;
++	case kAKSGetLockState:
++		if (args->scalarOutputCount < 1) return kIOReturnBadArgument;
++		out[0] = kAKSStateFlags;
++		args->scalarOutputCount = 1;
++		return kIOReturnSuccess;
++	case kAKSGetSystem:
++	case kAKSGeneration:
++		if (args->scalarOutputCount >= 1) {
++			out[0] = 0;
++			args->scalarOutputCount = 1;
++		}
++		return kIOReturnSuccess;
++	case kAKSGetDeviceState:
++	case kAKSGetExtendedState:
++		return answer(args, der, deviceState(der));
++	case kAKSGetConfiguration:
++		return answer(args, der, configuration(der));
++	case kAKSGetBagUUID:
++		return answer(args, bagUUID, sizeof(bagUUID));
++	case kAKSNotifyStateSet:
++		gAKSNotifyState = true;
++		return kIOReturnSuccess;
++	case kAKSNotifyStateIsSet:
++		if (args->scalarOutputCount < 1) return kIOReturnBadArgument;
++		out[0] = gAKSNotifyState;
++		args->scalarOutputCount = 1;
++		return kIOReturnSuccess;
++	case kAKSWrapKey: {
++		uint8_t wrapped[8 + 64];
++		size_t length = args->structureInputSize;
++		if (!args->structureInput || length == 0 || length > 64 || args->scalarInputCount < 2)
++			return kIOReturnBadArgument;
++		memcpy(wrapped, kWrapMark, sizeof(kWrapMark));
++		wrapped[4] = (uint8_t)args->scalarInput[1];
++		wrapped[5] = wrapped[6] = wrapped[7] = 0;
++		memcpy(wrapped + 8, args->structureInput, length);
++		wrapMix(wrapped + 8, length);
++		if (args->scalarOutputCount >= 1) {
++			out[0] = args->scalarInput[1];
++			args->scalarOutputCount = 1;
++		}
++		return answer(args, wrapped, 8 + length);
++	}
++	case kAKSUnwrapKey: {
++		uint8_t key[64];
++		const uint8_t *wrapped = (const uint8_t *)args->structureInput;
++		size_t length = args->structureInputSize;
++		if (!wrapped || length <= 8 || length > 8 + sizeof(key) ||
++		    memcmp(wrapped, kWrapMark, sizeof(kWrapMark)) != 0)
++			return kIOReturnBadArgument;
++		memcpy(key, wrapped + 8, length - 8);
++		wrapMix(key, length - 8);
++		return answer(args, key, length - 8);
++	}
++	default:
++		break;
++	}
++	if (selector < 256 && !(gAKSLogged[selector / 64] & (1ULL << (selector % 64)))) {
++		char procname[32] = "?";
++		gAKSLogged[selector / 64] |= 1ULL << (selector % 64);
++		proc_selfname(procname, sizeof(procname));
++		IOLog("MiniAppleKeyStore: %s[%d] selector 0x%x unsupported\n",
++		    procname, proc_selfpid(), selector);
++	}
++	return kIOReturnUnsupported;
++}
++
++void
++MiniAppleKeyStoreStart(void)
++{
++	IOService *resources = IOService::getResourceService();
++	AppleKeyStore *store = OSTypeAlloc(AppleKeyStore);
++	if (!resources || !store || !store->init() || !store->attach(resources)) {
++		OSSafeReleaseNULL(store);
++		IOLog("MiniAppleKeyStore: software service creation failed\n");
++		return;
++	}
++	if (!store->start(resources)) store->detach(resources);
++	store->release();
++}
++#endif
+diff --color -ruN -x *.orig -x *.rej base/iokit/Kernel/MiniDrivers.h b/iokit/Kernel/MiniDrivers.h
+--- a/iokit/Kernel/MiniDrivers.h	2026-11-09 08:51:00
++++ b/iokit/Kernel/MiniDrivers.h	2026-11-08 07:13:05
+@@ -15,6 +15,7 @@
+ 
+ bool MiniIOSurfaceStart(IOService * provider);
+ void MiniIOMobileFramebufferStart(IOService * provider);
+-/* KeyStore/network hardware stand-ins are not part of the Pong UI port. */
++void MiniAppleKeyStoreStart(void);
++/* A network hardware stand-in is not part of the Pong port. */
+ 
+ #endif /* _IOKIT_MINIDRIVERS_H */
+diff --color -ruN -x *.orig -x *.rej base/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp	2026-11-09 08:51:00
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp	2026-11-08 07:13:20
+@@ -53,9 +53,11 @@
+ 	kFBMethodGetDisplaySize         = 8,
+ 	kFBMethodRequestPowerChange     = 12,
+ 	kFBMethodSwapSignal             = 20,
++	kFBMethodSetDisplayDevice       = 22,
+ 	kFBMethodGetDigitalOutState     = 25,
+ 	kFBMethodGetDotPitch            = 28,
+ 	kFBMethodGetDisplayArea         = 29,
++	kFBMethodSetColorRemapMode      = 33,
+ 	kFBMethodSwapCancel             = 52,
+ 	kFBMethodGetColorRemapMode      = 57,
+ 	kFBMethodNotifications          = 72,
+@@ -1073,6 +1075,13 @@
+ 	IOLockLock(fLock);
+ 	old = fPorts[type];
+ 	fPorts[type] = port;
++	/* Either registration order is valid. A callback installed before its
++	 * port must not lose the refresh clock when the first timer fires. */
++	if (type == kFBNotifyVSync && port != NULL && fCallbacks[type] != 0 &&
++	    !fVSyncRunning && !fClosed) {
++		fVSyncRunning = true;
++		armVSync();
++	}
+ 	IOLockUnlock(fLock);
+ 	if (old != NULL) {
+ 		releaseNotificationPort(old);
+@@ -1131,7 +1140,10 @@
+ 	}
+ 	IOLockUnlock(fLock);
+ 	if (send) {
+-		sendAsyncResult64WithOptions(ref, kIOReturnSuccess, args, 6, kIOUserNotifyOptionCanDrop);
++		IOReturn result = sendAsyncResult64WithOptions(ref, kIOReturnSuccess, args, 6, kIOUserNotifyOptionCanDrop);
++		if (fVSyncCount <= 2) {
++			IOLog("MiniIOMobileFramebuffer: refresh notification %llu result=%x\n", fVSyncCount, result);
++		}
+ 	}
+ }
+ 
+@@ -1182,6 +1194,29 @@
+ 		args->scalarOutputCount = 1;
+ 		return kIOReturnSuccess;
+ 
++	case kFBMethodGetColorRemapMode:
++		if (args->scalarOutputCount < 1) return kIOReturnBadArgument;
++		/* This software backend presents the source RGB without a remap. */
++		out[0] = 0;
++		args->scalarOutputCount = 1;
++		return kIOReturnSuccess;
++	case kFBMethodSetColorRemapMode:
++		if (args->scalarInputCount != 1) return kIOReturnBadArgument;
++		return in[0] == 0 ? kIOReturnSuccess : kIOReturnUnsupported;
++
++	case kFBMethodSetDisplayDevice:
++		/* 20G81 _kern_SetDisplayDevice sends one device index. This service
++		 * is permanently attached to the boot panel, device zero; there is
++		 * no alternate panel to select. */
++		if (args->scalarInputCount != 1) return kIOReturnBadArgument;
++		return in[0] == 0 ? kIOReturnSuccess : kIOReturnUnsupported;
++
++	case kFBMethodGetDisplayArea:
++		/* 20G81 expects an eight-byte CGFloat, not width/height integers.
++		 * No physical-area ABI is advertised by the boot framebuffer. Let
++		 * IOMobileFramebuffer use its fallback instead of returning zero. */
++		return kIOReturnUnsupported;
++
+ 	case kFBMethodGetLayerDefaultSurface:           /* in: size wanted (or 0, 0); out: a send right for the surface */
+ 		if (args->scalarOutputCount < 1) {
+ 			return kIOReturnBadArgument;
+@@ -1230,7 +1265,8 @@
+ 		IOLockLock(fLock);
+ 		fCallbacks[in[2]] = in[0];
+ 		fRefcons[in[2]] = in[1];
+-		if (in[2] == kFBNotifyVSync && in[0] != 0 && !fVSyncRunning && !fClosed) {
++		if (in[2] == kFBNotifyVSync && in[0] != 0 && fPorts[in[2]] != NULL &&
++		    !fVSyncRunning && !fClosed) {
+ 			fVSyncRunning = true;
+ 			armVSync();
+ 		}
+@@ -1248,11 +1284,16 @@
+ 		return kIOReturnSuccess;
+ 
+ 	case kFBMethodGetBlock:                         /* in: which block; out: its bytes */
+-		if (args->structureOutput == NULL) {
++		if (args->scalarInputCount < 1 || args->structureOutput == NULL) {
+ 			return kIOReturnBadArgument;
+ 		}
++		/* Only the actual current mode exists here. In 20G81, accepting
++		 * block 0x4d advertises gamut-remap hardware even if its data are
++		 * all zero. Leave unsupported color/other blocks unavailable. */
++		if (in[0] != 0x40) return kIOReturnUnsupported;
++		if (args->structureOutputSize < 12) return kIOReturnBadArgument;
+ 		bzero(args->structureOutput, args->structureOutputSize);
+-		if (args->scalarInputCount >= 1 && in[0] == 0x40 && args->structureOutputSize >= 12) {
++		{
+ 			/* the current mode: its colour and timing identifiers */
+ 			uint32_t ids[2] = { kFBColorID, kFBTimingID };
+ 
+@@ -1279,14 +1320,10 @@
+ 		    args->scalarInputCount > 1 ? in[1] : 0, args->scalarInputCount > 2 ? in[2] : 0, args->scalarOutputCount,
+ 		    args->structureInputSize, args->structureOutputSize);
+ 	}
+-	/* a request that only sets something is accepted; one that wants an answer gets zeros */
+-	if (args->scalarOutputCount != 0) {
+-		bzero(out, args->scalarOutputCount * sizeof(out[0]));
+-	}
+-	if (args->structureOutput != NULL && args->structureOutputSize != 0) {
+-		bzero(args->structureOutput, args->structureOutputSize);
+-	}
+-	return kIOReturnSuccess;
++	/* In particular, GetGammaTable must not succeed with an all-zero LUT:
++	 * that describes a black display. Unsupported hardware queries/setters
++	 * must leave the framework's software/default path in charge. */
++	return kIOReturnUnsupported;
+ }
+ 
+ /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+diff --color -ruN -x *.orig -x *.rej base/iokit/Kernel/MiniIOSurface.cpp b/iokit/Kernel/MiniIOSurface.cpp
+--- a/iokit/Kernel/MiniIOSurface.cpp	2026-11-09 08:51:00
++++ b/iokit/Kernel/MiniIOSurface.cpp	2026-11-08 07:13:20
+@@ -12,6 +12,7 @@
+ #include <pexpert/arm64/board_config.h>
+ #if (DEVELOPMENT || DEBUG) && !SECURE_KERNEL
+ #include <IOKit/IOLib.h>
++#include <IOKit/IOPlatformExpert.h>
+ #include <pexpert/pexpert.h>
+ #include <IOKit/IOLocks.h>
+ #include <IOKit/IOKitKeys.h>
+@@ -524,6 +525,12 @@
+ 			}
+ 			p->width = dictNumber(pd, "IOSurfacePlaneWidth", width);
+ 			p->height = dictNumber(pd, "IOSurfacePlaneHeight", height);
++			uint32_t pbpe = dictNumber(pd, "IOSurfacePlaneBytesPerElement", bpe ? bpe : 1);
++			if (p->width > MINISURF_MAX_DIMENSION || p->height > MINISURF_MAX_DIMENSION ||
++			    pbpe == 0 || pbpe > 65535) {
++				s->release();
++				return NULL;
++			}
+ 			p->bytesPerElement = (uint16_t) dictNumber(pd, "IOSurfacePlaneBytesPerElement", bpe ? bpe : 1);
+ 			p->elementWidth = (uint8_t) pew;
+ 			p->elementHeight = (uint8_t) peh;
+@@ -533,8 +540,18 @@
+ 			}
+ 			p->size = dictNumber(pd, "IOSurfacePlaneSize", 0);
+ 			if (p->size == 0) {
+-				p->size = p->bytesPerRow * ((p->height + peh - 1) / peh);
++				uint64_t planeSize = (uint64_t)p->bytesPerRow * ((p->height + peh - 1) / peh);
++				if (planeSize > MINISURF_MAX_ALLOC) {
++					s->release();
++					return NULL;
++				}
++				p->size = (uint32_t)planeSize;
+ 			}
++			if (p->bytesPerRow < (uint64_t)((p->width + pew - 1) / pew) * pbpe ||
++			    p->size < (uint64_t)p->bytesPerRow * ((p->height + peh - 1) / peh)) {
++				s->release();
++				return NULL;
++			}
+ 			p->offset = dictNumber(pd, "IOSurfacePlaneOffset", dictNumber(pd, "IOSurfacePlaneBase", (uint32_t) needed));
+ 			p->extendedPixels[0] = dictNumber(pd, "IOSurfacePlaneExtendedPixelsOnLeft", 0);
+ 			p->extendedPixels[1] = dictNumber(pd, "IOSurfacePlaneExtendedPixelsOnRight", 0);
+@@ -895,6 +912,7 @@
+ 
+ 	IOReturn methodInit(IOExternalMethodArguments * args);
+ 	IOReturn methodCreate(IOExternalMethodArguments * args);
++	IOReturn methodWrapClientImage(IOExternalMethodArguments * args);
+ 	IOReturn methodLookup(IOExternalMethodArguments * args);
+ 	IOReturn methodLookupFromPort(IOExternalMethodArguments * args);
+ 	IOReturn methodCreatePort(IOExternalMethodArguments * args);
+@@ -1247,7 +1265,55 @@
+ 	return ret;
+ }
+ 
++/* 20G81 IOSurfaceClientWrapClientImage sends this 32-byte layout. Use the
++ * same validated, pinned client-memory surface as IOSurfaceCreate(Address),
++ * with its actual pixels shared across tasks; no GPU binding is involved. */
+ IOReturn
++IOSurfaceRootUserClient::methodWrapClientImage(IOExternalMethodArguments *args)
++{
++	struct {
++		uint64_t address;
++		uint32_t width, height, format, bytesPerElement, bytesPerRow, allocSize;
++	} image;
++	static_assert(sizeof(image) == 32, "20G81 wrapped image request");
++	if (!args->structureInput || args->structureInputSize != sizeof(image))
++		return kIOReturnBadArgument;
++	memcpy(&image, args->structureInput, sizeof(image));
++	if (!image.address || !image.width || !image.height ||
++	    image.width > MINISURF_MAX_DIMENSION || image.height > MINISURF_MAX_DIMENSION ||
++	    !image.bytesPerElement || image.bytesPerElement > 16 ||
++	    image.bytesPerRow < (uint64_t)image.width * image.bytesPerElement ||
++	    image.allocSize < (uint64_t)image.bytesPerRow * image.height ||
++	    image.allocSize > MINISURF_MAX_ALLOC || image.address > ~0ULL - image.allocSize)
++		return kIOReturnBadArgument;
++	OSDictionary *props = OSDictionary::withCapacity(7);
++	if (!props) return kIOReturnNoMemory;
++	const struct { const char *key; uint64_t value; } values[] = {
++		{"IOSurfaceAddress", image.address}, {"IOSurfaceWidth", image.width},
++		{"IOSurfaceHeight", image.height}, {"IOSurfacePixelFormat", image.format},
++		{"IOSurfaceBytesPerElement", image.bytesPerElement},
++		{"IOSurfaceBytesPerRow", image.bytesPerRow}, {"IOSurfaceAllocSize", image.allocSize}
++	};
++	for (unsigned i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
++		OSNumber *value = OSNumber::withNumber(values[i].value, 64);
++		bool added = value && props->setObject(values[i].key, value);
++		OSSafeReleaseNULL(value);
++		if (!added) { props->release(); return kIOReturnNoMemory; }
++	}
++	IOReturn ret;
++	MiniIOSurface *surface = surfaceCreate(props, &ret);
++	props->release();
++	if (!surface) return ret;
++	IOLockLock(gSurfaceLock);
++	struct minisurf_client_ref *ref = addRef(surface);
++	ret = ref ? returnSurface(ref, false, args) : kIOReturnNoMemory;
++	if (ref && ret != kIOReturnSuccess) dropRef(ref);
++	surfaceUnhold(surface);
++	IOLockUnlock(gSurfaceLock);
++	return ret;
++}
++
++IOReturn
+ IOSurfaceRootUserClient::methodLookup(IOExternalMethodArguments * args)
+ {
+ 	IOReturn ret = kIOReturnNotFound;
+@@ -1592,6 +1658,8 @@
+ 		return methodInit(args);
+ 	case kSurfaceMethodCreate:
+ 		return methodCreate(args);
++	case kSurfaceMethodWrapClientImage:
++		return methodWrapClientImage(args);
+ 	case kSurfaceMethodLookup:
+ 		return methodLookup(args);
+ 	case kSurfaceMethodLookupFromPort:
+@@ -1832,6 +1900,10 @@
+ extern "C" void
+ native_pong_ui_services_start(void)
+ {
++	uint32_t keybag = 0;
++	if (PE_parse_boot_argn("pong_software_keybag", &keybag, sizeof(keybag)) && keybag) {
++		MiniAppleKeyStoreStart();
++	}
+ 	uint32_t enable = 0;
+ 	if (!PE_parse_boot_argn("pong_software_ui", &enable, sizeof(enable)) || !enable) {
+ 		return;
+diff --color -ruN -x *.orig -x *.rej base/iokit/conf/files b/iokit/conf/files
+--- a/iokit/conf/files	2026-11-09 08:50:57
++++ b/iokit/conf/files	2026-11-08 07:13:05
+@@ -148,3 +148,6 @@
+ 
+ # Skywalk
+ iokit/bsddev/skywalk/IOSkywalkSupport.cpp		optional iokitcpp skywalk
++iokit/Kernel/MiniIOSurface.cpp		optional iokitcpp
++iokit/Kernel/MiniIOMobileFramebuffer.cpp	optional iokitcpp
++iokit/Kernel/MiniAppleKeyStore.cpp		optional iokitcpp
+diff --color -ruN -x *.orig -x *.rej base/libkern/conf/files b/libkern/conf/files
+--- a/libkern/conf/files	2026-11-09 08:50:57
++++ b/libkern/conf/files	2026-11-07 23:44:21
+@@ -136,3 +136,5 @@
+ libkern/libclosure/libclosuredata.c optional config_blocks
+ 
+ libkern/compression/compression.c	standard
++libkern/amfi/miniamfi.c		standard
++libkern/amfi/miniamfi_entitlements.cpp	standard
+diff --color -ruN -x *.orig -x *.rej base/osfmk/arm64/pong_ui_exception.c b/osfmk/arm64/pong_ui_exception.c
+--- a/osfmk/arm64/pong_ui_exception.c	1970-01-01 08:00:00
++++ b/osfmk/arm64/pong_ui_exception.c	2026-11-08 07:09:26
+@@ -0,0 +1,64 @@
++/* Bounded UI crash capture derived from HackiOS user_exception_trace.c.
++ * Exception delivery is unchanged; no polling threads or periodic probes.
++ */
++#include <pexpert/arm64/board_config.h>
++#if defined(ARM64_BOARD_CONFIG_PONG) && (DEVELOPMENT || DEBUG)
++#include <arm/thread.h>
++#include <kern/misc_protos.h>
++#include <kern/task.h>
++#include <kern/thread.h>
++#include <mach/exception_types.h>
++#include <machine/machine_routines.h>
++#include <string.h>
++#include <vm/vm_map.h>
++#include <vm/vm_shared_region.h>
++
++extern char *proc_name_address(struct proc *p);
++extern int proc_pid(struct proc *p);
++void pong_ui_exception(exception_type_t, mach_exception_data_t,
++    mach_msg_type_number_t, thread_t);
++
++void
++pong_ui_exception(exception_type_t exception, mach_exception_data_t code,
++    mach_msg_type_number_t count, thread_t thread)
++{
++	static unsigned records[5];
++	static const char * const names[] = { "SpringBoard", "backboardd", "containermanagerd", "contextstored", "biomed" };
++	static const unsigned message_regs[] = { 0, 1, 2, 3, 8, 16 };
++	if (!ml_get_interrupts_enabled() || thread != current_thread() ||
++	    (exception != EXC_BREAKPOINT && exception != EXC_BAD_INSTRUCTION)) return;
++	task_t task = get_threadtask(thread);
++	const arm_saved_state_t *state = get_user_regs(thread);
++	struct proc *proc = get_bsdtask_info(task);
++	if (task == kernel_task || proc == NULL || state == NULL || !is_saved_state64(state)) return;
++	const char *name = proc_name_address(proc);
++	unsigned which;
++	for (which = 0; which < 5 && strcmp(name, names[which]) != 0; which++) { }
++	if (which == 5 || __atomic_fetch_add(&records[which], 1, __ATOMIC_RELAXED) >= 4) return;
++	vm_shared_region_t region = vm_shared_region_get(task);
++	uint32_t slide = region ? region->sr_slide : 0;
++	if (region) vm_shared_region_deallocate(region);
++	printf("Pong UI crash: %s[%d] exception=%d code=0x%llx/0x%llx pc=0x%llx lr=0x%llx sp=0x%llx cache_slide=0x%x\n",
++	    name, proc_pid(proc), exception, count ? code[0] : 0, count > 1 ? code[1] : 0,
++	    (uint64_t)get_saved_state_pc(state), (uint64_t)get_saved_state_lr(state),
++	    (uint64_t)get_saved_state_sp(state), slide);
++	for (unsigned i = 0; i < sizeof(message_regs) / sizeof(message_regs[0]); i++) {
++		user_addr_t address = get_saved_state_reg(state, message_regs[i]);
++		char text[128] = { 0 };
++		vm_size_t length = 0;
++		if (address < 0x100000000ULL || address >= MACH_VM_MAX_ADDRESS ||
++		    copyinstr(address, text, sizeof(text) - 1, &length) != 0 || length < 7) continue;
++		bool printable = true;
++		for (unsigned c = 0; c < 6; c++) printable &= text[c] >= 0x20 && text[c] < 0x7f;
++		if (printable) printf("Pong UI crash: x%u text=%s\n", message_regs[i], text);
++	}
++	uint64_t fp = get_saved_state_fp(state), sp = get_saved_state_sp(state), frame[2];
++	for (unsigned depth = 0; depth < 12; depth++) {
++		if (fp < sp || fp - sp > 1024 * 1024 || fp >= MACH_VM_MAX_ADDRESS - sizeof(frame) ||
++		    (fp & 15) || copyin(fp, frame, sizeof(frame)) != 0) break;
++		printf("Pong UI crash: frame%u lr=0x%llx\n", depth, frame[1]);
++		if (frame[0] <= fp) break;
++		fp = frame[0];
++	}
++}
++#endif
+diff --color -ruN -x *.orig -x *.rej base/osfmk/arm64/sleh.c b/osfmk/arm64/sleh.c
+--- a/osfmk/arm64/sleh.c	2026-11-09 08:50:57
++++ b/osfmk/arm64/sleh.c	2026-11-07 17:38:05
+@@ -89,6 +89,34 @@
+ #error Should only be compiling for arm64.
+ #endif
+ 
++/* THOR: what is PID 1 actually doing?  The per-task counters are too coarse, so
++ * record the last user exception and the last syscall for one watched task.
++ * The driver's heartbeat prints these; nothing here changes any behaviour. */
++void *thor_watch_task;
++/* Matching on the task pointer kept catching kernel threads; the proc pointer
++ * is unique for as long as the process lives, so the block recorder uses it. */
++void *thor_watch_proc;
++uint64_t thor_thread_term_hits;
++uint64_t thor_exc_count;
++uint64_t thor_exc_va;
++uint64_t thor_exc_pc;
++uint32_t thor_exc_esr;
++uint32_t thor_exc_class;
++uint64_t thor_sys_count;
++uint64_t thor_sys_num;
++/* Task matching kept failing, so also keep the plain "last one seen" record:
++ * once PID 1 is the only runnable thing left, the last global value is its. */
++void *thor_last_exc_task;
++void *thor_last_sys_task;
++/* Details of the last syscall PID 1 entered: raw arguments, and for sysctl(2)
++ * the name vector, which is enough to identify exactly which control it wants. */
++uint64_t thor_sys_x0, thor_sys_x1, thor_sys_x2, thor_sys_x3;
++uint32_t thor_sysctl_name[4];
++int32_t  thor_sysctl_n;
++/* Totals across every task: they prove whether the filter is what is silent. */
++uint64_t thor_exc_all;
++uint64_t thor_sys_all;
++
+ #define TEST_CONTEXT32_SANITY(context) \
+ 	(context->ss.ash.flavor == ARM_SAVED_STATE32 && context->ss.ash.count == ARM_SAVED_STATE32_COUNT && \
+ 	 context->ns.nsh.flavor == ARM_NEON_SAVED_STATE32 && context->ns.nsh.count == ARM_NEON_SAVED_STATE32_COUNT)
+@@ -629,6 +657,18 @@
+ #endif
+ 	bool is_user = PSR64_IS_USER(get_saved_state_cpsr(state));
+ 
++	if (is_user) {
++		thor_exc_all++;
++		thor_last_exc_task = (void *)current_task();
++		thor_exc_va = (uint64_t)far;
++		thor_exc_pc = (uint64_t)get_saved_state_pc(state);
++		thor_exc_esr = esr;
++		thor_exc_class = (uint32_t)class;
++		if (current_task() == (task_t)thor_watch_task) {
++			thor_exc_count++;
++		}
++	}
++
+ 	/*
+ 	 * Use KERNEL_DEBUG_CONSTANT_IST here to avoid producing tracepoints
+ 	 * that would disclose the behavior of PT_DENY_ATTACH processes.
+@@ -1658,6 +1698,29 @@
+ 	}
+ 
+ 	mach_kauth_cred_thread_update();
++
++	thor_sys_all++;
++	/* high word: SVC immediate; low word: x16, the real syscall number */
++	thor_last_sys_task = (void *)current_task();
++	thor_sys_num = ((uint64_t)(uint32_t)trap_no << 32) |
++	    (uint32_t)saved_state64(state)->x[16];
++	if (current_task() == (task_t)thor_watch_task) {
++		thor_sys_count++;
++		thor_sys_x0 = (uint64_t)saved_state64(state)->x[0];
++		thor_sys_x1 = (uint64_t)saved_state64(state)->x[1];
++		thor_sys_x2 = (uint64_t)saved_state64(state)->x[2];
++		thor_sys_x3 = (uint64_t)saved_state64(state)->x[3];
++		if ((uint32_t)thor_sys_num == 202 && thor_sys_x1 > 0 && thor_sys_x1 <= 4) {
++			uint32_t name[4];
++			if (copyin((user_addr_t)thor_sys_x0, name, (size_t)thor_sys_x1 * 4) == 0) {
++				thor_sysctl_n = (int32_t)thor_sys_x1;
++				thor_sysctl_name[0] = name[0];
++				thor_sysctl_name[1] = name[1];
++				thor_sysctl_name[2] = name[2];
++				thor_sysctl_name[3] = name[3];
++			}
++		}
++	}
+ 
+ 	if (trap_no < 0) {
+ 		switch (trap_no) {
+diff --color -ruN -x *.orig -x *.rej base/osfmk/conf/files b/osfmk/conf/files
+--- a/osfmk/conf/files	2026-11-09 08:50:57
++++ b/osfmk/conf/files	2026-11-08 07:09:26
+@@ -363,3 +363,4 @@
+ osfmk/prng/entropy.c   standard
+ 
+ osfmk/arm64/psci_smp.c standard
++osfmk/arm64/pong_ui_exception.c standard
+diff --color -ruN -x *.orig -x *.rej base/osfmk/kern/bsd_kern.c b/osfmk/kern/bsd_kern.c
+--- a/osfmk/kern/bsd_kern.c	2026-11-09 08:50:57
++++ b/osfmk/kern/bsd_kern.c	2026-11-07 19:49:48
+@@ -1514,3 +1514,31 @@
+ 		return KERN_FAILURE;
+ 	}
+ }
++
++/*
++ * THOR: what is PID 1's thread doing right now?  The task-level counters say a
++ * lot about how far it got and nothing about why it stopped, and reading the
++ * thread from a kext is what panicked before.  Doing it here, under task_lock,
++ * is the same access pattern fill_taskprocinfo already uses.
++ */
++void
++thor_dump_task_threads(task_t task, const char *tag)
++{
++	thread_t th;
++	unsigned n = 0;
++
++	task_lock(task);
++	queue_iterate(&task->threads, th, thread_t, task_threads) {
++		printf("THOR THR%s: th=%p state=%x wait=%llx cont=%llx proc=%p task=%p\n",
++		    tag, th, th->state,
++		    (unsigned long long)th->wait_event,
++		    (unsigned long long)(uintptr_t)th->continuation,
++		    get_thread_ro(th)->tro_proc,
++		    get_thread_ro(th)->tro_task);
++		if (++n >= 4) {
++			break;
++		}
++	}
++	printf("THOR THR%s: listed=%u count=%d\n", tag, n, task->thread_count);
++	task_unlock(task);
++}
+diff --color -ruN -x *.orig -x *.rej base/osfmk/kern/exception.c b/osfmk/kern/exception.c
+--- a/osfmk/kern/exception.c	2026-11-09 08:50:57
++++ b/osfmk/kern/exception.c	2026-11-08 07:09:26
+@@ -100,6 +100,11 @@
+ #include <libkern/coreanalytics/coreanalytics.h>
+ 
+ #include <sys/code_signing.h> /* for developer mode state */
++#include <pexpert/arm64/board_config.h>
++#if defined(ARM64_BOARD_CONFIG_PONG) && (DEVELOPMENT || DEBUG)
++extern void pong_ui_exception(exception_type_t, mach_exception_data_t,
++    mach_msg_type_number_t, thread_t);
++#endif
+ 
+ bool panic_on_exception_triage = false;
+ 
+@@ -651,6 +656,10 @@
+ 	kern_return_t   kr = KERN_FAILURE;
+ 
+ 	assert(exception != EXC_RPC_ALERT);
++
++#if defined(ARM64_BOARD_CONFIG_PONG) && (DEVELOPMENT || DEBUG)
++	pong_ui_exception(exception, code, codeCnt, thread);
++#endif
+ 
+ 	/*
+ 	 * If this behavior has been requested by the the kernel
+diff --color -ruN -x *.orig -x *.rej base/osfmk/kern/sched_prim.c b/osfmk/kern/sched_prim.c
+--- a/osfmk/kern/sched_prim.c	2026-11-09 08:50:57
++++ b/osfmk/kern/sched_prim.c	2026-11-07 17:31:53
+@@ -3793,6 +3793,17 @@
+  *	thread resumes, it will execute the continuation function
+  *	on a new kernel stack.
+  */
++/* THOR: where does the watched task (PID 1) go to sleep?  Recording the return
++ * address of the block lets the driver's heartbeat name the call site without
++ * touching thread internals, which panic when read from a kext. */
++extern void *thor_watch_task;
++extern void *thor_watch_proc;
++uint64_t thor_block_count;
++uint64_t thor_block_ra;
++uint64_t thor_block_ra2;
++uint64_t thor_block_cont;
++uint64_t thor_block_proc;      /* proc of the blocked thread: identity, not a reused task pointer */
++
+ wait_result_t
+ thread_block_reason(
+ 	thread_continue_t       continuation,
+@@ -3803,6 +3814,22 @@
+ 	processor_t     processor;
+ 	thread_t        new_thread;
+ 	spl_t           s;
++
++	{
++		/* Match on the proc, not the task: the task pointer comparison was
++		 * catching kernel threads (their bsd proc is NULL), so every recorded
++		 * block belonged to somebody else. */
++		void *bproc = get_bsdthreadtask_info(self);
++		if (bproc != NULL && bproc == thor_watch_proc) {
++			thor_block_count++;
++			thor_block_ra = (uint64_t)(uintptr_t)__builtin_return_address(0);
++			thor_block_ra2 = (uint64_t)(uintptr_t)__builtin_return_address(1);
++			/* The continuation names the wait: it is what runs when the
++			 * thread is woken, so msleep/vm_page_wait/lck_mtx show up here. */
++			thor_block_cont = (uint64_t)(uintptr_t)continuation;
++			thor_block_proc = (uint64_t)(uintptr_t)bproc;
++		}
++	}
+ 
+ 	s = splsched();
+ 
+diff --color -ruN -x *.orig -x *.rej base/osfmk/kern/startup.c b/osfmk/kern/startup.c
+--- a/osfmk/kern/startup.c	2026-11-09 08:50:57
++++ b/osfmk/kern/startup.c	2026-11-08 06:59:16
+@@ -765,6 +765,15 @@
+ 	kernel_bootstrap_log("vnguard_policy_init");
+ 	vnguard_policy_init();
+ #endif
++#if (DEVELOPMENT || DEBUG) && !SECURE_KERNEL
++	/* THOR: the closed AMFI and Sandbox policies are absent on this machine;
++	 * register pong's stand-ins so launchd's service lookups are not denied
++	 * with "159: Sandbox restriction". */
++	{
++		extern void minimac_policy_init(void);
++		minimac_policy_init();
++	}
++#endif
+ #endif
+ 
+ #if CONFIG_DTRACE
+diff --color -ruN -x *.orig -x *.rej base/osfmk/kern/thread_act.c b/osfmk/kern/thread_act.c
+--- a/osfmk/kern/thread_act.c	2026-11-09 08:50:57
++++ b/osfmk/kern/thread_act.c	2026-11-07 17:38:02
+@@ -247,6 +247,8 @@
+ 	return result;
+ }
+ 
++extern void *thor_watch_proc;   /* THOR: osfmk/arm64/sleh.c */
++
+ kern_return_t
+ thread_terminate(
+ 	thread_t                thread)
+@@ -255,6 +257,17 @@
+ 
+ 	if (thread == THREAD_NULL) {
+ 		return KERN_INVALID_ARGUMENT;
++	}
++
++	/* THOR: if PID 1's own thread is terminated, say so explicitly. */
++	{
++		extern uint64_t thor_thread_term_hits;
++		if (thor_watch_proc != NULL &&
++		    get_bsdthreadtask_info(thread) == thor_watch_proc) {
++			thor_thread_term_hits++;
++			printf("THOR TERM: pid1 thread terminated, hits=%llu\n",
++			    (unsigned long long)thor_thread_term_hits);
++		}
+ 	}
+ 
+ 	task = get_threadtask(thread);
+diff --color -ruN -x *.orig -x *.rej base/osfmk/vm/bsd_vm.c b/osfmk/vm/bsd_vm.c
+--- a/osfmk/vm/bsd_vm.c	2026-11-09 08:50:57
++++ b/osfmk/vm/bsd_vm.c	2026-11-03 21:04:19
+@@ -593,6 +593,14 @@
+ 	assertf(page_aligned(offset), "offset 0x%llx\n", offset);
+ 
+ 	vnode_object = vnode_pager_lookup(mem_obj);
++	{
++		static int thorVP0;
++		if (thorVP0 < 10 && offset < 0x20000) {
++			thorVP0++;
++			printf("THOR VP0: enter off=%llx vp=%p\n",
++			    (unsigned long long)offset, vnode_object ? vnode_object->vnode_handle : 0);
++		}
++	}
+ 
+ 	size = MAX_UPL_TRANSFER_BYTES;
+ 	base_offset = offset;
+@@ -602,6 +610,14 @@
+ 	    fault_info) != KERN_SUCCESS) {
+ 		size = PAGE_SIZE;
+ 	}
++	{
++		static int thorVP1;
++		if (thorVP1 < 10 && base_offset < 0x20000) {
++			thorVP1++;
++			printf("THOR VP1: cluster base=%llx size=%llu stream=%u\n",
++			    (unsigned long long)base_offset, (unsigned long long)size, io_streaming);
++		}
++	}
+ 
+ 	assert(offset >= base_offset &&
+ 	    offset < base_offset + size);
+@@ -811,6 +827,15 @@
+ 	    (upl_size_t) cnt,
+ 	    flags,
+ 	    &local_error);
++	{
++		static int thorVP;
++		if (thorVP < 10 && base_offset < 0x20000) {
++			thorVP++;
++			printf("THOR VP: pagein kret=%d err=%d off=%llx cnt=%llu\n",
++			    kret, local_error, (unsigned long long)base_offset,
++			    (unsigned long long)cnt);
++		}
++	}
+ /*
+  *       if(kret == PAGER_ABSENT) {
+  *       Need to work out the defs here, 1 corresponds to PAGER_ABSENT
+diff --color -ruN -x *.orig -x *.rej base/osfmk/vm/vm_fault.c b/osfmk/vm/vm_fault.c
+--- a/osfmk/vm/vm_fault.c	2026-11-09 08:50:57
++++ b/osfmk/vm/vm_fault.c	2026-11-07 13:53:21
+@@ -976,6 +976,38 @@
+ unsigned int vm_fault_page_blocked_access = 0;
+ unsigned int vm_fault_page_forced_retry = 0;
+ 
++/* THOR debug: a page that stays vmp_busy turns every later fault on it into a
++ * retry loop. Name the page, its object and the wait result. */
++static int thor_busy_prints;
++static void
++thor_busy_trace(vm_page_t m, vm_object_t obj, vm_object_offset_t off, int wait)
++{
++	if (thor_busy_prints >= 6) return;
++	printf("THOR B: page=%p busy=%d obj=%p off=%llx wait=%d\n", m,
++	    m->vmp_busy, obj, (unsigned long long)off, wait);
++	thor_busy_prints++;
++}
++
++/* THOR debug: vm_fault_page has eight retry exits; tag which one fires. */
++static int thor_retry_prints;
++static void
++thor_retry_trace(int site, vm_map_offset_t va)
++{
++	if (thor_retry_prints >= 10) return;
++	printf("THOR R: site=%d va=%llx\n", site, (unsigned long long)va);
++	thor_retry_prints++;
++}
++
++/* THOR debug: tag which `goto RetryFault` in vm_fault_internal restarts the fault. */
++static int thor_goto_prints;
++static void
++thor_goto_trace(int site, vm_map_offset_t va)
++{
++	if (thor_goto_prints >= 24) return;
++	printf("THOR G: site=%d va=%llx\n", site, (unsigned long long)va);
++	thor_goto_prints++;
++}
++
+ vm_fault_return_t
+ vm_fault_page(
+ 	/* Arguments: */
+@@ -1200,13 +1232,14 @@
+ 				dbgTrace(0xBEEF0005, (unsigned int) m, (unsigned int) 0);       /* (TEST/DEBUG) */
+ #endif
+ 				wait_result = PAGE_SLEEP(object, m, interruptible);
++				thor_busy_trace(m, object, offset, wait_result);
+ 
+ 				if (wait_result != THREAD_AWAKENED) {
+ 					vm_fault_cleanup(object, first_m);
+ 					thread_interrupt_level(interruptible_state);
+ 
+ 					if (wait_result == THREAD_RESTART) {
+-						return VM_FAULT_RETRY;
++						{ thor_retry_trace(1, first_object ? 0 : 0); return VM_FAULT_RETRY; }
+ 					} else {
+ 						ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_BUSYPAGE_WAIT_INTERRUPTED), 0 /* arg */);
+ 						return VM_FAULT_INTERRUPTED;
+@@ -1289,7 +1322,7 @@
+ 				thread_interrupt_level(interruptible_state);
+ 
+ 				ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_PAGE_HAS_RESTART), 0 /* arg */);
+-				return VM_FAULT_RETRY;
++				{ thor_retry_trace(2, first_object ? 0 : 0); return VM_FAULT_RETRY; }
+ 			}
+ 			if (m->vmp_absent) {
+ 				/*
+@@ -1446,7 +1479,7 @@
+ 					vm_object_deallocate(object);
+ 					thread_interrupt_level(interruptible_state);
+ 
+-					return VM_FAULT_RETRY;
++					{ thor_retry_trace(3, first_object ? 0 : 0); return VM_FAULT_RETRY; }
+ 				}
+ 			}
+ 			if (type_of_fault == NULL && (m->vmp_q_state == VM_PAGE_ON_SPECULATIVE_Q) &&
+@@ -1601,7 +1634,7 @@
+ 					vm_object_deallocate(object);
+ 					thread_interrupt_level(interruptible_state);
+ 
+-					return VM_FAULT_RETRY;
++					{ thor_retry_trace(4, first_object ? 0 : 0); return VM_FAULT_RETRY; }
+ 				}
+ 			}
+ 			if (!object->internal && !object->phys_contiguous && object->paging_in_progress > vm_object_pagein_throttle) {
+@@ -1639,7 +1672,7 @@
+ 					vm_object_deallocate(object);
+ 					thread_interrupt_level(interruptible_state);
+ 
+-					return VM_FAULT_RETRY;
++					{ thor_retry_trace(5, first_object ? 0 : 0); return VM_FAULT_RETRY; }
+ 				}
+ 			}
+ 			if (object->internal) {
+@@ -1833,6 +1866,24 @@
+ 			}
+ 
+ 			if (object->copy == first_object) {
++				/* THOR: the placeholder is about to be thrown away so the
++				 * pager can push the page into the copy without stalling on
++				 * it. That assumes the page will be brought in by real I/O
++				 * and pushed back through data_return. When the data is
++				 * already resident (nothing to read), no push ever happens
++				 * and the forced retry loops forever. Re-check here: if a
++				 * usable page already exists, take the normal path. */
++				vm_page_t thor_again;
++				vm_object_lock(object);
++				thor_again = vm_page_lookup(object, vm_object_trunc_page(offset));
++				if (thor_again != VM_PAGE_NULL && !thor_again->vmp_absent &&
++				    !thor_again->vmp_busy) {
++					vm_object_unlock(object);
++					printf("THOR FIX: resident page at off=%llx, skipping forced retry\n",
++					    (unsigned long long)offset);
++					continue;
++				}
++				vm_object_unlock(object);
+ 				/*
+ 				 * if we issue the memory_object_data_request in
+ 				 * this state, we are subject to a deadlock with
+@@ -1874,12 +1925,31 @@
+ 			/*
+ 			 * Call the memory manager to retrieve the data.
+ 			 */
++			{
++				static int thorD;
++				if (thorD < 10) {
++					thorD++;
++					struct memory_object *mo = (struct memory_object *)pager;
++					printf("THOR D: pager=%p name=%s obj=%p off=%llx strat=%u shadow=%p copy=%p\n",
++					    pager, mo ? mo->mo_pager_ops->memory_object_pager_name : "?",
++					    object,
++					    (unsigned long long)(vm_object_trunc_page(offset) + object->paging_offset),
++					    object->copy_strategy, object->shadow, object->copy);
++				}
++			}
+ 			rc = memory_object_data_request(
+ 				pager,
+ 				vm_object_trunc_page(offset) + object->paging_offset,
+ 				PAGE_SIZE,
+ 				access_required | wants_copy_flag,
+ 				(memory_object_fault_info_t)fault_info);
++			{
++				static int thorD2;
++				if (thorD2 < 10) {
++					thorD2++;
++					printf("THOR D: req rc=%d\n", rc);
++				}
++			}
+ 
+ 			if (data_already_requested == TRUE) {
+ 				fault_info->behavior = orig_behavior;
+@@ -1930,7 +2000,7 @@
+ 				vm_fault_cleanup(object, first_m);
+ 				thread_interrupt_level(interruptible_state);
+ 
+-				return VM_FAULT_RETRY;
++				{ thor_retry_trace(6, first_object ? 0 : 0); return VM_FAULT_RETRY; }
+ 			}
+ 			if (m == VM_PAGE_NULL && object->phys_contiguous) {
+ 				/*
+@@ -2315,7 +2385,7 @@
+ 					vm_object_deallocate(copy_object);
+ 					thread_interrupt_level(interruptible_state);
+ 
+-					return VM_FAULT_RETRY;
++					{ thor_retry_trace(7, first_object ? 0 : 0); return VM_FAULT_RETRY; }
+ 				}
+ 			}
+ 		} else if (!PAGED_OUT(copy_object, copy_offset)) {
+@@ -2518,7 +2588,7 @@
+ 		ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_FAULT_INTERRUPTED), 0 /* arg */);
+ 		return VM_FAULT_INTERRUPTED;
+ 	}
+-	return VM_FAULT_RETRY;
++	{ thor_retry_trace(8, first_object ? 0 : 0); return VM_FAULT_RETRY; }
+ 
+ #undef  RELEASE_PAGE
+ }
+@@ -4055,6 +4125,35 @@
+ int vm_fault_resilient_media_inject_error3 = 0;
+ #endif /* MACH_ASSERT */
+ 
++/* THOR debug: where does a user page fault stop? copyin reports that PAN is
++ * cleared and then never returns; this follows the fault itself. Only faults
++ * against a non-kernel map are traced, and only the first few. */
++static int thor_fault_prints;
++static void
++thor_fault_trace(const char *stage, vm_map_t map, vm_map_offset_t va, long r)
++{
++	if (thor_fault_prints >= 40) return;
++	if (map == kernel_map) return;
++	/* The executable's whole address range. */
++	if (va < 0x100000000ULL || va >= 0x100020000ULL) return;
++	printf("THOR F: %s va=%llx r=%ld\n", stage, (unsigned long long)va, r);
++	thor_fault_prints++;
++}
++
++/* THOR debug: a fault resolved in the cache-hit fast path returns via
++ * FastPmapEnter and never reaches the before-page/after-page pair, so the
++ * exit deserves its own marker. FX carries the kernel return code. */
++static int thor_exit_prints;
++static void
++thor_exit_trace(const char *tag, vm_map_t map, vm_map_offset_t va, long r)
++{
++	if (thor_exit_prints >= 24) return;
++	if (map == kernel_map) return;
++	if (va < 0x100000000ULL || va >= 0x100020000ULL) return;
++	printf("THOR %s: va=%llx r=%ld\n", tag, (unsigned long long)va, r);
++	thor_exit_prints++;
++}
++
+ kern_return_t
+ vm_fault_internal(
+ 	vm_map_t        map,
+@@ -4198,6 +4297,7 @@
+ 	}
+ 
+ 	interruptible_state = thread_interrupt_level(interruptible);
++	thor_fault_trace("enter", map, vaddr, caller_prot);
+ 
+ 	fault_type = (change_wiring ? VM_PROT_NONE : caller_prot);
+ 
+@@ -4226,6 +4326,7 @@
+ 		}
+ 	}
+ RetryFault:
++	thor_fault_trace("retry", map, vaddr, 0);
+ 	assert(written_on_object == VM_OBJECT_NULL);
+ 
+ 	/*
+@@ -4241,7 +4342,9 @@
+ 	 */
+ 	fault_type = original_fault_type;
+ 	map = original_map;
++	thor_fault_trace("retry-lock", map, vaddr, 0);
+ 	vm_map_lock_read(map);
++	thor_fault_trace("retry-locked", map, vaddr, 0);
+ 
+ 	if (resilient_media_retry) {
+ 		/*
+@@ -4256,6 +4359,7 @@
+ 		vm_fault_resilient_media_retry++;
+ 	}
+ 
++	thor_fault_trace("retry-lookup", map, vaddr, 0);
+ 	kr = vm_map_lookup_and_lock_object(&map, vaddr,
+ 	    (fault_type | (need_copy ? VM_PROT_COPY : 0)),
+ 	    object_lock_type, &version,
+@@ -4330,6 +4434,7 @@
+ 			resilient_media_offset = (vm_object_offset_t)-1;
+ 			resilient_media_retry = false;
+ 			vm_fault_resilient_media_abort1++;
++			thor_goto_trace(1, vaddr);
+ 			goto RetryFault;
+ 		}
+ 	} else {
+@@ -4487,6 +4592,7 @@
+ 								vm_map_unlock(real_map);
+ 							}
+ 
++							thor_goto_trace(2, vaddr);
+ 							goto RetryFault;
+ 						}
+ 					}
+@@ -4548,6 +4654,7 @@
+ 					result = thread_block(THREAD_CONTINUE_NULL);
+ 				}
+ 				if (result == THREAD_AWAKENED || result == THREAD_RESTART) {
++					thor_goto_trace(3, vaddr);
+ 					goto RetryFault;
+ 				}
+ 
+@@ -4569,6 +4676,7 @@
+ 							vm_map_unlock(real_map);
+ 						}
+ 
++						thor_goto_trace(4, vaddr);
+ 						goto RetryFault;
+ 					}
+ 				} else if (object_lock_type == OBJECT_LOCK_SHARED) {
+@@ -4642,6 +4750,7 @@
+ 							vm_map_unlock(real_map);
+ 						}
+ 
++						thor_goto_trace(5, vaddr);
+ 						goto RetryFault;
+ 					}
+ 				} else if (object_lock_type == OBJECT_LOCK_SHARED) {
+@@ -4720,6 +4829,7 @@
+ 				if (real_map != map) {
+ 					vm_map_unlock(real_map);
+ 				}
++				thor_goto_trace(6, vaddr);
+ 				goto RetryFault;
+ 			}
+ 
+@@ -4767,6 +4877,7 @@
+ 					object_lock_type = cur_object_lock_type;
+ 				}
+ FastPmapEnter:
++				thor_exit_trace("FE", map, vaddr, 0);
+ 				assert(m_object == VM_PAGE_OBJECT(m));
+ 
+ 				/*
+@@ -4873,6 +4984,7 @@
+ 						PMAP_OPTIONS_NOENTER, NULL);
+ 
+ 					need_retry = FALSE;
++					thor_goto_trace(7, vaddr);
+ 					goto RetryFault;
+ 				}
+ 				goto done;
+@@ -5103,6 +5215,7 @@
+ 									vm_map_unlock(real_map);
+ 								}
+ 
++								thor_goto_trace(8, vaddr);
+ 								goto RetryFault;
+ 							}
+ 						}
+@@ -5128,6 +5241,7 @@
+ 								vm_map_unlock(real_map);
+ 							}
+ 
++							thor_goto_trace(9, vaddr);
+ 							goto RetryFault;
+ 						}
+ 						if (vm_object_lock_upgrade(object) == FALSE) {
+@@ -5353,6 +5467,7 @@
+ 							vm_map_unlock(real_map);
+ 						}
+ 
++						thor_goto_trace(10, vaddr);
+ 						goto RetryFault;
+ 					}
+ 				}
+@@ -5562,6 +5677,7 @@
+ 						PMAP_OPTIONS_NOENTER, NULL);
+ 
+ 					need_retry = FALSE;
++					thor_goto_trace(11, vaddr);
+ 					goto RetryFault;
+ 				}
+ 				goto done;
+@@ -5688,6 +5804,7 @@
+ 	error_code = 0;
+ 
+ 	result_page = VM_PAGE_NULL;
++	thor_fault_trace("before-page", map, vaddr, 0);
+ 	kr = vm_fault_page(object, offset, fault_type,
+ 	    (change_wiring && !wired),
+ 	    FALSE,                /* page not looked up */
+@@ -5695,6 +5812,7 @@
+ 	    &type_of_fault,
+ 	    &error_code, map->no_zero_fill,
+ 	    &fault_info);
++	thor_fault_trace("after-page", map, vaddr, (long)kr);
+ 
+ 	/*
+ 	 * if kr != VM_FAULT_SUCCESS, then the paging reference
+@@ -5733,6 +5851,7 @@
+ 			resilient_media_offset = offset;
+ //                     printf("FBDP %s:%d resilient_media_object %p offset 0x%llx kept reference\n", __FUNCTION__, __LINE__, resilient_media_object, resilient_mmedia_offset);
+ 			vm_fault_resilient_media_initiate++;
++			thor_goto_trace(12, vaddr);
+ 			goto RetryFault;
+ 		} else {
+ 			/*
+@@ -5751,6 +5870,7 @@
+ 			if (vm_page_wait((change_wiring) ?
+ 			    THREAD_UNINT :
+ 			    THREAD_ABORTSAFE)) {
++				thor_goto_trace(13, vaddr);
+ 				goto RetryFault;
+ 			}
+ 			ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_VM, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_VM_FAULT_MEMORY_SHORTAGE), 0 /* arg */);
+@@ -5760,6 +5880,7 @@
+ 			kr = KERN_ABORTED;
+ 			goto done;
+ 		case VM_FAULT_RETRY:
++			thor_goto_trace(14, vaddr);
+ 			goto RetryFault;
+ 		case VM_FAULT_MEMORY_ERROR:
+ 			if (error_code) {
+@@ -5930,6 +6051,7 @@
+ 			}
+ 			vm_object_deallocate(object);
+ 
++			thor_goto_trace(15, vaddr);
+ 			goto RetryFault;
+ 		}
+ 		/*
+@@ -6021,6 +6143,7 @@
+ 
+ 		vm_object_deallocate(object);
+ 
++		thor_goto_trace(16, vaddr);
+ 		goto RetryFault;
+ 	}
+ 	if (m != VM_PAGE_NULL) {
+@@ -6267,6 +6390,7 @@
+ #undef  RELEASE_PAGE
+ 
+ done:
++	thor_exit_trace("FX", map, vaddr, (long)kr);
+ 	thread_interrupt_level(interruptible_state);
+ 
+ 	if (resilient_media_object != VM_OBJECT_NULL) {
+@@ -7561,6 +7685,17 @@
+ 	page->vmp_cs_validated |= validated;
+ 	page->vmp_cs_tainted |= tainted;
+ 	page->vmp_cs_nx |= nx;
++
++	{
++		/* THOR: the first pages plus anything that did not validate cleanly */
++		static int thor_csv_n;
++		if (thor_csv_n < 10 || page->vmp_cs_validated != VMP_CS_ALL_TRUE || tainted) {
++			thor_csv_n++;
++			printf("THOR CSV: #%d off=%llx val=%x taint=%x nx=%x page_valid=%x tainted=%x\n",
++			    thor_csv_n, (unsigned long long)mo_offset, validated, tainted, nx,
++			    page->vmp_cs_validated, page->vmp_cs_tainted);
++		}
++	}
+ 
+ #if __arm64__
+ 	/* Boot-argument fixups of signed text land after validation, through the physical aperture, before any mapping. */

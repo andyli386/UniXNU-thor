@@ -11,12 +11,10 @@ zzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-amfi-absent-guards.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-cryptex-at-preboot.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-percpu-single-cpu.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-platform-binary.patch
-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-applog.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-miniamfi.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-display-stack.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-minimac-sandbox.patch
-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-display-followups.patch
-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-keybag-panel.patch
-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-exec-inject.patch
-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-no-stalling-cores.patch
-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-watchdog-no-panic.patch
+# The six patches above were generated against a tree that already carried
+# later hand edits, so no clean tree could apply them (see PROJECT-HANDOFF).
+# Their content, plus the remaining hand edits, is this delta.
+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-bringup-delta.patch
