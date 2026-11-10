@@ -1,0 +1,123 @@
+schema_version = 2
+
+[board]
+name = "thor"
+soc = "SM8475"
+soc_source = "sm8475"
+os_profile = "ipados-18.7.10-22H374"
+description = "Xiaomi 12S Ultra: UniXNU UEFI bring-up on iPadOS 18"
+kit = "thor-18"
+
+[ipsw]
+url = "https://updates.cdn-apple.com/2026WinterFCS/fullrestores/140-97955/A3F72236-89AD-47C5-8394-5E824079C175/iPad_10.2_18.7.10_22H374_Restore.ipsw"
+product = "iPad7,11"
+version = "18.7.10"
+build = "22H374"
+device_class = "j171ap"
+chip_id = 0x8010
+board_id = 0x1c
+fetch = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemOS", "Cryptex1,SystemTrustCache", "Cryptex1,AppOS", "Cryptex1,AppTrustCache", "OS"]
+
+[components]
+include = []
+
+[device_tree]
+source = "device:dts/thor.dts"
+include_dirs = ["soc:dts"]
+
+[kernel]
+defconfig = "thor_ipados18_defconfig"
+config_fragments = ["arch:configs/common.config", "soc:configs/sm8475.config", "os:configs/ipados.config"]
+patch_series = ["device:migration/format2/arch-darwin24.series", "soc:patches/xnu/series", "os:patches/xnu/series"]
+archives = []
+
+[kernel.prelink]
+tool = "kits/NativePrelink/emit_prelink.py"
+kernel = "build/xnu/ios-obj/DEVELOPMENT_ARM64_THOR/mach.development.thor"
+slide = "-0x1000000"
+roots = ["com.apple.kec.corecrypto", "com.apple.kec.pthread", "com.apple.filesystems.apfs",
+         "com.apple.kec.Compression", "com.apple.AppleFSCompression.AppleFSCompressionTypeZlib"]
+
+[firmware]
+config = "thor"
+dsc = "Platforms/Xiaomi/thorPkg/thor.dsc"
+fd = "Build/thorPkg/{target}_CLANGPDB/FV/SILICIUM_UEFI.fd"
+preflight = ["scripts/build-thor-hardware-dtb.py"]
+patches = [
+  "Resources/MuPatches/AsmMacroLib.patch",
+  "Resources/MuPatches/Auth-Service.patch",
+  "Resources/MuPatches/Boot-Manager.patch",
+  "Resources/MuPatches/Timer.patch",
+  "Resources/MuPatches/Usb-Bus.patch",
+]
+packages = [
+  "{uefi}",
+  "{tree}/package",
+  "{edk2}",
+  "{uefi}/Platforms/Xiaomi",
+  "{uefi}/Common/Mu",
+  "{uefi}/Common/Mu_OEM_Sample",
+  "{uefi}/Silicon/Qualcomm",
+  "{uefi}/Silicon/Silicium",
+  "{uefi}/Silicium-ACPI",
+]
+
+[firmware.defines]
+DEVICE_MODEL = "0"
+ENABLE_SECUREBOOT = "0"
+MEMORY_PROTECTION = "TRUE"
+SHIP_MODE = "FALSE"
+BUILDID_STRING = "UniXNU-Thor"
+
+[payload]
+title = "Thor iPadOS 18.7.10"
+volume = "UNIXNU"
+size_mib = 96
+kernel_args = [
+  "keepsyms=1",
+  "cpus=1",
+  "thor_allow_unauthenticated_root=1",
+  "cs_enforcement_disable=1",
+  "cs_library_val_enable=0",
+  "amfi_get_out_of_my_way=1",
+  "-apfs_shared_datavolume",
+  "debug=0x14e",
+  "serial=0",
+  "thor_ufs_readwrite=1",
+  "ignition_level=1",
+  "dyld_flags=0x8",
+  "launchd_rd=md0",
+  "thor_init_trace=1",
+  "applog=1",
+  "applog_name=launchd,backboardd,SpringBoard,containermanagerd,lsd,runningboardd",
+  "thor_software_keybag=1",
+  "thor_display=1",
+  "thor_software_ui=1",
+  "thor_ui_software=1",
+  "thor_build=ipados18-22H374-thor",
+]
+
+[payload.adt]
+owned_memory_size = "0x100000000"
+packed_data_ramdisk = false
+unique_chip_id = "required"
+chip_id = "0x8010"
+
+[userdata]
+# GPT entry "userdata" on the Xiaomi 12S Ultra, measured by the thor UFS driver
+first_lba = 0x2dfa00
+last_lba = 0x7683bfa
+lba_bytes = 4096
+
+[package]
+unixnu = "../UniXNU"
+
+[package.defconfig]
+"ipados-18.7.10-22H374" = "thor_ipados18_defconfig"
+
+[bootimg]
+dtb = "build/thor/thor.dtb"
+
+[bootimg.image]
+header_version = 0
+pagesize = 4096

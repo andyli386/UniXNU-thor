@@ -1,0 +1,58 @@
+##
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  FDF_NAME                      = thor
+
+[Fv]
+FvNameGuid         = 8F3A5C21-B7D4-4E6A-9C8F-3A5D2B7E1F04
+BlockSize          = 0x1000
+NumBlocks          = 0x300
+
+FILE FV_IMAGE = 9E21FD93-9C72-4C15-8C4B-E77F1DB2D792 {
+   SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
+     #
+     # The PEI phase
+     #
+     FILE FV_IMAGE = B8617AAC-51DA-4B9B-864E-2E9E5E5A1B04 {
+       SECTION PE32                    = SiliciumPkg/Sec/SecMain.efi
+       SECTION UI                      = "SEC"
+       SECTION VERSION                 = "1.0"
+     }
+   }
+ }
+
+[FV.MAINFV]
+FvNameGuid         = 4E3C5D7A-9B2E-4A6F-8D1C-5A7B3E9F2C08
+BlockSize          = 0x1000
+NumBlocks          = 0x2F0
+
+APRIORI DXE {
+  INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+}
+
+INF  MdeModulePkg/Core/Dxe/DxeMain.inf
+INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+INF  MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
+INF  MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
+
+# UniXNU boot chain
+INF  UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
+INF  UniXNUPkg/Application/UniXNU/UniXNU.inf
+INF  DarwinBootPkg/Driver/DarwinBoot.inf
+
+# Disk and filesystem
+INF  MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
+INF  MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
+INF  FatPkg/EnhancedFatDxe/Fat.inf
+
+# Display and console
+INF  SiliciumPkg/Drivers/GraphicsOutputDxe/GraphicsOutputDxe.inf
+INF  MdeModulePkg/Universal/Console/ConPlatformDxe/ConPlatformDxe.inf
+INF  MdeModulePkg/Universal/Console/ConSplitterDxe/ConSplitterDxe.inf
+INF  MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
+
+FILE FV_IMAGE = 9E21FD93-9C72-4C15-8C4B-E77F1DB2D793 {
+   SECTION PE32 = SiliciumPkg/Sec/SecMain.efi
+}

@@ -1,0 +1,9 @@
+# Thor (Xiaomi 12S Ultra) iPadOS 18 kernel configuration
+# Uses the same SM8475 SoC aggregate as pong, with thor's display and UFS layout.
+
+CONFIG_XNU_MACHINE_CONFIG="THOR"
+CONFIG_XNU_DARWIN="23.6.0"
+CONFIG_XNU_VERSION="11417.140.69"
+CONFIG_XNU_NATIVE_UFS=y
+CONFIG_XNU_NATIVE_PAN=y
+CONFIG_XNU_4K_PAGES=y
