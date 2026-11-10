@@ -37,13 +37,13 @@ def main():
  sdk=subprocess.check_output(['xcrun','--sdk','iphoneos','--show-sdk-path'],env=env,text=True).strip()
  flags=['-target','arm64-apple-ios18.0','-isysroot',sdk,'-mkernel','-ffreestanding','-fno-builtin','-fno-stack-protector','-mgeneral-regs-only','-fblocks','-O2','-DKERNEL=1','-DKERNEL_PRIVATE=1','-DXNU_KERNEL_PRIVATE=1','-DARM64_BOARD_CONFIG_PONG=1','-I'+str(framework/'PrivateHeaders'),'-I'+str(framework/'Headers'),'-I'+str(ROOT/'drivers/PongPower'),'-I'+str(out),'-I'+str(pong_paths.sheng_root()/'package'),'-Wno-deprecated-declarations']
  # THOR: audio firmware is device-specific; skip when not available
-    import pathlib
-    audio_container = pathlib.Path(str(pong_paths.audio_inputs()/'tfa98xx.cnt'))
-    if audio_container.is_file():
-        subprocess.run([os.sys.executable,str(ROOT/'scripts/prepare-pong-audio.py'),'--container',str(audio_container),'--output',str(out/'PongAmpProfiles.h')],check=True)
-    else:
-        print(f'Audio firmware not found at {audio_container}; writing empty profile header')
-        (out/'PongAmpProfiles.h').write_text('#pragma once\n#define PONG_AMP_PROFILE_COUNT 0\n')
+ import pathlib
+ audio_container = pathlib.Path(str(pong_paths.audio_inputs()/'tfa98xx.cnt'))
+ if audio_container.is_file():
+  subprocess.run([os.sys.executable,str(ROOT/'scripts/prepare-pong-audio.py'),'--container',str(audio_container),'--output',str(out/'PongAmpProfiles.h')],check=True)
+ else:
+  print(f'Audio firmware not found at {audio_container}; writing empty profile header')
+  (out/'PongAmpProfiles.h').write_text('#pragma once\n#define PONG_AMP_PROFILE_COUNT 0\n')
  objects=[]
  for name in ('QcomSmem.c','QcomSmp2p.c','QcomGlink.c','QcomMdt.c','QcomQmp.c','ShengBattmgr.c','ShengGpr.c','ShengAudioReach.c','GeniI2c.c','PongFirmware.c','PongAdsp.cpp','PongBattery.cpp','PongAudio.cpp','PongAudioService.cpp','PongPower.cpp','PongBacklight.cpp'):
   source=ROOT/'drivers/PongPower'/name;obj=out/(source.stem+'.o');cpp=source.suffix=='.cpp'
