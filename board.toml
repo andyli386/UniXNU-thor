@@ -30,6 +30,7 @@ defconfig = "thor_ipados18_defconfig"
 config_fragments = ["arch:configs/common.config", "soc:configs/sm8475.config", "os:configs/ipados.config"]
 patch_series = ["device:migration/format2/arch-darwin24.series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu-ipados18/series"]
 archives = []
+machine_config = "PONG"  # Darwin 24 on SM8475 uses the PONG aggregate
 
 [kernel.prelink]
 tool = "kits/NativePrelink/emit_prelink.py"
