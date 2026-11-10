@@ -4,7 +4,7 @@
 // from Sheng; board addresses and stream ID come from Pong's live DT.
 // Bump this with every debug image: the probes are otherwise indistinguishable
 // in a screenshot, and knowing which build a log came from matters.
-#define THOR_BUILD_TAG "ufs115"
+#define THOR_BUILD_TAG "ufs116"
 
 /* THOR: last SpringBoard exit, recorded in kern_exit.c and repeated here. */
 extern "C" {
@@ -769,6 +769,49 @@ static void pongPrewarm(void) {
   vnode_close(vp, FREAD, ctx);
 }
 
+// Pre-read the dyld shared cache into the buffer cache. Every page of the
+// cache that any process faults in goes through the single-slot UFS driver
+// at ~200-500 us per 4KB command; with hundreds of MB of frameworks this
+// makes startup take many minutes. Reading the data once here populates
+// the UBC so subsequent page faults complete without touching the driver.
+// The first subcaches hold the most-used code (libSystem, CoreFoundation,
+// Foundation and the early UI frameworks).
+static void pongCacheWarm(void) {
+  static const char *const files[] = {
+    "/private/preboot/System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.01",
+    "/private/preboot/System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.02",
+    "/private/preboot/System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.03",
+    "/private/preboot/System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.04",
+  };
+  const size_t chunk = 1 << 20;                    // 1 MiB per read
+  const size_t perFile = 64 << 20;                 // 64 MiB per subcache
+  char *buf = (char *)IOMalloc(chunk);
+  if (buf == nullptr) {
+    printf("THOR WARM: cache alloc failed\n");
+    return;
+  }
+  vfs_context_t ctx = vfs_context_kernel();
+  int grand = 0;
+  for (unsigned f = 0; f < sizeof(files) / sizeof(files[0]); f++) {
+    vnode_t vp = NULLVP;
+    if (vnode_open(files[f], O_RDONLY, 0, 0, &vp, ctx) != 0 || vp == NULLVP) continue;
+    int got = 0;
+    for (size_t off = 0; off < perFile; off += chunk) {
+      int resid = 0;
+      if (vn_rdwr(UIO_READ, vp, buf, (int)chunk, (off_t)off,
+                  UIO_SYSSPACE, IO_NODELOCKED, vfs_context_ucred(ctx),
+                  &resid, NULL) != 0) break;
+      got += (int)(chunk - resid);
+      if (resid) break;
+    }
+    vnode_close(vp, FREAD, ctx);
+    grand += got;
+    printf("THOR WARM: subcache %u +=%d MiB\n", f + 1, got >> 20);
+  }
+  IOFree(buf, chunk);
+  printf("THOR WARM: cache pre-read %d MiB total\n", grand >> 20);
+}
+
 // The kernel now reaches launchd and keeps running, so the failure census that
 // only printed on a root-mount panic never shows. A slow heartbeat makes the
 // live state visible in any photograph.
@@ -791,7 +834,7 @@ static void pongStatusLoop(void *, wait_result_t) {
     // ~60 s in: bsd_init, the swap-file attempt and launchd's first exec have
     // all happened by then, so the mount picture is final.
     if (ticks == 2) pongPrewarm();
-    if (ticks == 4) pongVarMountProbe();
+    if (ticks == 4) { pongVarMountProbe(); pongCacheWarm(); }
     // Every fourth tick (~60 s): does PID 1 keep faulting, or is it parked?
     // A frozen fault/pagein/unix triple means blocked; a moving one means loop.
     if (ticks > 4 && (ticks % 4) == 0) {
