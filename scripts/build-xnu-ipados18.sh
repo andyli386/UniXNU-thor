@@ -114,6 +114,7 @@ PATCHES=("$ROOT"/patches/xnu/*.patch)
 if [ "$XNU_VERSION" = "10063.141.1" ]; then
   PATCHES+=("$ROOT"/kits/NativePrelink/patches/*.patch)
 fi
+set +e  # THOR: patch returns 1 for already-applied
 for PATCH in "${PATCHES[@]}"; do
   if [ "$(basename "$PATCH")" = "external-archive-dependencies.patch" ] && [ -z "${XNU_EXTRA_LD_ARCHIVES:-}" ]; then
     echo "Skipping external-archive-dependencies.patch: this baseline links no external archives"
@@ -155,8 +156,9 @@ for PATCH in "${PATCHES[@]}"; do
   fi
   echo "Applying XNU patch: $(basename "$PATCH")"
   # patch --forward exits 1 when hunks are already applied (not an error)
-  patch --dry-run --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1
-  if [ $? -le 1 ]; then
+  patch --dry-run --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1 || PATCH_RC=$? || PATCH_RC=0
+  PATCH_RC=${PATCH_RC:-0}
+  if [ "$PATCH_RC" -le 1 ]; then
     patch --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1 || true
     echo "Applied (or already applied): $(basename "$PATCH")"
   else
@@ -164,6 +166,7 @@ for PATCH in "${PATCHES[@]}"; do
     exit 1
   fi
 done
+set -e  # THOR: restore errexit
 python3 - <<'PY_PATCH_TIMES'
 from pathlib import Path
 import hashlib, json, os
