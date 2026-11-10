@@ -117,7 +117,7 @@ unixnu = "../UniXNU"
 "ipados-18.7.10-22H374" = "thor_ipados18_defconfig"
 
 [bootimg]
-dtb = "build/thor/thor.dtb"
+dtb = "/Users/<user>/projects/thor-unixnu1030/thor-out/thor.dtb"
 
 [bootimg.image]
 header_version = 0

@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Compile the thor DTS into the DTB the firmware and boot image carry."""
-import subprocess, sys, shutil
+import subprocess, sys, shutil, os
 from pathlib import Path
 
+ROOT = Path("/Users/<user>/projects/thor-unixnu1030")
+
 def main():
-    here = Path(__file__).resolve().parent
-    dts = here.parent / "dts" / "thor.dts"
-    out = here.parent / "build" / "thor" / "thor.dtb"
+    dts = ROOT / "UniXNU-thor-18" / "dts" / "thor.dts"
+    soc = ROOT / "UniXNU-sm8475-common" / "dts"
+    out = Path(os.environ.get("THOR_DTB_OUT", str(ROOT / "thor-out" / "thor.dtb")))
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    soc = here.parent.parent / "UniXNU-sm8475-common" / "dts"
+    if not dts.is_file():
+        sys.exit(f"missing DTS: {dts}")
     if not soc.is_dir():
         sys.exit(f"missing SoC include dir: {soc}")
 
