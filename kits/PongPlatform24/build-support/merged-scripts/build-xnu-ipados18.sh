@@ -5,7 +5,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 # Refuse Wi-Fi and backlight before any XNU compile when their trees are absent.
 # The later builders still refuse on their own; this only moves that refusal forward.
-if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ]; then
+if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${XNU_NATIVE_UFS:-0}" = 1 ]; then # THOR: NativeUfs needs SMMU lease
   if [ -z "${PONG_NATIVE_DRIVER_SOURCE:-}" ]; then
     echo 'refusing before compile: PONG_NATIVE_DRIVER_SOURCE is unset, so Wi-Fi and backlight inputs cannot be resolved' >&2
     exit 1
@@ -154,12 +154,11 @@ for PATCH in "${PATCHES[@]}"; do
     continue
   fi
   echo "Applying XNU patch: $(basename "$PATCH")"
-  if git -C .cache/xnu-work apply --reverse --check "$PATCH" >/dev/null 2>&1; then
+  if patch --dry-run --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1; then
+    patch --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH"
+    echo "Applied (forward): $(basename "$PATCH")"
+  elif patch --dry-run --batch --fuzz=3 -p1 -R -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1; then
     echo "Already applied: $(basename "$PATCH")"
-  elif git -C .cache/xnu-work apply --check "$PATCH" >/dev/null 2>&1; then
-    git -C .cache/xnu-work apply "$PATCH"
-  elif patch --dry-run --batch --fuzz=3 -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1; then
-    patch --batch --fuzz=3 -p1 -d .cache/xnu-work < "$PATCH"
   else
     echo "Patch does not apply cleanly to XNU $XNU_VERSION: $PATCH" >&2
     exit 1
