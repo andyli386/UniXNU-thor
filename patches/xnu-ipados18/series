@@ -2,6 +2,3 @@
 zz-pong-main-native4k-cache-io.patch
 zzzz-pong-scanout-idle.patch
 zzzzz-pong-wake-scanout-alpha.patch
-zzzzzz-pong-runtime-rule-capacity.patch
-zzzzzzz-pong-frame-links.patch
-zzzzzzzz-pong-native-pac-keys.patch
