@@ -211,6 +211,21 @@ main(int argc, char **argv, char **envp)
         }
     }
 
+    /* XNU's low-priority I/O throttle is on by default and our storage never
+     * reports itself as an SSD, so page-in of the dyld cache runs with HDD
+     * tier periods and SpringBoard's startup crawls (measured: single-digit
+     * MB/min). The ADT carries 1 ms tier overrides; turn the whole mechanism
+     * off here too, before anything launches, because the flag is read live
+     * on every window. */
+    {
+        int zero = 0;
+        int ok = sysctlbyname("debug.lowpri_throttle_enabled", NULL, NULL,
+                              &zero, sizeof(zero)) == 0;
+        (void)write(2, ok ? "thor init: lowpri I/O throttle disabled\n"
+                          : "thor init: lowpri throttle sysctl failed\n",
+                    ok ? 40 : 41);
+    }
+
     /* Descriptor hand-off.  The 20G81 launchd rejects a terminal on stdout at
      * entry -- it calls isatty(1) and exits with "cannot be run directly
      * (stdout: 1)" -- so stdin and stdout go to /dev/null while stderr keeps

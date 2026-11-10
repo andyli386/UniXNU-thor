@@ -4,7 +4,7 @@
 // from Sheng; board addresses and stream ID come from Pong's live DT.
 // Bump this with every debug image: the probes are otherwise indistinguishable
 // in a screenshot, and knowing which build a log came from matters.
-#define THOR_BUILD_TAG "ufs114"
+#define THOR_BUILD_TAG "ufs115"
 
 /* THOR: last SpringBoard exit, recorded in kern_exit.c and repeated here. */
 extern "C" {
