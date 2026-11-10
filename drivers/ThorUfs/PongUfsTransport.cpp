@@ -4,7 +4,7 @@
 // from Sheng; board addresses and stream ID come from Pong's live DT.
 // Bump this with every debug image: the probes are otherwise indistinguishable
 // in a screenshot, and knowing which build a log came from matters.
-#define THOR_BUILD_TAG "ufs112"
+#define THOR_BUILD_TAG "ufs113"
 
 /* THOR: the boot trace in osfmk/kern/startup.c. The per-minute PID 1 thread
  * dump is the noisiest thing this driver prints, so it follows "thor_trace=1"
@@ -796,6 +796,31 @@ static void pongStatusLoop(void *, wait_result_t) {
         printf("THOR PID1TASK: unix=%d mach=%d faults=%d pageins=%d csw=%d thr=%d stat=%d\n",
                info.pti_syscalls_unix, info.pti_syscalls_mach, info.pti_faults,
                info.pti_pageins, info.pti_csw, info.pti_threadnum, init->p_stat);
+        /* THOR: is SpringBoard still alive, and in what state? Its own
+         * snapshots stop the moment the process dies or its background queue
+         * stops running, and the console scrolls too fast to tell which. One
+         * kernel line a minute answers that without a new userdata image. */
+        {
+          proc_t sb = nullptr;
+          int sbpid = -1;
+          for (int pid = 1; pid < 400 && sb == nullptr; ++pid) {
+            proc_t cand = proc_find(pid);
+            if (cand == nullptr) continue;
+            if (strncmp(cand->p_comm, "SpringBoard", 11) == 0) { sb = cand; sbpid = pid; }
+            else proc_rele(cand);
+          }
+          if (sb != nullptr) {
+            struct proc_taskinfo_internal si;
+            memset(&si, 0, sizeof(si));
+            fill_taskprocinfo(proc_task(sb), &si);
+            printf("THOR SB: pid=%d stat=%d thr=%d faults=%d csw=%d\n",
+                   sbpid, sb->p_stat, si.pti_threadnum,
+                   si.pti_faults, si.pti_csw);
+            proc_rele(sb);
+          } else {
+            printf("THOR SB: absent\n");
+          }
+        }
         /* Everything below is a deep state dump: one line per thread plus the
          * last exception/syscall registers. It answered the page-in stall and
          * is only wanted again when reproducing one, so it stays behind
