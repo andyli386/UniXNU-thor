@@ -856,6 +856,37 @@ static void install_renderer_hook(void)
     renderer_hooks_done=ok;
 }
 
+/* +[VNRequest initialize] on 2026-11-10 blocked SpringBoard's dyld
+ * initialization for 240+ seconds (symbolicated: runAllInitializersForMain
+ * → +[VNRequest initialize] → msgSend → forEachLoadCommand, stuck). Vision
+ * has no Neural Engine or GPU here and nothing in SpringBoard can use it,
+ * so replace the +initialize on its principal classes with a no-op before
+ * dyld gets to them. Our constructor runs ahead of Vision's initializers
+ * in the dependency order, which the on-device snapshots prove. */
+static void thor_noop_imp(id self, SEL _cmd)
+{
+    (void)self;(void)_cmd;
+}
+
+static void thor_neutralize_vision(void)
+{
+    static const char *const classes[]={"VNRequest","VNImageRequestHandler",
+        "VNSequenceRequestHandler","VNCoreMLRequest","VNRecognizeTextRequest"};
+    for (unsigned i=0;i<sizeof(classes)/sizeof(classes[0]);++i) {
+        Class cls=objc_getClass(classes[i]);
+        if (!cls) continue;
+        Method m=class_getClassMethod(cls,sel_registerName("initialize"));
+        if (!m) continue;
+        /* The runtime calls +initialize through its own path, so replacing
+         * the method here means the blocking code never runs. The class
+         * itself stays registered: messages to it return nil/NO/0 as usual
+         * for an unimplemented path, which is fine - Vision does nothing
+         * on this board. */
+        method_setImplementation(m,(IMP)(void (*)(id,SEL))thor_noop_imp);
+        say("Pong UI: neutralized +[%s initialize]\n",classes[i]);
+    }
+}
+
 __attribute__((constructor)) static void pong_ui_init(void)
 {
     const char *name=getprogname();
@@ -871,6 +902,10 @@ __attribute__((constructor)) static void pong_ui_init(void)
     bool backboard=strcmp(name,"backboardd")==0;
     is_backboard=backboard;
     if (!is_springboard && !backboard && !is_media && !is_settings && strncmp(name,"containermanagerd",17)!=0) return;
+    /* Must run before any Vision class gets messaged: the +initialize that
+     * blocks SpringBoard runs during dyld's initializer dispatch, after our
+     * constructor but before main(). */
+    thor_neutralize_vision();
     if (is_settings) {
         settings_record_init();
         pong_settings_icons_start(settings_record);
