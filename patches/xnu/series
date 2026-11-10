@@ -25,3 +25,4 @@ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-initproc-cache-probe.patch
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-exit-probe-fix.patch
 # ufs112: informational ip_csflags print + AMFI 0xdf (no allow-insert-failure)
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-inject-flags.patch
+zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-thor-sb-exit-record.patch

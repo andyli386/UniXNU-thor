@@ -4,7 +4,16 @@
 // from Sheng; board addresses and stream ID come from Pong's live DT.
 // Bump this with every debug image: the probes are otherwise indistinguishable
 // in a screenshot, and knowing which build a log came from matters.
-#define THOR_BUILD_TAG "ufs113"
+#define THOR_BUILD_TAG "ufs114"
+
+/* THOR: last SpringBoard exit, recorded in kern_exit.c and repeated here. */
+extern "C" {
+extern int thor_sb_exit_pid;
+extern int thor_sb_exit_rv;
+extern unsigned thor_sb_exit_ns;
+extern unsigned long long thor_sb_exit_code;
+extern unsigned thor_sb_exit_count;
+}
 
 /* THOR: the boot trace in osfmk/kern/startup.c. The per-minute PID 1 thread
  * dump is the noisiest thing this driver prints, so it follows "thor_trace=1"
@@ -813,12 +822,17 @@ static void pongStatusLoop(void *, wait_result_t) {
             struct proc_taskinfo_internal si;
             memset(&si, 0, sizeof(si));
             fill_taskprocinfo(proc_task(sb), &si);
-            printf("THOR SB: pid=%d stat=%d thr=%d faults=%d csw=%d\n",
+            printf("THOR SB: pid=%d stat=%d thr=%d faults=%d csw=%d exits=%u "
+                   "last_pid=%d last_rv=%#x last_ns=%u last_code=%#llx\n",
                    sbpid, sb->p_stat, si.pti_threadnum,
-                   si.pti_faults, si.pti_csw);
+                   si.pti_faults, si.pti_csw,
+                   thor_sb_exit_count, thor_sb_exit_pid, thor_sb_exit_rv,
+                   thor_sb_exit_ns, thor_sb_exit_code);
             proc_rele(sb);
           } else {
-            printf("THOR SB: absent\n");
+            printf("THOR SB: absent exits=%u last_pid=%d last_rv=%#x last_ns=%u last_code=%#llx\n",
+                   thor_sb_exit_count, thor_sb_exit_pid, thor_sb_exit_rv,
+                   thor_sb_exit_ns, thor_sb_exit_code);
           }
         }
         /* Everything below is a deep state dump: one line per thread plus the
