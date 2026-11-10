@@ -55,6 +55,7 @@ packages = [
   "{uefi}",
   "{tree}/package",
   "{edk2}",
+  "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/drivers/DarwinBoot24",
   "{uefi}/Platforms/Xiaomi",
   "{uefi}/Common/Mu",
   "{uefi}/Common/Mu_OEM_Sample",
