@@ -568,9 +568,12 @@ static void show_ui_state(const char *phase, id manager, id backlight)
         bool_property(backlight,"screenIsDim"),bool_property(backlight,"isPendingScreenUnblankAfterCACommit"));
 }
 
+static int ui_home_reached;   /* present_home ran: the main queue drained */
+
 static void present_home(void *unused)
 {
     (void)unused;
+    __atomic_store_n(&ui_home_reached,1,__ATOMIC_RELAXED);
     id manager=existing_singleton("SBLockScreenManager");
     id backlight=existing_singleton("SBBacklightController");
     show_ui_state("main queue reached",manager,backlight);
@@ -596,11 +599,41 @@ static void present_home(void *unused)
 static mach_port_t ui_main_thread;
 static uint64_t ui_main_turns;
 static uintptr_t ui_cache_slide;
+static uintptr_t ui_cache_base, ui_cache_len;
 
 static void main_turn(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info)
 {
     (void)observer;(void)activity;(void)info;
     __atomic_fetch_add(&ui_main_turns,1,__ATOMIC_RELAXED);
+}
+
+static void main_snapshot(void *context);
+
+/* Raw addresses, not slide-adjusted guesses. The 2026-11-10 snapshots
+ * subtracted the cache slide from every frame; for frames that were in
+ * SpringBoard's own image (not the cache) the result landed inside some
+ * unrelated library and got misattributed. Print the raw runtime value,
+ * the image dladdr() finds for it and the offset in that image; only for
+ * addresses that really are inside the shared cache also print the unslid
+ * cache address. Self-describing: no host-side mapping can go wrong. */
+static void say_at(const char *what, uintptr_t addr)
+{
+    Dl_info info;
+    if (dladdr((void *)addr,&info) && info.dli_fname) {
+        const char *slash=strrchr(info.dli_fname,'/');
+        const char *image=slash?slash+1:info.dli_fname;
+        if (ui_cache_base && addr>=ui_cache_base && addr<ui_cache_base+ui_cache_len)
+            say("Pong UI: %s=%llx cache-unslid=%llx (%s+%llx)\n",what,
+                (unsigned long long)addr,
+                (unsigned long long)(addr-(ui_cache_base-0x180000000ULL)),
+                image,(unsigned long long)(addr-(uintptr_t)info.dli_fbase));
+        else
+            say("Pong UI: %s=%llx (%s+%llx)\n",what,
+                (unsigned long long)addr,image,
+                (unsigned long long)(addr-(uintptr_t)info.dli_fbase));
+    } else {
+        say("Pong UI: %s=%llx\n",what,(unsigned long long)addr);
+    }
 }
 
 static void main_snapshot(void *context)
@@ -615,13 +648,15 @@ static void main_snapshot(void *context)
     }
     uintptr_t pc=arm_thread_state64_get_pc(state),lr=arm_thread_state64_get_lr(state);
     uintptr_t fp=arm_thread_state64_get_fp(state);
-    say("Pong UI: main snapshot %lu turns=%llu pc=%lx lr=%lx (cache unslid)\n",
-        (unsigned long)context,turns,pc-ui_cache_slide,lr-ui_cache_slide);
+    say("Pong UI: main snapshot %lu turns=%llu home=%d\n",
+        (unsigned long)context,turns,__atomic_load_n(&ui_home_reached,__ATOMIC_RELAXED));
+    say_at("pc", pc);
+    say_at("lr", lr);
     for (unsigned i=0;i<12 && fp && (fp&15)==0;i++) {
         uint64_t frame[2]; vm_size_t got=0;
         if (vm_read_overwrite(mach_task_self(),fp,sizeof(frame),(vm_address_t)frame,&got)!=KERN_SUCCESS ||
             got!=sizeof(frame)) break;
-        say("Pong UI: main frame %u lr=%llx (cache unslid)\n",i,frame[1]-ui_cache_slide);
+        say_at("frame", frame[1]);
         if (frame[0]<=fp || frame[0]-fp>1024*1024) break;
         fp=frame[0];
     }
@@ -633,13 +668,18 @@ static void start_home_transition(void)
     size_t length=0;
     const void *cache=_dyld_get_shared_cache_range(&length);
     ui_cache_slide=cache?(uintptr_t)cache-0x180000000ULL:0;
+    ui_cache_base=cache?(uintptr_t)cache:0;
+    ui_cache_len=cache?length:0;
     CFRunLoopObserverRef observer=CFRunLoopObserverCreate(NULL,kCFRunLoopBeforeWaiting,true,2000001,main_turn,NULL);
     if (observer) { CFRunLoopAddObserver(CFRunLoopGetMain(),observer,kCFRunLoopCommonModes);CFRelease(observer); }
     dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,10*NSEC_PER_SEC),dispatch_get_main_queue(),NULL,present_home);
     dispatch_queue_t queue=dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW,0);
-    dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,60*NSEC_PER_SEC),queue,(void *)60,main_snapshot);
-    dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,120*NSEC_PER_SEC),queue,(void *)120,main_snapshot);
-    dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,300*NSEC_PER_SEC),queue,(void *)300,main_snapshot);
+    /* More points than before: whether the pc/lr move between snapshots is
+     * what tells "slow startup" from "blocked on one call". */
+    static const unsigned thor_snapshot_seconds[]={60,120,180,240,300,420,600};
+    for (unsigned i=0;i<sizeof(thor_snapshot_seconds)/sizeof(thor_snapshot_seconds[0]);++i)
+        dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,(int64_t)thor_snapshot_seconds[i]*NSEC_PER_SEC),
+                         queue,(void *)(uintptr_t)thor_snapshot_seconds[i],main_snapshot);
 }
 
 /* Addresses resolved from the supplied 20G81 QuartzCore. A render service
