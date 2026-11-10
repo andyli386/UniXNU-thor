@@ -154,11 +154,11 @@ for PATCH in "${PATCHES[@]}"; do
     continue
   fi
   echo "Applying XNU patch: $(basename "$PATCH")"
-  if patch --dry-run --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1; then
-    patch --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH"
-    echo "Applied (forward): $(basename "$PATCH")"
-  elif patch --dry-run --batch --fuzz=3 -p1 -R -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1; then
-    echo "Already applied: $(basename "$PATCH")"
+  # patch --forward exits 1 when hunks are already applied (not an error)
+  patch --dry-run --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1
+  if [ $? -le 1 ]; then
+    patch --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1 || true
+    echo "Applied (or already applied): $(basename "$PATCH")"
   else
     echo "Patch does not apply cleanly to XNU $XNU_VERSION: $PATCH" >&2
     exit 1
