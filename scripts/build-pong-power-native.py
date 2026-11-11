@@ -45,7 +45,7 @@ def main():
   print(f'Audio firmware not found at {audio_container}; writing empty profile header')
   (out/'PongAmpProfiles.h').write_text('#pragma once\n#define PONG_AMP_PROFILE_COUNT 0\n')
  objects=[]
- for name in ('QcomSmem.c','QcomGlink.c','PongPower.cpp','PongPlatformResources.cpp'):
+ for name in ('QcomSmem.c','PongSmmuLease.cpp'):
   source=ROOT/'drivers/PongPower'/name;obj=out/(source.stem+'.o');cpp=source.suffix=='.cpp'
   cmd=['xcrun','clang++' if cpp else 'clang',*flags,*(['-std=gnu++17','-fno-exceptions','-fno-rtti'] if cpp else []),'-c',str(source),'-o',str(obj)]
   r=subprocess.run(cmd,env=env,capture_output=True,text=True);(out/(source.stem+'.log')).write_text(r.stdout+r.stderr)
