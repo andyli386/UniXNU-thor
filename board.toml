@@ -123,8 +123,7 @@ dtb = "/Users/<user>/projects/thor-unixnu1030/thor-out/thor.dtb"
 [bootimg.image]
 header_version = 0
 pagesize = 4096
-# The kernel (BootShim + UEFI FD) must load at the FD base address.
-# Without this, the default base=0 puts the kernel at 0x8000 where nothing runs.
 base = 0xA7100000
 kernel_offset = 0
 tags_offset = 0x1e00000
+kernel_compression = "none"
