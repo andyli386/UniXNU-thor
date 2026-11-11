@@ -1,0 +1,130 @@
+diff --git a/osfmk/console/video_console.c b/osfmk/console/video_console.c
+index 648cb70..a3e8114 100644
+--- a/osfmk/console/video_console.c
++++ b/osfmk/console/video_console.c
+@@ -1291,6 +1291,10 @@ static uint32_t vc_rendered_font_size = 0;
+ static int vc_rendered_char_size = 0;
+ 
+ #define REN_MAX_DEPTH   32
++/* THOR: integer glyph scaling for readable console text on 1440p panels. */
++#define VC_FONT_SCALE 2
++#define VC_CELL_W (ISO_CHAR_WIDTH * VC_FONT_SCALE)
++#define VC_CELL_H (ISO_CHAR_HEIGHT * VC_FONT_SCALE)
+ static unsigned char vc_rendered_char[ISO_CHAR_HEIGHT * ((REN_MAX_DEPTH / 8) * ISO_CHAR_WIDTH)];
+ 
+ #if defined(XNU_TARGET_OS_OSX)
+@@ -1336,7 +1340,7 @@ vc_clear_screen(unsigned int xx, unsigned int yy, unsigned int scrreg_top,
+ 		return;
+ 	}
+ 
+-	linelongs = vinfo.v_rowbytes * (ISO_CHAR_HEIGHT >> 2);
++	linelongs = vinfo.v_rowbytes * (VC_CELL_H >> 2);
+ 	rowline = vinfo.v_rowscanbytes >> 2;
+ 	rowlongs = vinfo.v_rowbytes >> 2;
+ 
+@@ -1564,32 +1568,34 @@ vc_paint_char_32(unsigned int xx, unsigned int yy, unsigned char ch, int attrs,
+ 		theCharPrevious = NULL;
+ 	}
+ 	where = (uint32_t*)(vinfo.v_baseaddr +
+-	    (yy * ISO_CHAR_HEIGHT * vinfo.v_rowbytes) +
+-	    (xx * ISO_CHAR_WIDTH * 4));
++	    (yy * VC_CELL_H * vinfo.v_rowbytes) +
++	    (xx * VC_CELL_W * 4));
+ 
+ 	if (!attrs) {
+-		for (i = 0; i < ISO_CHAR_HEIGHT; i++) {         /* No attrs ? FLY ! */
++		for (i = 0; i < ISO_CHAR_HEIGHT; i++) {
+ 			uint32_t *store = where;
+-			int x;
++			int x, sy, sx;
+ 			for (x = 0; x < 8; x++) {
+ 				uint32_t val = *theChar++;
+ 				if (theCharPrevious == NULL || val != *theCharPrevious++) {
+ 					val = (vc_color_back & ~val) | (vc_color_fore & val);
+-					*store++ = val;
+-				} else {
+-					store++;
++					for (sy = 0; sy < VC_FONT_SCALE; sy++) {
++						for (sx = 0; sx < VC_FONT_SCALE; sx++) {
++							store[sx + sy * (vinfo.v_rowbytes / 4)] = val;
++						}
++					}
+ 				}
++				store += VC_FONT_SCALE;
+ 			}
+-
+-			where = (uint32_t *)(((unsigned char*)where) + vinfo.v_rowbytes);
++			where = (uint32_t *)(((unsigned char*)where) + (vinfo.v_rowbytes * VC_FONT_SCALE));
+ 		}
+ 	} else {
+-		for (i = 0; i < ISO_CHAR_HEIGHT; i++) { /* a little slower */
++		for (i = 0; i < ISO_CHAR_HEIGHT; i++) {
+ 			uint32_t *store = where, lastpixel = 0;
+-			int x;
++			int x, sy, sx;
+ 			for (x = 0; x < 8; x++) {
+ 				uint32_t val = *theChar++, save = val;
+-				if (attrs & ATTR_BOLD) { /* bold support */
++				if (attrs & ATTR_BOLD) {
+ 					if (lastpixel && !save) {
+ 						val = 0xFFFFFFFF;
+ 					}
+@@ -1600,13 +1606,16 @@ vc_paint_char_32(unsigned int xx, unsigned int yy, unsigned char ch, int attrs,
+ 				if (attrs & ATTR_UNDER && i == ISO_CHAR_HEIGHT - 1) {
+ 					val = ~val;
+ 				}
+-
+ 				val = (vc_color_back & ~val) | (vc_color_fore & val);
+-				*store++ = val;
++				for (sy = 0; sy < VC_FONT_SCALE; sy++) {
++					for (sx = 0; sx < VC_FONT_SCALE; sx++) {
++						store[sx + sy * (vinfo.v_rowbytes / 4)] = val;
++					}
++				}
++				store += VC_FONT_SCALE;
+ 				lastpixel = save;
+ 			}
+-
+-			where = (uint32_t*)(((unsigned char*)where) + vinfo.v_rowbytes);
++			where = (uint32_t*)(((unsigned char*)where) + (vinfo.v_rowbytes * VC_FONT_SCALE));
+ 		}
+ 	}
+ }
+@@ -1740,7 +1749,7 @@ vc_scroll_down(int num, unsigned int scrreg_top, unsigned int scrreg_bottom)
+ 		return;
+ 	}
+ 
+-	linelongs = vinfo.v_rowbytes * (ISO_CHAR_HEIGHT >> 2);
++	linelongs = vinfo.v_rowbytes * (VC_CELL_H >> 2);
+ 	rowline = vinfo.v_rowbytes >> 2;
+ 	rowscanline = vinfo.v_rowscanbytes >> 2;
+ 
+@@ -1774,7 +1783,7 @@ vc_scroll_up(int num, unsigned int scrreg_top, unsigned int scrreg_bottom)
+ 		return;
+ 	}
+ 
+-	linelongs = vinfo.v_rowbytes * (ISO_CHAR_HEIGHT >> 2);
++	linelongs = vinfo.v_rowbytes * (VC_CELL_H >> 2);
+ 	rowline = vinfo.v_rowbytes >> 2;
+ 	rowscanline = vinfo.v_rowscanbytes >> 2;
+ 
+@@ -2782,8 +2791,8 @@ gc_pause( boolean_t pause, boolean_t graphics_now )
+ static void
+ vc_initialize(__unused struct vc_info * vinfo_p)
+ {
+-	vinfo.v_rows = vinfo.v_height / ISO_CHAR_HEIGHT;
+-	vinfo.v_columns = vinfo.v_width / ISO_CHAR_WIDTH;
++	vinfo.v_rows = vinfo.v_height / VC_CELL_H;
++	vinfo.v_columns = vinfo.v_width / VC_CELL_W;
+ 	vinfo.v_rowscanbytes = ((vinfo.v_depth + 7) / 8) * vinfo.v_width;
+ 	vc_uiscale = vinfo.v_scale;
+ 	if (vc_uiscale > kMaxProgressData) {
+@@ -2860,7 +2869,7 @@ initialize_screen(PE_Video * boot_vinfo, unsigned int op)
+ 			gc_acquired = TRUE;
+ 		} else {
+ 			if (makeMapping) {
+-#if HAS_UCNORMAL_MEM || APPLEVIRTUALPLATFORM
++#if HAS_UCNORMAL_MEM || APPLEVIRTUALPLATFORM || defined(PONG)
+ 				/*
+ 				 * Framebuffers would normally use VM_WIMG_RT, which
+ 				 * io_map doesn't support.  However this buffer is set up

@@ -1,0 +1,16 @@
+--- a/osfmk/kern/kalloc.c
++++ b/osfmk/kern/kalloc.c
+@@ -1795,8 +1795,11 @@
+ 		}
+ 
+ 		zone_carry = 0;
+-		assert(n_zones_sig + n_zones_type + 1 <= 32);
+-		zone_t kt_zones_for_size[32] = {};
++		/* THOR: sparse kalloc-type descriptors on this build push one
++		 * size class past 32 zones; the array is stack-local and every
++		 * helper takes the count, so 64 is safe. */
++		assert(n_zones_sig + n_zones_type + 1 <= 64);
++		zone_t kt_zones_for_size[64] = {};
+ 		kalloc_type_create_zone_for_size(kt_zones_for_size,
+ 		    n_zones_sig + n_zones_type, z_size);
+ 
