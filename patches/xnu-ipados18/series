@@ -2,3 +2,5 @@
 zz-pong-main-native4k-cache-io.patch
 zzzz-pong-scanout-idle.patch
 zzzzz-pong-wake-scanout-alpha.patch
+zz-thor-kalloc-zone-64.patch
+zz-thor-console-2x-font.patch
