@@ -2095,11 +2095,13 @@ __attribute__((constructor)) static void pong_ui18_start(void)
         (void)sigaction(SIGABRT,&action,NULL);
     }
     if(strcmp(name,"usermanagerd")==0) {
-        /* v61 field evidence: the persona bootstrap ran (persona.kb was
-         * published on the device Data volume), but this early return also
-         * skipped the snapshot worker, leaving usermanagerd invisible in
-         * every pulled batch. Sample it like the other daemons. */
-        if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
+        /* v62 field evidence: usermanagerd's native main asserts single
+         * threading very early (_os_log_set_client_type ->
+         * _pthread_is_threaded_np -> brk #1), so NOTHING here may create
+         * a thread before main: the v62 snapshot worker caused a 14x
+         * SIGTRAP loop, launchd throttling, and runningboardd/lsd both
+         * blocking on this service. Diagnose usermanagerd through the
+         * console receipts and native stackshots only. */
         initialize_persona_manifest();return;
     }
     if(strcmp(name,"SpringBoard")==0) {

@@ -21,6 +21,7 @@
 #include <mach/arm/thread_status.h>
 #include <mach-o/dyld.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -217,40 +218,77 @@ static void replay_previous(void)
     }
 }
 
-/* Continuous kernel-console capture (root only, runningboardd only):
- * stream /dev/klog when the device exists, otherwise poll kern.msgbuf.
- * This records the full boot text - the lines previously only available
- * as photographs - into a file the Recovery pull retrieves. */
+/* Continuous kernel-console capture (root only, runningboardd only).
+ * v62 field evidence: on this XNU the kern.msgbuf sysctl is size-only
+ * (CTLTYPE_INT - it returned the 131072-byte capacity, which is why
+ * PongConsole.txt filled with 0x00020000), and /dev/klog refuses to open
+ * unless the ATM legacy-logging diagnostic flag is set. The real dmesg
+ * contents path is the private proc_info call 0x4 (PROC_INFO_CALL_
+ * KERNMSGBUF -> log_dmesg), root-only - exactly what runningboardd is.
+ * Each call returns the whole current buffer oldest-first; poll and
+ * append only the unseen tail. */
+extern int __proc_info(int32_t call_num, int32_t pid, uint32_t flavor,
+                       uint64_t arg, void *buffer, int32_t buffersize);
+
 static void *console_worker(void *unused)
 {
     (void)unused;
     const char *path = "/private/var/logs/PongConsole.txt";
     int out = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
+    char notice[128];
+    int n;
     if (out < 0) {
-        char line[128];
-        int n = snprintf(line, sizeof(line),
-                         "Pong console capture: open failed errno=%d", errno);
-        if (n > 0) pong_console_line(line);
+        n = snprintf(notice, sizeof(notice),
+                     "Pong console capture: open failed errno=%d", errno);
+        if (n > 0) pong_console_line(notice);
         return NULL;
     }
-    char previous[4096];
+    static char buffer[160 * 1024];
+    static char previous[8192];
     size_t previous_size = 0;
-    int klog = open("/dev/klog", O_RDONLY | O_CLOEXEC);
-    char notice[128];
-    int n = snprintf(notice, sizeof(notice),
-                     "Pong console capture: %s pid=%d mode=%s",
-                     process_name, getpid(), klog >= 0 ? "klog" : "msgbuf-poll");
-    if (n > 0) { pong_console_line(notice); dprintf(out, "%s\n", notice); }
-    char buffer[4096];
-    if (klog >= 0) {
-        for (;;) {
-            ssize_t got = read(klog, buffer, sizeof(buffer));
-            if (got < 0) {
-                if (errno == EINTR) continue;
-                break;
+    bool announced = false, complained = false;
+    for (;;) {
+        int got = __proc_info(0x4, 0, 0, 0, buffer, (int32_t)sizeof(buffer));
+        if (got < 0) {
+            if (!complained) {
+                complained = true;
+                n = snprintf(notice, sizeof(notice),
+                             "Pong console capture: proc_info dmesg errno=%d", errno);
+                if (n > 0) pong_console_line(notice);
             }
-            if (got == 0) { sleep(5); continue; }
-            if (write(out, buffer, (size_t)got) < 0) break;
+            sleep(60);
+            continue;
+        }
+        if (!announced) {
+            announced = true;
+            n = snprintf(notice, sizeof(notice),
+                         "Pong console capture: proc_info dmesg pid=%d first=%dB",
+                         getpid(), got);
+            if (n > 0) { pong_console_line(notice); dprintf(out, "%s\n", notice); }
+        }
+        if (got > 0) {
+            /* append only the part not seen last round; a missing overlap
+             * means the ring wrapped and some text was lost. */
+            char *overlap = NULL;
+            if (previous_size && (size_t)got > previous_size) {
+                for (size_t skip = 0; skip + previous_size <= (size_t)got; skip++)
+                    if (!memcmp(buffer + skip, previous, previous_size)) {
+                        overlap = buffer + skip + previous_size;
+                        break;
+                    }
+            }
+            if (overlap) {
+                (void)write(out, overlap, (size_t)got - (size_t)(overlap - buffer));
+            } else if (previous_size) {
+                dprintf(out, "\nPong console capture WRAP lost text\n");
+                (void)write(out, buffer, (size_t)got);
+            } else {
+                (void)write(out, buffer, (size_t)got);
+            }
+            size_t keep = (size_t)got < sizeof(previous) ? (size_t)got : sizeof(previous);
+            memcpy(previous, buffer + (size_t)got - keep, keep);
+            previous_size = keep;
+            (void)fsync(out);
             struct stat st;
             if (fstat(out, &st) == 0 && st.st_size > 16 * 1024 * 1024) {
                 dprintf(out, "\nPong console capture ROTATE size=%lld\n",
@@ -259,39 +297,8 @@ static void *console_worker(void *unused)
                 close(out);
                 out = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
                 if (out < 0) return NULL;
+                previous_size = 0;
             }
-            if (got > 0 && time(NULL) % 60 == 0) (void)fsync(out);
-        }
-        close(klog);
-    }
-    for (;;) {
-        size_t length = sizeof(buffer);
-        if (sysctlbyname("kern.msgbuf", buffer, &length, NULL, 0) == 0 && length) {
-            /* append only the part not seen last round; a missing overlap
-             * means the ring wrapped and some text was lost. */
-            char *overlap = NULL;
-            if (previous_size && length > previous_size) {
-                for (size_t skip = 0; skip + previous_size <= length; skip++)
-                    if (!memcmp(buffer + skip, previous, previous_size)) {
-                        overlap = buffer + skip + previous_size;
-                        break;
-                    }
-            }
-            if (overlap) {
-                (void)write(out, overlap, length - (size_t)(overlap - buffer));
-            } else if (previous_size) {
-                dprintf(out, "\nPong console capture WRAP lost text\n");
-                (void)write(out, buffer, length);
-            } else {
-                (void)write(out, buffer, length);
-            }
-            size_t keep = length < sizeof(previous) ? length : sizeof(previous);
-            if (keep == sizeof(previous))
-                memcpy(previous, buffer + length - keep, keep);
-            else
-                memcpy(previous, buffer, keep);
-            previous_size = keep;
-            (void)fsync(out);
         }
         sleep(30);
     }
