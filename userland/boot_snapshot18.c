@@ -83,14 +83,9 @@ struct pong_proc_bsdinfo {
 };
 extern int proc_pidinfo(int pid,int flavor,uint64_t arg,void *buffer,int buffersize);
 
-static void diag_say(const char *format,...)
+/* Shared with ui_compat18.c (fairplayd.A2 interposers). */
+void pong_diag_line(const char *line)
 {
-    char line[384];
-    va_list arguments;
-    va_start(arguments,format);
-    int n=vsnprintf(line,sizeof(line),format,arguments);
-    va_end(arguments);
-    if(n<=0)return;
     pthread_mutex_lock(&diag_lock);
     if(diag_fd==-2){
         diag_fd=open("/private/var/logs/PongDiag.txt",
@@ -111,6 +106,17 @@ static void diag_say(const char *format,...)
     }
     pthread_mutex_unlock(&diag_lock);
     pong_console_line(line);
+}
+
+static void diag_say(const char *format,...)
+{
+    char line[384];
+    va_list arguments;
+    va_start(arguments,format);
+    int n=vsnprintf(line,sizeof(line),format,arguments);
+    va_end(arguments);
+    if(n<=0)return;
+    pong_diag_line(line);
 }
 
 static void snapshot_path(char *path, size_t size)
@@ -384,7 +390,9 @@ static void *console_worker(void *unused)
  * full cold-fault working set, and not about fairplayd.A2's own file.
  * 327 MiB requested (~318 MiB reachable given file sizes). A memory-
  * pressure gate defers each window while free+inactive+speculative is
- * thin. Disable with pong_cache_prefetch=0. */
+ * thin (16,000 pages; v65 field data showed the pool sits permanently
+ * below the previous 28,000 threshold, stalling every window 150 s).
+ * Disable with pong_cache_prefetch=0. */
 static bool cache_prefetch_enabled(void)
 {
     char args[2048];
@@ -468,7 +476,7 @@ static void *cache_worker(void *unused)
                 break;
             uint64_t pool = (uint64_t)vm.free_count + vm.inactive_count
                           + vm.speculative_count;
-            if (pool >= 28000 || waits >= 5) break;
+            if (pool >= 16000 || waits >= 5) break;
             diag_say("Pong cache pre-read: deferred, %llu pages free+inactive, wait %u",
                      (unsigned long long)pool, waits + 1);
             sleep(30);

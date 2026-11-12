@@ -44,6 +44,7 @@ static ptrdiff_t activation_offset;
 static bool launchservices_process, launchservices_installed;
 static bool installd_process, installd_directory_installed;
 static bool pluginkit_process, pluginkit_directory_attempted;
+static bool fairplay_process;
 static CFURLRef ls_base, ls_system, ls_user, ls_shared;
 static CFURLRef installd_library;
 static CFURLRef pluginkit_container;
@@ -94,6 +95,104 @@ static void pong_say(const char *format,...)
     fprintf(stderr,"%s\n",line);
     pong_console_line(line);
 }
+
+/* fairplayd.A2 runtime evidence (see the constructor branch for why).
+ * The __interpose pairs are process-wide but inert in every other
+ * injected process: each wrapper checks fairplay_process first. Under
+ * the two-level namespace our own calls to the originals bind straight
+ * to libSystem, so no recursion. */
+extern void pong_diag_line(const char *line);
+extern kern_return_t bootstrap_check_in(mach_port_t,char *);
+typedef mach_port_t pong_io_object_t;
+extern pong_io_object_t IOServiceGetMatchingService(mach_port_t,CFDictionaryRef);
+extern kern_return_t IOServiceOpen(pong_io_object_t,mach_port_t,uint32_t,pong_io_object_t *);
+#define PONG_INTERPOSE(tag,replacement,replacee) \
+    __attribute__((used)) static const void *const pong_interpose_##tag[2] \
+    __attribute__((section("__DATA,__interpose"))) = { \
+        (const void *)&(replacement),(const void *)&(replacee) }
+
+static void fairplay_exit_site(int status,const char *kind)
+{
+    char line[560];
+    int n=snprintf(line,sizeof(line),"Pong A2: %s(%d) site:",kind,status);
+    void *frame=__builtin_frame_address(0);
+    for(unsigned i=0;n>0&&(size_t)n<sizeof(line)-24&&frame&&i<12;i++) {
+        void **pair=(void **)frame;
+        uintptr_t site=(uintptr_t)pair[1];
+        if(site<0x10000000000ULL||site>=0x30000000000ULL)break;
+        n+=snprintf(line+n,sizeof(line)-(size_t)n," %llx",
+                    (unsigned long long)site);
+        frame=pair[0];
+    }
+    if(n>0)pong_diag_line(line);
+}
+
+static void pong_a2_exit(int status)
+{
+    if(fairplay_process)fairplay_exit_site(status,"exit");
+    exit(status);
+    while(1);
+}
+static void pong_a2_exit_raw(int status)
+{
+    if(fairplay_process)fairplay_exit_site(status,"_exit");
+    _exit(status);
+    while(1);
+}
+static kern_return_t pong_a2_check_in(mach_port_t port,char *service)
+{
+    kern_return_t result=bootstrap_check_in(port,service);
+    if(fairplay_process){
+        char line[256];
+        int n=snprintf(line,sizeof(line),"Pong A2: bootstrap_check_in %s -> %d",
+                       service?service:"(null)",result);
+        if(n>0)pong_diag_line(line);
+    }
+    return result;
+}
+static pong_io_object_t pong_a2_matching(mach_port_t port,CFDictionaryRef matching)
+{
+    pong_io_object_t service=IOServiceGetMatchingService(port,matching);
+    if(fairplay_process){
+        char line[320]="Pong A2: IOServiceGetMatchingService";
+        int n=(int)strlen(line);
+        static const char *keys[]={"IOProviderClass","IOClass","IOUserClientClass"};
+        for(unsigned k=0;matching&&k<sizeof(keys)/sizeof(keys[0])&&
+            n>0&&(size_t)n<sizeof(line)-96;k++){
+            CFStringRef key=CFStringCreateWithCString(NULL,keys[k],
+                kCFStringEncodingASCII);
+            CFTypeRef value=key?CFDictionaryGetValue(matching,key):NULL;
+            if(key)CFRelease(key);
+            char text[64]={};
+            if(value&&CFGetTypeID(value)==CFStringGetTypeID())
+                CFStringGetCString(value,text,sizeof(text),kCFStringEncodingUTF8);
+            if(text[0])
+                n+=snprintf(line+n,sizeof(line)-(size_t)n," %s=%s",keys[k],text);
+        }
+        if(n>0&&(size_t)n<sizeof(line)-32)
+            snprintf(line+n,sizeof(line)-(size_t)n," -> service=%u",service);
+        pong_diag_line(line);
+    }
+    return service;
+}
+static kern_return_t pong_a2_open(pong_io_object_t service,mach_port_t owner,
+                                  uint32_t type,pong_io_object_t *connect)
+{
+    kern_return_t result=IOServiceOpen(service,owner,type,connect);
+    if(fairplay_process){
+        char line[192];
+        int n=snprintf(line,sizeof(line),
+            "Pong A2: IOServiceOpen service=%u type=%u -> %d connect=%u",
+            service,type,result,connect?*connect:0);
+        if(n>0)pong_diag_line(line);
+    }
+    return result;
+}
+PONG_INTERPOSE(exit,pong_a2_exit,exit);
+PONG_INTERPOSE(raw_exit,pong_a2_exit_raw,_exit);
+PONG_INTERPOSE(check_in,pong_a2_check_in,bootstrap_check_in);
+PONG_INTERPOSE(matching,pong_a2_matching,IOServiceGetMatchingService);
+PONG_INTERPOSE(open,pong_a2_open,IOServiceOpen);
 
 static char abi_type_kind(const char *type)
 {
@@ -2103,6 +2202,21 @@ __attribute__((constructor)) static void pong_ui18_start(void)
          * blocking on this service. Diagnose usermanagerd through the
          * console receipts and native stackshots only. */
         initialize_persona_manifest();return;
+    }
+    if(strcmp(name,"fairplayd.A2")==0) {
+        /* v65 field evidence: A2 exits 0 within seconds, 43x per run,
+         * before locationd's FairPlay MIG request ever gets a receiver.
+         * The 1029 iOS16 line hit the identical wall and attributed it
+         * to the missing kernel kext com.apple.driver.FairPlayIOKit
+         * (present in Apple's stock 22H374 kernelcache, absent from
+         * ours; a prelinked kext cannot be moved between kernels
+         * without binary surgery). Until that is decided, capture the
+         * exit site, the bootstrap check-in order and the IOKit
+         * matching/open results from inside the process. Strictly no
+         * threads and no image callbacks here - only symbol
+         * interposition, which is inert until this flag is set. */
+        fairplay_process=true;
+        return;
     }
     if(strcmp(name,"SpringBoard")==0) {
         springboard_process=true;
