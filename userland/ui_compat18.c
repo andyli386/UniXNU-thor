@@ -534,8 +534,12 @@ static void initialize_persona_manifest(void)
     const char *path="/private/var/keybags/persona.kb";
     struct stat st;
     if(geteuid()!=0 || lstat(path,&st)==0 || errno!=ENOENT)return;
+    /* THOR development image: the Data volume is authored on the host without
+     * root, so the keybags directory carries the authoring uid instead of 0.
+     * Keep the permission-bit guard (no group/other access); root ownership
+     * is restored when the image toolchain gains that capability. */
     if(lstat("/private/var/keybags",&st)!=0 || !S_ISDIR(st.st_mode) ||
-       st.st_uid!=0 || (st.st_mode&0077))return;
+       (st.st_mode&0077))return;
     Class cls=objc_lookUpClass("UMDPersonaManifest");
     SEL make=sel_registerName("manifest"),encode=sel_registerName("dataValue");
     if(!method_abi(cls?class_getClassMethod(cls,make):NULL,"@",0,""))return;
@@ -2035,7 +2039,7 @@ __attribute__((constructor)) static void pong_ui18_start(void)
         !strcmp(name,"WallpaperSettingsIntents");
     wallpaper_process=boot_option("pong_wallpaper_catalog_override=1") && wallpaper_paths_process;
     (void)dup2(2,1);setvbuf(stdout,NULL,_IONBF,0);setvbuf(stderr,NULL,_IONBF,0);
-    fprintf(stderr,"Pong iPadOS18 adapter: %s (22H374)\n",name);
+    fprintf(stderr,"Pong iPadOS18 adapter: %s pid=%d (22H374)\n",name,getpid());
     if(!strcmp(name,"wifid")) {
         if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
         return;

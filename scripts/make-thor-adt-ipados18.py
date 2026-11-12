@@ -296,7 +296,12 @@ def main():
             ('pon-ppid', struct.pack('<I', 0x013)),
             ('volume-up-ppid', struct.pack('<I', 0x18d)),
         ]), *([ufs] if args.ufs_probe else [])]),
-        node('defaults', [('sleep-disabled', struct.pack('<I', 1))]),
+        # THOR: vmm-present=1 is a compatibility declaration, not hardware
+        # detection. kern.hv_vmm_present (hvg_sysctl.c IODTGetDefault) needs
+        # it or watchdogd SIGTRAP-loops and its third exit panics the kernel
+        # (1029 field evidence + UniXNU docs/devices/evb10.md).
+        node('defaults', [('sleep-disabled', struct.pack('<I', 1)),
+                          ('vmm-present', struct.pack('<I', 1))]),
         node('options'),
         # Missing HomeButtonType defaults to a Home-button iPad in Gestalt.
         # Pong has only the three physical volume/power buttons.
