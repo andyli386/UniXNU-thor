@@ -19,15 +19,20 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <mach/mach.h>
+#include <mach/mach_host.h>
 #include <mach/arm/thread_status.h>
 #include <mach-o/dyld.h>
+#include <mach/vm_statistics.h>
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/event.h>
 #include <sys/param.h>
+#include <sys/proc.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <time.h>
@@ -51,6 +56,60 @@ void pong_console_line(const char *line)
 static void emit(int fd, const char *line)
 {
     dprintf(fd, "%s\n", line);
+    pong_console_line(line);
+}
+
+/* v65 review P1: receipts written only to /dev/console never reach
+ * kern.msgbuf (cnwrite forwards to the tty; log_putc is kernel printf
+ * only), so PongConsole.txt cannot capture them. The auxiliary workers
+ * log through this bounded persistent file instead, timestamped, then
+ * mirror to the console for the pre-takeover text phase. One serialized
+ * writer; 4 MiB rotation. */
+static pthread_mutex_t diag_lock = PTHREAD_MUTEX_INITIALIZER;
+static int diag_fd = -2;   /* -2 not tried, -1 unavailable */
+
+/* The device SDK ships no proc_info headers; these are the kernel ABI
+ * definitions (xnu-work bsd/sys/proc_info.h, stable layout). */
+#define PONG_PROC_PIDTBSDINFO 3
+struct pong_proc_bsdinfo {
+    uint32_t pbi_flags, pbi_status, pbi_xstatus, pbi_pid, pbi_ppid;
+    uint32_t pbi_uid, pbi_gid, pbi_ruid, pbi_rgid, pbi_svuid, pbi_svgid;
+    uint32_t rfu_1;
+    char pbi_comm[MAXCOMLEN];
+    char pbi_name[2 * MAXCOMLEN];
+    uint32_t pbi_nfiles, pbi_pgid, pbi_pjobc, e_tdev, e_tpgid;
+    int32_t pbi_nice;
+    uint64_t pbi_start_tvsec, pbi_start_tvusec;
+};
+extern int proc_pidinfo(int pid,int flavor,uint64_t arg,void *buffer,int buffersize);
+
+static void diag_say(const char *format,...)
+{
+    char line[384];
+    va_list arguments;
+    va_start(arguments,format);
+    int n=vsnprintf(line,sizeof(line),format,arguments);
+    va_end(arguments);
+    if(n<=0)return;
+    pthread_mutex_lock(&diag_lock);
+    if(diag_fd==-2){
+        diag_fd=open("/private/var/logs/PongDiag.txt",
+                     O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
+        if(diag_fd>=0)
+            dprintf(diag_fd,"Pong diag: worker start pid=%d time=%lld\n",
+                    getpid(),(long long)time(NULL));
+    }
+    if(diag_fd>=0){
+        dprintf(diag_fd,"[%lld] %s\n",(long long)time(NULL),line);
+        struct stat st;
+        if(fstat(diag_fd,&st)==0&&st.st_size>4*1024*1024){
+            (void)fsync(diag_fd);
+            close(diag_fd);
+            diag_fd=open("/private/var/logs/PongDiag.txt",
+                         O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC,0600);
+        }
+    }
+    pthread_mutex_unlock(&diag_lock);
     pong_console_line(line);
 }
 
@@ -237,12 +296,8 @@ static void *console_worker(void *unused)
     (void)unused;
     const char *path = "/private/var/logs/PongConsole.txt";
     int out = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
-    char notice[128];
-    int n;
     if (out < 0) {
-        n = snprintf(notice, sizeof(notice),
-                     "Pong console capture: open failed errno=%d", errno);
-        if (n > 0) pong_console_line(notice);
+        diag_say("Pong console capture: open failed errno=%d", errno);
         return NULL;
     }
     static char buffer[160 * 1024];
@@ -254,19 +309,15 @@ static void *console_worker(void *unused)
         if (got < 0) {
             if (!complained) {
                 complained = true;
-                n = snprintf(notice, sizeof(notice),
-                             "Pong console capture: proc_info dmesg errno=%d", errno);
-                if (n > 0) pong_console_line(notice);
+                diag_say("Pong console capture: proc_info dmesg errno=%d", errno);
             }
             sleep(60);
             continue;
         }
         if (!announced) {
             announced = true;
-            n = snprintf(notice, sizeof(notice),
-                         "Pong console capture: proc_info dmesg pid=%d first=%dB",
-                         getpid(), got);
-            if (n > 0) { pong_console_line(notice); dprintf(out, "%s\n", notice); }
+            diag_say("Pong console capture: proc_info dmesg pid=%d first=%dB",
+                     getpid(), got);
         }
         if (got > 0) {
             /* append only the part not seen last round; a missing overlap
@@ -308,12 +359,14 @@ static void *console_worker(void *unused)
 }
 
 /* Warm the dyld shared cache into the unified buffer cache. v64 field
- * evidence: every 4 KiB page-in is a synchronous single-slot UFS command
- * (~2-4 MiB/s effective), so daemons spend minutes in dyld/ObjC init
- * (fairplayd.A2 never finished paging in, PosterBoard hit the 30 s
- * 0x8badf00d watchdog) while the system thrashes (46k memorystatus
- * lines). Sequential read() of hot cache extents populates the same UBC
- * the page-ins then hit - the ufs116 recipe from the iOS16 line.
+ * evidence (hypothesis, to be measured): each 4 KiB page-in is a
+ * synchronous single-slot UFS command, so daemons spend a long time in
+ * dyld/ObjC init (fairplayd.A2 instances seen mid-page-in and later
+ * absent; PosterBoard hit the 30 s 0x8badf00d watchdog) while
+ * memorystatus lines accumulate by the thousand per run (the 46,879
+ * figure in the earlier commit mixed two boots' consoles). Sequential
+ * read() of hot cache extents populates the same UBC the page-ins then
+ * hit - the ufs116 recipe from the iOS16 line.
  * The extents are COMPUTED for the 22H374 cache, not copied from the
  * iOS16 "first four subfiles" layout: every image observed in the
  * v61-v64 stack symbolication was mapped through the subfile headers to
@@ -325,12 +378,13 @@ static void *console_worker(void *unused)
  * libsystem_pthread/.31+11, RunningBoard/.40+81, GeoServices+.03+25,
  * DataDetection/.31+83, dyld/.11+90, ContainerManagerCommon/.25+75,
  * CoreLocation/.05+30, libsystem_trace/.09+38 - and windows budgeted
- * around them. The table was validated against every frame address in
- * the three pulled runs (v61/v62/v64, 11,373 cache-resident frames):
- * 97.6% fall inside these windows for 327 MiB total. Clean UBC pages
- * self-evict first under pressure, so this is the safest large tenant
- * on the 665 MiB box; the kill storm came from 4 KiB UFS page-ins, not
- * from cache pages. Disable with pong_cache_prefetch=0. */
+ * around them. Validated against the frame addresses of the three
+ * pulled runs (11,373 cache-resident stack samples): 97.6% fall inside
+ * these windows - a statement about sampled stack frames, not about the
+ * full cold-fault working set, and not about fairplayd.A2's own file.
+ * 327 MiB requested (~318 MiB reachable given file sizes). A memory-
+ * pressure gate defers each window while free+inactive+speculative is
+ * thin. Disable with pong_cache_prefetch=0. */
 static bool cache_prefetch_enabled(void)
 {
     char args[2048];
@@ -360,9 +414,12 @@ static void *cache_worker(void *unused)
         {25, 72, 26}, {27, 14, 28}, {31,  0, 28}, {31, 82, 10},
         {40, 78, 16},
     };
-    char path[512], line[256];
+    char path[512], full[512];
     void *chunk = malloc(1024 * 1024);
-    if (!chunk) return NULL;
+    if (!chunk) {
+        diag_say("Pong cache pre-read: buffer alloc failed");
+        return NULL;
+    }
     int fd = -1;
     unsigned opened_sub = 0;
     for (unsigned i = 0; i < sizeof(extents) / sizeof(extents[0]); i++) {
@@ -370,21 +427,57 @@ static void *cache_worker(void *unused)
             if (fd >= 0) close(fd);
             fd = -1;
             opened_sub = extents[i].sub;
-            snprintf(path, sizeof(path), "%s.%02u", prefix, extents[i].sub);
+            snprintf(path, sizeof(path), "%s%02u", prefix, extents[i].sub);
+            int saved = 0;
             for (unsigned d = 0; candidates[d] && fd < 0; d++) {
-                char full[512];
                 snprintf(full, sizeof(full), "%s/%s", candidates[d], path);
                 fd = open(full, O_RDONLY | O_CLOEXEC);
+                if (fd < 0) saved = errno;
             }
             if (fd < 0) {
-                int n = snprintf(line, sizeof(line),
-                                 "Pong cache pre-read: .%02u not found", extents[i].sub);
-                if (n > 0) pong_console_line(line);
+                diag_say("Pong cache pre-read: %s open errno=%d", path, saved);
                 continue;
             }
+            diag_say("Pong cache pre-read: opened %s", full);
         }
-        if (lseek(fd, (off_t)extents[i].start_mib << 20, SEEK_SET) < 0) continue;
+        struct stat st;
+        if (fstat(fd, &st) != 0) {
+            diag_say("Pong cache pre-read: .%02u fstat errno=%d", extents[i].sub, errno);
+            continue;
+        }
+        off_t begin = (off_t)extents[i].start_mib << 20;
         off_t want = (off_t)extents[i].length_mib << 20;
+        const char *note = "complete";
+        if (begin >= st.st_size) {
+            diag_say("Pong cache pre-read: .%02u [%u+%uMiB] skipped, past EOF %lldB",
+                     extents[i].sub, extents[i].start_mib, extents[i].length_mib,
+                     (long long)st.st_size);
+            continue;
+        }
+        if (begin + want > st.st_size) {
+            want = st.st_size - begin;
+            note = "clamped to EOF";
+        }
+        unsigned waits = 0;
+        for (;;) {
+            vm_statistics64_data_t vm;
+            memset(&vm, 0, sizeof(vm));
+            mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+            if (host_statistics64(mach_host_self(), HOST_VM_INFO64,
+                                  (host_info64_t)&vm, &count) != KERN_SUCCESS)
+                break;
+            uint64_t pool = (uint64_t)vm.free_count + vm.inactive_count
+                          + vm.speculative_count;
+            if (pool >= 28000 || waits >= 5) break;
+            diag_say("Pong cache pre-read: deferred, %llu pages free+inactive, wait %u",
+                     (unsigned long long)pool, waits + 1);
+            sleep(30);
+            waits++;
+        }
+        if (lseek(fd, begin, SEEK_SET) < 0) {
+            diag_say("Pong cache pre-read: .%02u lseek errno=%d", extents[i].sub, errno);
+            continue;
+        }
         off_t done = 0;
         struct timespec a, b;
         clock_gettime(CLOCK_MONOTONIC, &a);
@@ -392,19 +485,19 @@ static void *cache_worker(void *unused)
             size_t take = (size_t)(want - done) < 1024 * 1024
                               ? (size_t)(want - done) : 1024 * 1024;
             ssize_t got = read(fd, chunk, take);
+            if (got < 0 && errno == EINTR) continue;
             if (got <= 0) break;
             done += got;
         }
         clock_gettime(CLOCK_MONOTONIC, &b);
         long ms = (b.tv_sec - a.tv_sec) * 1000 + (b.tv_nsec - a.tv_nsec) / 1000000;
-        int n = snprintf(line, sizeof(line),
-                         "Pong cache pre-read: .%02u [%u+%uMiB] read=%lldMiB ms=%ld",
-                         extents[i].sub, extents[i].start_mib, extents[i].length_mib,
-                         (long long)(done / (1024 * 1024)), ms);
-        if (n > 0) pong_console_line(line);
+        diag_say("Pong cache pre-read: .%02u [%u+%uMiB] read=%lld of %lld bytes ms=%ld %s",
+                 extents[i].sub, extents[i].start_mib, extents[i].length_mib,
+                 (long long)done, (long long)want, ms, note);
     }
     if (fd >= 0) close(fd);
     free(chunk);
+    diag_say("Pong cache pre-read: worker finished");
     return NULL;
 }
 
@@ -416,42 +509,94 @@ static void *cache_worker(void *unused)
 static void *watch_worker(void *unused)
 {
     (void)unused;
+    /* v65 review: match PID SETS, not the first hit - p_comm is 16 chars
+     * so containermanagerd and containermanagerd_system are
+     * indistinguishable in kinfo (they even share pbi_name, being the
+     * same binary); the pid set makes that ambiguity explicit instead of
+     * silently tracking the wrong service. pbi_name (32 chars) refines
+     * every candidate that a p_comm prefix caught. Zombies are marked
+     * 'z' - a zombie is itself signal of an unreaped exit. For the
+     * exit-tracked services the kernel reports the exit status through
+     * EVFILT_PROC NOTE_EXITSTATUS, closing the gap between polls for
+     * processes that die inside 5 s (the reason field is still not
+     * captured - this remains an observation aid, not a crash log). */
     static const char *names[] = {
         "fairplayd.A2", "fairplaydeviceidentityd", "locationd", "timed",
         "lockdownd", "usermanagerd", "containermanagerd", "PosterBoard",
         "SpringBoard", "backboardd", "runningboardd", "lsd",
         "com.apple.datamig", "com.apple.migrationplug", "datamigratorhelper",
         "securityd", "mobileassetd", NULL};
+    static const bool exit_tracked[] = {
+        true, false, false, true, false, true, false, true,
+        false, false, false, false, false, false, false, false, false};
     enum { watched = sizeof(names) / sizeof(names[0]) - 1 };
-    int previous[watched];
-    for (unsigned i = 0; i < watched; i++) previous[i] = -1;
+    char previous[watched][96];
+    for (unsigned i = 0; i < watched; i++) previous[i][0] = 0;
     int mib[3] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
+    int kq = kqueue();
+    if (kq < 0) diag_say("Pong watch: kqueue errno=%d", errno);
     for (;;) {
         sleep(5);
         size_t length = 0;
         if (sysctl(mib, 3, NULL, &length, NULL, 0) != 0 || length == 0) continue;
         struct kinfo_proc *table = malloc(length);
-        if (!table) continue;
+        if (!table) { diag_say("Pong watch: table alloc failed"); continue; }
         if (sysctl(mib, 3, table, &length, NULL, 0) != 0) { free(table); continue; }
         unsigned count = (unsigned)(length / sizeof(*table));
-        char line[192];
         for (unsigned i = 0; i < watched; i++) {
-            int pid = 0;
             size_t match = strlen(names[i]);
             if (match > MAXCOMLEN - 1) match = MAXCOMLEN - 1;
-            for (unsigned j = 0; j < count; j++)
-                if (strncmp(table[j].kp_proc.p_comm, names[i], match) == 0) {
-                    pid = table[j].kp_proc.p_pid;
-                    break;
+            int pids[8];
+            bool zombies[8];
+            unsigned found = 0;
+            for (unsigned j = 0; j < count && found < 8; j++) {
+                if (strncmp(table[j].kp_proc.p_comm, names[i], match) != 0) continue;
+                struct pong_proc_bsdinfo info;
+                memset(&info, 0, sizeof(info));
+                bool named = proc_pidinfo(table[j].kp_proc.p_pid, PONG_PROC_PIDTBSDINFO,
+                                          0, &info, (int)sizeof(info)) == (int)sizeof(info);
+                if (named && strncmp(info.pbi_name, names[i], match) != 0) {
+                    bool other = false;
+                    for (unsigned k = 0; k < watched; k++)
+                        if (k != i && strncmp(info.pbi_name, names[k], strlen(names[k])) == 0)
+                            { other = true; break; }
+                    if (other) continue;   /* counted under its own name */
                 }
-            if (pid != previous[i]) {
-                int n = snprintf(line, sizeof(line), "Pong watch: %s pid %d -> %d",
-                                 names[i], previous[i], pid);
-                if (n > 0) pong_console_line(line);
-                previous[i] = pid;
+                pids[found] = table[j].kp_proc.p_pid;
+                zombies[found] = table[j].kp_proc.p_stat == SZOMB;
+                found++;
+                if (exit_tracked[i] && kq >= 0) {
+                    struct kevent event;
+                    EV_SET(&event, table[j].kp_proc.p_pid, EVFILT_PROC,
+                           EV_ADD | EV_ONESHOT, NOTE_EXIT | NOTE_EXITSTATUS, 0, 0);
+                    (void)kevent(kq, &event, 1, NULL, 0, NULL);
+                }
+            }
+            char current[96];
+            int used = snprintf(current, sizeof(current), "[");
+            for (unsigned p = 0; p < found && used > 0
+                 && (size_t)used < sizeof(current); p++)
+                used += snprintf(current + used, sizeof(current) - used,
+                                 "%s%d%s", p ? "," : "", pids[p], zombies[p] ? "z" : "");
+            if (used > 0 && (size_t)used < sizeof(current))
+                used += snprintf(current + used, sizeof(current) - used, "]");
+            if (used <= 0 || (size_t)used >= sizeof(current)) continue;
+            if (strcmp(current, previous[i]) != 0) {
+                diag_say("Pong watch: %s %s -> %s", names[i],
+                         previous[i][0] ? previous[i] : "(none)", current);
+                snprintf(previous[i], sizeof(previous[i]), "%s", current);
             }
         }
         free(table);
+        if (kq >= 0) {
+            struct kevent events[16];
+            struct timespec zero = {0, 0};
+            int n = kevent(kq, NULL, 0, events, 16, &zero);
+            for (int e = 0; e < n; e++)
+                diag_say("Pong watch: pid %lu exited data=0x%x",
+                         (unsigned long)events[e].ident,
+                         (unsigned)(events[e].data & 0xffffffffu));
+        }
     }
     return NULL;
 }
