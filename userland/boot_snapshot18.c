@@ -14,6 +14,7 @@
  * (dmesg buffer) to PongConsole.txt so every boot's full text log can be
  * pulled from Data in Recovery instead of photographed.
  */
+#include <dirent.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -26,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <time.h>
@@ -305,6 +307,156 @@ static void *console_worker(void *unused)
     return NULL;
 }
 
+/* Warm the dyld shared cache into the unified buffer cache. v64 field
+ * evidence: every 4 KiB page-in is a synchronous single-slot UFS command
+ * (~2-4 MiB/s effective), so daemons spend minutes in dyld/ObjC init
+ * (fairplayd.A2 never finished paging in, PosterBoard hit the 30 s
+ * 0x8badf00d watchdog) while the system thrashes (46k memorystatus
+ * lines). Sequential read() of the hottest cache extents populates the
+ * same UBC the page-ins then hit - the proven ufs116 recipe from the
+ * iOS16 line: 60 s after start, first 64 MiB of the four largest
+ * low-numbered subcaches. Disable with pong_cache_prefetch=0. */
+static bool cache_prefetch_enabled(void)
+{
+    char args[2048];
+    size_t length = sizeof(args);
+    if (sysctlbyname("kern.bootargs", args, &length, NULL, 0) != 0) return true;
+    args[length < sizeof(args) ? length : sizeof(args) - 1] = 0;
+    return strstr(args, "pong_cache_prefetch=0") == NULL;
+}
+
+static void *cache_worker(void *unused)
+{
+    (void)unused;
+    if (!cache_prefetch_enabled()) {
+        pong_console_line("Pong cache pre-read: disabled by boot arg");
+        return NULL;
+    }
+    sleep(60);
+    static const char *candidates[] = {
+        "/System/Library/dyld",
+        "/System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld",
+        "/System/Library/Caches/com.apple.dyld",
+        NULL};
+    static const char prefix[] = "dyld_shared_cache_arm64.";
+    char path[512], line[256];
+    /* subfiles: numeric suffix, big ones carry the hot text; take the
+     * four smallest numeric suffixes among files >= 16 MiB. */
+    struct { char name[64]; long long size; } pick[4];
+    unsigned picked = 0;
+    DIR *dir = NULL;
+    for (unsigned i = 0; candidates[i] && !dir; i++) {
+        dir = opendir(candidates[i]);
+        if (!dir) continue;
+        struct dirent *entry;
+        while ((entry = readdir(dir)) != NULL) {
+            const char *suffix = entry->d_name + sizeof(prefix) - 1;
+            size_t plen = sizeof(prefix) - 1;
+            if (strncmp(entry->d_name, prefix, plen) != 0 || !*suffix) continue;
+            bool numeric = true;
+            for (const char *p = suffix; *p; p++)
+                if (*p < '0' || *p > '9') { numeric = false; break; }
+            if (!numeric) continue;   /* skip .symbols/.dylddata/.maps */
+            snprintf(path, sizeof(path), "%s/%s", candidates[i], entry->d_name);
+            struct stat st;
+            if (stat(path, &st) != 0 || st.st_size < 16 * 1024 * 1024) continue;
+            long long number = atoll(suffix);
+            unsigned slot = picked;
+            for (unsigned j = 0; j < picked; j++)
+                if (number < atoll(pick[j].name + sizeof(prefix) - 1)) { slot = j; break; }
+            if (slot >= sizeof(pick) / sizeof(pick[0])) continue;
+            if (picked < sizeof(pick) / sizeof(pick[0])) picked++;
+            for (unsigned j = sizeof(pick) / sizeof(pick[0]) - 1; j > slot; j--)
+                pick[j] = pick[j - 1];
+            snprintf(pick[slot].name, sizeof(pick[slot].name), "%s", entry->d_name);
+            pick[slot].size = st.st_size;
+        }
+        closedir(dir);
+    }
+    if (!picked) {
+        int n = snprintf(line, sizeof(line), "Pong cache pre-read: no cache subfiles found");
+        if (n > 0) pong_console_line(line);
+        return NULL;
+    }
+    void *chunk = malloc(1024 * 1024);
+    if (!chunk) return NULL;
+    for (unsigned i = 0; i < picked; i++) {
+        int fd = -1;
+        for (unsigned d = 0; candidates[d] && fd < 0; d++) {
+            char full[512];
+            snprintf(full, sizeof(full), "%s/%s", candidates[d], pick[i].name);
+            fd = open(full, O_RDONLY | O_CLOEXEC);
+        }
+        if (fd < 0) continue;
+        long long want = pick[i].size < 64 * 1024 * 1024 ? pick[i].size : 64 * 1024 * 1024;
+        long long done = 0;
+        struct timespec a, b;
+        clock_gettime(CLOCK_MONOTONIC, &a);
+        while (done < want) {
+            ssize_t got = read(fd, chunk, (size_t)(want - done) < 1024 * 1024
+                               ? (size_t)(want - done) : 1024 * 1024);
+            if (got <= 0) break;
+            done += got;
+        }
+        clock_gettime(CLOCK_MONOTONIC, &b);
+        close(fd);
+        long ms = (b.tv_sec - a.tv_sec) * 1000 + (b.tv_nsec - a.tv_nsec) / 1000000;
+        int n = snprintf(line, sizeof(line),
+                         "Pong cache pre-read: %s MiB=%lld ms=%ld", pick[i].name, done / (1024 * 1024), ms);
+        if (n > 0) pong_console_line(line);
+    }
+    free(chunk);
+    return NULL;
+}
+
+/* External process watcher (runningboardd only): fairplayd.A2 kept
+ * spawning and disappearing without a recorded exit reason (v64). This
+ * polls kern.proc from OUTSIDE the observed services - the usermanagerd
+ * regression taught us not to add threads inside them - and reports
+ * appearance/disappearance/PID changes for the boot-critical set. */
+static void *watch_worker(void *unused)
+{
+    (void)unused;
+    static const char *names[] = {
+        "fairplayd.A2", "fairplaydeviceidentityd", "locationd", "timed",
+        "lockdownd", "usermanagerd", "containermanagerd", "PosterBoard",
+        "SpringBoard", "backboardd", "runningboardd", "lsd",
+        "com.apple.datamig", "com.apple.migrationplug", "datamigratorhelper",
+        "securityd", "mobileassetd", NULL};
+    enum { watched = sizeof(names) / sizeof(names[0]) - 1 };
+    int previous[watched];
+    for (unsigned i = 0; i < watched; i++) previous[i] = -1;
+    int mib[3] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
+    for (;;) {
+        sleep(5);
+        size_t length = 0;
+        if (sysctl(mib, 3, NULL, &length, NULL, 0) != 0 || length == 0) continue;
+        struct kinfo_proc *table = malloc(length);
+        if (!table) continue;
+        if (sysctl(mib, 3, table, &length, NULL, 0) != 0) { free(table); continue; }
+        unsigned count = (unsigned)(length / sizeof(*table));
+        char line[192];
+        for (unsigned i = 0; i < watched; i++) {
+            int pid = 0;
+            size_t match = strlen(names[i]);
+            if (match > MAXCOMLEN - 1) match = MAXCOMLEN - 1;
+            for (unsigned j = 0; j < count; j++)
+                if (strncmp(table[j].kp_proc.p_comm, names[i], match) == 0) {
+                    pid = table[j].kp_proc.p_pid;
+                    break;
+                }
+            if (pid != previous[i]) {
+                int n = snprintf(line, sizeof(line), "Pong watch: %s pid %d -> %d",
+                                 names[i], previous[i], pid);
+                if (n > 0) pong_console_line(line);
+                previous[i] = pid;
+            }
+        }
+        free(table);
+    }
+    return NULL;
+}
+
 static void *worker(void *unused)
 {
     (void)unused;
@@ -362,8 +514,11 @@ void pong_boot_snapshot_start(const char *name)
     pthread_t thread;
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) == 0)
         (void)pthread_create(&thread, &attr, worker, NULL);
-    /* Only one root, early, stable process may own the console capture. */
-    if (geteuid() == 0 && !strcmp(name, "runningboardd"))
+    /* Only one root, early, stable process owns the auxiliary workers. */
+    if (geteuid() == 0 && !strcmp(name, "runningboardd")) {
         (void)pthread_create(&thread, &attr, console_worker, NULL);
+        (void)pthread_create(&thread, &attr, cache_worker, NULL);
+        (void)pthread_create(&thread, &attr, watch_worker, NULL);
+    }
     pthread_attr_destroy(&attr);
 }
