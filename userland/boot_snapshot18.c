@@ -312,10 +312,25 @@ static void *console_worker(void *unused)
  * (~2-4 MiB/s effective), so daemons spend minutes in dyld/ObjC init
  * (fairplayd.A2 never finished paging in, PosterBoard hit the 30 s
  * 0x8badf00d watchdog) while the system thrashes (46k memorystatus
- * lines). Sequential read() of the hottest cache extents populates the
- * same UBC the page-ins then hit - the proven ufs116 recipe from the
- * iOS16 line: 60 s after start, first 64 MiB of the four largest
- * low-numbered subcaches. Disable with pong_cache_prefetch=0. */
+ * lines). Sequential read() of hot cache extents populates the same UBC
+ * the page-ins then hit - the ufs116 recipe from the iOS16 line.
+ * The extents are COMPUTED for the 22H374 cache, not copied from the
+ * iOS16 "first four subfiles" layout: every image observed in the
+ * v61-v64 stack symbolication was mapped through the subfile headers to
+ * (subfile, file offset) - libobjc/Foundation/CoreServices/
+ * CoreFoundation/.01 0-40 MB, QuartzCore/.01+66.7, dispatch+
+ * BackBoardServices+BaseBoard/.03+51-53, RunningBoardServices/.05+53,
+ * ChronoServices/.05+36, BoardServices/.09+19, libsystem_kernel/.25+23,
+ * SpringBoard/.25+89, DataMigration/.27+26, FrontBoard/.11+51, libxpc+
+ * libsystem_pthread/.31+11, RunningBoard/.40+81, GeoServices+.03+25,
+ * DataDetection/.31+83, dyld/.11+90, ContainerManagerCommon/.25+75,
+ * CoreLocation/.05+30, libsystem_trace/.09+38 - and windows budgeted
+ * around them. The table was validated against every frame address in
+ * the three pulled runs (v61/v62/v64, 11,373 cache-resident frames):
+ * 97.6% fall inside these windows for 327 MiB total. Clean UBC pages
+ * self-evict first under pressure, so this is the safest large tenant
+ * on the 665 MiB box; the kill storm came from 4 KiB UFS page-ins, not
+ * from cache pages. Disable with pong_cache_prefetch=0. */
 static bool cache_prefetch_enabled(void)
 {
     char args[2048];
@@ -335,76 +350,60 @@ static void *cache_worker(void *unused)
     sleep(60);
     static const char *candidates[] = {
         "/System/Library/dyld",
-        "/System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld",
         "/System/Library/Caches/com.apple.dyld",
+        "/System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld",
         NULL};
     static const char prefix[] = "dyld_shared_cache_arm64.";
+    static const struct { unsigned sub, start_mib, length_mib; } extents[] = {
+        { 1,  0, 68}, { 3, 21, 19}, { 3, 44, 30}, { 5, 30, 26},
+        { 9, 10, 30}, {11, 46, 12}, {11, 88, 10}, {25, 16, 24},
+        {25, 72, 26}, {27, 14, 28}, {31,  0, 28}, {31, 82, 10},
+        {40, 78, 16},
+    };
     char path[512], line[256];
-    /* subfiles: numeric suffix, big ones carry the hot text; take the
-     * four smallest numeric suffixes among files >= 16 MiB. */
-    struct { char name[64]; long long size; } pick[4];
-    unsigned picked = 0;
-    DIR *dir = NULL;
-    for (unsigned i = 0; candidates[i] && !dir; i++) {
-        dir = opendir(candidates[i]);
-        if (!dir) continue;
-        struct dirent *entry;
-        while ((entry = readdir(dir)) != NULL) {
-            const char *suffix = entry->d_name + sizeof(prefix) - 1;
-            size_t plen = sizeof(prefix) - 1;
-            if (strncmp(entry->d_name, prefix, plen) != 0 || !*suffix) continue;
-            bool numeric = true;
-            for (const char *p = suffix; *p; p++)
-                if (*p < '0' || *p > '9') { numeric = false; break; }
-            if (!numeric) continue;   /* skip .symbols/.dylddata/.maps */
-            snprintf(path, sizeof(path), "%s/%s", candidates[i], entry->d_name);
-            struct stat st;
-            if (stat(path, &st) != 0 || st.st_size < 16 * 1024 * 1024) continue;
-            long long number = atoll(suffix);
-            unsigned slot = picked;
-            for (unsigned j = 0; j < picked; j++)
-                if (number < atoll(pick[j].name + sizeof(prefix) - 1)) { slot = j; break; }
-            if (slot >= sizeof(pick) / sizeof(pick[0])) continue;
-            if (picked < sizeof(pick) / sizeof(pick[0])) picked++;
-            for (unsigned j = sizeof(pick) / sizeof(pick[0]) - 1; j > slot; j--)
-                pick[j] = pick[j - 1];
-            snprintf(pick[slot].name, sizeof(pick[slot].name), "%s", entry->d_name);
-            pick[slot].size = st.st_size;
-        }
-        closedir(dir);
-    }
-    if (!picked) {
-        int n = snprintf(line, sizeof(line), "Pong cache pre-read: no cache subfiles found");
-        if (n > 0) pong_console_line(line);
-        return NULL;
-    }
     void *chunk = malloc(1024 * 1024);
     if (!chunk) return NULL;
-    for (unsigned i = 0; i < picked; i++) {
-        int fd = -1;
-        for (unsigned d = 0; candidates[d] && fd < 0; d++) {
-            char full[512];
-            snprintf(full, sizeof(full), "%s/%s", candidates[d], pick[i].name);
-            fd = open(full, O_RDONLY | O_CLOEXEC);
+    int fd = -1;
+    unsigned opened_sub = 0;
+    for (unsigned i = 0; i < sizeof(extents) / sizeof(extents[0]); i++) {
+        if (fd < 0 || extents[i].sub != opened_sub) {
+            if (fd >= 0) close(fd);
+            fd = -1;
+            opened_sub = extents[i].sub;
+            snprintf(path, sizeof(path), "%s.%02u", prefix, extents[i].sub);
+            for (unsigned d = 0; candidates[d] && fd < 0; d++) {
+                char full[512];
+                snprintf(full, sizeof(full), "%s/%s", candidates[d], path);
+                fd = open(full, O_RDONLY | O_CLOEXEC);
+            }
+            if (fd < 0) {
+                int n = snprintf(line, sizeof(line),
+                                 "Pong cache pre-read: .%02u not found", extents[i].sub);
+                if (n > 0) pong_console_line(line);
+                continue;
+            }
         }
-        if (fd < 0) continue;
-        long long want = pick[i].size < 64 * 1024 * 1024 ? pick[i].size : 64 * 1024 * 1024;
-        long long done = 0;
+        if (lseek(fd, (off_t)extents[i].start_mib << 20, SEEK_SET) < 0) continue;
+        off_t want = (off_t)extents[i].length_mib << 20;
+        off_t done = 0;
         struct timespec a, b;
         clock_gettime(CLOCK_MONOTONIC, &a);
         while (done < want) {
-            ssize_t got = read(fd, chunk, (size_t)(want - done) < 1024 * 1024
-                               ? (size_t)(want - done) : 1024 * 1024);
+            size_t take = (size_t)(want - done) < 1024 * 1024
+                              ? (size_t)(want - done) : 1024 * 1024;
+            ssize_t got = read(fd, chunk, take);
             if (got <= 0) break;
             done += got;
         }
         clock_gettime(CLOCK_MONOTONIC, &b);
-        close(fd);
         long ms = (b.tv_sec - a.tv_sec) * 1000 + (b.tv_nsec - a.tv_nsec) / 1000000;
         int n = snprintf(line, sizeof(line),
-                         "Pong cache pre-read: %s MiB=%lld ms=%ld", pick[i].name, done / (1024 * 1024), ms);
+                         "Pong cache pre-read: .%02u [%u+%uMiB] read=%lldMiB ms=%ld",
+                         extents[i].sub, extents[i].start_mib, extents[i].length_mib,
+                         (long long)(done / (1024 * 1024)), ms);
         if (n > 0) pong_console_line(line);
     }
+    if (fd >= 0) close(fd);
     free(chunk);
     return NULL;
 }
