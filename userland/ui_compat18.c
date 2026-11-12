@@ -16,6 +16,7 @@
 #include <objc/message.h>
 #include <objc/runtime.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -77,6 +78,22 @@ static bool own_directory(const char *path);
 void pong_boot_snapshot_start(const char *name);
 void pong_settings18_start(void);
 void pong_audio_volume18_start(void);
+
+/* THOR v62: key receipts also go to /dev/console. Services spawned via
+ * xpcproxy inherit stdio on /dev/null, so stderr-only receipts never reach
+ * the photographed screen; v59 field evidence showed the console write
+ * works for the mobile uid as well as root. */
+void pong_console_line(const char *line);
+static void pong_say(const char *format,...)
+{
+    char line[512];
+    va_list arguments;
+    va_start(arguments,format);
+    vsnprintf(line,sizeof(line),format,arguments);
+    va_end(arguments);
+    fprintf(stderr,"%s\n",line);
+    pong_console_line(line);
+}
 
 static char abi_type_kind(const char *type)
 {
@@ -521,7 +538,7 @@ static void container_persona_policy(void)
     if(!method_abi(method,"Bc",0,""))return;
     method_setImplementation(method,(IMP)no_container_personas);
     personas_installed=true;
-    fprintf(stderr,"Pong UI18: native single-user container paths selected\n");
+    pong_say("Pong UI18: native single-user container paths selected");
 }
 
 /* A new unencrypted Data has no persona.kb. In 22H374 --init can finish
@@ -573,15 +590,15 @@ static void initialize_persona_manifest(void)
     }
     (void)unlink(temporary);
     if(saved) {
-        fprintf(stderr,"Pong UI18: native persona registry write failed errno=%d\n",saved);
+        pong_say("Pong UI18: native persona registry write failed errno=%d",saved);
     } else if(published) {
         int directory=open("/private/var/keybags",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
         if(directory>=0) {
             if(fsync(directory)!=0)
-                fprintf(stderr,"Pong UI18: persona registry published; directory sync errno=%d\n",errno);
+                pong_say("Pong UI18: persona registry published; directory sync errno=%d",errno);
             (void)close(directory);
         }
-        fprintf(stderr,"Pong UI18: 22H374 serialized initial persona registry (%ld bytes)\n",(long)length);
+        pong_say("Pong UI18: 22H374 serialized initial persona registry (%ld bytes)",(long)length);
     }
 }
 
@@ -622,17 +639,17 @@ static bool install_compositor_code(const struct mach_header *header,intptr_t sl
     if(offset>UINTPTR_MAX-(uintptr_t)header || !bytes || bytes>vm_page_size)return false;
     uintptr_t target=(uintptr_t)header+offset;
     if(!executable_image_range((const void *)header,slide,target,bytes)) {
-        fprintf(stderr,"Pong UI18: %s outside executable image range; SKIP\n",label);return false;
+        pong_say("Pong UI18: %s outside executable image range; SKIP",label);return false;
     }
     if(memcmp((const void *)target,expected,bytes)) {
-        fprintf(stderr,"Pong UI18: 22H374 %s entry differs; SKIP\n",label);return false;
+        pong_say("Pong UI18: 22H374 %s entry differs; SKIP",label);return false;
     }
     const vm_address_t page=target&~((vm_address_t)vm_page_size-1);
     if(target-page>vm_page_size-bytes)return false;
     kern_return_t kr=vm_protect(mach_task_self(),page,vm_page_size,FALSE,
                                VM_PROT_READ|VM_PROT_WRITE|VM_PROT_COPY);
     if(kr!=KERN_SUCCESS) {
-        fprintf(stderr,"Pong UI18: %s protection failed %d\n",label,kr);return false;
+        pong_say("Pong UI18: %s protection failed %d",label,kr);return false;
     }
     memcpy((void *)target,replacement,bytes);
     sys_icache_invalidate((void *)target,bytes);
@@ -641,10 +658,10 @@ static bool install_compositor_code(const struct mach_header *header,intptr_t sl
         memcpy((void *)target,expected,bytes);
         sys_icache_invalidate((void *)target,bytes);
         (void)vm_protect(mach_task_self(),page,vm_page_size,FALSE,VM_PROT_READ|VM_PROT_EXECUTE);
-        fprintf(stderr,"Pong UI18: %s RX restore failed %d; original restored\n",label,kr);
+        pong_say("Pong UI18: %s RX restore failed %d; original restored",label,kr);
         return false;
     }
-    fprintf(stderr,"Pong UI18: 22H374 %s selected\n",label);return true;
+    pong_say("Pong UI18: 22H374 %s selected",label);return true;
 }
 
 /* 22H374 initializes its missing-calibration fallback limits by converting
@@ -1226,7 +1243,7 @@ static void wake_home(void *unused)
         CGRect logical=((CGRect(*)(id,SEL))objc_msgSend)(screen,sel_registerName("bounds"));
         double scale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName("scale"));
         double nativeScale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName("nativeScale"));
-        fprintf(stderr,"Pong UI18: screen native=%.0fx%.0f logical=%.2fx%.2f scale=%.2f nativeScale=%.2f\n",
+        pong_say("Pong UI18: screen native=%.0fx%.0f logical=%.2fx%.2f scale=%.2f nativeScale=%.2f",
             native.size.width,native.size.height,logical.size.width,logical.size.height,scale,nativeScale);
     }
     id backlight=singleton("SBBacklightController"),lock=singleton("SBLockScreenManager");
@@ -1241,9 +1258,9 @@ static void wake_home(void *unused)
        ((BOOL(*)(id,SEL))objc_msgSend)(lock,locked) &&
        method_abi(class_getInstanceMethod(object_getClass(lock),unlock),"Bc",2,"i@")) {
         BOOL accepted=((BOOL(*)(id,SEL,int,id))objc_msgSend)(lock,unlock,24,nil);
-        fprintf(stderr,"Pong UI18: native home request accepted=%d\n",accepted);
+        pong_say("Pong UI18: native home request accepted=%d",accepted);
     }
-    fprintf(stderr,"Pong UI18: main queue wake completed backlight=%d lockscreen=%d\n",backlight!=nil,lock!=nil);
+    pong_say("Pong UI18: main queue wake completed backlight=%d lockscreen=%d",backlight!=nil,lock!=nil);
 }
 
 static bool own_directory(const char *path)
@@ -1365,7 +1382,7 @@ static void launchservices_directories(void)
     };
     for(unsigned i=0;i<sizeof(dirs)/sizeof(dirs[0]);i++) {
         if(!own_directory(dirs[i])) {
-            fprintf(stderr,"Pong LS18: writable directory unavailable %s errno=%d\n",dirs[i],errno);
+            pong_say("Pong LS18: writable directory unavailable %s errno=%d",dirs[i],errno);
             return;
         }
     }
@@ -1381,7 +1398,7 @@ static void launchservices_directories(void)
     ls_base=urls[0];ls_system=urls[1];ls_user=urls[2];ls_shared=urls[3];
     for(unsigned i=0;i<4;i++)method_setImplementation(methods[i],(IMP)ls_directory);
     launchservices_installed=true;
-    fprintf(stderr,"Pong LS18: native lsd database uses writable single-user paths\n");
+    pong_say("Pong LS18: native lsd database uses writable single-user paths");
 }
 
 /* Keep the real fatal signal. Retain bounded frames because ReportCrash's
@@ -1395,7 +1412,7 @@ static void lsd_abort(int number,siginfo_t *info,void *saved)
         int n=snprintf(line,sizeof(line),"Pong LS18: fatal signal=%d pc=%llx lr=%llx\n",
             number,(unsigned long long)context->uc_mcontext->__ss.__pc,
             (unsigned long long)context->uc_mcontext->__ss.__lr);
-        if(n>0)(void)write(2,line,(size_t)n<sizeof(line)?(size_t)n:sizeof(line)-1);
+        if(n>0){(void)write(2,line,(size_t)n<sizeof(line)?(size_t)n:sizeof(line)-1);pong_console_line(line);}
         fp=context->uc_mcontext->__ss.__fp;
     }
     for(unsigned i=0;i<12 && fp>=0x100000000ULL && !(fp&15);i++) {
@@ -1403,7 +1420,7 @@ static void lsd_abort(int number,siginfo_t *info,void *saved)
         if(vm_read_overwrite(mach_task_self(),(vm_address_t)fp,sizeof(frame),
             (vm_address_t)frame,&size)!=KERN_SUCCESS || size!=sizeof(frame))break;
         int n=snprintf(line,sizeof(line),"Pong LS18: fatal frame[%u]=%llx\n",i,(unsigned long long)frame[1]);
-        if(n>0)(void)write(2,line,(size_t)n<sizeof(line)?(size_t)n:sizeof(line)-1);
+        if(n>0){(void)write(2,line,(size_t)n<sizeof(line)?(size_t)n:sizeof(line)-1);pong_console_line(line);}
         if(frame[0]<=fp || frame[0]-fp>0x100000)break;
         fp=frame[0];
     }
@@ -1830,14 +1847,14 @@ static void backboard_container(void)
     const char *library="/private/var/mobile/Library/Pong/backboardd/Library";
     if(!own_directory(base) || !own_directory(path) || !own_directory(library) ||
        !own_directory("/private/var/mobile/Library/Pong/backboardd/Library/Caches")) {
-        fprintf(stderr,"Pong UI18: backboardd Data directories unavailable errno=%d\n",errno);return;
+        pong_say("Pong UI18: backboardd Data directories unavailable errno=%d",errno);return;
     }
     container_root=CFURLCreateFromFileSystemRepresentation(NULL,(const UInt8 *)path,strlen(path),true);
     container_library=CFURLCreateFromFileSystemRepresentation(NULL,(const UInt8 *)library,strlen(library),true);
     if(!container_root || !container_library)return;
     class_replaceMethod(cls,root_sel,(IMP)process_root,method_getTypeEncoding(root));
     class_replaceMethod(cls,lib_sel,(IMP)process_library,method_getTypeEncoding(lib));
-    fprintf(stderr,"Pong UI18: backboardd container uses writable %s\n",path);
+    pong_say("Pong UI18: backboardd container uses writable %s",path);
 }
 
 /* Sileo is a no-container system app. Resolve its real mobile directories before
@@ -2039,7 +2056,7 @@ __attribute__((constructor)) static void pong_ui18_start(void)
         !strcmp(name,"WallpaperSettingsIntents");
     wallpaper_process=boot_option("pong_wallpaper_catalog_override=1") && wallpaper_paths_process;
     (void)dup2(2,1);setvbuf(stdout,NULL,_IONBF,0);setvbuf(stderr,NULL,_IONBF,0);
-    fprintf(stderr,"Pong iPadOS18 adapter: %s pid=%d (22H374)\n",name,getpid());
+    pong_say("Pong iPadOS18 adapter: %s pid=%d (22H374)",name,getpid());
     if(!strcmp(name,"wifid")) {
         if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
         return;
@@ -2078,6 +2095,11 @@ __attribute__((constructor)) static void pong_ui18_start(void)
         (void)sigaction(SIGABRT,&action,NULL);
     }
     if(strcmp(name,"usermanagerd")==0) {
+        /* v61 field evidence: the persona bootstrap ran (persona.kb was
+         * published on the device Data volume), but this early return also
+         * skipped the snapshot worker, leaving usermanagerd invisible in
+         * every pulled batch. Sample it like the other daemons. */
+        if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
         initialize_persona_manifest();return;
     }
     if(strcmp(name,"SpringBoard")==0) {

@@ -1,14 +1,21 @@
 /* SPDX-License-Identifier: MIT
  * Bounded, process-local startup snapshots (22H374 thor integration).
- * Two output paths: a persistent file under /private/var/logs and a bounded
- * mirror on /dev/console so a photograph of the screen captures the batch
- * even when the file cannot be retrieved from the device. No service
- * answers, render gates, thread suspension or persistent polling here.
- * GLM-review additions: batch BEGIN/END markers, stable thread ids
- * (THREAD_IDENTIFIER_INFO), total thread count always printed, three
- * batches (35/90/240s), logs directory self-provisioned.
+ * Output paths: a persistent file under /private/var/logs (root) or
+ * /private/var/mobile/Library/Logs (mobile), a bounded mirror on
+ * /dev/console so early batches are visible on the photographed screen,
+ * and - since the framebuffer takeover retires the text console - a
+ * one-line PREV summary of the previous boot's own file at startup.
+ * v62: batches 60/120/240/600/900 s then a full snapshot every 600 s and
+ * a one-line tick every 60 s, both unbounded in time with an 8 MiB
+ * rotation; files are opened O_APPEND so a restarted process (observed:
+ * containermanagerd PID 922) appends instead of destroying the previous
+ * instance's batches; up to 32 threads sampled; migration XPC services
+ * whitelisted; runningboardd additionally mirrors the kernel console
+ * (dmesg buffer) to PongConsole.txt so every boot's full text log can be
+ * pulled from Data in Recovery instead of photographed.
  */
 #include <dlfcn.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <mach/mach.h>
 #include <mach/arm/thread_status.h>
@@ -16,15 +23,19 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 #include <time.h>
 #include <unistd.h>
 
 static const char *process_name;
 static int console_fd = -2;   /* -2 not tried, -1 unavailable */
 
-static void say_console(const char *line)
+/* Shared with ui_compat18.c: key receipts must also reach the photographed
+ * console because spawned services inherit stdio on /dev/null. */
+void pong_console_line(const char *line)
 {
     if (console_fd == -2)
         console_fd = open("/dev/console", O_WRONLY | O_NOCTTY | O_CLOEXEC);
@@ -37,7 +48,15 @@ static void say_console(const char *line)
 static void emit(int fd, const char *line)
 {
     dprintf(fd, "%s\n", line);
-    say_console(line);
+    pong_console_line(line);
+}
+
+static void snapshot_path(char *path, size_t size)
+{
+    snprintf(path, size, "%s/PongBoot-%s.txt",
+             geteuid() == 0 ? "/private/var/logs"
+                            : "/private/var/mobile/Library/Logs",
+             process_name);
 }
 
 static void snapshot(int fd, unsigned elapsed)
@@ -61,14 +80,16 @@ static void snapshot(int fd, unsigned elapsed)
     const void *(*cache_range)(size_t *) =
         dlsym(RTLD_DEFAULT, "_dyld_get_shared_cache_range");
     const void *cache = cache_range ? cache_range(&cache_size) : NULL;
+    const char *image0 = _dyld_get_image_name(0);
     n = snprintf(line, sizeof(line),
-        "Pong boot snapshot: %s pid=%d seconds=%u image_slide=%llx cache=%p size=%zx",
-        process_name, getpid(), elapsed,
+        "Pong boot snapshot: %s pid=%d seconds=%u image0=%s image_slide=%llx "
+        "cache=%p size=%zx",
+        process_name, getpid(), elapsed, image0 ? image0 : "?",
         (unsigned long long)_dyld_get_image_vmaddr_slide(0), cache, cache_size);
     if (n > 0) emit(fd, line);
     mach_msg_type_number_t sampled = 0;
     for (mach_msg_type_number_t i = 0; i < count; i++) {
-        if (i < 16 && threads[i] != self) {
+        if (i < 32 && threads[i] != self) {
             arm_thread_state64_t state = {0};
             mach_msg_type_number_t words = ARM_THREAD_STATE64_COUNT;
             result = thread_get_state(threads[i], ARM_THREAD_STATE64,
@@ -118,30 +139,202 @@ static void snapshot(int fd, unsigned elapsed)
     (void)vm_deallocate(mach_task_self(), (vm_address_t)threads,
                         count * sizeof(*threads));
     snprintf(line, sizeof(line),
-             "Pong boot snapshot END: %s seconds=%u sampled=%u of %u",
-             process_name, elapsed, sampled, count);
+             "Pong boot snapshot END: %s pid=%d seconds=%u sampled=%u of %u",
+             process_name, getpid(), elapsed, sampled, count);
     emit(fd, line);
     (void)fsync(fd);
+}
+
+/* One cheap liveness line between full snapshots. */
+static void tick(int fd, unsigned elapsed)
+{
+    thread_act_array_t threads = NULL;
+    mach_msg_type_number_t count = 0;
+    if (task_threads(mach_task_self(), &threads, &count) == KERN_SUCCESS) {
+        (void)vm_deallocate(mach_task_self(), (vm_address_t)threads,
+                            count * sizeof(*threads));
+    }
+    char line[128];
+    int n = snprintf(line, sizeof(line), "Pong tick: %s pid=%d seconds=%u threads=%u",
+                     process_name, getpid(), elapsed, count);
+    if (n > 0) emit(fd, line);
+}
+
+/* Restarted processes must not destroy earlier instances' evidence. */
+static void rotate_if_huge(int fd, unsigned elapsed)
+{
+    struct stat st;
+    if (fstat(fd, &st) == 0 && st.st_size > 8 * 1024 * 1024) {
+        char line[128];
+        (void)ftruncate(fd, 0);
+        int n = snprintf(line, sizeof(line),
+                         "Pong boot snapshot ROTATE: %s seconds=%u size=%lld",
+                         process_name, elapsed, (long long)st.st_size);
+        if (n > 0) emit(fd, line);
+    }
+}
+
+/* Previous boot summary only: one line saying whether this process wrote a
+ * file last boot and how far it got. Full retrieval is the Recovery pull. */
+static void replay_previous(void)
+{
+    char path[256], header[192];
+    static const char marker[] = "Pong boot snapshot END:";
+    snapshot_path(path, sizeof(path));
+    int fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        int n = snprintf(header, sizeof(header),
+            "Pong boot snapshot PREV: %s no previous run file errno=%d",
+            process_name, errno);
+        if (n > 0) pong_console_line(header);
+        return;
+    }
+    char tail[512];
+    off_t size = lseek(fd, 0, SEEK_END);
+    size_t want = size > (off_t)(sizeof(tail) - 1) ? sizeof(tail) - 1 : (size_t)size;
+    ssize_t got = pread(fd, tail, want, size - (off_t)want);
+    close(fd);
+    if (got <= 0) return;
+    tail[got] = 0;
+    char *last = NULL;
+    for (char *scan = tail;
+         (size_t)(tail + got - scan) >= sizeof(marker) - 1; scan++)
+        if (!strncmp(scan, marker, sizeof(marker) - 1)) last = scan;
+    if (last) {
+        char *newline = strchr(last, '\n');
+        if (newline) *newline = 0;
+        char *spurious = strchr(last, '\r');
+        if (spurious) *spurious = 0;
+        int n = snprintf(header, sizeof(header),
+            "Pong boot snapshot PREV: %s file=%lldB last=[%s]",
+            process_name, (long long)size, last);
+        if (n > 0) pong_console_line(header);
+    } else {
+        int n = snprintf(header, sizeof(header),
+            "Pong boot snapshot PREV: %s file=%lldB no END marker (incomplete)",
+            process_name, (long long)size);
+        if (n > 0) pong_console_line(header);
+    }
+}
+
+/* Continuous kernel-console capture (root only, runningboardd only):
+ * stream /dev/klog when the device exists, otherwise poll kern.msgbuf.
+ * This records the full boot text - the lines previously only available
+ * as photographs - into a file the Recovery pull retrieves. */
+static void *console_worker(void *unused)
+{
+    (void)unused;
+    const char *path = "/private/var/logs/PongConsole.txt";
+    int out = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
+    if (out < 0) {
+        char line[128];
+        int n = snprintf(line, sizeof(line),
+                         "Pong console capture: open failed errno=%d", errno);
+        if (n > 0) pong_console_line(line);
+        return NULL;
+    }
+    char previous[4096];
+    size_t previous_size = 0;
+    int klog = open("/dev/klog", O_RDONLY | O_CLOEXEC);
+    char notice[128];
+    int n = snprintf(notice, sizeof(notice),
+                     "Pong console capture: %s pid=%d mode=%s",
+                     process_name, getpid(), klog >= 0 ? "klog" : "msgbuf-poll");
+    if (n > 0) { pong_console_line(notice); dprintf(out, "%s\n", notice); }
+    char buffer[4096];
+    if (klog >= 0) {
+        for (;;) {
+            ssize_t got = read(klog, buffer, sizeof(buffer));
+            if (got < 0) {
+                if (errno == EINTR) continue;
+                break;
+            }
+            if (got == 0) { sleep(5); continue; }
+            if (write(out, buffer, (size_t)got) < 0) break;
+            struct stat st;
+            if (fstat(out, &st) == 0 && st.st_size > 16 * 1024 * 1024) {
+                dprintf(out, "\nPong console capture ROTATE size=%lld\n",
+                        (long long)st.st_size);
+                (void)fsync(out);
+                close(out);
+                out = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+                if (out < 0) return NULL;
+            }
+            if (got > 0 && time(NULL) % 60 == 0) (void)fsync(out);
+        }
+        close(klog);
+    }
+    for (;;) {
+        size_t length = sizeof(buffer);
+        if (sysctlbyname("kern.msgbuf", buffer, &length, NULL, 0) == 0 && length) {
+            /* append only the part not seen last round; a missing overlap
+             * means the ring wrapped and some text was lost. */
+            char *overlap = NULL;
+            if (previous_size && length > previous_size) {
+                for (size_t skip = 0; skip + previous_size <= length; skip++)
+                    if (!memcmp(buffer + skip, previous, previous_size)) {
+                        overlap = buffer + skip + previous_size;
+                        break;
+                    }
+            }
+            if (overlap) {
+                (void)write(out, overlap, length - (size_t)(overlap - buffer));
+            } else if (previous_size) {
+                dprintf(out, "\nPong console capture WRAP lost text\n");
+                (void)write(out, buffer, length);
+            } else {
+                (void)write(out, buffer, length);
+            }
+            size_t keep = length < sizeof(previous) ? length : sizeof(previous);
+            if (keep == sizeof(previous))
+                memcpy(previous, buffer + length - keep, keep);
+            else
+                memcpy(previous, buffer, keep);
+            previous_size = keep;
+            (void)fsync(out);
+        }
+        sleep(30);
+    }
+    return NULL;
 }
 
 static void *worker(void *unused)
 {
     (void)unused;
     char path[256];
-    (void)mkdir("/private/var/logs", 0755);
-    snprintf(path, sizeof(path), "%s/PongBoot-%s.txt",
-             geteuid() == 0 ? "/private/var/logs"
-                            : "/private/var/mobile/Library/Logs",
-             process_name);
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (geteuid() == 0) {
+        (void)mkdir("/private/var/logs", 0755);
+    } else {
+        /* The mobile worker provisions its own directory tree: a root-owned
+         * 0755 Logs directory would not be writable by this uid, and the
+         * graphics takeover makes a stderr fallback unreadable. */
+        (void)mkdir("/private/var/mobile", 0755);
+        (void)mkdir("/private/var/mobile/Library", 0755);
+        (void)mkdir("/private/var/mobile/Library/Logs", 0755);
+    }
+    snapshot_path(path, sizeof(path));
+    int fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (fd >= 0) (void)fchmod(fd, 0600);
     if (fd < 0) fd = dup(STDERR_FILENO);
     if (fd < 0) return NULL;
-    sleep(35);  snapshot(fd, 35);
-    sleep(55);  snapshot(fd, 90);
-    sleep(150); snapshot(fd, 240);
-    close(fd);
-    if (console_fd >= 0) close(console_fd);
+    unsigned elapsed = 0;
+    /* The 60-second tick grid means batches land on 60/120/240/600/900. */
+    const unsigned early[] = {60, 120, 240, 600, 900};
+    unsigned early_index = 0;
+    unsigned next_snapshot = early[0];
+    for (;;) {
+        sleep(60);
+        elapsed += 60;
+        rotate_if_huge(fd, elapsed);
+        tick(fd, elapsed);
+        if (elapsed >= next_snapshot) {
+            snapshot(fd, elapsed);
+            if (early_index < sizeof(early) / sizeof(early[0]) - 1)
+                next_snapshot = early[++early_index];
+            else
+                next_snapshot += 600;
+        }
+    }
     return NULL;
 }
 
@@ -151,12 +344,19 @@ void pong_boot_snapshot_start(const char *name)
         strcmp(name, "lsd") && strcmp(name, "containermanagerd") &&
         strcmp(name, "containermanagerd_system") &&
         strcmp(name, "runningboardd") && strcmp(name, "usermanagerd") &&
-        strcmp(name, "PosterBoard") && strcmp(name, "wifid")) return;
+        strcmp(name, "PosterBoard") && strcmp(name, "wifid") &&
+        strcmp(name, "com.apple.datamigrator") &&
+        strcmp(name, "com.apple.migrationpluginwrapper") &&
+        strcmp(name, "datamigratorhelper")) return;
     process_name = name;
+    replay_previous();
     pthread_attr_t attr;
     if (pthread_attr_init(&attr)) return;
     pthread_t thread;
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) == 0)
         (void)pthread_create(&thread, &attr, worker, NULL);
+    /* Only one root, early, stable process may own the console capture. */
+    if (geteuid() == 0 && !strcmp(name, "runningboardd"))
+        (void)pthread_create(&thread, &attr, console_worker, NULL);
     pthread_attr_destroy(&attr);
 }
