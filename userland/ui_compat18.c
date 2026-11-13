@@ -170,11 +170,18 @@ static void pong_sb_note(const char *format,...)
     va_end(arguments);
     char path[96];
     snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongSB-%d.txt",getpid());
+    static bool open_failed=false;
     int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
     if(fd>=0){
         dprintf(fd,"[%lld] %s\n",(long long)time(NULL),line);
         (void)fsync(fd);
         close(fd);
+    }else if(!open_failed){
+        open_failed=true;
+        char trouble[160];
+        int n=snprintf(trouble,sizeof(trouble),
+                       "PongSB log open errno=%d",errno);
+        if(n>0)pong_console_line(trouble);
     }
     pong_console_line(line);
 }
@@ -1644,6 +1651,10 @@ static id singleton(const char *name)
 static void wake_home(void *unused)
 {
     (void)unused;
+    /* v73: entry receipt first - v72 had no PongSB file at all, so
+     * "never entered the main queue" / "stuck before the first line" /
+     * "file open failed" were indistinguishable. */
+    pong_sb_note("Pong UI18: wake_home begin");
     id screen=((id(*)(id,SEL))objc_msgSend)((id)objc_lookUpClass("UIScreen"),sel_registerName("mainScreen"));
     if(screen) {
         CGRect native=((CGRect(*)(id,SEL))objc_msgSend)(screen,sel_registerName("nativeBounds"));
@@ -2550,9 +2561,11 @@ __attribute__((constructor)) static void pong_ui18_start(void)
     }
     if(strcmp(name,"SpringBoard")==0) {
         springboard_process=true;
+        pong_sb_note("Pong UI18: SpringBoard adapter ctor (v73)");
         // Physical volume keys stay on the native HID/system event route.
         skip_setup=boot_option("pong_skip_setup=1");
         CFPreferencesSetAppValue(CFSTR("SBDisableAutoDim"),kCFBooleanTrue,kCFPreferencesCurrentApplication);
+        pong_sb_note("Pong UI18: wake scheduled on main queue +10s");
         dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,10*NSEC_PER_SEC),dispatch_get_main_queue(),NULL,wake_home);
     }
     if(strcmp(name,"backboardd")==0) {

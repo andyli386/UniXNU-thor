@@ -129,7 +129,7 @@ static void snapshot_path(char *path, size_t size)
 
 static void snapshot(int fd, unsigned elapsed)
 {
-    char line[1100];
+    char line[1600];
     thread_act_array_t threads = NULL;
     mach_msg_type_number_t count = 0;
     kern_return_t result = task_threads(mach_task_self(), &threads, &count);
@@ -183,7 +183,7 @@ static void snapshot(int fd, unsigned elapsed)
                 uint64_t fp = arm_thread_state64_get_fp(state),
                          sp = arm_thread_state64_get_sp(state);
                 for (unsigned j = 0;
-                     j < 16 && fp >= sp && fp - sp < 8 * 1024 * 1024 && !(fp & 15);
+                     j < 24 && fp >= sp && fp - sp < 8 * 1024 * 1024 && !(fp & 15);
                      j++) {
                     uint64_t pair[2]; vm_size_t got = 0;
                     if (vm_read_overwrite(mach_task_self(), (vm_address_t)fp,
