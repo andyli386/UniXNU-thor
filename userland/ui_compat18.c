@@ -141,6 +141,58 @@ static void pong_a2_line(const char *text)
     pong_console_line(text);
 }
 
+/* datamigrator diagnostics hook (see the constructor branch for the
+ * firmware evidence). Receipts go to a per-pid mobile-owned file like
+ * the A2 channel. */
+static bool method_abi(Method method,const char *result,unsigned argc,const char *arguments);
+static void pong_dm_line(const char *text)
+{
+    char path[96];
+    snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongDM-%d.txt",getpid());
+    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
+    if(fd>=0){
+        dprintf(fd,"[%lld] pid=%d %s\n",(long long)time(NULL),getpid(),text);
+        (void)fsync(fd);
+        close(fd);
+    }
+    pong_console_line(text);
+}
+
+static bool dm_diagnostics_swizzled;
+static IMP dm_capture_original;
+
+static void pong_dm_capture(id self,SEL command,id incident,BOOL async)
+{
+    char line[160];
+    int n=snprintf(line,sizeof(line),
+                   "Pong DM: diagnostics incident=%p async=%d -> forcing async=1",
+                   incident,(int)async);
+    if(n>0)pong_dm_line(line);
+    if(dm_capture_original)
+        ((void(*)(id,SEL,id,BOOL))dm_capture_original)(self,command,incident,YES);
+}
+
+static void pong_dm_image(const struct mach_header *header,intptr_t slide)
+{
+    (void)header;(void)slide;
+    if(dm_diagnostics_swizzled)return;
+    Class cls=objc_lookUpClass("DMDiagnostics");
+    if(!cls)return;
+    Method method=class_getInstanceMethod(cls,
+        sel_registerName("captureDiagnosticsForIncident:async:"));
+    if(!method_abi(method,"v",2,"@B"))return;
+    dm_capture_original=method_getImplementation(method);
+    method_setImplementation(method,(IMP)pong_dm_capture);
+    dm_diagnostics_swizzled=true;
+    pong_dm_line("Pong DM: diagnostics swizzled to the native async path");
+}
+
+static void dm_diagnostics_install(void)
+{
+    if(!dm_diagnostics_swizzled)
+        _dyld_register_func_for_add_image(pong_dm_image);
+}
+
 static void fairplay_exit_site(int status,const char *kind)
 {
     char line[560];
@@ -2369,7 +2421,7 @@ __attribute__((constructor)) static void pong_ui18_start(void)
      * else ever logs. */
     if(strcmp(name,"fairplayd.A2")==0) {
         fairplay_process=true;
-        pong_a2_line("entered (v68; mobile-owned per-pid log)");
+        pong_a2_line("entered");
         pong_a2_apply_slots();
         return;
     }
@@ -2403,6 +2455,28 @@ __attribute__((constructor)) static void pong_ui18_start(void)
     (void)dup2(2,1);setvbuf(stdout,NULL,_IONBF,0);setvbuf(stderr,NULL,_IONBF,0);
     pong_say("Pong iPadOS18 adapter: %s pid=%d (22H374)",name,getpid());
     if(!strcmp(name,"wifid")) {
+        if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
+        return;
+    }
+    /* v71: observation-only processes get snapshots and NOTHING else - no
+     * compositor callback, no persona/container policy may leak into
+     * them (v70 review: container_persona_policy is not process-gated). */
+    if(!strcmp(name,"locationd") || !strcmp(name,"filecoordinationd")) {
+        if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
+        return;
+    }
+    /* v71: datamigrator hook. Firmware data flow (22H374, addresses in
+     * the v70 field review): the plugin-PID-timeout handler runs on the
+     * same serial queue the plugin completion callback must dispatch_sync
+     * onto, and the timeout handler calls DMDiagnostics
+     * captureDiagnosticsForIncident:async: with async=NO - the SYNCHRONOUS
+     * OSAnalytics stackshot then parks that queue for 34+ minutes while
+     * the completion (which carries the real, FALSE result) waits behind
+     * it. The method's real implementation already has an async path
+     * (WriteStackshotReportWithPID_async): this swizzle forces it, keeping
+     * every result value untouched. ABI verified v28@0:8@16B24. */
+    if(!strcmp(name,"com.apple.datamigrator")) {
+        dm_diagnostics_install();
         if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
         return;
     }

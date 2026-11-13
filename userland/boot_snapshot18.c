@@ -640,29 +640,35 @@ static void *worker(void *unused)
     if (fd >= 0) (void)fchmod(fd, 0600);
     if (fd < 0) fd = dup(STDERR_FILENO);
     if (fd < 0) return NULL;
-    unsigned elapsed = 0;
-    /* v70: wake every 10 s and compare against thresholds on a monotonic
-     * grid - v69 only lowered the first threshold while the loop still
-     * slept 60 s, so the "30 s" wrapper batch actually landed at 60 s
-     * (field evidence). Ticks stay on the 60 s grid; wrappers get their
-     * first full batch at 30 s for plugin identity before an idle-exit. */
+    /* v71: schedule against CLOCK_MONOTONIC deadlines - the v70 grid
+     * still derived elapsed from the sleep count, so batches carried
+     * scheduling and sampling time with them. Ticks stay 60 s apart;
+     * wrappers get a true 30 s first batch. */
     unsigned early[] = {60, 120, 240, 600, 900};
     if (!strcmp(process_name, "com.apple.migrationpluginwrapper"))
         early[0] = 30;
     unsigned early_index = 0;
-    unsigned next_snapshot = early[0];
+    struct timespec boot;
+    clock_gettime(CLOCK_MONOTONIC, &boot);
+    uint64_t start_ms = (uint64_t)boot.tv_sec * 1000 + boot.tv_nsec / 1000000;
+    uint64_t next_tick = start_ms + 60000;
+    uint64_t next_snapshot = start_ms + (uint64_t)early[0] * 1000;
     for (;;) {
-        sleep(10);
-        elapsed += 10;
-        rotate_if_huge(fd, elapsed);
-        if (elapsed % 60 == 0)
-            tick(fd, elapsed);
-        if (elapsed >= next_snapshot) {
-            snapshot(fd, elapsed);
+        sleep(5);
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        uint64_t ms = (uint64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+        rotate_if_huge(fd, (unsigned)((ms - start_ms) / 1000));
+        if ((int64_t)(ms - next_tick) >= 0) {
+            tick(fd, (unsigned)((ms - start_ms) / 1000));
+            next_tick += 60000;
+        }
+        if ((int64_t)(ms - next_snapshot) >= 0) {
+            snapshot(fd, (unsigned)((ms - start_ms) / 1000));
             if (early_index < sizeof(early) / sizeof(early[0]) - 1)
-                next_snapshot = early[++early_index];
+                next_snapshot = start_ms + (uint64_t)early[++early_index] * 1000;
             else
-                next_snapshot += 600;
+                next_snapshot += 600000;
         }
     }
     return NULL;
