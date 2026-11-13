@@ -682,6 +682,7 @@ void pong_boot_snapshot_start(const char *name)
         strcmp(name, "runningboardd") && strcmp(name, "usermanagerd") &&
         strcmp(name, "PosterBoard") && strcmp(name, "wifid") &&
         strcmp(name, "locationd") && strcmp(name, "filecoordinationd") &&
+        strcmp(name, "mediaremoted") && strcmp(name, "audiomxd") &&
         strcmp(name, "com.apple.datamigrator") &&
         strcmp(name, "com.apple.migrationpluginwrapper") &&
         strcmp(name, "datamigratorhelper")) return;

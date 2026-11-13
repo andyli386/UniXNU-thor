@@ -158,6 +158,27 @@ static void pong_dm_line(const char *text)
     pong_console_line(text);
 }
 
+/* v72: SpringBoard wake/display receipts also go to a durable per-pid
+ * file - v71 review: a missing console line is not proof the wake path
+ * never ran (console mirror stops at the graphics takeover). */
+static void pong_sb_note(const char *format,...)
+{
+    char line[512];
+    va_list arguments;
+    va_start(arguments,format);
+    vsnprintf(line,sizeof(line),format,arguments);
+    va_end(arguments);
+    char path[96];
+    snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongSB-%d.txt",getpid());
+    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
+    if(fd>=0){
+        dprintf(fd,"[%lld] %s\n",(long long)time(NULL),line);
+        (void)fsync(fd);
+        close(fd);
+    }
+    pong_console_line(line);
+}
+
 static bool dm_diagnostics_swizzled;
 static IMP dm_capture_original;
 
@@ -1629,7 +1650,7 @@ static void wake_home(void *unused)
         CGRect logical=((CGRect(*)(id,SEL))objc_msgSend)(screen,sel_registerName("bounds"));
         double scale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName("scale"));
         double nativeScale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName("nativeScale"));
-        pong_say("Pong UI18: screen native=%.0fx%.0f logical=%.2fx%.2f scale=%.2f nativeScale=%.2f",
+        pong_sb_note("Pong UI18: screen native=%.0fx%.0f logical=%.2fx%.2f scale=%.2f nativeScale=%.2f",
             native.size.width,native.size.height,logical.size.width,logical.size.height,scale,nativeScale);
     }
     id backlight=singleton("SBBacklightController"),lock=singleton("SBLockScreenManager");
@@ -1644,9 +1665,9 @@ static void wake_home(void *unused)
        ((BOOL(*)(id,SEL))objc_msgSend)(lock,locked) &&
        method_abi(class_getInstanceMethod(object_getClass(lock),unlock),"Bc",2,"i@")) {
         BOOL accepted=((BOOL(*)(id,SEL,int,id))objc_msgSend)(lock,unlock,24,nil);
-        pong_say("Pong UI18: native home request accepted=%d",accepted);
+        pong_sb_note("Pong UI18: native home request accepted=%d",accepted);
     }
-    pong_say("Pong UI18: main queue wake completed backlight=%d lockscreen=%d",backlight!=nil,lock!=nil);
+    pong_sb_note("Pong UI18: main queue wake completed backlight=%d lockscreen=%d",backlight!=nil,lock!=nil);
 }
 
 static bool own_directory(const char *path)
@@ -2460,8 +2481,12 @@ __attribute__((constructor)) static void pong_ui18_start(void)
     }
     /* v71: observation-only processes get snapshots and NOTHING else - no
      * compositor callback, no persona/container policy may leak into
-     * them (v70 review: container_persona_policy is not process-gated). */
-    if(!strcmp(name,"locationd") || !strcmp(name,"filecoordinationd")) {
+     * them (v70 review: container_persona_policy is not process-gated).
+     * v72 adds the audio-route daemons behind the current SpringBoard
+     * wait (MPAVRoutingController/MRAVLocalEndpoint -> mediaremoted;
+     * sharedSystemAudioContext/AVFCore -> audiomxd). */
+    if(!strcmp(name,"locationd") || !strcmp(name,"filecoordinationd") ||
+       !strcmp(name,"mediaremoted") || !strcmp(name,"audiomxd")) {
         if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
         return;
     }
