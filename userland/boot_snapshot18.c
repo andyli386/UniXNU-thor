@@ -466,6 +466,13 @@ static void *cache_worker(void *unused)
             want = st.st_size - begin;
             note = "clamped to EOF";
         }
+        /* v67 review: this XNU's vm_statistics64 free_count ALREADY
+         * includes speculative pages, so the pool must not add them a
+         * second time. Log the raw values; the gate releases either on
+         * the threshold, after the wait budget (max-waits), or when the
+         * statistics call itself fails (stats-failed) - the receipt
+         * says which, so "low memory defers reads" is never assumed. */
+        const char *release = "stats-failed";
         unsigned waits = 0;
         for (;;) {
             vm_statistics64_data_t vm;
@@ -474,10 +481,12 @@ static void *cache_worker(void *unused)
             if (host_statistics64(mach_host_self(), HOST_VM_INFO64,
                                   (host_info64_t)&vm, &count) != KERN_SUCCESS)
                 break;
-            uint64_t pool = (uint64_t)vm.free_count + vm.inactive_count
-                          + vm.speculative_count;
-            if (pool >= 16000 || waits >= 5) break;
-            diag_say("Pong cache pre-read: deferred, %llu pages free+inactive, wait %u",
+            uint64_t pool = (uint64_t)vm.free_count + vm.inactive_count;
+            diag_say("Pong cache pre-read: pool free=%u(incl speculative) inactive=%u",
+                     vm.free_count, vm.inactive_count);
+            if (pool >= 16000) { release = "gate-ok"; break; }
+            if (waits >= 5) { release = "max-waits"; break; }
+            diag_say("Pong cache pre-read: deferred, pool=%llu pages, wait %u of 5",
                      (unsigned long long)pool, waits + 1);
             sleep(30);
             waits++;
@@ -487,6 +496,7 @@ static void *cache_worker(void *unused)
             continue;
         }
         off_t done = 0;
+        int read_errno = 0;
         struct timespec a, b;
         clock_gettime(CLOCK_MONOTONIC, &a);
         while (done < want) {
@@ -494,14 +504,16 @@ static void *cache_worker(void *unused)
                               ? (size_t)(want - done) : 1024 * 1024;
             ssize_t got = read(fd, chunk, take);
             if (got < 0 && errno == EINTR) continue;
-            if (got <= 0) break;
+            if (got <= 0) { if (got < 0) read_errno = errno; break; }
             done += got;
         }
         clock_gettime(CLOCK_MONOTONIC, &b);
         long ms = (b.tv_sec - a.tv_sec) * 1000 + (b.tv_nsec - a.tv_nsec) / 1000000;
-        diag_say("Pong cache pre-read: .%02u [%u+%uMiB] read=%lld of %lld bytes ms=%ld %s",
+        const char *status = done == want ? "complete"
+                           : (read_errno ? "read-error" : "eof-partial");
+        diag_say("Pong cache pre-read: .%02u [%u+%uMiB] read=%lld of %lld bytes ms=%ld %s %s %s",
                  extents[i].sub, extents[i].start_mib, extents[i].length_mib,
-                 (long long)done, (long long)want, ms, note);
+                 (long long)done, (long long)want, ms, note, status, release);
     }
     if (fd >= 0) close(fd);
     free(chunk);

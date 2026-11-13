@@ -96,13 +96,24 @@ static void pong_say(const char *format,...)
     pong_console_line(line);
 }
 
-/* fairplayd.A2 runtime evidence (see the constructor branch for why).
- * The __interpose pairs are process-wide but inert in every other
- * injected process: each wrapper checks fairplay_process first. Under
- * the two-level namespace our own calls to the originals bind straight
- * to libSystem, so no recursion. */
-extern void pong_diag_line(const char *line);
-extern kern_return_t bootstrap_check_in(mach_port_t,char *);
+/* fairplayd.A2 runtime evidence. Field data (v65/v66): A2 exits 0
+ * within seconds, 36-43x per run. The 1029 iOS16 line hit the same
+ * wall and its author attributed it to the missing kernel kext
+ * com.apple.driver.FairPlayIOKit (present in Apple's stock 22H374
+ * kernelcache as an IOResources software driver, absent from ours).
+ * That remains a LEADING CANDIDATE, not a proven cause: client-side
+ * waiting cannot distinguish "request never received" from "received
+ * then blocked" from "received then exited without reply" - these
+ * hooks exist to tell those apart. The __interpose pairs are
+ * process-wide but inert in every other injected process: each wrapper
+ * forwards the CORRECT contract immediately when the flag is off.
+ * Under the two-level namespace our own calls to the originals bind
+ * straight to libSystem, so no recursion. A2 runs as mobile
+ * (UserName=mobile) and the root-owned 0600 PongDiag.txt is not
+ * writable for it - every A2 line goes to its own mobile-owned,
+ * collector-visible file instead. */
+extern void pong_console_line(const char *line);
+extern kern_return_t bootstrap_check_in(mach_port_t,char *,mach_port_t *);
 typedef mach_port_t pong_io_object_t;
 extern pong_io_object_t IOServiceGetMatchingService(mach_port_t,CFDictionaryRef);
 extern kern_return_t IOServiceOpen(pong_io_object_t,mach_port_t,uint32_t,pong_io_object_t *);
@@ -110,6 +121,25 @@ extern kern_return_t IOServiceOpen(pong_io_object_t,mach_port_t,uint32_t,pong_io
     __attribute__((used)) static const void *const pong_interpose_##tag[2] \
     __attribute__((section("__DATA,__interpose"))) = { \
         (const void *)&(replacement),(const void *)&(replacee) }
+
+static void pong_a2_line(const char *text)
+{
+    char path[96];
+    snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongA2-%d.txt",getpid());
+    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
+    if(fd>=0){
+        dprintf(fd,"[%lld] pid=%d euid=%d %s\n",
+                (long long)time(NULL),getpid(),geteuid(),text);
+        (void)fsync(fd);
+        close(fd);
+    }else{
+        char trouble[160];
+        int n=snprintf(trouble,sizeof(trouble),
+                       "Pong A2 log open errno=%d",errno);
+        if(n>0)pong_console_line(trouble);
+    }
+    pong_console_line(text);
+}
 
 static void fairplay_exit_site(int status,const char *kind)
 {
@@ -119,12 +149,16 @@ static void fairplay_exit_site(int status,const char *kind)
     for(unsigned i=0;n>0&&(size_t)n<sizeof(line)-24&&frame&&i<12;i++) {
         void **pair=(void **)frame;
         uintptr_t site=(uintptr_t)pair[1];
-        if(site<0x10000000000ULL||site>=0x30000000000ULL)break;
+        /* v66 bug: the filter was written at 1-3 TiB while real user
+         * code addresses (executable, cache, this library) sit between
+         * 4 and 12 GiB - every frame was dropped. Bound to that range
+         * and stop at the first implausible value. */
+        if(site<0x100000000ULL||site>=0x300000000ULL)break;
         n+=snprintf(line+n,sizeof(line)-(size_t)n," %llx",
                     (unsigned long long)site);
         frame=pair[0];
     }
-    if(n>0)pong_diag_line(line);
+    if(n>0)pong_a2_line(line);
 }
 
 static void pong_a2_exit(int status)
@@ -139,39 +173,49 @@ static void pong_a2_exit_raw(int status)
     _exit(status);
     while(1);
 }
-static kern_return_t pong_a2_check_in(mach_port_t port,char *service)
+static kern_return_t pong_a2_check_in(mach_port_t port,char *service,
+                                      mach_port_t *service_port)
 {
-    kern_return_t result=bootstrap_check_in(port,service);
+    /* v66 bug: this wrapper declared TWO parameters while the contract
+     * is (bootstrap_port, name, mach_port_t *sp); the interpose pair is
+     * installed in every injected process, so the full contract must be
+     * received and forwarded - never rely on the compiler keeping X2. */
+    kern_return_t result=bootstrap_check_in(port,service,service_port);
     if(fairplay_process){
         char line[256];
-        int n=snprintf(line,sizeof(line),"Pong A2: bootstrap_check_in %s -> %d",
-                       service?service:"(null)",result);
-        if(n>0)pong_diag_line(line);
+        int n=snprintf(line,sizeof(line),
+                       "Pong A2: bootstrap_check_in %s -> %d sp=%u",
+                       service?service:"(null)",result,
+                       (service_port&&result==KERN_SUCCESS)?*service_port:0);
+        if(n>0)pong_a2_line(line);
     }
     return result;
 }
 static pong_io_object_t pong_a2_matching(mach_port_t port,CFDictionaryRef matching)
 {
-    pong_io_object_t service=IOServiceGetMatchingService(port,matching);
-    if(fairplay_process){
-        char line[320]="Pong A2: IOServiceGetMatchingService";
-        int n=(int)strlen(line);
-        static const char *keys[]={"IOProviderClass","IOClass","IOUserClientClass"};
-        for(unsigned k=0;matching&&k<sizeof(keys)/sizeof(keys[0])&&
-            n>0&&(size_t)n<sizeof(line)-96;k++){
+    /* IOServiceGetMatchingService CONSUMES the dictionary reference, so
+     * every string we want to log must be copied out BEFORE the call. */
+    char text[3][64]={{0},{0},{0}};
+    if(matching){
+        static const char *keys[3]={"IOProviderClass","IOClass","IOUserClientClass"};
+        for(unsigned k=0;k<3;k++){
             CFStringRef key=CFStringCreateWithCString(NULL,keys[k],
                 kCFStringEncodingASCII);
             CFTypeRef value=key?CFDictionaryGetValue(matching,key):NULL;
             if(key)CFRelease(key);
-            char text[64]={};
             if(value&&CFGetTypeID(value)==CFStringGetTypeID())
-                CFStringGetCString(value,text,sizeof(text),kCFStringEncodingUTF8);
-            if(text[0])
-                n+=snprintf(line+n,sizeof(line)-(size_t)n," %s=%s",keys[k],text);
+                CFStringGetCString(value,text[k],sizeof(text[k]),
+                                   kCFStringEncodingUTF8);
         }
-        if(n>0&&(size_t)n<sizeof(line)-32)
-            snprintf(line+n,sizeof(line)-(size_t)n," -> service=%u",service);
-        pong_diag_line(line);
+    }
+    pong_io_object_t service=IOServiceGetMatchingService(port,matching);
+    if(fairplay_process){
+        char line[320];
+        int n=snprintf(line,sizeof(line),
+                       "Pong A2: matching provider=%s class=%s uc=%s -> service=%u",
+                       text[0][0]?text[0]:"-",text[1][0]?text[1]:"-",
+                       text[2][0]?text[2]:"-",service);
+        if(n>0)pong_a2_line(line);
     }
     return service;
 }
@@ -182,9 +226,11 @@ static kern_return_t pong_a2_open(pong_io_object_t service,mach_port_t owner,
     if(fairplay_process){
         char line[192];
         int n=snprintf(line,sizeof(line),
-            "Pong A2: IOServiceOpen service=%u type=%u -> %d connect=%u",
-            service,type,result,connect?*connect:0);
-        if(n>0)pong_diag_line(line);
+            "Pong A2: IOServiceOpen service=%u type=%u -> %d%s%u",
+            service,type,result,
+            result==KERN_SUCCESS?" connect=":" (output invalid)",
+            (result==KERN_SUCCESS&&connect)?*connect:0);
+        if(n>0)pong_a2_line(line);
     }
     return result;
 }
@@ -2127,6 +2173,16 @@ __attribute__((constructor)) static void pong_ui18_start(void)
 {
     const char *name=getprogname();
     if(!name)return;
+    /* v67: A2 hooks in FIRST, before any shared UI initialization
+     * (gestalt scans, dup2/setvbuf, banner) - the smallest possible
+     * perturbation for a daemon that exits within seconds. Entry
+     * receipt proves the injection reached the process even if nothing
+     * else ever logs. */
+    if(strcmp(name,"fairplayd.A2")==0) {
+        fairplay_process=true;
+        pong_a2_line("entered (v67; mobile-owned per-pid log)");
+        return;
+    }
     if(!strcmp(name,"InputUI")) {
         char product[32]={};size_t length=sizeof(product);
         if(!sysctlbyname("hw.product",product,&length,NULL,0) && !strcmp(product,"iPhone17,1"))
@@ -2202,21 +2258,6 @@ __attribute__((constructor)) static void pong_ui18_start(void)
          * blocking on this service. Diagnose usermanagerd through the
          * console receipts and native stackshots only. */
         initialize_persona_manifest();return;
-    }
-    if(strcmp(name,"fairplayd.A2")==0) {
-        /* v65 field evidence: A2 exits 0 within seconds, 43x per run,
-         * before locationd's FairPlay MIG request ever gets a receiver.
-         * The 1029 iOS16 line hit the identical wall and attributed it
-         * to the missing kernel kext com.apple.driver.FairPlayIOKit
-         * (present in Apple's stock 22H374 kernelcache, absent from
-         * ours; a prelinked kext cannot be moved between kernels
-         * without binary surgery). Until that is decided, capture the
-         * exit site, the bootstrap check-in order and the IOKit
-         * matching/open results from inside the process. Strictly no
-         * threads and no image callbacks here - only symbol
-         * interposition, which is inert until this flag is set. */
-        fairplay_process=true;
-        return;
     }
     if(strcmp(name,"SpringBoard")==0) {
         springboard_process=true;
