@@ -641,19 +641,22 @@ static void *worker(void *unused)
     if (fd < 0) fd = dup(STDERR_FILENO);
     if (fd < 0) return NULL;
     unsigned elapsed = 0;
-    /* v69: wrappers are short-lived per migration plugin; their first
-     * batch at 30 s (instead of 60) captures the plugin identity before
-     * a possible idle-exit - the late-stage wait evidence depends on it. */
+    /* v70: wake every 10 s and compare against thresholds on a monotonic
+     * grid - v69 only lowered the first threshold while the loop still
+     * slept 60 s, so the "30 s" wrapper batch actually landed at 60 s
+     * (field evidence). Ticks stay on the 60 s grid; wrappers get their
+     * first full batch at 30 s for plugin identity before an idle-exit. */
     unsigned early[] = {60, 120, 240, 600, 900};
     if (!strcmp(process_name, "com.apple.migrationpluginwrapper"))
         early[0] = 30;
     unsigned early_index = 0;
     unsigned next_snapshot = early[0];
     for (;;) {
-        sleep(60);
-        elapsed += 60;
+        sleep(10);
+        elapsed += 10;
         rotate_if_huge(fd, elapsed);
-        tick(fd, elapsed);
+        if (elapsed % 60 == 0)
+            tick(fd, elapsed);
         if (elapsed >= next_snapshot) {
             snapshot(fd, elapsed);
             if (early_index < sizeof(early) / sizeof(early[0]) - 1)
@@ -672,6 +675,7 @@ void pong_boot_snapshot_start(const char *name)
         strcmp(name, "containermanagerd_system") &&
         strcmp(name, "runningboardd") && strcmp(name, "usermanagerd") &&
         strcmp(name, "PosterBoard") && strcmp(name, "wifid") &&
+        strcmp(name, "locationd") && strcmp(name, "filecoordinationd") &&
         strcmp(name, "com.apple.datamigrator") &&
         strcmp(name, "com.apple.migrationpluginwrapper") &&
         strcmp(name, "datamigratorhelper")) return;

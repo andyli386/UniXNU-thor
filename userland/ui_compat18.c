@@ -353,26 +353,24 @@ static void pong_a2_apply_slots(void)
         pong_a2_line("Pong A2: slot patch: UUID image not found");
         return;
     }
-    /* A2 __TEXT vmaddr is 0x100000000; the slide follows from the header. */
+    /* A2 __TEXT vmaddr is 0x100000000; the slide follows from the header.
+     * v69 bug: dlsym(RTLD_DEFAULT) returned OUR wrapper (interposition
+     * applies to dlsym), so every slot verified as MISMATCH against
+     * wrapper+addend (field data: 128 mismatches, 32x "0 of 4", with the
+     * reconstructed base matching _pong_a2_open exactly). The ORIGINAL
+     * address must come from this dylib's own two-level bindings, which
+     * interposition does not redirect: the address of each extern
+     * reference below is libSystem/IOKit's real function. */
     intptr_t slide=(intptr_t)((const uint8_t *)header)-0x100000000LL;
     struct { const char *name; void *wrapper; void *original; } hooks[]={
-        {"exit",(void *)pong_a2_exit,NULL},
-        {"_exit",(void *)pong_a2_exit_raw,NULL},
-        {"bootstrap_check_in",(void *)pong_a2_check_in,NULL},
-        {"IOServiceGetMatchingService",(void *)pong_a2_matching,NULL},
-        {"IOServiceGetMatchingServices",(void *)pong_a2_matchings,NULL},
-        {"IOServiceMatching",(void *)pong_a2_matching_dict,NULL},
-        {"IOServiceOpen",(void *)pong_a2_open,NULL},
+        {"exit",(void *)pong_a2_exit,(void *)&exit},
+        {"_exit",(void *)pong_a2_exit_raw,(void *)&_exit},
+        {"bootstrap_check_in",(void *)pong_a2_check_in,(void *)&bootstrap_check_in},
+        {"IOServiceGetMatchingService",(void *)pong_a2_matching,(void *)&IOServiceGetMatchingService},
+        {"IOServiceGetMatchingServices",(void *)pong_a2_matchings,(void *)&IOServiceGetMatchingServices},
+        {"IOServiceMatching",(void *)pong_a2_matching_dict,(void *)&IOServiceMatching},
+        {"IOServiceOpen",(void *)pong_a2_open,(void *)&IOServiceOpen},
     };
-    for(unsigned k=0;k<sizeof(hooks)/sizeof(hooks[0]);k++){
-        hooks[k].original=dlsym(RTLD_DEFAULT,hooks[k].name);
-        if(!hooks[k].original){
-            char line[160];
-            snprintf(line,sizeof(line),"Pong A2: slot patch: dlsym %s failed",hooks[k].name);
-            pong_a2_line(line);
-            return;
-        }
-    }
     unsigned patched=0;
     for(unsigned s=0;s<sizeof(pong_a2_slots)/sizeof(pong_a2_slots[0]);s++){
         const char *name=hooks[pong_a2_slots[s].hook].name;
