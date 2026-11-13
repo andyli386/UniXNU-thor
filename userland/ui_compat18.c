@@ -176,10 +176,15 @@ static void pong_a2_exit_raw(int status)
 static kern_return_t pong_a2_check_in(mach_port_t port,char *service,
                                       mach_port_t *service_port)
 {
-    /* v66 bug: this wrapper declared TWO parameters while the contract
-     * is (bootstrap_port, name, mach_port_t *sp); the interpose pair is
-     * installed in every injected process, so the full contract must be
-     * received and forwarded - never rely on the compiler keeping X2. */
+    /* v66 bug fixed here: the contract is (bootstrap_port, name,
+     * mach_port_t *sp) and the pair installs in every injected process;
+     * v69 adds begin/end receipts so a hang inside the call is visible. */
+    if(fairplay_process){
+        char begin[192];
+        int b=snprintf(begin,sizeof(begin),"Pong A2: bootstrap_check_in %s begin",
+                       service?service:"(null)");
+        if(b>0)pong_a2_line(begin);
+    }
     kern_return_t result=bootstrap_check_in(port,service,service_port);
     if(fairplay_process){
         char line[256];
@@ -222,6 +227,12 @@ static pong_io_object_t pong_a2_matching(mach_port_t port,CFDictionaryRef matchi
 static kern_return_t pong_a2_open(pong_io_object_t service,mach_port_t owner,
                                   uint32_t type,pong_io_object_t *connect)
 {
+    if(fairplay_process){
+        char begin[160];
+        int b=snprintf(begin,sizeof(begin),
+                       "Pong A2: IOServiceOpen begin service=%u type=%u",service,type);
+        if(b>0)pong_a2_line(begin);
+    }
     kern_return_t result=IOServiceOpen(service,owner,type,connect);
     if(fairplay_process){
         char line[192];
@@ -242,6 +253,8 @@ static kern_return_t pong_a2_matchings(mach_port_t port,CFDictionaryRef matching
     /* A2 actually calls the PLURAL variant; it consumes the dictionary
      * exactly like the singular one, so copy strings before the call. */
     char text[3][64]={{0},{0},{0}};
+    if(fairplay_process)
+        pong_a2_line("Pong A2: matchings begin");
     if(matching){
         static const char *keys[3]={"IOProviderClass","IOClass","IOUserClientClass"};
         for(unsigned k=0;k<3;k++){
@@ -285,39 +298,63 @@ PONG_INTERPOSE(matchings,pong_a2_matchings,IOServiceGetMatchingServices);
 PONG_INTERPOSE(matchdict,pong_a2_matching_dict,IOServiceMatching);
 PONG_INTERPOSE(open,pong_a2_open,IOServiceOpen);
 
-/* v68: A2's chained-fixup bindings carry non-zero addends (slot holds
- * real+addend; the code subtracts the addend before calling). dyld
- * compares (resolved+addend) against the __interpose replacee, so a
- * plain replacee NEVER matches those entries - v67's hooks silently
- * never installed (field evidence: 40 files with "entered", zero hook
- * lines). This walker finds A2's own bind slots by name, verifies the
- * slot really holds real+addend, and rewrites it to wrapper+addend.
- * Every step is fail-soft: any surprise is receipted and the walk
- * aborts - never take the observed daemon down. */
-#include <mach-o/fixup-chains.h>
+/* v69: the v68 in-process walker was wrong six ways (external review:
+ * __PAGEZERO taken as base (+4 GiB), pointer format 6 rejected, slots
+ * already resolved by dyld, mangled import names unmatched, dlsym
+ * assumptions, and success receipts without readback). It is replaced
+ * by an OFFLINE-parsed, UUID-locked slot table generated from the
+ * shipped /usr/sbin/fairplayd.A2 (parser: thor tools; addend
+ * 0x77dc76ff for _IOServiceOpen matches the firmware review). At
+ * runtime: find the image by UUID, verify the slot really holds
+ * original+addend, patch to wrapper+addend, read back, and report each
+ * step. exit/_exit are NOT in A2 import table - the exit call comes
+ * from libdyld's start glue - so exit evidence stays with the watcher
+ * kqueue. Pages are left RW after patching: the kernel may still be
+ * page-in-linking unapplied chains in __DATA_CONST. */
+static const struct { uint64_t vm; unsigned hook; uint64_t addend; }
+pong_a2_slots[]={
+    {0x101138a48ULL,4,0x6da5e697ULL},   /* _IOServiceGetMatchingServices */
+    {0x10113cda8ULL,2,0x6c4fc59bULL},   /* _bootstrap_check_in */
+    {0x10113d208ULL,6,0x77dc76ffULL},   /* _IOServiceOpen */
+    {0x10113ff90ULL,5,0x69a8ca62ULL},   /* _IOServiceMatching */
+};
+static const unsigned char pong_a2_uuid[16]={
+    0x2c,0x3c,0x86,0x43,0x26,0x12,0x30,0xa5,
+    0x8f,0xdf,0xc6,0x26,0x88,0x4d,0x86,0x76};
 
-static void pong_a2_patch_slot(uintptr_t slot,uintptr_t value)
+static bool pong_mach_uuid(const struct mach_header *header,unsigned char out[16])
 {
-    uintptr_t page=slot&~(uintptr_t)(vm_page_size-1);
-    if(vm_protect(mach_task_self(),(vm_address_t)page,vm_page_size,FALSE,
-                  VM_PROT_READ|VM_PROT_WRITE|VM_PROT_COPY)!=KERN_SUCCESS)return;
-    *(uintptr_t *)slot=value;
+    if(!header||header->magic!=MH_MAGIC_64||header->sizeofcmds>0x400000)return false;
+    const struct load_command *scan=(const void *)((const uint8_t *)header+sizeof(struct mach_header_64));
+    for(uint32_t c=0;c<header->ncmds;c++){
+        if(scan->cmdsize<sizeof(*scan))return false;
+        if(scan->cmd==LC_UUID&&scan->cmdsize>=sizeof(struct uuid_command)){
+            memcpy(out,((const struct uuid_command *)scan)->uuid,16);
+            return true;
+        }
+        scan=(const void *)((const uint8_t *)scan+scan->cmdsize);
+    }
+    return false;
 }
 
-static void pong_a2_patch_binds(void)
+static void pong_a2_apply_slots(void)
 {
     const struct mach_header *header=NULL;
+    unsigned char uuid[16];
     for(uint32_t i=0,n=_dyld_image_count();i<n;i++){
-        const char *path=_dyld_get_image_name(i);
-        if(path&&!strcmp(path,"/usr/sbin/fairplayd.A2")){
-            header=_dyld_get_image_header(i);
+        const struct mach_header *candidate=_dyld_get_image_header(i);
+        if(pong_mach_uuid(candidate,uuid)&&
+           !memcmp(uuid,pong_a2_uuid,sizeof uuid)){
+            header=candidate;
             break;
         }
     }
-    if(!header||header->magic!=MH_MAGIC_64){
-        pong_a2_line("Pong A2: bind patch: executable image not found");
+    if(!header){
+        pong_a2_line("Pong A2: slot patch: UUID image not found");
         return;
     }
+    /* A2 __TEXT vmaddr is 0x100000000; the slide follows from the header. */
+    intptr_t slide=(intptr_t)((const uint8_t *)header)-0x100000000LL;
     struct { const char *name; void *wrapper; void *original; } hooks[]={
         {"exit",(void *)pong_a2_exit,NULL},
         {"_exit",(void *)pong_a2_exit_raw,NULL},
@@ -327,107 +364,71 @@ static void pong_a2_patch_binds(void)
         {"IOServiceMatching",(void *)pong_a2_matching_dict,NULL},
         {"IOServiceOpen",(void *)pong_a2_open,NULL},
     };
-    for(unsigned k=0;k<sizeof(hooks)/sizeof(hooks[0]);k++)
+    for(unsigned k=0;k<sizeof(hooks)/sizeof(hooks[0]);k++){
         hooks[k].original=dlsym(RTLD_DEFAULT,hooks[k].name);
-    const struct load_command *scan=(const void *)((const uint8_t *)header+sizeof(struct mach_header_64));
-    if(header->sizeofcmds==0||header->sizeofcmds>0x400000)return;
-    uint64_t first_vmaddr=0;bool have_first=false;
-    uintptr_t linkedit=0;uint64_t linkedit_fileoff=0,linkedit_size=0;
-    const struct linkedit_data_command *fixups_command=NULL;
-    for(uint32_t c=0;c<header->ncmds;c++){
-        if(scan->cmdsize<sizeof(*scan))return;
-        if(scan->cmd==LC_SEGMENT_64&&scan->cmdsize>=sizeof(struct segment_command_64)){
-            const struct segment_command_64 *segment=(const void *)scan;
-            if(!have_first){first_vmaddr=segment->vmaddr;have_first=true;}
-            if(!strcmp(segment->segname,"__LINKEDIT")){
-                linkedit_fileoff=segment->fileoff;
-                linkedit_size=segment->filesize;
-                linkedit=(uintptr_t)header+segment->vmaddr-first_vmaddr;
-            }
-        }else if(scan->cmd==LC_DYLD_CHAINED_FIXUPS&&
-                 scan->cmdsize>=sizeof(struct linkedit_data_command)){
-            fixups_command=(const void *)scan;
-        }
-        scan=(const void *)((const uint8_t *)scan+scan->cmdsize);
-    }
-    if(!fixups_command||!linkedit||!have_first)return;
-    if(fixups_command->dataoff<linkedit_fileoff||
-       fixups_command->dataoff+fixups_command->datasize>linkedit_fileoff+linkedit_size)return;
-    const struct dyld_chained_fixups_header *chain=
-        (const void *)(linkedit+fixups_command->dataoff-linkedit_fileoff);
-    if(chain->fixups_version!=0||chain->symbols_format!=0)return;
-    const uint8_t *blob=(const uint8_t *)chain;
-    const struct dyld_chained_starts_in_image *starts=
-        (const void *)(blob+chain->starts_offset);
-    if(starts->seg_count==0||starts->seg_count>64)return;
-    unsigned patched=0,seen=0;
-    for(uint32_t segment=0;segment<starts->seg_count;segment++){
-        uint32_t info=starts->seg_info_offset[segment];
-        if(!info)continue;
-        const struct dyld_chained_starts_in_segment *pages=
-            (const void *)((const uint8_t *)starts+info);
-        if(pages->pointer_format!=DYLD_CHAINED_PTR_64)continue;
-        unsigned page_shift=pages->page_size==0x1000?12:(pages->page_size==0x4000?14:0);
-        if(!page_shift)continue;
-        uintptr_t segment_runtime=(uintptr_t)header+pages->segment_offset;
-        for(uint16_t page=0;page<pages->page_count;page++){
-            uint16_t chain_offset=pages->page_start[page];
-            if(chain_offset==DYLD_CHAINED_PTR_START_NONE)continue;
-            uintptr_t page_runtime=segment_runtime+((uintptr_t)page<<page_shift);
-            uint64_t offset=chain_offset;
-            for(unsigned steps=0;steps<8192;steps++){
-                if(offset+8>(1u<<page_shift))break;
-                uintptr_t slot=page_runtime+offset;
-                uint64_t node=*(uint64_t *)slot;
-                if((node>>63)!=0){ /* DYLD_CHAINED_PTR_64 bind */
-                    const struct dyld_chained_ptr_64_bind *bind=(const void *)&node;
-                    if(bind->ordinal>=chain->imports_count)break;
-                    const char *name=NULL;long long addend=bind->addend;
-                    if(chain->imports_format==DYLD_CHAINED_IMPORT){
-                        const struct dyld_chained_import *imports;
-                        imports=(const void *)(blob+chain->imports_offset);
-                        name=(const char *)(blob+chain->symbols_offset
-                                            +imports[bind->ordinal].name_offset);
-                    }else if(chain->imports_format==DYLD_CHAINED_IMPORT_ADDEND){
-                        const struct dyld_chained_import_addend *imports;
-                        imports=(const void *)(blob+chain->imports_offset);
-                        name=(const char *)(blob+chain->symbols_offset
-                                            +imports[bind->ordinal].name_offset);
-                        addend+=imports[bind->ordinal].addend;
-                    }else break;
-                    if(name){
-                        for(unsigned k=0;k<sizeof(hooks)/sizeof(hooks[0]);k++)
-                            if(hooks[k].original&&!strcmp(name,hooks[k].name)){
-                                seen++;
-                                uintptr_t expected=(uintptr_t)hooks[k].original+(uintptr_t)addend;
-                                char line[256];
-                                if(*(uintptr_t *)slot==expected){
-                                    pong_a2_patch_slot(slot,(uintptr_t)hooks[k].wrapper+(uintptr_t)addend);
-                                    patched++;
-                                    snprintf(line,sizeof(line),
-                                        "Pong A2: slot %s addend=0x%llx verified->patched",
-                                        name,(long long)addend);
-                                }else{
-                                    snprintf(line,sizeof(line),
-                                        "Pong A2: slot %s addend=0x%llx MISMATCH slot=0x%llx expected=0x%llx",
-                                        name,(long long)addend,
-                                        (unsigned long long)*(uintptr_t *)slot,
-                                        (unsigned long long)expected);
-                                }
-                                pong_a2_line(line);
-                                break;
-                            }
-                    }
-                }
-                uint64_t next=(node>>51)&0xfff;
-                if(!next)break;
-                offset+=next*4;
-            }
+        if(!hooks[k].original){
+            char line[160];
+            snprintf(line,sizeof(line),"Pong A2: slot patch: dlsym %s failed",hooks[k].name);
+            pong_a2_line(line);
+            return;
         }
     }
-    char line[128];
-    snprintf(line,sizeof(line),"Pong A2: bind patch done seen=%u patched=%u",seen,patched);
-    pong_a2_line(line);
+    unsigned patched=0;
+    for(unsigned s=0;s<sizeof(pong_a2_slots)/sizeof(pong_a2_slots[0]);s++){
+        const char *name=hooks[pong_a2_slots[s].hook].name;
+        void *wrapper=hooks[pong_a2_slots[s].hook].wrapper;
+        uintptr_t original=(uintptr_t)hooks[pong_a2_slots[s].hook].original;
+        uintptr_t addend=(uintptr_t)pong_a2_slots[s].addend;
+        uintptr_t address=(uintptr_t)((int64_t)pong_a2_slots[s].vm+slide);
+        uintptr_t expected=original+addend;
+        uintptr_t current=0;
+        vm_size_t got=0;
+        char line[256];
+        if(vm_read_overwrite(mach_task_self(),(vm_address_t)address,
+                             sizeof current,(vm_address_t)&current,&got)!=KERN_SUCCESS||
+           got!=sizeof current){
+            snprintf(line,sizeof(line),"Pong A2: slot %s read failed",name);
+            pong_a2_line(line);
+            continue;
+        }
+        if(current!=expected){
+            snprintf(line,sizeof(line),
+                     "Pong A2: slot %s addend=0x%llx MISMATCH current=0x%llx expected=0x%llx",
+                     name,(unsigned long long)addend,
+                     (unsigned long long)current,(unsigned long long)expected);
+            pong_a2_line(line);
+            continue;
+        }
+        uintptr_t page=address&~(uintptr_t)(vm_page_size-1);
+        if(vm_protect(mach_task_self(),(vm_address_t)page,vm_page_size,FALSE,
+                      VM_PROT_READ|VM_PROT_WRITE|VM_PROT_COPY)!=KERN_SUCCESS){
+            snprintf(line,sizeof(line),
+                     "Pong A2: slot %s protect failed errno-style kr=%d",
+                     name,(int)KERN_FAILURE);
+            pong_a2_line(line);
+            continue;
+        }
+        *(uintptr_t *)address=(uintptr_t)wrapper+addend;
+        uintptr_t readback=0;
+        got=0;
+        if(vm_read_overwrite(mach_task_self(),(vm_address_t)address,
+                             sizeof readback,(vm_address_t)&readback,&got)!=KERN_SUCCESS||
+           got!=sizeof readback||readback!=(uintptr_t)wrapper+addend){
+            snprintf(line,sizeof(line),"Pong A2: slot %s readback FAILED",name);
+            pong_a2_line(line);
+            continue;
+        }
+        patched++;
+        snprintf(line,sizeof(line),
+                 "Pong A2: slot %s addend=0x%llx verified patched readback-ok",
+                 name,(unsigned long long)addend);
+        pong_a2_line(line);
+    }
+    char summary[96];
+    snprintf(summary,sizeof(summary),
+             "Pong A2: slot patch done %u of %u",patched,
+             (unsigned)(sizeof(pong_a2_slots)/sizeof(pong_a2_slots[0])));
+    pong_a2_line(summary);
 }
 
 static char abi_type_kind(const char *type)
@@ -2371,7 +2372,7 @@ __attribute__((constructor)) static void pong_ui18_start(void)
     if(strcmp(name,"fairplayd.A2")==0) {
         fairplay_process=true;
         pong_a2_line("entered (v68; mobile-owned per-pid log)");
-        pong_a2_patch_binds();
+        pong_a2_apply_slots();
         return;
     }
     if(!strcmp(name,"InputUI")) {

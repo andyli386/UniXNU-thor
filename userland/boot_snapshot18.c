@@ -641,8 +641,12 @@ static void *worker(void *unused)
     if (fd < 0) fd = dup(STDERR_FILENO);
     if (fd < 0) return NULL;
     unsigned elapsed = 0;
-    /* The 60-second tick grid means batches land on 60/120/240/600/900. */
-    const unsigned early[] = {60, 120, 240, 600, 900};
+    /* v69: wrappers are short-lived per migration plugin; their first
+     * batch at 30 s (instead of 60) captures the plugin identity before
+     * a possible idle-exit - the late-stage wait evidence depends on it. */
+    unsigned early[] = {60, 120, 240, 600, 900};
+    if (!strcmp(process_name, "com.apple.migrationpluginwrapper"))
+        early[0] = 30;
     unsigned early_index = 0;
     unsigned next_snapshot = early[0];
     for (;;) {
