@@ -644,7 +644,7 @@ static void *worker(void *unused)
      * still derived elapsed from the sleep count, so batches carried
      * scheduling and sampling time with them. Ticks stay 60 s apart;
      * wrappers get a true 30 s first batch. */
-    unsigned early[] = {60, 120, 240, 600, 900};
+    unsigned early[] = {60, 120, 240, 600, 900, 1050, 1200, 1500};
     if (!strcmp(process_name, "com.apple.migrationpluginwrapper"))
         early[0] = 30;
     unsigned early_index = 0;

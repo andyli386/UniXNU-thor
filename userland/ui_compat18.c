@@ -131,7 +131,6 @@ static void pong_a2_line(const char *text)
     if(fd>=0){
         dprintf(fd,"[%lld] pid=%d euid=%d %s\n",
                 (long long)time(NULL),getpid(),geteuid(),text);
-        (void)fsync(fd);
         close(fd);
     }else{
         char trouble[160];
@@ -199,7 +198,6 @@ static void pong_bbd_note(const char *format,...)
     int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
     if(fd>=0){
         dprintf(fd,"[%lld] %s\n",(long long)time(NULL),line);
-        (void)fsync(fd);
         close(fd);
     }
     pong_console_line(line);
@@ -217,6 +215,7 @@ static int pong_sb_lstat(const char *path,struct stat *st)
     struct timespec a,b;
     clock_gettime(CLOCK_MONOTONIC,&a);
     int result=lstat(path,st);
+    int saved_errno=errno;
     clock_gettime(CLOCK_MONOTONIC,&b);
     long ms=(b.tv_sec-a.tv_sec)*1000+(b.tv_nsec-a.tv_nsec)/1000000;
     if(springboard_process&&path&&ms>=20){
@@ -224,9 +223,10 @@ static int pong_sb_lstat(const char *path,struct stat *st)
         if(budget){
             budget--;
             pong_sb_note("Pong SB stat: lstat(%s) -> %d errno=%d ms=%ld",
-                         path,result,result?errno:0,ms);
+                         path,result,result?saved_errno:0,ms);
         }
     }
+    errno=saved_errno;
     return result;
 }
 static int pong_sb_stat(const char *path,struct stat *st)
@@ -234,6 +234,7 @@ static int pong_sb_stat(const char *path,struct stat *st)
     struct timespec a,b;
     clock_gettime(CLOCK_MONOTONIC,&a);
     int result=stat(path,st);
+    int saved_errno=errno;
     clock_gettime(CLOCK_MONOTONIC,&b);
     long ms=(b.tv_sec-a.tv_sec)*1000+(b.tv_nsec-a.tv_nsec)/1000000;
     if(springboard_process&&path&&ms>=20){
@@ -241,9 +242,10 @@ static int pong_sb_stat(const char *path,struct stat *st)
         if(budget){
             budget--;
             pong_sb_note("Pong SB stat: stat(%s) -> %d errno=%d ms=%ld",
-                         path,result,result?errno:0,ms);
+                         path,result,result?saved_errno:0,ms);
         }
     }
+    errno=saved_errno;
     return result;
 }
 
@@ -255,9 +257,19 @@ static int pong_sb_stat(const char *path,struct stat *st)
  * original with its true signature. */
 static long pong_bbd_group_wait(dispatch_group_t group,dispatch_time_t timeout)
 {
+    if(backboard_process){
+        static unsigned begins=300;
+        if(begins){
+            begins--;
+            pong_bbd_note("Pong BBD: group_wait %p begin tmo=%llu caller=%p",
+                          group,(unsigned long long)timeout,
+                          __builtin_return_address(0));
+        }
+    }
     struct timespec a,b;
     clock_gettime(CLOCK_MONOTONIC,&a);
     long result=dispatch_group_wait(group,timeout);
+    int saved_errno=errno;
     clock_gettime(CLOCK_MONOTONIC,&b);
     long ms=(b.tv_sec-a.tv_sec)*1000+(b.tv_nsec-a.tv_nsec)/1000000;
     if(backboard_process&&(ms>=50||result!=0)){
@@ -269,6 +281,7 @@ static long pong_bbd_group_wait(dispatch_group_t group,dispatch_time_t timeout)
                           __builtin_return_address(0));
         }
     }
+    errno=saved_errno;
     return result;
 }
 PONG_INTERPOSE(sb_lstat,pong_sb_lstat,lstat);
