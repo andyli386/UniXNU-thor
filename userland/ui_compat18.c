@@ -15,9 +15,11 @@
 #include <mach-o/loader.h>
 #include <objc/message.h>
 #include <objc/runtime.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +28,7 @@
 #include <sys/mount.h>
 #include <sys/sysctl.h>
 #include <sys/ucontext.h>
+#include <time.h>
 #include <unistd.h>
 #include <notify.h>
 #include "touch.h"
@@ -145,159 +148,433 @@ static void pong_a2_line(const char *text)
  * firmware evidence). Receipts go to a per-pid mobile-owned file like
  * the A2 channel. */
 static bool method_abi(Method method,const char *result,unsigned argc,const char *arguments);
-static void pong_dm_line(const char *text)
+static dispatch_queue_t dm_log_queue;
+static unsigned dm_log_count;
+static const unsigned dm_log_limit=512;
+
+struct dm_log_entry {
+    char line[640];
+    size_t size;
+};
+
+static void pong_dm_write(void *context)
 {
-    char path[96];
-    snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongDM-%d.txt",getpid());
-    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
-    if(fd>=0){
-        dprintf(fd,"[%lld] pid=%d %s\n",(long long)time(NULL),getpid(),text);
-        (void)fsync(fd);
+    struct dm_log_entry *entry=context;
+    char path[128];
+    const char *dir=geteuid()==0?"/private/var/logs":"/private/var/mobile/Library/Logs";
+    snprintf(path,sizeof(path),"%s/PongDM-%d.txt",dir,getpid());
+    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC|O_NOFOLLOW,0600);
+    if(fd>=0) {
+        const char *position=entry->line;
+        size_t remaining=entry->size;
+        while(remaining) {
+            ssize_t written=write(fd,position,remaining);
+            if(written<0 && errno==EINTR)continue;
+            if(written<=0)break;
+            position+=written;
+            remaining-=(size_t)written;
+        }
         close(fd);
     }
-    pong_console_line(text);
+    entry->line[entry->size-1]='\0';
+    pong_console_line(entry->line);
+    free(entry);
 }
 
-/* v72: SpringBoard wake/display receipts also go to a durable per-pid
- * file - v71 review: a missing console line is not proof the wake path
- * never ran (console mirror stops at the graphics takeover). */
+static void pong_dm_line(const char *format,...)
+{
+    const int saved_errno=errno;
+    if(dm_log_queue && __atomic_fetch_add(&dm_log_count,1,__ATOMIC_RELAXED)<dm_log_limit) {
+        struct dm_log_entry *entry=malloc(sizeof(*entry));
+        if(entry) {
+            char event[512];
+            va_list args;
+            va_start(args,format);
+            vsnprintf(event,sizeof(event),format,args);
+            va_end(args);
+            uint64_t tid=0;
+            (void)pthread_threadid_np(NULL,&tid);
+            int length=snprintf(entry->line,sizeof(entry->line),"[%lld] pid=%d tid=%llu mono_ns=%llu %s\n",
+                (long long)time(NULL),getpid(),(unsigned long long)tid,
+                (unsigned long long)clock_gettime_nsec_np(CLOCK_MONOTONIC),event);
+            if(length>0 && (size_t)length<sizeof(entry->line)) {
+                entry->size=(size_t)length;
+                dispatch_async_f(dm_log_queue,entry,pong_dm_write);
+            } else free(entry);
+        }
+    }
+    errno=saved_errno;
+}
+
+/* These observers run only in the enabled UI processes. The caller records a
+ * small bounded receipt in memory and calls the real API with its original
+ * errno. The existing snapshot worker owns all formatting and file writes. */
+enum ui_observer_role { OBSERVER_OFF, OBSERVER_SB, OBSERVER_BBD };
+enum ui_observer_call { OBSERVER_STAT, OBSERVER_LSTAT, OBSERVER_GROUP_WAIT };
+enum ui_observer_state { SLOT_FREE, SLOT_RESERVED, SLOT_PENDING, SLOT_FINISHED };
+
+#define UI_OBSERVER_SLOTS 64
+
+struct ui_observer_slot {
+    _Atomic(unsigned) state;
+    _Atomic(unsigned) kind;
+    _Atomic(uint64_t) call, tid, started, argument, timeout, caller;
+    _Atomic(uint64_t) elapsed;
+    _Atomic(long) result;
+    _Atomic(int) error;
+};
+
+static struct ui_observer_slot ui_observer_slots[UI_OBSERVER_SLOTS];
+static _Atomic(unsigned) ui_observer_role;
+static _Atomic(uint64_t) ui_observer_next;
+static _Atomic(unsigned) ui_observer_overflow;
+static _Thread_local bool ui_observing;
+
+static uint64_t ui_observer_ms(void)
+{
+    struct timespec now;
+    if(clock_gettime(CLOCK_MONOTONIC,&now)!=0)return 0;
+    return (uint64_t)now.tv_sec*1000+(uint64_t)now.tv_nsec/1000000;
+}
+
+/* Only a few startup receipts are expected. Reserve each slot once and let
+ * the snapshot worker log it without putting the main queue on APFS. */
+static struct {
+    _Atomic(bool) ready;
+    uint64_t time_ms;
+    char text[512];
+} sb_receipts[16];
+static _Atomic(unsigned) sb_receipt_index;
+
 static void pong_sb_note(const char *format,...)
 {
-    char line[512];
-    va_list arguments;
-    va_start(arguments,format);
-    vsnprintf(line,sizeof(line),format,arguments);
-    va_end(arguments);
-    char path[96];
-    snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongSB-%d.txt",getpid());
-    static bool open_failed=false;
-    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
-    if(fd>=0){
-        dprintf(fd,"[%lld] %s\n",(long long)time(NULL),line);
-        (void)fsync(fd);
-        close(fd);
-    }else if(!open_failed){
-        open_failed=true;
-        char trouble[160];
-        int n=snprintf(trouble,sizeof(trouble),
-                       "PongSB log open errno=%d",errno);
-        if(n>0)pong_console_line(trouble);
+    if(atomic_load_explicit(&ui_observer_role,memory_order_relaxed)!=OBSERVER_SB)return;
+    int saved_errno=errno;
+    unsigned i=atomic_fetch_add_explicit(&sb_receipt_index,1,memory_order_relaxed);
+    if(i<sizeof(sb_receipts)/sizeof(sb_receipts[0])){
+        va_list arguments;
+        va_start(arguments,format);
+        vsnprintf(sb_receipts[i].text,sizeof(sb_receipts[i].text),format,arguments);
+        va_end(arguments);
+        sb_receipts[i].time_ms=ui_observer_ms();
+        atomic_store_explicit(&sb_receipts[i].ready,true,memory_order_release);
     }
-    pong_console_line(line);
+    errno=saved_errno;
 }
 
-static void pong_bbd_note(const char *format,...)
+static void pong_sb_drain(int fd)
 {
-    char line[420];
-    va_list arguments;
-    va_start(arguments,format);
-    vsnprintf(line,sizeof(line),format,arguments);
-    va_end(arguments);
-    char path[96];
-    snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongBBD-%d.txt",getpid());
-    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
-    if(fd>=0){
-        dprintf(fd,"[%lld] %s\n",(long long)time(NULL),line);
-        close(fd);
+    static unsigned next;
+    static bool overflow_reported;
+    while(next<sizeof(sb_receipts)/sizeof(sb_receipts[0])&&
+          atomic_load_explicit(&sb_receipts[next].ready,memory_order_acquire)){
+        dprintf(fd,"Pong SB receipt: pid=%d time_ms=%llu %s\n",
+                getpid(),sb_receipts[next].time_ms,sb_receipts[next].text);
+        pong_console_line(sb_receipts[next].text);
+        next++;
     }
-    pong_console_line(line);
+    if(!overflow_reported&&atomic_load_explicit(&sb_receipt_index,memory_order_relaxed)>
+       sizeof(sb_receipts)/sizeof(sb_receipts[0])){
+        dprintf(fd,"Pong SB receipt budget exhausted: pid=%d\n",getpid());
+        overflow_reported=true;
+    }
 }
 
-/* v75: the last v74 SpringBoard sample sat uninterruptibly in lstat64
- * during CoverSheet viewWillAppear bundle-path resolution, without the
- * path or duration. These interposers record any SLOW (>=20 ms) stat
- * or lstat in SpringBoard only - path, result, errno, wall time - so
- * the stuck path names itself. Bounded to 400 lines. */
-extern int stat(const char *,struct stat *);
-extern int lstat(const char *,struct stat *);
+static struct ui_observer_slot *ui_observer_begin(
+    unsigned kind,uint64_t argument,uint64_t timeout,const void *caller)
+{
+    uint64_t call=atomic_fetch_add_explicit(&ui_observer_next,1,memory_order_relaxed)+1;
+    unsigned first=(unsigned)(call%UI_OBSERVER_SLOTS);
+    for(unsigned offset=0;offset<UI_OBSERVER_SLOTS;offset++){
+        struct ui_observer_slot *slot=&ui_observer_slots[(first+offset)%UI_OBSERVER_SLOTS];
+        unsigned free=SLOT_FREE;
+        if(!atomic_compare_exchange_strong_explicit(&slot->state,&free,SLOT_RESERVED,
+                                                    memory_order_acquire,memory_order_relaxed))
+            continue;
+        uint64_t tid=0;
+        (void)pthread_threadid_np(NULL,&tid);
+        atomic_store_explicit(&slot->call,call,memory_order_relaxed);
+        atomic_store_explicit(&slot->kind,kind,memory_order_relaxed);
+        atomic_store_explicit(&slot->tid,tid,memory_order_relaxed);
+        atomic_store_explicit(&slot->argument,argument,memory_order_relaxed);
+        atomic_store_explicit(&slot->timeout,timeout,memory_order_relaxed);
+        atomic_store_explicit(&slot->caller,(uintptr_t)caller,memory_order_relaxed);
+        atomic_store_explicit(&slot->started,ui_observer_ms(),memory_order_relaxed);
+        atomic_store_explicit(&slot->state,SLOT_PENDING,memory_order_release);
+        return slot;
+    }
+    atomic_fetch_add_explicit(&ui_observer_overflow,1,memory_order_relaxed);
+    return NULL;
+}
+
+static void ui_observer_end(struct ui_observer_slot *slot,long result,int error,
+                            unsigned threshold,bool retain_failure)
+{
+    if(!slot)return;
+    uint64_t started=atomic_load_explicit(&slot->started,memory_order_relaxed);
+    uint64_t now=ui_observer_ms();
+    uint64_t elapsed=started&&now>=started?now-started:0;
+    if(elapsed<threshold&&!(retain_failure&&result!=0)){
+        atomic_store_explicit(&slot->state,SLOT_FREE,memory_order_release);
+        return;
+    }
+    atomic_store_explicit(&slot->result,result,memory_order_relaxed);
+    atomic_store_explicit(&slot->error,error,memory_order_relaxed);
+    atomic_store_explicit(&slot->elapsed,elapsed,memory_order_relaxed);
+    atomic_store_explicit(&slot->state,SLOT_FINISHED,memory_order_release);
+}
+
+/* Read only from the sampler and stay inside the first pointer page.
+ * An untrusted pointer or a disappearing mapping must not fault the UI. */
+static void ui_observer_path(uint64_t argument,char *path,size_t size)
+{
+    if(!argument||!vm_page_size)return;
+    vm_size_t available=vm_page_size-argument%vm_page_size;
+    vm_size_t limit=available<size-1?available:size-1;
+    vm_size_t got=0;
+    if(vm_read_overwrite(mach_task_self(),(vm_address_t)argument,limit,
+                         (vm_address_t)path,&got)!=KERN_SUCCESS||got>limit){
+        path[0]='\0';
+        return;
+    }
+    path[got]='\0';
+    for(vm_size_t i=0;i<got&&path[i];i++){
+        unsigned char c=(unsigned char)path[i];
+        if(c<32||c>=127||c=='"')path[i]='?';
+    }
+}
+
+static void ui_observer_write(int fd,const struct ui_observer_slot *slot,unsigned state,
+                              uint64_t call,uint64_t now,uint64_t *reported)
+{
+    static const char *const labels[]={"stat","lstat","group_wait"};
+    unsigned kind=atomic_load_explicit(&slot->kind,memory_order_relaxed);
+    uint64_t started=atomic_load_explicit(&slot->started,memory_order_relaxed);
+    uint64_t tid=atomic_load_explicit(&slot->tid,memory_order_relaxed);
+    uint64_t argument=atomic_load_explicit(&slot->argument,memory_order_relaxed);
+    uint64_t timeout=atomic_load_explicit(&slot->timeout,memory_order_relaxed);
+    uint64_t caller=atomic_load_explicit(&slot->caller,memory_order_relaxed);
+    if(state==SLOT_PENDING&&(!started||now<started||now-started<150||*reported==call))return;
+
+    /* An in-flight fast call may return and free/reuse the slot while we
+     * sample it. Recheck state and generation after loading the fields. */
+    if(atomic_load_explicit(&slot->state,memory_order_acquire)!=state||
+       atomic_load_explicit(&slot->call,memory_order_relaxed)!=call||
+       kind>=sizeof(labels)/sizeof(labels[0]))return;
+    if(state==SLOT_PENDING){
+        char path[96]={0};
+        if(kind!=OBSERVER_GROUP_WAIT)ui_observer_path(argument,path,sizeof(path));
+        if(atomic_load_explicit(&slot->state,memory_order_acquire)!=SLOT_PENDING||
+           atomic_load_explicit(&slot->call,memory_order_relaxed)!=call)return;
+        *reported=call;
+        dprintf(fd,"Pong UI call pending: pid=%d tid=%llu id=%llu op=%s start_ms=%llu now_ms=%llu arg=0x%llx timeout=%llu caller=0x%llx path_prefix=\"%s\"\n",
+                getpid(),tid,call,labels[kind],started,now,argument,timeout,caller,path);
+    }else{
+        uint64_t elapsed=atomic_load_explicit(&slot->elapsed,memory_order_relaxed);
+        long result=atomic_load_explicit(&slot->result,memory_order_relaxed);
+        int error=atomic_load_explicit(&slot->error,memory_order_relaxed);
+        dprintf(fd,"Pong UI call end: pid=%d tid=%llu id=%llu op=%s start_ms=%llu elapsed_ms=%llu arg=0x%llx timeout=%llu caller=0x%llx result=%ld errno=%d\n",
+                getpid(),tid,call,labels[kind],started,elapsed,argument,timeout,caller,result,error);
+    }
+}
+
+/* Single consumer: the process-local snapshot worker. Completed stat paths
+ * retain only their addresses because the caller may already have freed them. */
+void pong_ui_observer_drain(int fd)
+{
+    unsigned role=atomic_load_explicit(&ui_observer_role,memory_order_relaxed);
+    if(!role)return;
+    if(role==OBSERVER_SB)pong_sb_drain(fd);
+    static uint64_t reported[UI_OBSERVER_SLOTS];
+    static unsigned budget=900, overflow_reported;
+    uint64_t now=ui_observer_ms();
+    for(unsigned i=0;i<UI_OBSERVER_SLOTS;i++){
+        struct ui_observer_slot *slot=&ui_observer_slots[i];
+        unsigned state=atomic_load_explicit(&slot->state,memory_order_acquire);
+        if(state!=SLOT_PENDING&&state!=SLOT_FINISHED)continue;
+        uint64_t call=atomic_load_explicit(&slot->call,memory_order_relaxed);
+        if(budget&&(state==SLOT_FINISHED||reported[i]!=call)){
+            ui_observer_write(fd,slot,state,call,now,&reported[i]);
+            if(state==SLOT_FINISHED||reported[i]==call)budget--;
+        }
+        if(state==SLOT_FINISHED)atomic_store_explicit(&slot->state,SLOT_FREE,memory_order_release);
+    }
+    unsigned overflow=atomic_load_explicit(&ui_observer_overflow,memory_order_relaxed);
+    if(budget&&overflow_reported!=overflow){
+        dprintf(fd,"Pong UI call overflow: pid=%d count=%u\n",getpid(),overflow);
+        overflow_reported=overflow;
+        budget--;
+    }
+    static bool announced_exhaustion;
+    if(!budget&&!announced_exhaustion){
+        dprintf(fd,"Pong UI call observation budget exhausted: pid=%d\n",getpid());
+        announced_exhaustion=true;
+    }
+}
+
+static int pong_observed_stat(unsigned kind,int (*original)(const char *,struct stat *),
+                              const char *path,struct stat *st,const void *caller)
+{
+    if(atomic_load_explicit(&ui_observer_role,memory_order_relaxed)!=OBSERVER_SB)
+        return original(path,st);
+    int incoming_errno=errno;
+    if(ui_observing){
+        errno=incoming_errno;
+        return original(path,st);
+    }
+    ui_observing=true;
+    struct ui_observer_slot *slot=ui_observer_begin(kind,(uintptr_t)path,0,caller);
+    errno=incoming_errno;
+    int result=original(path,st);
+    int saved_errno=errno;
+    ui_observer_end(slot,result,result?saved_errno:0,20,false);
+    ui_observing=false;
+    errno=saved_errno;
+    return result;
+}
+
 static int pong_sb_lstat(const char *path,struct stat *st)
 {
-    struct timespec a,b;
-    clock_gettime(CLOCK_MONOTONIC,&a);
-    int result=lstat(path,st);
-    int saved_errno=errno;
-    clock_gettime(CLOCK_MONOTONIC,&b);
-    long ms=(b.tv_sec-a.tv_sec)*1000+(b.tv_nsec-a.tv_nsec)/1000000;
-    if(springboard_process&&path&&ms>=20){
-        static unsigned budget=400;
-        if(budget){
-            budget--;
-            pong_sb_note("Pong SB stat: lstat(%s) -> %d errno=%d ms=%ld",
-                         path,result,result?saved_errno:0,ms);
-        }
-    }
-    errno=saved_errno;
-    return result;
+    return pong_observed_stat(OBSERVER_LSTAT,lstat,path,st,__builtin_return_address(0));
 }
+
 static int pong_sb_stat(const char *path,struct stat *st)
 {
-    struct timespec a,b;
-    clock_gettime(CLOCK_MONOTONIC,&a);
-    int result=stat(path,st);
-    int saved_errno=errno;
-    clock_gettime(CLOCK_MONOTONIC,&b);
-    long ms=(b.tv_sec-a.tv_sec)*1000+(b.tv_nsec-a.tv_nsec)/1000000;
-    if(springboard_process&&path&&ms>=20){
-        static unsigned budget=400;
-        if(budget){
-            budget--;
-            pong_sb_note("Pong SB stat: stat(%s) -> %d errno=%d ms=%ld",
-                         path,result,result?saved_errno:0,ms);
-        }
+    return pong_observed_stat(OBSERVER_STAT,stat,path,st,__builtin_return_address(0));
+}
+
+static long pong_bbd_group_wait(dispatch_group_t group,dispatch_time_t timeout)
+{
+    if(atomic_load_explicit(&ui_observer_role,memory_order_relaxed)!=OBSERVER_BBD)
+        return dispatch_group_wait(group,timeout);
+    int incoming_errno=errno;
+    if(ui_observing){
+        errno=incoming_errno;
+        return dispatch_group_wait(group,timeout);
     }
+    ui_observing=true;
+    struct ui_observer_slot *slot=ui_observer_begin(OBSERVER_GROUP_WAIT,(uintptr_t)group,
+                                                   timeout,__builtin_return_address(0));
+    errno=incoming_errno;
+    long result=dispatch_group_wait(group,timeout);
+    int saved_errno=errno;
+    ui_observer_end(slot,result,saved_errno,50,true);
+    ui_observing=false;
     errno=saved_errno;
     return result;
 }
 
-/* v75: identify backboardd's unfinished dispatch groups (the v74
- * review: a dispatch_group_wait without a known completion member is
- * part of the scene handoff). Slow (>=50 ms) or non-zero-return waits
- * log the group, timeout, result, duration and immediate caller.
- * Bounded to 300 lines. dispatch/dispatch.h already declares the
- * original with its true signature. */
-static long pong_bbd_group_wait(dispatch_group_t group,dispatch_time_t timeout)
-{
-    if(backboard_process){
-        static unsigned begins=300;
-        if(begins){
-            begins--;
-            pong_bbd_note("Pong BBD: group_wait %p begin tmo=%llu caller=%p",
-                          group,(unsigned long long)timeout,
-                          __builtin_return_address(0));
-        }
-    }
-    struct timespec a,b;
-    clock_gettime(CLOCK_MONOTONIC,&a);
-    long result=dispatch_group_wait(group,timeout);
-    int saved_errno=errno;
-    clock_gettime(CLOCK_MONOTONIC,&b);
-    long ms=(b.tv_sec-a.tv_sec)*1000+(b.tv_nsec-a.tv_nsec)/1000000;
-    if(backboard_process&&(ms>=50||result!=0)){
-        static unsigned budget=300;
-        if(budget){
-            budget--;
-            pong_bbd_note("Pong BBD: group_wait %p tmo=%llu -> %ld ms=%ld caller=%p",
-                          group,(unsigned long long)timeout,result,ms,
-                          __builtin_return_address(0));
-        }
-    }
-    errno=saved_errno;
-    return result;
-}
 PONG_INTERPOSE(sb_lstat,pong_sb_lstat,lstat);
 PONG_INTERPOSE(sb_stat,pong_sb_stat,stat);
 PONG_INTERPOSE(group_wait,pong_bbd_group_wait,dispatch_group_wait);
 
 static bool dm_diagnostics_swizzled;
+static bool dm_progress_swizzled,dm_progress_enabled;
 static IMP dm_capture_original;
+static IMP dm_will_run_original,dm_did_finish_original,dm_results_original;
+static SEL dm_plugin_id,dm_plugin_name,dm_plugin_dependency,dm_incident_kind,dm_incident_details;
+
+static SEL pong_dm_getter(Class cls,const char *name,const char *result)
+{
+    SEL selector=sel_registerName(name);
+    if(method_abi(cls?class_getInstanceMethod(cls,selector):NULL,result,0,""))
+        return selector;
+    return NULL;
+}
+
+static void pong_dm_text(id value,char *text,size_t size)
+{
+    if(!value || CFGetTypeID((CFTypeRef)value)!=CFStringGetTypeID() ||
+       !CFStringGetCString((CFStringRef)value,text,size,kCFStringEncodingUTF8))
+        strlcpy(text,"-",size);
+    for(char *c=text;*c;c++) {
+        if((unsigned char)*c<32 || *c=='"')*c=' ';
+    }
+}
+
+static void pong_dm_get_text(id value,SEL selector,char *text,size_t size)
+{
+    pong_dm_text(value && selector?((id(*)(id,SEL))objc_msgSend)(value,selector):nil,text,size);
+}
+
+static unsigned pong_dm_kind(id incident)
+{
+    return incident && dm_incident_kind
+        ? ((unsigned(*)(id,SEL))objc_msgSend)(incident,dm_incident_kind) : 0;
+}
+
+static void pong_dm_will_run(id self,SEL command,id plugin,id phase)
+{
+    const int saved_errno=errno;
+    char identifier[96],name[96],dependency[96];
+    pong_dm_get_text(plugin,dm_plugin_id,identifier,sizeof(identifier));
+    pong_dm_get_text(plugin,dm_plugin_name,name,sizeof(name));
+    pong_dm_get_text(plugin,dm_plugin_dependency,dependency,sizeof(dependency));
+    pong_dm_line("Pong DM: plugin begin id=\"%s\" name=\"%s\" dependency=\"%s\"",identifier,name,dependency);
+    errno=saved_errno;
+    ((void(*)(id,SEL,id,id))dm_will_run_original)(self,command,plugin,phase);
+}
+
+static void pong_dm_did_finish(id self,SEL command,id plugin,BOOL success,double duration,id incident,id phase)
+{
+    ((void(*)(id,SEL,id,BOOL,double,id,id))dm_did_finish_original)(self,command,plugin,success,duration,incident,phase);
+    const int saved_errno=errno;
+    char identifier[96],details[192];
+    pong_dm_get_text(plugin,dm_plugin_id,identifier,sizeof(identifier));
+    pong_dm_get_text(incident,dm_incident_details,details,sizeof(details));
+    pong_dm_line("Pong DM: plugin end id=\"%s\" success=%d duration_s=%.3f incident=%u details=\"%s\"",
+        identifier,(int)success,duration,pong_dm_kind(incident),details);
+    errno=saved_errno;
+}
+
+static void pong_dm_results(id self,SEL command,BOOL success,id build)
+{
+    ((void(*)(id,SEL,BOOL,id))dm_results_original)(self,command,success,build);
+    const int saved_errno=errno;
+    char version[32];
+    pong_dm_text(build,version,sizeof(version));
+    pong_dm_line("Pong DM: client results sent success=%d build=\"%s\"",(int)success,version);
+    errno=saved_errno;
+}
+
+static void pong_dm_progress_install(void)
+{
+    if(!dm_progress_enabled || dm_progress_swizzled)return;
+    Class state=objc_lookUpClass("DMMigrationState");
+    Class plugin=objc_lookUpClass("DataMigrationPlugin");
+    Class incident=objc_lookUpClass("DMIncident");
+    if(!state || !plugin || !incident)return;
+    Method begin=class_getInstanceMethod(state,sel_registerName("pluginWillRun:migrationPhaseDescription:"));
+    Method end=class_getInstanceMethod(state,sel_registerName("pluginDidFinish:withSuccess:duration:incident:migrationPhaseDescription:"));
+    Method results=class_getInstanceMethod(state,sel_registerName("sendMigrationResultsToClientInvocationsWithSuccess:buildVersion:"));
+    /* 22H374 method metadata: v32@0:8@16@24, v52@0:8@16B24d28@36@44,
+     * v28@0:8B16@20. Forward the real outcomes and arguments unchanged. */
+    if(!method_abi(begin,"v",2,"@@") || !method_abi(end,"v",5,"@Bd@@") ||
+       !method_abi(results,"v",2,"B@"))return;
+    dm_plugin_id=pong_dm_getter(plugin,"identifier","@");
+    dm_plugin_name=pong_dm_getter(plugin,"name","@");
+    dm_plugin_dependency=pong_dm_getter(plugin,"identifierOfDependency","@");
+    dm_incident_kind=pong_dm_getter(incident,"kind","I");
+    dm_incident_details=pong_dm_getter(incident,"details","@");
+    if(!dm_plugin_id)return;
+    dm_will_run_original=method_getImplementation(begin);
+    dm_did_finish_original=method_getImplementation(end);
+    dm_results_original=method_getImplementation(results);
+    method_setImplementation(begin,(IMP)pong_dm_will_run);
+    method_setImplementation(end,(IMP)pong_dm_did_finish);
+    method_setImplementation(results,(IMP)pong_dm_results);
+    dm_progress_swizzled=true;
+    pong_dm_line("Pong DM: native plugin and client result receipts enabled");
+}
 
 static void pong_dm_capture(id self,SEL command,id incident,BOOL async)
 {
-    char line[160];
-    int n=snprintf(line,sizeof(line),
-                   "Pong DM: diagnostics incident=%p async=%d -> forcing async=1",
-                   incident,(int)async);
-    if(n>0)pong_dm_line(line);
+    const int saved_errno=errno;
+    char details[192];
+    pong_dm_get_text(incident,dm_incident_details,details,sizeof(details));
+    pong_dm_line("Pong DM: diagnostics incident=%u async=%d -> forcing async=1 details=\"%s\"",
+        pong_dm_kind(incident),(int)async,details);
+    errno=saved_errno;
     if(dm_capture_original)
         ((void(*)(id,SEL,id,BOOL))dm_capture_original)(self,command,incident,YES);
 }
@@ -305,6 +582,7 @@ static void pong_dm_capture(id self,SEL command,id incident,BOOL async)
 static void pong_dm_image(const struct mach_header *header,intptr_t slide)
 {
     (void)header;(void)slide;
+    pong_dm_progress_install();
     if(dm_diagnostics_swizzled)return;
     Class cls=objc_lookUpClass("DMDiagnostics");
     if(!cls)return;
@@ -317,8 +595,10 @@ static void pong_dm_image(const struct mach_header *header,intptr_t slide)
     pong_dm_line("Pong DM: diagnostics swizzled to the native async path");
 }
 
-static void dm_diagnostics_install(void)
+static void dm_diagnostics_install(bool progress_receipts)
 {
+    dm_log_queue=dispatch_queue_create("com.pong.datamigrator.receipts",DISPATCH_QUEUE_SERIAL);
+    dm_progress_enabled=progress_receipts && dm_log_queue;
     if(!dm_diagnostics_swizzled)
         _dyld_register_func_for_add_image(pong_dm_image);
 }
@@ -2614,8 +2894,9 @@ __attribute__((constructor)) static void pong_ui18_start(void)
      * (WriteStackshotReportWithPID_async): this swizzle forces it, keeping
      * every result value untouched. ABI verified v28@0:8@16B24. */
     if(!strcmp(name,"com.apple.datamigrator")) {
-        dm_diagnostics_install();
-        if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
+        bool snapshots=boot_option("pong_boot_snapshot=1");
+        dm_diagnostics_install(snapshots);
+        if(snapshots)pong_boot_snapshot_start(name);
         return;
     }
     if(!strcmp(name,"PowerUIAgent")) {
@@ -2663,6 +2944,8 @@ __attribute__((constructor)) static void pong_ui18_start(void)
     }
     if(strcmp(name,"SpringBoard")==0) {
         springboard_process=true;
+        if(boot_option("pong_boot_snapshot=1"))
+            atomic_store_explicit(&ui_observer_role,OBSERVER_SB,memory_order_relaxed);
         pong_sb_note("Pong UI18: SpringBoard adapter ctor (v73)");
         // Physical volume keys stay on the native HID/system event route.
         skip_setup=boot_option("pong_skip_setup=1");
@@ -2673,6 +2956,8 @@ __attribute__((constructor)) static void pong_ui18_start(void)
     }
     if(strcmp(name,"backboardd")==0) {
         backboard_process=true;
+        if(boot_option("pong_boot_snapshot=1"))
+            atomic_store_explicit(&ui_observer_role,OBSERVER_BBD,memory_order_relaxed);
         software_composition=boot_option("pong_ui_software=1");
         scanout_format=true;
         backboard_container();
