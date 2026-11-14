@@ -68,6 +68,42 @@ def file_contents(path, root):
             yield Line(name, number, raw.rstrip(b"\n"))
 
 
+def collect_legacy_suffix(root, prefix_path):
+    candidates = sorted(root.rglob("PongConsole.txt"))
+    if len(candidates) != 1:
+        raise ValueError("--previous-console requires exactly one current PongConsole.txt")
+    current = candidates[0]
+    prefix = prefix_path.read_bytes()
+    full = current.read_bytes()
+    if not prefix or len(prefix) >= len(full) or not full.startswith(prefix):
+        raise ValueError("previous console is not a strict byte prefix of the current file")
+    suffix = full[len(prefix):]
+    offset = prefix.count(b"\n")
+    discarded = 0
+    if not prefix.endswith(b"\n"):
+        partial, separator, suffix = suffix.partition(b"\n")
+        if not separator:
+            raise ValueError("current file only continues the previous partial line")
+        offset += 1
+        discarded = len(partial) + 1
+    file = str(current.relative_to(root))
+    lines = [Line(file, number, raw) for number, raw in enumerate(suffix.split(b"\n"), offset + 1)]
+    if not lines[-1].raw:
+        lines.pop()
+    return lines, {
+        "files": [file],
+        "mode": "legacy-verified-byte-suffix",
+        "boot_labels": [],
+        "legacy_lines": len(lines),
+        "raw_physical_lines": full.count(b"\n") + int(not full.endswith(b"\n")),
+        "invalid_timestamp_lines": sum(line.raw.startswith(b"[") and line.clock_us is None for line in lines),
+        "nul_lines": sum(b"\0" in line.raw for line in lines),
+        "verified_previous_bytes": len(prefix),
+        "discarded_partial_line_bytes": discarded,
+        "previous_console": str(prefix_path),
+    }
+
+
 def collect_console(root, requested_boot):
     current_boot = None
     seen_boots = []
@@ -390,6 +426,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path, help="capture directory containing extracted/files, extracted, or files")
     parser.add_argument("--boot-id", type=lambda value: str(UUID(value)), help="select a specific cursor boot UUID")
+    parser.add_argument("--previous-console", type=Path,
+                        help="require this exact prior byte prefix and analyze only the complete appended legacy lines")
     parser.add_argument("--output", type=Path, help="optional JSON destination; otherwise write to stdout")
     args = parser.parse_args()
     directory = args.directory.absolute()
@@ -397,25 +435,37 @@ def main():
                  if path.is_dir() and (path.name == "files" or (path / "logs").is_dir())), None)
     if root is None:
         parser.error("directory does not contain extracted/files, files, or a raw logs directory")
-    raw, boot, console = collect_console(root, args.boot_id)
+    if args.previous_console:
+        if args.boot_id:
+            parser.error("--previous-console and --boot-id select different evidence modes")
+        try:
+            raw, console = collect_legacy_suffix(root, args.previous_console)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+        boot = None
+    else:
+        raw, boot, console = collect_console(root, args.boot_id)
     timed = [line for line in raw if line.clock_us is not None]
-    if console["mode"] == "legacy-single-anchor":
+    if console["mode"].startswith("legacy-"):
         timed = list({line.raw: line for line in reversed(timed)}.values())
     lines = sorted(timed, key=lambda line: line.clock_us)
     issues = [line for line in raw if re.match(rb"Pong console capture (?:WRAP|RESET)", line.raw)]
     selected_boot = boot not in (None, "unavailable")
-    stage = runtime_check(root, raw)
-    identified = selected_boot and stage["status"] == "PASS"
-    sessions, observed, diagnostic = logs_with_sessions(root, boot)
     unique_raw = list({line.raw: line for line in reversed(raw)}.values()) if not selected_boot else raw
+    stage = runtime_check(root, unique_raw)
+    candidate_kernel = bool(args.previous_console and
+                            sum(bool(RUNTIME_STAGE.search(line.raw)) for line in unique_raw) == 1 and
+                            sum(bool(RAM_SUMMARY.search(line.raw)) for line in unique_raw) == 1)
+    identified = (selected_boot or candidate_kernel) and stage["status"] == "PASS"
+    sessions, observed, diagnostic = logs_with_sessions(root, boot)
     display = display_check(unique_raw, lines[-1].clock_us if lines else 0)
-    if display["status"] == "FAIL" and (issues or not selected_boot):
+    if display["status"] == "FAIL" and (issues or not (selected_boot or candidate_kernel)):
         display["status"] = "SKIP"
         display["meaning"] += "; cursor continuity or boot identity is unverified"
     checks = {
         "runtime_staging": stage,
         "mount_and_injection": mount_check(unique_raw),
-        "managed_memory": memory_check(unique_raw, identified),
+        "managed_memory": memory_check(unique_raw, identified or candidate_kernel),
         "lsd_runtime_limits": memlimit_check(diagnostic),
         "layer_recovery": display,
         "daemon_faults": daemon_check(lines),
@@ -425,8 +475,9 @@ def main():
         "visible_ui_and_input": receipt("SKIP", "requires real display and input observations for five minutes"),
     }
     result = {"export_root": str(root), "boot_id": boot, "candidate_identified": identified,
+              "candidate_kernel_identified": identified or candidate_kernel,
               "console": console, "checks": checks,
-              "overall": "FAIL" if ((selected_boot and stage["status"] == "FAIL")
+              "overall": "FAIL" if (((selected_boot or candidate_kernel) and stage["status"] == "FAIL")
                                     or (identified and any(check["status"] == "FAIL" for check in checks.values())))
               else "SKIP"}
     encoded = json.dumps(result, ensure_ascii=True, indent=2) + "\n"
