@@ -36,6 +36,7 @@ static bool renderer_installed;
 static bool format_installed;
 static bool personas_installed;
 static bool springboard_process;
+static bool backboard_process;
 static bool phone_ui_process;
 static bool skip_setup;
 static IMP setup_reason_original;
@@ -185,6 +186,94 @@ static void pong_sb_note(const char *format,...)
     }
     pong_console_line(line);
 }
+
+static void pong_bbd_note(const char *format,...)
+{
+    char line[420];
+    va_list arguments;
+    va_start(arguments,format);
+    vsnprintf(line,sizeof(line),format,arguments);
+    va_end(arguments);
+    char path[96];
+    snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongBBD-%d.txt",getpid());
+    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
+    if(fd>=0){
+        dprintf(fd,"[%lld] %s\n",(long long)time(NULL),line);
+        (void)fsync(fd);
+        close(fd);
+    }
+    pong_console_line(line);
+}
+
+/* v75: the last v74 SpringBoard sample sat uninterruptibly in lstat64
+ * during CoverSheet viewWillAppear bundle-path resolution, without the
+ * path or duration. These interposers record any SLOW (>=20 ms) stat
+ * or lstat in SpringBoard only - path, result, errno, wall time - so
+ * the stuck path names itself. Bounded to 400 lines. */
+extern int stat(const char *,struct stat *);
+extern int lstat(const char *,struct stat *);
+static int pong_sb_lstat(const char *path,struct stat *st)
+{
+    struct timespec a,b;
+    clock_gettime(CLOCK_MONOTONIC,&a);
+    int result=lstat(path,st);
+    clock_gettime(CLOCK_MONOTONIC,&b);
+    long ms=(b.tv_sec-a.tv_sec)*1000+(b.tv_nsec-a.tv_nsec)/1000000;
+    if(springboard_process&&path&&ms>=20){
+        static unsigned budget=400;
+        if(budget){
+            budget--;
+            pong_sb_note("Pong SB stat: lstat(%s) -> %d errno=%d ms=%ld",
+                         path,result,result?errno:0,ms);
+        }
+    }
+    return result;
+}
+static int pong_sb_stat(const char *path,struct stat *st)
+{
+    struct timespec a,b;
+    clock_gettime(CLOCK_MONOTONIC,&a);
+    int result=stat(path,st);
+    clock_gettime(CLOCK_MONOTONIC,&b);
+    long ms=(b.tv_sec-a.tv_sec)*1000+(b.tv_nsec-a.tv_nsec)/1000000;
+    if(springboard_process&&path&&ms>=20){
+        static unsigned budget=400;
+        if(budget){
+            budget--;
+            pong_sb_note("Pong SB stat: stat(%s) -> %d errno=%d ms=%ld",
+                         path,result,result?errno:0,ms);
+        }
+    }
+    return result;
+}
+
+/* v75: identify backboardd's unfinished dispatch groups (the v74
+ * review: a dispatch_group_wait without a known completion member is
+ * part of the scene handoff). Slow (>=50 ms) or non-zero-return waits
+ * log the group, timeout, result, duration and immediate caller.
+ * Bounded to 300 lines. dispatch/dispatch.h already declares the
+ * original with its true signature. */
+static long pong_bbd_group_wait(dispatch_group_t group,dispatch_time_t timeout)
+{
+    struct timespec a,b;
+    clock_gettime(CLOCK_MONOTONIC,&a);
+    long result=dispatch_group_wait(group,timeout);
+    clock_gettime(CLOCK_MONOTONIC,&b);
+    long ms=(b.tv_sec-a.tv_sec)*1000+(b.tv_nsec-a.tv_nsec)/1000000;
+    if(backboard_process&&(ms>=50||result!=0)){
+        static unsigned budget=300;
+        if(budget){
+            budget--;
+            pong_bbd_note("Pong BBD: group_wait %p tmo=%llu -> %ld ms=%ld caller=%p",
+                          group,(unsigned long long)timeout,result,ms,
+                          __builtin_return_address(0));
+        }
+    }
+    return result;
+}
+PONG_INTERPOSE(sb_lstat,pong_sb_lstat,lstat);
+PONG_INTERPOSE(sb_stat,pong_sb_stat,stat);
+PONG_INTERPOSE(group_wait,pong_bbd_group_wait,dispatch_group_wait);
 
 static bool dm_diagnostics_swizzled;
 static IMP dm_capture_original;
@@ -2570,6 +2659,7 @@ __attribute__((constructor)) static void pong_ui18_start(void)
         pong_sb_note("Pong UI18: wake enqueue returned");
     }
     if(strcmp(name,"backboardd")==0) {
+        backboard_process=true;
         software_composition=boot_option("pong_ui_software=1");
         scanout_format=true;
         backboard_container();
