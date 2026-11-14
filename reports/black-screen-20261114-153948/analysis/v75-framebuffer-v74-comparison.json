@@ -1,0 +1,10 @@
+{
+  "v74_evidence": "THOR-20261114-103139/analysis/framebuffer-cpu-empty-current.txt",
+  "v75_evidence": "v75-framebuffer-source.json",
+  "line_range": [
+    1116,
+    1125
+  ],
+  "same_text": true,
+  "line_count": 10
+}

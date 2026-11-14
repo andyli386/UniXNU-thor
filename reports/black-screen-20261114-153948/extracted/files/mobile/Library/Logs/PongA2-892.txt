@@ -1,0 +1,6 @@
+[1507] pid=892 euid=501 entered
+[1507] pid=892 euid=501 Pong A2: slot IOServiceGetMatchingServices addend=0x6da5e697 verified patched readback-ok
+[1507] pid=892 euid=501 Pong A2: slot bootstrap_check_in addend=0x6c4fc59b verified patched readback-ok
+[1507] pid=892 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok
+[1507] pid=892 euid=501 Pong A2: slot IOServiceMatching addend=0x69a8ca62 verified patched readback-ok
+[1507] pid=892 euid=501 Pong A2: slot patch done 4 of 4

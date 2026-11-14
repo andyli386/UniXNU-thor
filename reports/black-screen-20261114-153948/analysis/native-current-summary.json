@@ -1,0 +1,90 @@
+[
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001320.0002.ips",
+    "bytes": 26762,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 22 column 2640 (char 26567)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000124.000.ips",
+    "bytes": 27697,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 22 column 6721 (char 27502)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001218.000.ips",
+    "bytes": 28253,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 27 column 3455 (char 28014)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001939.0002.ips",
+    "bytes": 28885,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 27 column 3707 (char 28646)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000921.0002.ips",
+    "header": {
+      "bug_type": "298",
+      "timestamp": "1970-01-01 00:09:21.00 +0000",
+      "os_version": "iPhone OS 18.7.10 (22H374)",
+      "roots_installed": 0,
+      "incident_id": "5E7E2736-0284-43D2-A518-FF55CC4BA1FF"
+    },
+    "date": "1970-01-01 00:09:20.17 +0000",
+    "bootSessionUUID": null,
+    "reason": null,
+    "exception": null,
+    "termination": null,
+    "procName": null,
+    "pid": null,
+    "process_count": 0,
+    "body_keys": [
+      "build",
+      "product",
+      "kernel",
+      "incident",
+      "crashReporterKey",
+      "date",
+      "codeSigningMonitor",
+      "bug_type",
+      "timeDelta",
+      "memoryStatus",
+      "largestProcess",
+      "genCounter",
+      "processes"
+    ],
+    "threads_count": 0
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-001935.0002.ips",
+    "header": {
+      "bug_type": "298",
+      "timestamp": "1970-01-01 00:19:35.00 +0000",
+      "os_version": "iPhone OS 18.7.10 (22H374)",
+      "roots_installed": 0,
+      "incident_id": "5325E582-CE37-4CB4-B171-99BE2E538F0C"
+    },
+    "date": "1970-01-01 00:19:34.47 +0000",
+    "bootSessionUUID": null,
+    "reason": null,
+    "exception": null,
+    "termination": null,
+    "procName": null,
+    "pid": null,
+    "process_count": 0,
+    "body_keys": [
+      "build",
+      "product",
+      "kernel",
+      "incident",
+      "crashReporterKey",
+      "date",
+      "codeSigningMonitor",
+      "bug_type",
+      "timeDelta",
+      "memoryStatus",
+      "largestProcess",
+      "genCounter",
+      "processes"
+    ],
+    "threads_count": 0
+  }
+]

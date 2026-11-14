@@ -1,0 +1,122 @@
+{
+  "ram": [
+    {
+      "physical_lines": [
+        4,
+        510,
+        1146,
+        1922
+      ],
+      "text": "[   26.067760]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages",
+      "raw_literal": "26.067760",
+      "time_us": 26067760
+    },
+    {
+      "physical_lines": [
+        5,
+        511,
+        1147,
+        1923
+      ],
+      "text": "[   26.067780]: Pong RAM: bank 0 0x800004000 + 0x10000000 (256 MiB)",
+      "raw_literal": "26.067780",
+      "time_us": 26067780
+    },
+    {
+      "physical_lines": [
+        6,
+        512,
+        1148,
+        1924
+      ],
+      "text": "[   26.067789]: Pong RAM: bank 1 0x800000000 + 0x4000 (0 MiB)",
+      "raw_literal": "26.067789",
+      "time_us": 26067789
+    },
+    {
+      "physical_lines": [
+        7,
+        513,
+        1149,
+        1925
+      ],
+      "text": "[   26.067798]: Pong RAM: bank 2 0x810004000 + 0x198fc000 (408 MiB)",
+      "raw_literal": "26.067798",
+      "time_us": 26067798
+    }
+  ],
+  "surface": [
+    {
+      "physical_lines": [
+        1823,
+        2599,
+        3199,
+        4117,
+        5056
+      ],
+      "text": "[   83.486430]: MiniIOSurface: live 71 MB in 4 surfaces, kept pool 0 MB (crossed 1 x 64MB)",
+      "raw_literal": "83.486430",
+      "time_us": 83486430,
+      "counter": {
+        "live_mib_floor": 71,
+        "surfaces": 4,
+        "pool_mib_floor": 0,
+        "side": "create",
+        "bucket": 1
+      }
+    },
+    {
+      "physical_lines": [
+        8145,
+        9073,
+        9972,
+        10818,
+        11656,
+        12433,
+        13242,
+        13977
+      ],
+      "text": "[  269.356357]: MiniIOSurface: live 71 MB in 4 surfaces, kept pool 0 MB (release crossed 1 x 64MB)",
+      "raw_literal": "269.356357",
+      "time_us": 269356357,
+      "counter": {
+        "live_mib_floor": 71,
+        "surfaces": 4,
+        "pool_mib_floor": 0,
+        "side": "release",
+        "bucket": 1
+      }
+    },
+    {
+      "physical_lines": [
+        26364,
+        27271,
+        28091,
+        28894,
+        29818,
+        30795
+      ],
+      "text": "[  838.757881]: MiniIOSurface: selector 44 not implemented (scalars 4 in, 0 out; structure 0 in, 0 out)",
+      "raw_literal": "838.757881",
+      "time_us": 838757881
+    }
+  ],
+  "native_report_count": 4,
+  "migration_notifications": [
+    {
+      "file": "logs/lockdownd.log",
+      "line": 23,
+      "text": "01/01/70 00:01:50.043912 pid=54 lockstart_local: Data Migration Completed: false"
+    },
+    {
+      "file": "logs/lockdownd.log",
+      "line": 103,
+      "text": "01/01/70 00:11:56.443533 pid=447 main_block_invoke: Received notification: com.apple.datamigrator.migrationDidFinish"
+    },
+    {
+      "file": "logs/lockdownd.log",
+      "line": 105,
+      "text": "01/01/70 00:12:03.302286 pid=447 lockstart_local: Data Migration Completed: true"
+    }
+  ]
+}

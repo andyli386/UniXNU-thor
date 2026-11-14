@@ -1,0 +1,705 @@
+{
+  "files": [
+    {
+      "path": "PongConsole-deduplicated.txt",
+      "bytes": 1198845,
+      "crc32": "e1e6cc86"
+    },
+    {
+      "path": "SHNGROOT.bin",
+      "bytes": 4096,
+      "crc32": "d440d77a"
+    },
+    {
+      "path": "THOR-v75-153948-REPORT.txt",
+      "bytes": 20549,
+      "crc32": "b930b55e"
+    },
+    {
+      "path": "after.json",
+      "bytes": 3843,
+      "crc32": "5b68129c"
+    },
+    {
+      "path": "analysis/analyze-display-v75.py",
+      "bytes": 5498,
+      "crc32": "9205f51e"
+    },
+    {
+      "path": "analysis/analyze-memory-v75.py",
+      "bytes": 15430,
+      "crc32": "f94c4da3"
+    },
+    {
+      "path": "analysis/analyze-native-v75.py",
+      "bytes": 4329,
+      "crc32": "c4660102"
+    },
+    {
+      "path": "analysis/capture-evidence-v75.json",
+      "bytes": 2286,
+      "crc32": "c10eeed8"
+    },
+    {
+      "path": "analysis/comparison-normalized-times-v75.json",
+      "bytes": 460,
+      "crc32": "1b489885"
+    },
+    {
+      "path": "analysis/display-comparison-v74.json",
+      "bytes": 5644,
+      "crc32": "17c21224"
+    },
+    {
+      "path": "analysis/display-runtime-v75.json",
+      "bytes": 183984,
+      "crc32": "7698f068"
+    },
+    {
+      "path": "analysis/display-summary-v75.json",
+      "bytes": 2731,
+      "crc32": "4e672587"
+    },
+    {
+      "path": "analysis/memory-current.json",
+      "bytes": 1003510,
+      "crc32": "82e061e1"
+    },
+    {
+      "path": "analysis/memory-jetsam-processes-v75.json",
+      "bytes": 33853,
+      "crc32": "296e697f"
+    },
+    {
+      "path": "analysis/memory-parse-v75.log",
+      "bytes": 11505,
+      "crc32": "23a7c757"
+    },
+    {
+      "path": "analysis/memory-process-review.txt",
+      "bytes": 12309,
+      "crc32": "530c9988"
+    },
+    {
+      "path": "analysis/memory-summary-current.json",
+      "bytes": 57049,
+      "crc32": "942b5452"
+    },
+    {
+      "path": "analysis/memory-supplement-v75.json",
+      "bytes": 341985,
+      "crc32": "469341e9"
+    },
+    {
+      "path": "analysis/memory-supplement-v75.log",
+      "bytes": 4668,
+      "crc32": "d113b685"
+    },
+    {
+      "path": "analysis/memory-supplement-v75.py",
+      "bytes": 5300,
+      "crc32": "7672479d"
+    },
+    {
+      "path": "analysis/native-a2-crashes.json",
+      "bytes": 3,
+      "crc32": "7068d244"
+    },
+    {
+      "path": "analysis/native-a2-samples.json",
+      "bytes": 3,
+      "crc32": "7068d244"
+    },
+    {
+      "path": "analysis/native-current-selected.json",
+      "bytes": 3,
+      "crc32": "7068d244"
+    },
+    {
+      "path": "analysis/native-current-summary.json",
+      "bytes": 2571,
+      "crc32": "64d68163"
+    },
+    {
+      "path": "analysis/native-focus-chains.json",
+      "bytes": 3,
+      "crc32": "7068d244"
+    },
+    {
+      "path": "analysis/native-identity-timeline.json",
+      "bytes": 19603,
+      "crc32": "1d122449"
+    },
+    {
+      "path": "analysis/native-key-evidence-v75.json",
+      "bytes": 1016867,
+      "crc32": "722b0320"
+    },
+    {
+      "path": "analysis/native-memory-body-validity.json",
+      "bytes": 1298,
+      "crc32": "3e35ba23"
+    },
+    {
+      "path": "analysis/native-partial-processes-v75.json",
+      "bytes": 8807,
+      "crc32": "6ceb3531"
+    },
+    {
+      "path": "analysis/native-pongboot-late.json",
+      "bytes": 2252490,
+      "crc32": "3c6d2c97"
+    },
+    {
+      "path": "analysis/native-runtime-review-v75.txt",
+      "bytes": 13195,
+      "crc32": "0dfe6473"
+    },
+    {
+      "path": "analysis/native-snapshot-deadlines-v75.json",
+      "bytes": 817,
+      "crc32": "b6cca942"
+    },
+    {
+      "path": "analysis/native-ui18-frames.json",
+      "bytes": 7792,
+      "crc32": "3fd6689d"
+    },
+    {
+      "path": "analysis/native-ui18-v75-nm.txt",
+      "bytes": 22180,
+      "crc32": "433a616c"
+    },
+    {
+      "path": "analysis/v75-framebuffer-source.json",
+      "bytes": 3962,
+      "crc32": "e12e6299"
+    },
+    {
+      "path": "analysis/v75-framebuffer-v74-comparison.json",
+      "bytes": 220,
+      "crc32": "a12cdbf3"
+    },
+    {
+      "path": "analysis/v75-selector44-binary.json",
+      "bytes": 6138,
+      "crc32": "f475ec7c"
+    },
+    {
+      "path": "analysis/v75-selector44-evidence.json",
+      "bytes": 50884,
+      "crc32": "10b9938b"
+    },
+    {
+      "path": "analysis/v75-selector44-review.txt",
+      "bytes": 8331,
+      "crc32": "9873004d"
+    },
+    {
+      "path": "analysis/v75-source-evidence.json",
+      "bytes": 62758,
+      "crc32": "09716484"
+    },
+    {
+      "path": "analysis/v75-source-review.txt",
+      "bytes": 12016,
+      "crc32": "c59a8835"
+    },
+    {
+      "path": "before.json",
+      "bytes": 3832,
+      "crc32": "710feb7f"
+    },
+    {
+      "path": "capture-reader.py",
+      "bytes": 5668,
+      "crc32": "f3c4999a"
+    },
+    {
+      "path": "capture.log",
+      "bytes": 2244,
+      "crc32": "2276439f"
+    },
+    {
+      "path": "dd.stderr",
+      "bytes": 0,
+      "crc32": "00000000"
+    },
+    {
+      "path": "direct-export-apfs-direct-export.cpp",
+      "bytes": 12572,
+      "crc32": "07b4f23e"
+    },
+    {
+      "path": "direct-export-command.txt",
+      "bytes": 257,
+      "crc32": "9072dedc"
+    },
+    {
+      "path": "direct-export-postprocess.log",
+      "bytes": 910,
+      "crc32": "649b49ef"
+    },
+    {
+      "path": "direct-export-postprocess.py",
+      "bytes": 3703,
+      "crc32": "aa31b7f0"
+    },
+    {
+      "path": "direct-export-process.json",
+      "bytes": 417,
+      "crc32": "ba4ab39b"
+    },
+    {
+      "path": "direct-export.log",
+      "bytes": 4682,
+      "crc32": "127fb0d1"
+    },
+    {
+      "path": "extracted/files/logs/PongBoot-containermanagerd.txt",
+      "bytes": 8430,
+      "crc32": "b5f4175a"
+    },
+    {
+      "path": "extracted/files/logs/PongBoot-filecoordinationd.txt",
+      "bytes": 2249,
+      "crc32": "ab7205dc"
+    },
+    {
+      "path": "extracted/files/logs/PongBoot-locationd.txt",
+      "bytes": 18182,
+      "crc32": "6db15904"
+    },
+    {
+      "path": "extracted/files/logs/PongBoot-runningboardd.txt",
+      "bytes": 9205,
+      "crc32": "255ba20d"
+    },
+    {
+      "path": "extracted/files/logs/PongConsole.txt",
+      "bytes": 6220563,
+      "crc32": "a5a31334"
+    },
+    {
+      "path": "extracted/files/logs/PongDiag.txt",
+      "bytes": 12723,
+      "crc32": "0ad5e54c"
+    },
+    {
+      "path": "extracted/files/logs/keybagd.log.0",
+      "bytes": 2450,
+      "crc32": "0402f91d"
+    },
+    {
+      "path": "extracted/files/logs/lockdownd.log",
+      "bytes": 13848,
+      "crc32": "5caee3d3"
+    },
+    {
+      "path": "extracted/files/logs/usermanagerd.log.0",
+      "bytes": 24937,
+      "crc32": "6ae68910"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001320.0002.ips",
+      "bytes": 26762,
+      "crc32": "07453953"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000124.000.ips",
+      "bytes": 27697,
+      "crc32": "8f76cb8b"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001218.000.ips",
+      "bytes": 28253,
+      "crc32": "5a04a6a8"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001939.0002.ips",
+      "bytes": 28885,
+      "crc32": "f227eb32"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000921.0002.ips",
+      "bytes": 105819,
+      "crc32": "07672b63"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-001935.0002.ips",
+      "bytes": 85761,
+      "crc32": "b88412d2"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/Pong-audio-volume18.log",
+      "bytes": 181,
+      "crc32": "2361ca9f"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-119.txt",
+      "bytes": 1237,
+      "crc32": "22ba757f"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-163.txt",
+      "bytes": 1237,
+      "crc32": "340bc873"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-180.txt",
+      "bytes": 1252,
+      "crc32": "6bd1e539"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-197.txt",
+      "bytes": 1252,
+      "crc32": "fa42c6ac"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-203.txt",
+      "bytes": 1252,
+      "crc32": "34286983"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-207.txt",
+      "bytes": 1252,
+      "crc32": "601cc9b3"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-223.txt",
+      "bytes": 1252,
+      "crc32": "11af4b4a"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-230.txt",
+      "bytes": 1252,
+      "crc32": "6ba66c91"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-238.txt",
+      "bytes": 1252,
+      "crc32": "f8b83465"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-244.txt",
+      "bytes": 1252,
+      "crc32": "aef9644a"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-252.txt",
+      "bytes": 1252,
+      "crc32": "105f2e71"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-261.txt",
+      "bytes": 1252,
+      "crc32": "af39170d"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-281.txt",
+      "bytes": 1252,
+      "crc32": "6e82a9ad"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-291.txt",
+      "bytes": 1252,
+      "crc32": "c1b16281"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-307.txt",
+      "bytes": 1252,
+      "crc32": "88207317"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-314.txt",
+      "bytes": 1252,
+      "crc32": "3959113e"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-325.txt",
+      "bytes": 1252,
+      "crc32": "b72e6612"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-357.txt",
+      "bytes": 1252,
+      "crc32": "7611c155"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-372.txt",
+      "bytes": 1252,
+      "crc32": "c3bc6703"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-379.txt",
+      "bytes": 1252,
+      "crc32": "b9c5ebd1"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-384.txt",
+      "bytes": 1252,
+      "crc32": "4d9ca2ce"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-402.txt",
+      "bytes": 1252,
+      "crc32": "b9619dba"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-405.txt",
+      "bytes": 1252,
+      "crc32": "623b66fc"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-408.txt",
+      "bytes": 1252,
+      "crc32": "eef071ad"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-413.txt",
+      "bytes": 1252,
+      "crc32": "69eb4d4d"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-417.txt",
+      "bytes": 1252,
+      "crc32": "02170ad3"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-422.txt",
+      "bytes": 1252,
+      "crc32": "3302f003"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-428.txt",
+      "bytes": 1252,
+      "crc32": "b7f00ac6"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-432.txt",
+      "bytes": 1252,
+      "crc32": "42a5afac"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-436.txt",
+      "bytes": 1252,
+      "crc32": "146d3775"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-441.txt",
+      "bytes": 1252,
+      "crc32": "3c633986"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-445.txt",
+      "bytes": 1252,
+      "crc32": "5114d31c"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-489.txt",
+      "bytes": 1252,
+      "crc32": "a8141c47"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-503.txt",
+      "bytes": 1252,
+      "crc32": "9813ae02"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-548.txt",
+      "bytes": 1252,
+      "crc32": "6906cb18"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-554.txt",
+      "bytes": 1252,
+      "crc32": "82a73fb0"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-569.txt",
+      "bytes": 1252,
+      "crc32": "8aa9847e"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-574.txt",
+      "bytes": 1252,
+      "crc32": "cb8f2deb"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-579.txt",
+      "bytes": 1267,
+      "crc32": "11e1a3fe"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-589.txt",
+      "bytes": 1267,
+      "crc32": "b42e370e"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-60.txt",
+      "bytes": 1222,
+      "crc32": "38424999"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-620.txt",
+      "bytes": 1267,
+      "crc32": "911deef6"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-629.txt",
+      "bytes": 1267,
+      "crc32": "8f08b470"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-636.txt",
+      "bytes": 1267,
+      "crc32": "da7d3dfe"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-647.txt",
+      "bytes": 1267,
+      "crc32": "eef40e2e"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-653.txt",
+      "bytes": 1267,
+      "crc32": "01e5149e"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-663.txt",
+      "bytes": 1267,
+      "crc32": "a84378e3"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-700.txt",
+      "bytes": 1267,
+      "crc32": "bce521de"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-710.txt",
+      "bytes": 1267,
+      "crc32": "beeaadcd"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-728.txt",
+      "bytes": 1267,
+      "crc32": "51fad9f3"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-740.txt",
+      "bytes": 1267,
+      "crc32": "5e803f91"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-773.txt",
+      "bytes": 1267,
+      "crc32": "c848d26f"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-813.txt",
+      "bytes": 1267,
+      "crc32": "a655fb23"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-844.txt",
+      "bytes": 1267,
+      "crc32": "e540241f"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-892.txt",
+      "bytes": 508,
+      "crc32": "bc16bd7a"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongA2-99.txt",
+      "bytes": 1222,
+      "crc32": "70d2d312"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongBoot-SpringBoard.txt",
+      "bytes": 6795,
+      "crc32": "63235095"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongBoot-audiomxd.txt",
+      "bytes": 47385,
+      "crc32": "728bdb3a"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongBoot-backboardd.txt",
+      "bytes": 19857,
+      "crc32": "60b7434f"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongBoot-com.apple.datamigrator.txt",
+      "bytes": 28872,
+      "crc32": "e8a91790"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongBoot-com.apple.migrationpluginwrapper.txt",
+      "bytes": 9661,
+      "crc32": "55aea260"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongBoot-lsd.txt",
+      "bytes": 10419,
+      "crc32": "2fe19ba2"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongBoot-mediaremoted.txt",
+      "bytes": 6837,
+      "crc32": "865d5083"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongDM-80.txt",
+      "bytes": 1134,
+      "crc32": "bdc0b63d"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongSB-5.txt",
+      "bytes": 274,
+      "crc32": "cde8ab80"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Preferences/com.apple.migration.plist",
+      "bytes": 281,
+      "crc32": "7b4c62b3"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Preferences/com.apple.migrationpluginwrapper.plist",
+      "bytes": 2354,
+      "crc32": "27da6408"
+    },
+    {
+      "path": "extracted/files/mobile/Library/Preferences/com.apple.springboard.datamigrator.plist",
+      "bytes": 72,
+      "crc32": "b8269a3d"
+    },
+    {
+      "path": "extracted/inventory.jsonl",
+      "bytes": 1156910,
+      "crc32": "1497714f"
+    },
+    {
+      "path": "extracted/manifest.json",
+      "bytes": 1699978,
+      "crc32": "ff964c19"
+    },
+    {
+      "path": "extraction.json",
+      "bytes": 1009,
+      "crc32": "f823bbdf"
+    },
+    {
+      "path": "recovery-after-export.json",
+      "bytes": 14875,
+      "crc32": "5910dab9"
+    }
+  ],
+  "count": 139,
+  "omitted_binary_files": [
+    "extracted/files/pong/libpong-ui18.dylib",
+    "extracted/files/pong/libpong-ui.dylib"
+  ],
+  "note": "Original extracted/manifest.json includes binaries kept on hosts; this distributable omits them."
+}

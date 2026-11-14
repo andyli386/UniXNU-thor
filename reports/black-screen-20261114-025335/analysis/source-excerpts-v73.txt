@@ -1,0 +1,374 @@
+V73 critical source excerpts (verbatim, line-numbered)
+Captured 2026-11-14T03:01:20.264081+08:00
+Outer HEAD 9a9a3f07002b730481651088e1a2ffc79dace788
+XNU work-tree status [' M bsd/kern/kern_exit.c', '?? iokit/Kernel/MiniIOMobileFramebuffer.cpp', '?? iokit/Kernel/MiniIOSurface.cpp', '?? osfmk/arm64/pong_ramoops_console.h']
+These small excerpts preserve inspected untracked/modified code; outer HEAD alone is not their identity. No full-tree source copy or image audit.
+
+FILE /Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+LINES 242-251
+242: 	IOLock *        fSwapLock;              /* around the next five */
+243: 	uint8_t         fSwap[SWAP_QUEUE][SWAP_SIZE];   /* the swaps on their way to the panel (fb_queue), from fSwapFirst on */
+244: 	MiniIOSurface * fSwapSurfaces[SWAP_QUEUE][SWAP_LAYERS]; /* ... their surfaces, held from SwapEnd on: their maker may let go of them */
+245: 	unsigned        fSwapFirst, fSwapsWaiting;
+246: 	struct {uint32_t id;IOReturn result;} fRetired[64];
+247: 	/* THOR v73: the real swap submitter, captured in present() which runs
+248: 	 * in the client thread of the SwapEnd user call - v72 logged the
+249: 	 * presenter workloop (kernel_task pid=0), which answers nothing. */
+250: 	char            fSwapWho[SWAP_QUEUE][20];
+251: 	int             fSwapWhoPid[SWAP_QUEUE];
+LINES 884-922
+884: IOMobileFramebuffer::present(const uint8_t * swap)
+885: {
+886: 	AbsoluteTime deadline;
+887: 
+888: 	uint64_t now = mach_absolute_time(), period, pause;
+889: 
+890: 	/* (a frame that is late on the panel was late here already, or it was not: for telling whose it is) */
+891: 	nanoseconds_to_absolutetime(NSEC_PER_SEC / refreshHz() * 5 / 4, &period);
+892: 	nanoseconds_to_absolutetime(FRAME_PAUSE * NSEC_PER_MSEC, &pause);
+893: 	clock_interval_to_deadline(SWAP_HELD_MS, kMillisecondScale, &deadline);
+894: 	if (gTouchLat) {
+895: 		IOLog("tl: s %u at %llu\n", swapWord(swap, SWAP_ID), micros(now));
+896: 	}
+897: 	IOLockLock(fSwapLock);
+898: 	fStatSwapsLate += fSwapTime != 0 && now - fSwapTime > period && now - fSwapTime < pause;
+899: 	fSwapTime = now;
+900: 	fStatHeld += fSwapsWaiting >= swapQueue();
+901: 	while (fSwapsWaiting >= swapQueue()) {
+902: 		if (IOLockSleepDeadline(fSwapLock, &fSwapsWaiting, deadline, THREAD_UNINT) == THREAD_TIMED_OUT &&
+903: 		    fSwapsWaiting >= swapQueue()) {
+904: 			fStatLost++;                    /* (the GPU has stopped answering: the frame before is waiting for it) */
+905: 			IOLockUnlock(fSwapLock);
+906: 			return kIOReturnTimeout;
+907: 		}
+908: 	}
+909: 	unsigned slot = (fSwapFirst + fSwapsWaiting) % SWAP_QUEUE;
+910: 
+911: 	proc_selfname(fSwapWho[slot], sizeof(fSwapWho[slot]));
+912: 	fSwapWhoPid[slot] = proc_selfpid();
+913: 	memcpy(fSwap[slot], swap, SWAP_SIZE);
+914: 	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+915: 		uint32_t sid = swapWord(swap, SWAP_SURFACE(layer));
+916: 
+917: 		fSwapSurfaces[slot][layer] = sid != 0 ? MiniIOSurfaceCopy(sid) : NULL;
+918: 	}
+919: 	fSwapsWaiting++;
+920: 	IOLockWakeup(fSwapLock, fSwap, true);
+921: 	IOLockUnlock(fSwapLock);
+922: 	return kIOReturnSuccess;
+LINES 954-974
+954: void
+955: IOMobileFramebuffer::presenter(void)
+956: {
+957: 	static uint8_t swap[SWAP_SIZE];         /* (one thread) */
+958: 	MiniIOSurface * surfaces[SWAP_LAYERS];
+959: 
+960: 	for (;;) {
+961: 		IOLockLock(fSwapLock);
+962: 		while (fSwapsWaiting == 0) {
+963: 			IOLockSleep(fSwapLock, fSwap, THREAD_UNINT);
+964: 		}
+965: 		memcpy(swap, fSwap[fSwapFirst], SWAP_SIZE);
+966: 		memcpy(surfaces, fSwapSurfaces[fSwapFirst], sizeof(surfaces));
+967: 		IOLockUnlock(fSwapLock);
+968:         IOReturn result=show(swap,surfaces);
+969:         IOLockLock(fSwapLock);
+970:         const uint32_t id=swapWord(swap,SWAP_ID);
+971:         fRetired[id%64]={id,result};
+972:         fSwapFirst=(fSwapFirst+1)%SWAP_QUEUE;--fSwapsWaiting;
+973:         IOLockWakeup(fSwapLock,&fSwapsWaiting,false);
+974:         IOLockUnlock(fSwapLock);
+LINES 1095-1115
+1095: 	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+1096: 		uint32_t sid = swapWord(swap, SWAP_SURFACE(layer));
+1097: 		int32_t src[4], dst[4];
+1098: 		MiniIOSurface * s;
+1099: 
+1100: 		layers |= sid != 0 ? 1u << layer : 0;
+1101: 		/* the frames' surfaces: is it a few, in turn? */
+1102: 		for (unsigned i = 0; layer == 0 && sid != 0 && i < 8; i++) {
+1103: 			if (fStatSurfaces[i] == 0 || fStatSurfaces[i] == sid) {
+1104: 				fStatSurfaces[i] = sid;
+1105: 				break;
+1106: 			}
+1107: 		}
+1108: 		if (sid == 0) {
+1109: 			/* the bottom layer taken away: nothing is shown, the screen is black */
+1110: 			if (!gpuFrame && layer == 0 && (set & 1) && fGraphics) {
+1111: 				for (uint32_t y = 0; y < fPanelHeight; y++) {
+1112: 					uint32_t *row=(uint32_t *)(fBase + (size_t)y * fRowBytes);
+1113: 					for (uint32_t x=0;x<fPanelWidth;x++) row[x]=0xff000000u;
+1114: 				}
+1115: 			}
+LINES 1142-1163
+1142: 	if (layers != fLayersShown) {
+1143: 		IOLog("MiniIOMobileFramebuffer: swap #%u: surfaces in layers 0x%x now (0x%x before): %u %u %u %u\n", fSwapsShown, layers,
+1144: 		    fLayersShown, swapWord(swap, SWAP_SURFACE(0)), swapWord(swap, SWAP_SURFACE(1)), swapWord(swap, SWAP_SURFACE(2)),
+1145: 		    swapWord(swap, SWAP_SURFACE(3)));
+1146: 		/* THOR v72: layer-count transitions are rare and pivotal. A
+1147: 		 * nonzero->zero transition is the boot picture being torn down
+1148: 		 * (v71 field: layers 0x1 -> 0x0, screen black, system alive
+1149: 		 * 10+ more minutes with no restore). THOR v73: print the
+1150: 		 * SUBMITTER captured at SwapEnd entry (present() runs in the
+1151: 		 * client thread), not the presenter workloop identity. */
+1152: 		{
+1153: 			int who = swap >= &fSwap[0][0] && swap + SWAP_SIZE <= &fSwap[SWAP_QUEUE][0]
+1154: 			    ? (int)((swap - &fSwap[0][0]) / SWAP_SIZE) : -1;
+1155: 			IOLog("MiniIOMFB layers %s: submitter=%s pid=%d set=0x%x surfaces=%u,%u,%u,%u gpu=%d graphics=%d swap=%u\n",
+1156: 			    layers == 0 ? "EMPTIED" : (fLayersShown == 0 ? "RESTORED" : "CHANGED"),
+1157: 			    who >= 0 ? fSwapWho[who] : "?", who >= 0 ? fSwapWhoPid[who] : -1, set,
+1158: 			    swapWord(swap, SWAP_SURFACE(0)), swapWord(swap, SWAP_SURFACE(1)),
+1159: 			    swapWord(swap, SWAP_SURFACE(2)), swapWord(swap, SWAP_SURFACE(3)),
+1160: 			    gpuFrame ? 1 : 0, fGraphics ? 1 : 0, swapWord(swap, SWAP_ID));
+1161: 		}
+1162: 		fLayersShown = layers;
+1163: 	}
+LINES 1507-1512
+1507: 	case kFBMethodSwapEnd:
+1508: 		if (args->structureInput == NULL || args->structureInputSize < SWAP_SIZE) {
+1509: 			IOLog("MiniIOMobileFramebuffer: swap request of %u bytes, expected %u\n", args->structureInputSize, SWAP_SIZE);
+1510: 			return kIOReturnBadArgument;
+1511: 		}
+1512: 		return fOwner->present((const uint8_t *) args->structureInput);
+
+FILE /Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/bsd/kern/kern_exit.c
+LINES 1912-1951
+1912: void
+1913: proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
+1914: {
+1915: 	mach_exception_data_type_t code = 0, subcode = 0;
+1916: 	exception_type_t etype;
+1917: 
+1918: 	struct uthread *ut;
+1919: 	thread_t self = current_thread();
+1920: 	ut = get_bsdthread_info(self);
+1921: 	struct rusage_superset *rup;
+1922: 	int kr = 0;
+1923: 	int create_corpse = FALSE;
+1924: 	bool corpse_source = false;
+1925: 	task_t task = proc_task(p);
+1926: 
+1927: 
+1928: #if defined(PONG)
+1929: 	/* THOR v73: v72 field data - audiomxd crashed twice but "Corpse
+1930: 	 * failure, too many" ate the diagnostics. This record is written
+1931: 	 * BEFORE corpse preparation from the original exit state, so it
+1932: 	 * survives corpse failure. The Preferences entry is the original
+1933: 	 * bounded example; the list covers the daemons whose crash reasons
+1934: 	 * this port keeps losing. */
+1935: 	if (strcmp(p->p_comm, "Preferences") == 0 ||
+1936: 	    strcmp(p->p_comm, "audiomxd") == 0 ||
+1937: 	    strcmp(p->p_comm, "mediaremoted") == 0 ||
+1938: 	    strcmp(p->p_comm, "PosterBoard") == 0 ||
+1939: 	    strcmp(p->p_comm, "fairplayd.A2") == 0 ||
+1940: 	    strncmp(p->p_comm, "com.apple.migrat", 16) == 0) {
+1941: 		char line[768];
+1942: 		os_reason_t reason = p->p_exit_reason;
+1943: 		const char *description = reason ? exit_reason_get_string_desc(reason) : NULL;
+1944: 		int length = snprintf(line, sizeof(line),
+1945: 		    "PONG EXIT %s pid=%d signal=%d status=%d namespace=%u code=0x%llx description=%.512s\n",
+1946: 		    p->p_comm, proc_getpid(p), WTERMSIG(rv), WEXITSTATUS(rv), reason ? reason->osr_namespace : 0,
+1947: 		    reason ? reason->osr_code : 0ULL, description ? description : "none");
+1948: 		if (length > 0) pong_ramoops_diagnostic_write(line,
+1949: 		    length < (int)sizeof(line) ? length : (int)sizeof(line)-1);
+1950: 	}
+1951: #endif
+
+FILE /Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/osfmk/arm64/pong_ramoops_console.h
+LINES 7-58
+7: #define PONG_RAMOOPS_PHYS_BASE 0x85200000ULL
+8: #define PONG_RAMOOPS_CONSOLE_BYTES 0x00200000U
+9: #define PONG_RAMOOPS_RESERVED_BYTES 0x00400000U
+10: #define PONG_RAMOOPS_HEADER_BYTES 12U
+11: #define PONG_RAMOOPS_MAGIC 0x43474244U
+12: #define PONG_RAMOOPS_DATA_BYTES (PONG_RAMOOPS_CONSOLE_BYTES - PONG_RAMOOPS_HEADER_BYTES)
+13: 
+14: struct pong_ramoops_header {
+15: 	volatile uint32_t sig;
+16: 	volatile uint32_t start;
+17: 	volatile uint32_t size;
+18: };
+19: 
+20: static vm_offset_t pong_ramoops_base;
+21: static uint32_t pong_ramoops_start;
+22: static uint32_t pong_ramoops_size;
+23: static volatile uint32_t pong_ramoops_busy;
+24: static volatile uint32_t pong_diagnostic_busy;
+25: static uint32_t pong_diagnostic_size;
+26: 
+27: /* The second 2 MiB is Pong DT's pmsg zone. Keep a separate bounded record
+28:  * there so launchd's console traffic cannot evict application failure data.
+29:  * Linux exposes the previous raw bytes as pmsg-ramoops-0 on the next boot.
+30:  * This is a persistent_ram buffer, not an Android logcat record stream.
+31:  * No storage, allocation, registry access or MMIO outside the DT reserve.
+32:  */
+33: void pong_ramoops_diagnostic_write(const char *, int);
+34: void
+35: pong_ramoops_diagnostic_write(const char *text, int length)
+36: {
+37: 	if (!text || length <= 0 || length > 2048 || !pong_ramoops_base ||
+38: 	    __atomic_exchange_n(&pong_diagnostic_busy, 1, __ATOMIC_ACQUIRE)) return;
+39: 	vm_offset_t base = pong_ramoops_base + PONG_RAMOOPS_CONSOLE_BYTES;
+40: 	struct pong_ramoops_header *header = (struct pong_ramoops_header *)(uintptr_t)base;
+41: 	volatile uint8_t *data = (volatile uint8_t *)(uintptr_t)(base + PONG_RAMOOPS_HEADER_BYTES);
+42: 	/* Append until full; preserve the first failures rather than overwrite them. */
+43: 	uint32_t count = (uint32_t)length;
+44: 	if (count > PONG_RAMOOPS_DATA_BYTES - pong_diagnostic_size)
+45: 		count = PONG_RAMOOPS_DATA_BYTES - pong_diagnostic_size;
+46: 	if (count) {
+47: 		for (uint32_t i = 0; i < count; i++) data[pong_diagnostic_size + i] = (uint8_t)text[i];
+48: 		CleanPoC_DcacheRegion_Force(base + PONG_RAMOOPS_HEADER_BYTES + pong_diagnostic_size, count);
+49: 		__asm__ volatile("dsb sy" ::: "memory");
+50: 		pong_diagnostic_size += count;
+51: 		header->start = pong_diagnostic_size;
+52: 		header->size = pong_diagnostic_size;
+53: 		header->sig = PONG_RAMOOPS_MAGIC;
+54: 		CleanPoC_DcacheRegion_Force(base, PONG_RAMOOPS_HEADER_BYTES);
+55: 		__asm__ volatile("dsb sy" ::: "memory");
+56: 	}
+57: 	__atomic_store_n(&pong_diagnostic_busy, 0, __ATOMIC_RELEASE);
+58: }
+LINES 119-149
+119: int
+120: pong_ramoops_console_init(void)
+121: {
+122: 	if (pong_ramoops_base) {
+123: 		return 1;
+124: 	}
+125: 	vm_offset_t mapped = ml_io_map_wcomb(PONG_RAMOOPS_PHYS_BASE,
+126: 	    PONG_RAMOOPS_RESERVED_BYTES);
+127: 	if (!mapped) {
+128: 		return 0;
+129: 	}
+130: 
+131: 	struct pong_ramoops_header *header =
+132: 	    (struct pong_ramoops_header *)(uintptr_t)mapped;
+133: 	header->sig = 0;
+134: 	header->start = 0;
+135: 	header->size = 0;
+136: 	__asm__ volatile("dsb sy" ::: "memory");
+137: 	CleanPoC_DcacheRegion_Force(mapped, PONG_RAMOOPS_HEADER_BYTES);
+138: 	header->sig = PONG_RAMOOPS_MAGIC;
+139: 	__asm__ volatile("dsb sy" ::: "memory");
+140: 	CleanPoC_DcacheRegion_Force(mapped, PONG_RAMOOPS_HEADER_BYTES);
+141: 	__asm__ volatile("dsb sy" ::: "memory");
+142: 
+143: 	pong_ramoops_start = 0;
+144: 	pong_ramoops_size = 0;
+145: 	pong_ramoops_base = mapped;
+146: 	static const char ready[] = "PONG DIAGNOSTIC v92: isolated pmsg recorder ready\n";
+147: 	pong_ramoops_diagnostic_write(ready, (int)sizeof(ready)-1);
+148: 	return 1;
+149: }
+
+FILE /Users/<user>/projects/thor-unixnu1030/UniXNU-pong/userland/ui_compat18.c
+LINES 161-187
+161: /* v72: SpringBoard wake/display receipts also go to a durable per-pid
+162:  * file - v71 review: a missing console line is not proof the wake path
+163:  * never ran (console mirror stops at the graphics takeover). */
+164: static void pong_sb_note(const char *format,...)
+165: {
+166:     char line[512];
+167:     va_list arguments;
+168:     va_start(arguments,format);
+169:     vsnprintf(line,sizeof(line),format,arguments);
+170:     va_end(arguments);
+171:     char path[96];
+172:     snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongSB-%d.txt",getpid());
+173:     static bool open_failed=false;
+174:     int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
+175:     if(fd>=0){
+176:         dprintf(fd,"[%lld] %s\n",(long long)time(NULL),line);
+177:         (void)fsync(fd);
+178:         close(fd);
+179:     }else if(!open_failed){
+180:         open_failed=true;
+181:         char trouble[160];
+182:         int n=snprintf(trouble,sizeof(trouble),
+183:                        "PongSB log open errno=%d",errno);
+184:         if(n>0)pong_console_line(trouble);
+185:     }
+186:     pong_console_line(line);
+187: }
+LINES 1651-1682
+1651: static void wake_home(void *unused)
+1652: {
+1653:     (void)unused;
+1654:     /* v73: entry receipt first - v72 had no PongSB file at all, so
+1655:      * "never entered the main queue" / "stuck before the first line" /
+1656:      * "file open failed" were indistinguishable. */
+1657:     pong_sb_note("Pong UI18: wake_home begin");
+1658:     id screen=((id(*)(id,SEL))objc_msgSend)((id)objc_lookUpClass("UIScreen"),sel_registerName("mainScreen"));
+1659:     if(screen) {
+1660:         CGRect native=((CGRect(*)(id,SEL))objc_msgSend)(screen,sel_registerName("nativeBounds"));
+1661:         CGRect logical=((CGRect(*)(id,SEL))objc_msgSend)(screen,sel_registerName("bounds"));
+1662:         double scale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName("scale"));
+1663:         double nativeScale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName("nativeScale"));
+1664:         pong_sb_note("Pong UI18: screen native=%.0fx%.0f logical=%.2fx%.2f scale=%.2f nativeScale=%.2f",
+1665:             native.size.width,native.size.height,logical.size.width,logical.size.height,scale,nativeScale);
+1666:     }
+1667:     id backlight=singleton("SBBacklightController"),lock=singleton("SBLockScreenManager");
+1668:     SEL hold=sel_registerName("preventIdleSleepForNumberOfSeconds:");
+1669:     if(backlight && method_abi(class_getInstanceMethod(object_getClass(backlight),hold),"v",1,"f"))
+1670:         ((void(*)(id,SEL,float))objc_msgSend)(backlight,hold,300.0f);
+1671:     SEL wake=sel_registerName("turnOnScreenFullyWithBacklightSource:");
+1672:     if(backlight && method_abi(class_getInstanceMethod(object_getClass(backlight),wake),"v",1,"q"))
+1673:         ((void(*)(id,SEL,long long))objc_msgSend)(backlight,wake,0);
+1674:     SEL locked=sel_registerName("isUILocked"),unlock=sel_registerName("unlockUIFromSource:withOptions:");
+1675:     if(lock && method_abi(class_getInstanceMethod(object_getClass(lock),locked),"Bc",0,"") &&
+1676:        ((BOOL(*)(id,SEL))objc_msgSend)(lock,locked) &&
+1677:        method_abi(class_getInstanceMethod(object_getClass(lock),unlock),"Bc",2,"i@")) {
+1678:         BOOL accepted=((BOOL(*)(id,SEL,int,id))objc_msgSend)(lock,unlock,24,nil);
+1679:         pong_sb_note("Pong UI18: native home request accepted=%d",accepted);
+1680:     }
+1681:     pong_sb_note("Pong UI18: main queue wake completed backlight=%d lockscreen=%d",backlight!=nil,lock!=nil);
+1682: }
+LINES 2562-2570
+2562:     if(strcmp(name,"SpringBoard")==0) {
+2563:         springboard_process=true;
+2564:         pong_sb_note("Pong UI18: SpringBoard adapter ctor (v73)");
+2565:         // Physical volume keys stay on the native HID/system event route.
+2566:         skip_setup=boot_option("pong_skip_setup=1");
+2567:         CFPreferencesSetAppValue(CFSTR("SBDisableAutoDim"),kCFBooleanTrue,kCFPreferencesCurrentApplication);
+2568:         pong_sb_note("Pong UI18: wake scheduled on main queue +10s");
+2569:         dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,10*NSEC_PER_SEC),dispatch_get_main_queue(),NULL,wake_home);
+2570:     }
+
+FILE /Users/<user>/projects/thor-unixnu1030/UniXNU-pong/userland/boot_snapshot18.c
+LINES 130-135
+130: static void snapshot(int fd, unsigned elapsed)
+131: {
+132:     char line[1600];
+133:     thread_act_array_t threads = NULL;
+134:     mach_msg_type_number_t count = 0;
+135:     kern_return_t result = task_threads(mach_task_self(), &threads, &count);
+LINES 182-199
+182:             if (result == KERN_SUCCESS && n > 0 && (size_t)n < sizeof(line)) {
+183:                 uint64_t fp = arm_thread_state64_get_fp(state),
+184:                          sp = arm_thread_state64_get_sp(state);
+185:                 for (unsigned j = 0;
+186:                      j < 24 && fp >= sp && fp - sp < 8 * 1024 * 1024 && !(fp & 15);
+187:                      j++) {
+188:                     uint64_t pair[2]; vm_size_t got = 0;
+189:                     if (vm_read_overwrite(mach_task_self(), (vm_address_t)fp,
+190:                                           sizeof(pair), (vm_address_t)pair,
+191:                                           &got) != KERN_SUCCESS ||
+192:                         got != sizeof(pair)) break;
+193:                     int used = snprintf(line + n, sizeof(line) - (size_t)n,
+194:                                         " %llx", (unsigned long long)pair[1]);
+195:                     if (used < 0 || (size_t)used >= sizeof(line) - (size_t)n) break;
+196:                     n += used;
+197:                     if (pair[0] <= fp) break;
+198:                     fp = pair[0];
+199:                 }
+
+FILE /Users/<user>/projects/thor-unixnu1030/UniXNU-pong/dts/pong.dts
+LINES 44-50
+44:         region29@e5600000 { reg = <0x0 0xe5600000 0x0 0x100000>; no-map; };
+45:         region30@e8800000 { reg = <0x0 0xe8800000 0x0 0x100000>; no-map; };
+46:         region31@e8900000 { reg = <0x0 0xe8900000 0x0 0x1200000>; no-map; };
+47:         region32@e9b00000 { reg = <0x0 0xe9b00000 0x0 0x500000>; no-map; };
+48:         region33@85200000 { reg = <0x0 0x85200000 0x0 0x400000>; no-map; };
+49:         region34@a7605000 { reg = <0x0 0xa7605000 0x0 0x8000>; no-map; };
+50:         region35@b8000000 { reg = <0x0 0xb8000000 0x0 0x2b00000>; no-map; };
+

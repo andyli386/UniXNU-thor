@@ -1,0 +1,38 @@
+[
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001320.0002.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 23 column 2640 (char 26744)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000124.000.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 23 column 6721 (char 27679)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001218.000.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 28 column 3455 (char 28253)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001939.0002.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 28 column 3707 (char 28885)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000921.0002.ips",
+    "header_complete": true,
+    "body_complete": true,
+    "body_end": 105800
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-001935.0002.ips",
+    "header_complete": true,
+    "body_complete": true,
+    "body_end": 85742
+  }
+]

@@ -1,0 +1,282 @@
+{
+  "console": {
+    "path": "/workspace/scratch/8f895aed6545/THOR-20261114-103139/extracted/files/logs/PongConsole.txt",
+    "bytes": 4102813,
+    "physical_lines": 31551,
+    "nul_bytes": 33,
+    "ends_in_nul": true,
+    "unique_complete_lines": 4623,
+    "canonical_unique_timestamp_lines": 4513,
+    "duplicate_full_nonempty_line_types": 4505,
+    "additional_duplicate_full_nonempty_lines": 26875,
+    "wrap_markers_physical": 32,
+    "noncanonical_timestamp_line_types": 59
+  },
+  "ram_markers": [
+    {
+      "console_time_raw": "25.318074",
+      "console_time_us": 25318074,
+      "physical_lines": [
+        4,
+        506,
+        1140,
+        1916
+      ],
+      "copies": 4,
+      "raw_line": "[   25.318074]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages"
+    }
+  ],
+  "first_visible_frames": [
+    {
+      "console_time_raw": "84.918426",
+      "console_time_us": 84918426,
+      "physical_lines": [
+        1816,
+        2592,
+        3284,
+        4259,
+        5192
+      ],
+      "copies": 5,
+      "raw_line": "[   84.918426]: MiniIOMobileFramebuffer: first visible frame; releasing boot console"
+    }
+  ],
+  "layer_transitions": [
+    {
+      "console_time_raw": "84.924587",
+      "console_time_us": 84924587,
+      "physical_lines": [
+        1818,
+        2594,
+        3286,
+        4261,
+        5194
+      ],
+      "copies": 5,
+      "raw_line": "[   84.924587]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1",
+      "parsed": {
+        "kind": "RESTORED",
+        "submitter": "backboardd",
+        "pid": 40,
+        "set_hex": "0x80000007",
+        "surface_ids": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "gpu": 0,
+        "graphics": 1,
+        "swap": 1
+      }
+    },
+    {
+      "console_time_raw": "691.477906",
+      "console_time_us": 691477906,
+      "physical_lines": [
+        21541,
+        22412,
+        23283,
+        24137,
+        24970,
+        25749,
+        26669,
+        27603,
+        28550
+      ],
+      "copies": 9,
+      "raw_line": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868",
+      "parsed": {
+        "kind": "EMPTIED",
+        "submitter": "backboardd",
+        "pid": 40,
+        "set_hex": "0x1",
+        "surface_ids": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpu": 0,
+        "graphics": 1,
+        "swap": 47868
+      }
+    }
+  ],
+  "last_physical_valid_timestamp": {
+    "console_time_raw": "1003.111160",
+    "console_time_us": 1003111160,
+    "physical_lines": [
+      31550
+    ],
+    "copies": 1,
+    "raw_line": "[ 1003.111160]: memorystatus: failed to kill a process and no memory was reclaimed"
+  },
+  "springboard_receipts": [
+    {
+      "path": "extracted/files/mobile/Library/Logs/PongSB-4.txt",
+      "bytes": 135,
+      "content": "[63] Pong UI18: SpringBoard adapter ctor (v73)\n[63] Pong UI18: wake scheduled on main queue +10s\n[63] Pong UI18: wake enqueue returned\n",
+      "ctor_recorded": true,
+      "scheduled_recorded": true,
+      "enqueue_returned_recorded": true,
+      "wake_begin_recorded": false,
+      "wake_end_recorded": false,
+      "clock": "time(NULL), separate from Console raw clock"
+    }
+  ],
+  "exit_summary": {
+    "unique_saved_PONG_EXIT_lines": 53,
+    "by_process": {
+      "fairplayd.A2": 46,
+      "com.apple.migrat": 3,
+      "PosterBoard": 2,
+      "audiomxd": 2
+    }
+  },
+  "comparison_v73": {
+    "baseline": "v73 capture 20261114-025335",
+    "baseline_first_visible": {
+      "console_time_raw": "79.341296",
+      "console_time_us": 79341296,
+      "physical_lines": [
+        1796,
+        2570,
+        3109,
+        4051
+      ],
+      "copies": 4,
+      "raw_line": "[   79.341296]: MiniIOMobileFramebuffer: first visible frame; releasing boot console"
+    },
+    "baseline_emptied": [
+      {
+        "console_time_raw": "906.227133",
+        "console_time_us": 906227133,
+        "physical_lines": [
+          27977,
+          28848,
+          29721
+        ],
+        "copies": 3,
+        "raw_line": "[  906.227133]: MiniIOMFB layers EMPTIED: submitter=? pid=-1 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=64839"
+      }
+    ],
+    "baseline_postclear_activity_seconds": 67.88371,
+    "baseline_sb_receipts": {
+      "path": "/workspace/scratch/8f895aed6545/THOR-v73-025335/extracted/files/mobile/Library/Logs/PongSB-5.txt",
+      "bytes": 97,
+      "content": "[63] Pong UI18: SpringBoard adapter ctor (v73)\n[67] Pong UI18: wake scheduled on main queue +10s\n",
+      "ctor_recorded": true,
+      "scheduling_site_recorded": true,
+      "wake_home_begin_recorded": false,
+      "wake_home_end_recorded": false,
+      "clock": "time(NULL), not Console raw clock",
+      "interpretation": "Ctor and pre-dispatch scheduling-site reached; no saved callback-entry receipt. Absence alone does not prove callback never ran, and scheduling text precedes dispatch_after_f."
+    },
+    "current_ram_to_first_visible_seconds": 59.600352,
+    "current_ram_to_clear_seconds": 666.159832,
+    "first_visible_delta_raw_seconds": 5.57713,
+    "clear_delta_raw_seconds": -214.749227,
+    "first_visible_delta_ram_relative_seconds": 6.330913,
+    "clear_delta_ram_relative_seconds": -213.995444
+  },
+  "key_exits": [
+    {
+      "console_time_raw": "680.980514",
+      "console_time_us": 680980514,
+      "physical_lines": [
+        21499,
+        22370,
+        23241,
+        24095,
+        24928,
+        25707,
+        26627,
+        27561,
+        28508
+      ],
+      "copies": 9,
+      "raw_line": "[  680.980514]: PONG EXIT PosterBoard pid=413 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:413 exhausted real (wall clock) time allowance of 30.00 seconds",
+      "parsed": {
+        "process": "PosterBoard",
+        "pid": 413,
+        "signal_field": 9,
+        "status_field": 0,
+        "namespace": 10,
+        "code_hex": "0x8badf00d",
+        "description_first_line": "<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:413 exhausted real (wall clock) time allowance of 30.00 seconds"
+      },
+      "seconds_relative_to_clear": -10.497392
+    },
+    {
+      "console_time_raw": "816.208782",
+      "console_time_us": 816208782,
+      "physical_lines": [
+        25331,
+        26110,
+        27030,
+        27964,
+        28911,
+        29853,
+        30788
+      ],
+      "copies": 7,
+      "raw_line": "[  816.208782]: PONG EXIT PosterBoard pid=446 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:446 exhausted real (wall clock) time allowance of 30.00 seconds",
+      "parsed": {
+        "process": "PosterBoard",
+        "pid": 446,
+        "signal_field": 9,
+        "status_field": 0,
+        "namespace": 10,
+        "code_hex": "0x8badf00d",
+        "description_first_line": "<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:446 exhausted real (wall clock) time allowance of 30.00 seconds"
+      },
+      "seconds_relative_to_clear": 124.730876
+    },
+    {
+      "console_time_raw": "869.166608",
+      "console_time_us": 869166608,
+      "physical_lines": [
+        27403,
+        28337,
+        29284,
+        30226,
+        31161
+      ],
+      "copies": 5,
+      "raw_line": "[  869.166608]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting",
+      "parsed": {
+        "process": "audiomxd",
+        "pid": 81,
+        "signal_field": 6,
+        "status_field": 0,
+        "namespace": 39,
+        "code_hex": "0x0",
+        "description_first_line": "writing stackshot failed, aborting"
+      },
+      "seconds_relative_to_clear": 177.688702
+    },
+    {
+      "console_time_raw": "955.520118",
+      "console_time_us": 955520118,
+      "physical_lines": [
+        30469,
+        31404
+      ],
+      "copies": 2,
+      "raw_line": "[  955.520118]: PONG EXIT audiomxd pid=529 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot took over 5s, aborting",
+      "parsed": {
+        "process": "audiomxd",
+        "pid": 529,
+        "signal_field": 6,
+        "status_field": 0,
+        "namespace": 39,
+        "code_hex": "0x0",
+        "description_first_line": "writing stackshot took over 5s, aborting"
+      },
+      "seconds_relative_to_clear": 264.042212
+    }
+  ],
+  "post_clear_activity_seconds": 311.633254,
+  "restored_after_clear": []
+}

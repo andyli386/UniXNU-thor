@@ -1,0 +1,45 @@
+{
+  "created_utc": "2026-11-13T19:11:55.427058+00:00",
+  "purpose": "Validate standalone libapfs exporter on prior v72 image against previously extracted FUSE files",
+  "same_binary": "/home/vincent/Projects/thor-unixnu/tools/apfs-fuse-logreader-20261114/standalone/apfs-direct-export",
+  "source_image": "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/Data-runtime.img",
+  "separate_output": "/home/vincent/Projects/thor-unixnu/tools/apfs-fuse-logreader-20261114/standalone/validation-v72",
+  "image_open_access_mode": 0,
+  "regular_image": true,
+  "source_stat_unchanged": true,
+  "never_mounted": true,
+  "errors": [],
+  "skipped": [],
+  "comparisons": [
+    {
+      "path": "logs/PongConsole.txt",
+      "baseline": "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/extracted/files/logs/PongConsole.txt",
+      "candidate": "/home/vincent/Projects/thor-unixnu/tools/apfs-fuse-logreader-20261114/standalone/validation-v72/files/logs/PongConsole.txt",
+      "baseline_bytes": 4259446,
+      "candidate_bytes": 4259446,
+      "comparison": "byte_for_byte_filecmp_shallow_false",
+      "identical": true
+    },
+    {
+      "path": "pong/libpong-ui18.dylib",
+      "baseline": "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/extracted/files/pong/libpong-ui18.dylib",
+      "candidate": "/home/vincent/Projects/thor-unixnu/tools/apfs-fuse-logreader-20261114/standalone/validation-v72/files/pong/libpong-ui18.dylib",
+      "baseline_bytes": 194528,
+      "candidate_bytes": 194528,
+      "comparison": "byte_for_byte_filecmp_shallow_false",
+      "identical": true
+    },
+    {
+      "path": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001059.000.ips",
+      "baseline": "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/extracted/files/mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001059.000.ips",
+      "candidate": "/home/vincent/Projects/thor-unixnu/tools/apfs-fuse-logreader-20261114/standalone/validation-v72/files/mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001059.000.ips",
+      "baseline_bytes": 27768,
+      "candidate_bytes": 27768,
+      "comparison": "byte_for_byte_filecmp_shallow_false",
+      "identical": true
+    }
+  ],
+  "pass": true,
+  "image_hash_run": false,
+  "limits": "Three representative files were compared exactly (Console, Mach-O dylib, hidden IPS). This is a concrete parser-path cross-check, not an exhaustive proof about every possible APFS extent or every v73 record."
+}

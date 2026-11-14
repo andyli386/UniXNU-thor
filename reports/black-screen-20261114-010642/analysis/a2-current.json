@@ -1,0 +1,2337 @@
+{
+  "summary": {
+    "files": 57,
+    "readbacks": 228,
+    "slot_done_4_of_4": 57,
+    "checks": 168,
+    "check_returncodes": {
+      "0": 168
+    },
+    "matchings": 56,
+    "matching_results": {
+      "0/0": 56
+    },
+    "no_service_calls_pids": [
+      680
+    ],
+    "last_epoch": 1063,
+    "diagnostic_fail_lines": []
+  },
+  "files": [
+    {
+      "file": "mobile/Library/Logs/PongA2-129.txt",
+      "pid": 129,
+      "first": 90,
+      "last": 90,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "3331"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "3843"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4099"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[90] pid=129 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-157.txt",
+      "pid": 157,
+      "first": 99,
+      "last": 99,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4099"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[99] pid=157 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-175.txt",
+      "pid": 175,
+      "first": 113,
+      "last": 114,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4867"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5891"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5635"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[114] pid=175 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-186.txt",
+      "pid": 186,
+      "first": 120,
+      "last": 126,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4355"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[120] pid=186 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-196.txt",
+      "pid": 196,
+      "first": 146,
+      "last": 146,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4099"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[146] pid=196 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-210.txt",
+      "pid": 210,
+      "first": 149,
+      "last": 149,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4355"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4867"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5123"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[149] pid=210 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-217.txt",
+      "pid": 217,
+      "first": 163,
+      "last": 163,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5891"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4867"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4611"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[163] pid=217 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-227.txt",
+      "pid": 227,
+      "first": 176,
+      "last": 179,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4867"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[176] pid=227 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-230.txt",
+      "pid": 230,
+      "first": 191,
+      "last": 192,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5379"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4355"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4099"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[191] pid=230 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-234.txt",
+      "pid": 234,
+      "first": 194,
+      "last": 194,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4355"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4611"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[194] pid=234 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-240.txt",
+      "pid": 240,
+      "first": 208,
+      "last": 209,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4867"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "3843"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "3587"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[208] pid=240 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-246.txt",
+      "pid": 246,
+      "first": 217,
+      "last": 217,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5891"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5379"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5123"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[217] pid=246 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-250.txt",
+      "pid": 250,
+      "first": 224,
+      "last": 224,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "3331"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4611"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4355"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[224] pid=250 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-259.txt",
+      "pid": 259,
+      "first": 259,
+      "last": 264,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4359"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5891"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[259] pid=259 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-275.txt",
+      "pid": 275,
+      "first": 268,
+      "last": 269,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "3843"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4099"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[268] pid=275 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-280.txt",
+      "pid": 280,
+      "first": 290,
+      "last": 292,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6147"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[290] pid=280 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-288.txt",
+      "pid": 288,
+      "first": 322,
+      "last": 322,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4099"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4867"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[322] pid=288 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-292.txt",
+      "pid": 292,
+      "first": 359,
+      "last": 359,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4355"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4867"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[359] pid=292 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-305.txt",
+      "pid": 305,
+      "first": 377,
+      "last": 380,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6147"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[377] pid=305 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-310.txt",
+      "pid": 310,
+      "first": 387,
+      "last": 388,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5379"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "6403"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "6147"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[387] pid=310 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-313.txt",
+      "pid": 313,
+      "first": 442,
+      "last": 444,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4099"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4355"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[442] pid=313 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-350.txt",
+      "pid": 350,
+      "first": 451,
+      "last": 451,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5891"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5379"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5123"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[451] pid=350 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-359.txt",
+      "pid": 359,
+      "first": 465,
+      "last": 465,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4611"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5891"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5635"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[465] pid=359 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-367.txt",
+      "pid": 367,
+      "first": 466,
+      "last": 466,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4611"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5379"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5635"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[466] pid=367 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-373.txt",
+      "pid": 373,
+      "first": 496,
+      "last": 496,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6915"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "6147"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "6403"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[496] pid=373 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-380.txt",
+      "pid": 380,
+      "first": 506,
+      "last": 508,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "3847"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4611"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4867"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[506] pid=380 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-388.txt",
+      "pid": 388,
+      "first": 511,
+      "last": 511,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4099"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4611"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4867"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[511] pid=388 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-405.txt",
+      "pid": 405,
+      "first": 537,
+      "last": 541,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5891"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[537] pid=405 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-414.txt",
+      "pid": 414,
+      "first": 554,
+      "last": 558,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6919"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5379"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "6147"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[554] pid=414 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-420.txt",
+      "pid": 420,
+      "first": 572,
+      "last": 572,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4355"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4867"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[572] pid=420 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-425.txt",
+      "pid": 425,
+      "first": 579,
+      "last": 579,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6403"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[579] pid=425 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-431.txt",
+      "pid": 431,
+      "first": 586,
+      "last": 587,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4611"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5379"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5123"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[586] pid=431 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-436.txt",
+      "pid": 436,
+      "first": 598,
+      "last": 599,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "3843"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4355"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4611"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[598] pid=436 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-440.txt",
+      "pid": 440,
+      "first": 637,
+      "last": 637,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "6403"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "6147"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[637] pid=440 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-484.txt",
+      "pid": 484,
+      "first": 638,
+      "last": 638,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4355"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[638] pid=484 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-496.txt",
+      "pid": 496,
+      "first": 715,
+      "last": 726,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5895"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4355"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[715] pid=496 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-519.txt",
+      "pid": 519,
+      "first": 734,
+      "last": 734,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6147"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[734] pid=519 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-522.txt",
+      "pid": 522,
+      "first": 753,
+      "last": 753,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "6659"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "6403"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[753] pid=522 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-530.txt",
+      "pid": 530,
+      "first": 757,
+      "last": 760,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4359"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5891"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5635"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[757] pid=530 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-535.txt",
+      "pid": 535,
+      "first": 779,
+      "last": 780,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5379"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4099"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4355"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[779] pid=535 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-539.txt",
+      "pid": 539,
+      "first": 780,
+      "last": 780,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6147"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4867"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[780] pid=539 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-543.txt",
+      "pid": 543,
+      "first": 796,
+      "last": 800,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4099"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4355"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[796] pid=543 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-549.txt",
+      "pid": 549,
+      "first": 811,
+      "last": 817,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4867"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5891"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "6147"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[811] pid=549 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-552.txt",
+      "pid": 552,
+      "first": 831,
+      "last": 832,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4611"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4355"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[831] pid=552 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-559.txt",
+      "pid": 559,
+      "first": 834,
+      "last": 834,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4867"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[834] pid=559 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-566.txt",
+      "pid": 566,
+      "first": 848,
+      "last": 850,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6403"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4867"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5123"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[848] pid=566 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-581.txt",
+      "pid": 581,
+      "first": 862,
+      "last": 862,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4867"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5891"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5635"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[862] pid=581 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-588.txt",
+      "pid": 588,
+      "first": 884,
+      "last": 885,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "3587"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4611"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4355"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[884] pid=588 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-599.txt",
+      "pid": 599,
+      "first": 889,
+      "last": 889,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4099"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[889] pid=599 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-60.txt",
+      "pid": 60,
+      "first": 44,
+      "last": 76,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "4611"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[44] pid=60 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-615.txt",
+      "pid": 615,
+      "first": 915,
+      "last": 916,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6147"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4867"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4611"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[915] pid=615 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-624.txt",
+      "pid": 624,
+      "first": 939,
+      "last": 941,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6151"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5123"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4867"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[939] pid=624 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-633.txt",
+      "pid": 633,
+      "first": 969,
+      "last": 972,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "3843"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "4867"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "4611"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[969] pid=633 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-648.txt",
+      "pid": 648,
+      "first": 993,
+      "last": 998,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6919"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5379"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[993] pid=648 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-657.txt",
+      "pid": 657,
+      "first": 1038,
+      "last": 1040,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "6147"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5635"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "5891"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[1038] pid=657 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-680.txt",
+      "pid": 680,
+      "first": 1062,
+      "last": 1063,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [],
+      "matchings": [],
+      "opens": [
+        "[1063] pid=680 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    },
+    {
+      "file": "mobile/Library/Logs/PongA2-93.txt",
+      "pid": 93,
+      "first": 77,
+      "last": 77,
+      "readback_ok": 4,
+      "slot_done": [
+        [
+          "4",
+          "4"
+        ]
+      ],
+      "checks": [
+        [
+          "com.apple.unfreed",
+          "0",
+          "5379"
+        ],
+        [
+          "com.apple.fairplayd",
+          "0",
+          "5891"
+        ],
+        [
+          "com.apple.fairplayd.versioned",
+          "0",
+          "6147"
+        ]
+      ],
+      "matchings": [
+        [
+          "com_apple_driver_FairPlayIOKit class=- uc=-",
+          "0",
+          "0"
+        ]
+      ],
+      "opens": [
+        "[77] pid=93 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok"
+      ],
+      "other_lines": []
+    }
+  ]
+}

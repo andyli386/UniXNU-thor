@@ -1,0 +1,10 @@
+{
+  "state": "built, pending device boot",
+  "boot_image": "/Users/<user>/projects/thor-unixnu1030/thor-out/v77/boot-thor-unixnu-v77-integrated.img",
+  "boot_bytes": 168034304,
+  "kernel_contained": "Darwin24 prelinked XNU",
+  "android_header": 4,
+  "firmware": "v77-uefi-ram.fd",
+  "payload_bytes": 167772160,
+  "image_verification": "skipped by request"
+}

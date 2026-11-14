@@ -1,0 +1,68 @@
+THOR v73（025335）：内存与启动耗时的独立核查
+生成：2026-11-14（主机当地时间；UTC 为 2026-11-13）
+
+结论
+本轮确有内存压力和大量压缩/解压，但不能把全部退出或黑屏都归为内存耗尽。
+在与 v72 对齐的内核观察窗口内，v73 没有记录 highwater 或 vm-compressor-thrashing 杀进程事件；已记录的 170 次回收全部为 idle-exit / long-idle-exit。
+这与上一轮有区别，但不是控制变量实验，也不是内存压力已解决的证明。
+
+1. 方法与时间基准
+输入为本轮只读导出的 logs/PongConsole.txt、logs/PongDiag.txt 和两份隐藏 IPS。
+Console 共 3,954,257 字节，30,055 行；按完整相同行去除 ring 回放后保留 4,815 个非空不同记录。
+保留原行号和原始行，不把重复 WRAP 回放当作重复事件。59 个非六位小数时间戳单独保存，不擅自修正。
+Console raw、PongDiag epoch、native header/captureTime/uptime 属于不同时间域，不假定固定偏移。
+本轮 RAM 标记 raw=26.071857；最后规范 Console timestamp=974.110843；窗口长 948.038986 秒。
+本分析没有进行新硬件基准、压力测试、内存参数修改或镜像哈希。
+
+2. 本轮内存配置
+Console L4：Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages。
+Console L35：vm_compressor_mode=2。
+Console L343：PONG DEVELOPMENT: VM swap disabled by boot argument。
+665 MiB 是当前内核管理窗口的日志值，不能把手机标称物理 RAM 或其他板子的 ADT 窗口直接当作本轮可用内存。
+首次软内存限额执行 raw=267.303618（RAM 标记后约 241.23 秒），记录可用页约 99.53 MiB、压缩器占用约 87.98 MiB。
+
+3. 与 v72 的相同观察时长比较
+以各自 RAM 标记为原点，均观察 948.038986 秒：
+v72 raw 截止 974.057794：199 次已记录回收，188 idle-exit、7 long-idle-exit、1 highwater、3 vm-compressor-thrashing。
+v73 raw 截止 974.110843：170 次已记录回收，164 idle-exit、6 long-idle-exit。
+v73 的 4 个非规范小数回收时间戳，其整数秒远离两端边界，仍计入事件数；没有边界不确定事件。
+未发现 audiomxd、mediaremoted、SpringBoard 或 backboardd 的 memorystatus 回收记录。
+这只描述现存日志。WRAP 明示有丢失文本；不能由缺失行证明绝无未保留的退出。
+这些数字不应宣传为“修复减少了百分之多少故障”，因为启动时序、任务、观察覆盖和工作负载不一致。
+
+4. Native memoryStatus 的独立证据
+两份 IPS 本体含截断部分，但以下 memoryStatus 子对象可独立完整 JSON 解码。
+
+较早的 datamigrator stackshot（文件 header 00:01:16）：
+  wired 225.15 MiB；active+inactive 398.87 MiB；compressor 13.99 MiB。
+  compressions=27,853；decompressions=17,082；memoryPressure=false。
+
+后来的 PosterBoard 报告（文件 header 00:12:08）：
+  wired 397.86 MiB；active+inactive 118.74 MiB；compressor 134.36 MiB。
+  compressions=2,145,969；decompressions=1,923,502；memoryPressure=true。
+
+因此，启动期间不可分页页明显增加，普通工作集空间减少，压缩/解压累计操作很多。
+这能解释“启动很慢”中的一部分资源压力；它没有给出 wired 增长的具体对象所有者，也不能单独证明泄漏。
+压缩/解压计数不是 UFS 读写字节，swap 被关闭也不排除可重读文件页的缺页读取。不能把这些累计数当存储吞吐测试。
+还需要将 wired 增长对应到内核/IOSurface/驱动分配所有者，再判断是正常工作集、未释放对象还是过小的已授权 RAM 窗口。
+不可仅按其他板子的内存参数扩窗，也不宜以禁用 jetsam 或任意延长 watchdog 来代替归因。
+
+5. 共享缓存预读
+PongDiag 共 13 个窗口，读完 318.515625 MiB；各窗口 read_ms 合计 31,869 ms。
+开始 opened 回执 epoch104，worker finished 回执 epoch136。
+有一个 .31 窗口被正确截到 EOF，实际 1,589,248 字节，仍为 complete gate-ok；没有 defer。
+v72 同样 13 个窗口/318.515625 MiB，合计 41,466 ms。
+本轮预读用时较短，但它不是独立物理 UFS benchmark，也不足以解释后续约十几分钟的场景创建耗时。
+
+6. 与黑屏的关系
+本轮 raw906.227133 执行全空层清屏，之后至少还有 67.883710 秒规范内核日志。
+上述内存压力出现在清屏以前，但没有一条直接证据把某次内存回收与这次 layer 清空建立因果关系。
+PosterBoard 的原生报告给出启动 watchdog，而不是这里的 memorystatus 回收原因；该次异常应按其 termination 与线程栈分析。
+因此，当前正确做法是保留“场景连接状态”“实际清屏提交者”“内存占用所有者”三个可分别核实的证据点。
+
+可复查文件
+analysis/analyze-memory-v73.py：本次分析脚本。
+analysis/v73-memory-latency.json：完整去重事件、原行号、native memoryStatus 和比较窗口。
+analysis/memory-summary-v73.json：较小的机器可读摘要。
+extracted/files/logs/PongConsole.txt、PongDiag.txt：原始导出日志。
+extracted/files/mobile/Library/Logs/CrashReporter/：隐藏 native IPS。

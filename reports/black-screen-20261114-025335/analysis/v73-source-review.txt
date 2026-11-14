@@ -1,0 +1,133 @@
+V73 SOURCE REVIEW — BLACK SCREEN / 2026-11-14
+Repository: /Users/<user>/projects/thor-unixnu1030/UniXNU-pong
+HEAD: 9a9a3f07002b730481651088e1a2ffc79dace788
+Prior HEAD: 258f07ec1ffa922d243679d5affa1b21dc355ca4 (v72)
+
+Scope and method
+Read-only review of the v73 userland delta, the active patched XNU work tree, source resolution files, existing compiler dependency records, an existing build log, archive member lists and a narrowly filtered existing kernel symbol table. No phone access, source edits, merge, rebuild, flash, benchmark, image audit or hash. Applicable instructions: root AGENTS.md. Reports are explicitly authorized in this directory and are not added to Git.
+
+A. MAIN FINDINGS
+
+1. Definite defect: the new framebuffer submitter metadata is captured but then lost at the logging boundary.
+Active source: thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp.
+- 247–251 add a per-slot name and PID.
+- 909–913 choose the slot, proc_selfname/proc_selfpid in the synchronous SwapEnd/present caller context, then copy the payload. Capture happens under the queue lock.
+- 957 declares a separate static swap buffer.
+- 965–968 copy the queued payload into that separate buffer and call show(swap, surfaces).
+- 1153–1157 nevertheless try to recover a queue slot by testing whether show()'s swap pointer lies inside fSwap[].
+The passed buffer is not fSwap[]. Under the expected address-range test, this falls through to who=-1, submitter=? pid=-1. Comparing unrelated object pointers is also not a sound portable provenance scheme.
+This is an instrumentation defect, not evidence that it newly causes the screen to go black. The frame drawing/clear branch is otherwise retained.
+Small correction: while holding fSwapLock, copy payload, surfaces, submitter name and PID from the SAME slot into a bounded per-frame snapshot, then pass the copied identity explicitly to show(). Do not recover ownership from the copied payload address. Retire the same queued slot only after show returns, preserving the existing surface lifetime and fence behavior.
+Runtime acceptance: EMPTIED should carry a real submitting user PID/name. If this build reports ?/-1, it matches the source defect and still does not identify the upstream process.
+
+2. Partial improvement: original exit reason is sampled before corpse construction, but it is not a Console diagnostic.
+Active source: xnu-work/bsd/kern/kern_exit.c:1928–1950, proc_prepareexit().
+New exact-name targets include Preferences, audiomxd, mediaremoted, PosterBoard, fairplayd.A2 and a com.apple.migrat prefix.
+A bounded 768-byte stack record contains name, PID, WTERMSIG(rv), WEXITSTATUS(rv), reason namespace/code and at most 512 description characters. The location is before task_mark_corpse, so corpse-allocation failure cannot prevent the attempt.
+However, it calls only pong_ramoops_diagnostic_write(). There is no printf/IOLog/Console fallback here. No raw rv, explicit reason-present flag, original ut->uu_exception/uu_code/uu_subcode, timestamp, or actual task_mark_corpse return code is included.
+signal/status should not both be interpreted as independent valid exit outcomes: use the raw wait status and the applicable WIF predicates in an improved record. namespace=0/code=0 can currently mean no reason object.
+Small correction: keep bounded formatting and unchanged termination handling; add raw original fields and a clearly distinct corpse-result marker, and emit the same bounded text through the existing captured Console path. No increase/disable of corpse limits is justified by these messages.
+
+3. Useful SpringBoard entry receipts, with precise interpretation limits.
+userland/ui_compat18.c:
+- 2564: "SpringBoard adapter ctor (v73)" before CFPreferences work.
+- 2568: "wake scheduled on main queue +10s" is emitted immediately BEFORE dispatch_after_f at 2569. Strictly this proves reaching the scheduling site, not completion of the scheduling call.
+- 1657: "wake_home begin" is at callback entry before UIScreen calls.
+- 1664: screen properties receipt after the UIScreen queries.
+- 1681: callback end receipt; backlight/lockscreen are object-presence booleans, not proof that every ABI-guarded action was invoked or the panel visibly woke.
+- 164–186: PongSB-<pid>.txt is attempted first; one open error is also reported to pong_console_line. Successful open alone does not prove every write/fsync succeeded, because their results are not checked. Logging itself performs synchronous file operations.
+These distinguish more stages than v72. Missing PongSB alone still is not proof that the callback never ran: injection/load identity, log write/flush failure and capture coverage must also be considered. A ctor + scheduling-site receipt without wake-begin is evidence to inspect main-queue progress; it is not by itself a proof of permanent deadlock.
+
+4. The snapshot change remains bounded.
+userland/boot_snapshot18.c:132 enlarges the line buffer from 1100 to 1600, and :185–198 extends the frame-pointer walk from 16 to 24 frames.
+The existing at-most-first-32-thread sample, vm_read_overwrite error/size checks, 8 MiB FP-distance check, 16-byte alignment check, monotonic next-FP check and bounded snprintf append remain. This helps deeper stack attribution but is not a full unwind or a system-wide snapshot.
+
+B. RAMOOPS / PMSG LOCATION AND CAPTURE LIMIT
+
+Current source: xnu-work/osfmk/arm64/pong_ramoops_console.h.
+- Lines 7–12: physical base 0x85200000, first Console region 0x200000 bytes, total reserved 0x400000 bytes, header 12 bytes, magic 0x43474244.
+- Diagnostic/pmsg region: [0x85400000, 0x85600000), size 0x200000; data starts 0x8540000c and capacity is 0x1ffff4.
+- Header is three little-endian native u32 fields sig/start/size. This writer appends, does not wrap, and sets start=size=number of data bytes.
+- Lines 125–126 map the fixed 4 MiB with ml_io_map_wcomb. This is a hardcoded source address, not a runtime search for a Recovery DT node.
+- repo dts/pong.dts:48 reserves the matching 4 MiB as region33@85200000 with no-map. The Recovery kernel's actual DT/RAM ownership still must be checked independently before any raw physical-memory reading.
+- Diagnostic writes clean the data and header to PoC and execute dsb sy. They return silently if mapping absent, invalid length or recorder busy; when full they preserve the earlier data and accept no more bytes.
+- Init resets the first-region header and writes a diagnostic READY record at the beginning of the second region. This is DRAM persistence across a compatible warm reboot only if the bootloader/Recovery preserve the area. It is not nonvolatile persistence, nor a guarantee that this device's reboot path retained it.
+- The code comments expect Linux to expose pmsg-ramoops-0. No alternate raw-memory exporter was found in the narrowly checked project scripts. Empty pstore does NOT establish that the bytes are still present or absent at the physical address; do not claim original exit reasons are retrievable until the capture succeeds and headers validate.
+- A later Darwin boot can overwrite the previous diagnostic region's beginning/header; preserve a found raw region before testing any further boot.
+No device operation was performed in this review.
+
+C. ACTUAL BUILD PATH VS THE PONG PORTING DECLARATIONS
+
+Source resolution:
+- local.toml: local sm8475 override points to ../UniXNU-sm8475-common, PongPlatform24 points to this device repo, and XNU/libplatform/libdispatch/AvailabilityVersions/IOStorageFamily point into refer/ipados18.
+- local.toml's general pong_build.tree is ../pong-work/tree. It is NOT the current THOR build tree used below.
+- feeds.toml pins Apple XNU 43a90889846e00bfb5cf1d255cdc0a701a1e05a4 (xnu-11417.140.69 / Darwin 24.6.0); unixnu.lock explicitly says local sources are not recorded. A feed/lock revision therefore does not describe subsequent local .cache/xnu-work edits.
+- thor-out/build-tree/refer/xnu resolves to this repo's refer/ipados18/xnu-11417.140.69. thor-out/build-tree/patches/xnu resolves to patches/xnu-ipados18.
+
+Existing current build receipt:
+../thor-out/PONG_BUILD_RESULT.json points to ../thor-out/build-tree and log build-20261113T173550Z.log, profile Pong-iPadOS18-22H374-Darwin24.
+The log specifically recompiles MiniIOMobileFramebuffer.cpo from .cache/xnu-work and finishes at:
+thor-out/build-tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_PONG/mach.development.pong.
+The exact current source-to-object paths are independently recorded in:
+iokit/DEVELOPMENT/MiniIOMobileFramebuffer.cpo.json/.cpd
+iokit/DEVELOPMENT/MiniIOSurface.cpo.json/.cpd
+bsd/DEVELOPMENT/kern_exit.d
+osfmk/DEVELOPMENT/arm_init.o.json/.d
+(plus saved selected compile records in compilation-provenance-v73.json).
+
+The active MiniIOMFB and MiniIOSurface are UNTRACKED files in the Apple XNU work tree; kern_exit.c is modified; pong_ramoops_console.h is untracked. The outer v73 Git commit changes only two userland files, so its HEAD alone cannot reproduce these kernel edits. Small exact snippets are preserved in source-excerpts-v73.txt.
+
+Current build flags recorded by PONG_BUILD_RESULT:
+XNU_NATIVE_ADRENO=0, XNU_PONG_ADRENO_PLATFORM=0, XNU_PONG_BACKLIGHT=0, XNU_PONG_WIFI=0, XNU_NATIVE_MOBILE_DISPLAY=0, XNU_NATIVE_LEGACY_DISPLAY=0; XNU_PONG_POWER=1, XNU_NATIVE_UFS=1, XNU_ARM_DT_PLATFORM=1, XNU_PONG_RAMOOPS_CONSOLE=1.
+The MiniIOMFB/MiniIOSurface source dependencies and current native-kernel symbols are present despite the separately named native display flags being zero.
+
+Audio provenance discrepancy:
+The CURRENT build/pong-power/libPongPower.a member list contains ONLY QcomSmem.o and PongSmmuLease.o (plus symbol table).
+The neighboring build-report.json still describes an ADSP/APM/TFA9873 stereo PCM setup with runtime_observed=false. That generic/stale description is not evidence that the current archive contains those services.
+The narrowly filtered current native-kernel global symbol listing contains MiniIOMFB/MiniIOSurface and the diagnostic writer, but no PongAudio/PongAdsp/AudioReach service symbols. This agrees with the two-object archive; it is not a claim that the OS has no userland audio frameworks or no other prelinked Apple code.
+The latest build log also says the expected tfa98xx.cnt was not found and an empty profile header was written. That line is not proof of audiomxd's current exception, especially since the current archive does not include the advertised full physical audio stack.
+
+Memory provenance:
+The actual compiler records point at .cache/xnu-work/osfmk/arm/arm_init.c (and any selected arm_vm_init record saved alongside). They use ARM64_BOARD_CONFIG_PONG and explicitly undefine ARM_LARGE_MEMORY.
+This establishes the compiled source/config route, not the physical or usable runtime RAM size. The board's generic payload ADT declares a 4 GiB owned allocation window, while porting.toml mentions a different Pong managed-RAM history. Neither substitutes for the current THOR boot's actual ADT/boot_args and observed VM memory totals.
+
+Consequences for the upstream question:
+porting.toml contains mixed source, host-build and device-capture statements, including other Pong configurations that displayed a desktop. Several entries explicitly say runtime results pending. It cannot establish that this THOR build contains their full GPU/audio/USB stack or that their success transfers to this runtime.
+The relevant upstream comparison must be source/ABI-specific: current MiniIOMFB + MiniIOSurface path, 22H374 userland and the actually enabled services. Importing SM8550 or another board's register/memory constants is prohibited by AGENTS.
+A complete upstream fix for this black screen is not established by this local review; the separate upstream-history review and the new runtime logs are needed.
+
+D. CANDIDATE IDENTITY AND EXPECTED RECEIPTS
+
+Host candidate /tmp/libpong-ui18-v73.dylib: 194576 bytes, LC_UUID DCBDA011-9CA3-3BA9-AF5F-CFAF07A981DF (arm64).
+The same named thor-out candidate is recorded separately in source-version.json when present. Host candidate identity is NOT proof of the deployed library; compare with the extracted runtime artifact or an explicit runtime build receipt.
+Expected capture items:
+- PongSB-<SpringBoard PID>.txt: constructor / scheduling-site / wake-begin / later screen/end lines.
+- Existing PongBootSnapshot per-process files: up to 24 frames per sampled thread.
+- Console MiniIOMFB layers transition: v73 text now says submitter=; source currently predicts ?/-1 because of the copied-buffer bug.
+- PONG EXIT records: expected in isolated diagnostic/pmsg storage only with this source, not automatically PongConsole.
+Absent artifacts need logging-path and build-identity checks before interpreting absence as non-execution.
+
+Recommended next edit scope (not performed)
+1. Repair the explicit submitter metadata handoff.
+2. Add a bounded Console mirror plus raw exit fields to the selected-process exit record.
+3. Preserve the early SB receipts, and make the scheduling text accurately describe whether it is before/after dispatch_after_f.
+4. Keep all real failure and termination behavior. Do not suppress corpse limits or claim empty-layer retention is a UI fix.
+
+E. CURRENT RECOVERY EVIDENCE UPDATE — CAPTURE / 2026-11-14
+
+The parent capture task verified the following on the attached device in the same Recovery boot, and saved recovery-ramoops-layout.json plus properties.json with the capture. This source-review agent did not access the device.
+
+Recovery reserved-memory node: ramoops@0xa7000000.
+reg hex: 00000000a70000000000000000400000.
+Decoded base=0xa7000000, total size=0x400000 (4 MiB), console-size=0x200000 and pmsg-size=0x200000; bound platform device is a7000000.ramoops.
+/proc/iomem reports 0x85200000–0x856fffff as System RAM, while 0xa7000000–0xa73fffff is reserved. /dev/mem is absent. The captured pstore is empty.
+
+This establishes a concrete address mismatch:
+- Current Darwin source writes the Console at 0x85200000 and the diagnostic/pmsg buffer at 0x85400000.
+- The current Recovery ramoops exporter is bound to a different 4 MiB region beginning at 0xa7000000 (its configured second 2 MiB would start at 0xa7200000).
+
+Therefore the intended Darwin-write -> warm-reboot-retention -> Recovery-pstore-export chain has NOT been established. Empty pstore cannot be used as evidence that the new PONG EXIT code did not execute. Conversely, it is not evidence that usable old bytes remain at 0x85400000: that area is classified as ordinary RAM by this Recovery, but no raw-byte read or overwrite event was observed. Do not claim the diagnostic bytes were definitely overwritten.
+
+Do NOT directly change Darwin's hardcoded address to Recovery's address. First establish a single board-correct reserved-RAM contract across the actual loader, Darwin memory map/allocators and Recovery DT, including region ownership, size, overlap exclusions and warm-reboot behavior. A numerically matching address is insufficient if one boot stage can allocate or overwrite it. No source/firmware change is proposed as an immediately safe address substitution.
+
+The smallest immediate observation improvement remains a bounded Console mirror of the original exit-reason record, using the already captured Console path, while the persistence layout is corrected and independently qualified. This is a recommendation only; no source edit was performed.

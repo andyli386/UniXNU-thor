@@ -1,0 +1,51 @@
+[
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001059.000.ips",
+    "bytes": 27768,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3189 (char 27486)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000123.000.ips",
+    "bytes": 27508,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 22 column 6574 (char 27313)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-001203.0002.ips",
+    "bytes": 30192,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 22 column 6409 (char 29997)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000832.0002.ips",
+    "header": {
+      "bug_type": "298",
+      "timestamp": "1970-01-01 00:08:32.00 +0000",
+      "os_version": "iPhone OS 18.7.10 (22H374)",
+      "roots_installed": 0,
+      "incident_id": "99B99B29-D9D1-4FD9-AF43-1221322759A7"
+    },
+    "date": "1970-01-01 00:08:31.55 +0000",
+    "bootSessionUUID": null,
+    "reason": null,
+    "exception": null,
+    "termination": null,
+    "procName": null,
+    "pid": null,
+    "process_count": 0,
+    "body_keys": [
+      "build",
+      "product",
+      "kernel",
+      "incident",
+      "crashReporterKey",
+      "date",
+      "codeSigningMonitor",
+      "bug_type",
+      "timeDelta",
+      "memoryStatus",
+      "largestProcess",
+      "genCounter",
+      "processes"
+    ],
+    "threads_count": 0
+  }
+]

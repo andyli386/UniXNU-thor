@@ -1,0 +1,55 @@
+11-14 02:45:47.085 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 02:45:47.085 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 02:51:57.954 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 02:51:57.954 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 02:52:09.389 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 03:04:36.452 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 03:04:36.452 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 06:06:45.012 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 08:15:55.210 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 08:15:58.212 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 08:15:58.212 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 08:16:35.663 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 08:27:17.692 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 08:27:17.692 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 08:43:51.996 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 08:43:54.833 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 08:43:54.833 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 08:44:11.666 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 08:54:53.927 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 08:54:53.927 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:18:36.543 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 09:18:39.392 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:18:39.392 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:19:03.335 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 09:19:03.610 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 09:19:03.947 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 09:19:05.094 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 09:19:37.077 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 09:24:26.394 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 09:24:30.063 71697 71699 W adb     : usb_linux.cpp:688 Netlink: SUBSYSTEM not found
+11-14 09:26:37.125 71697 788673 I adb     : transport.cpp:1171 <device-serial>: connection terminated: read failed
+11-14 09:26:37.133 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:26:41.849 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:37:17.771 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:37:17.771 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:40:47.850 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:40:47.850 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:41:19.454 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:41:24.103 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:41:31.382 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 09:59:11.599 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:07:25.159 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:07:25.159 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:07:25.159 71697 974522 I adb     : transport.cpp:1171 <device-serial>: connection terminated: read failed
+11-14 10:07:28.438 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:15:30.727 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:15:30.727 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:15:30.727 71697 978075 I adb     : transport.cpp:1171 <device-serial>: connection terminated: read failed
+11-14 10:15:33.917 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:15:34.715 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:15:34.715 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:15:34.715 71697 981396 I adb     : transport.cpp:1171 <device-serial>: connection terminated: read failed
+11-14 10:15:37.366 71697 71699 W adb     : usb_linux.cpp:694 Netlink: DEVTYPE not found
+11-14 10:26:56.949 71697 981436 I adb     : transport.cpp:1171 <device-serial>: connection terminated: read failed
+11-14 10:26:56.949 71697 981437 E adb     : transport_usb.cpp:136 remote usb: 1 - write terminated: Connection timed out

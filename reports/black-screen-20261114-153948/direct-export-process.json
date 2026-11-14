@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/home/vincent/Projects/thor-unixnu/tools/apfs-fuse-logreader-20261114/standalone/apfs-direct-export",
+    "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-153948/Data-runtime.img",
+    "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-153948/extracted"
+  ],
+  "returncode": 0,
+  "started": "2026-11-14T15:44:02.689829+08:00",
+  "finished": "2026-11-14T15:44:03.104939+08:00"
+}

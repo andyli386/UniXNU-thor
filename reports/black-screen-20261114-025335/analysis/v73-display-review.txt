@@ -1,0 +1,47 @@
+V73 DISPLAY RUNTIME REVIEW — 2026-11-14 02:53:35 capture
+
+Scope: inspect the frozen Console and PongSB receipts against the already reviewed v73 display/diagnostic code. No device access, no source changes, no new full-thread analysis.
+
+1. Outcome
+There is one distinct captured nonempty restoration and one distinct captured clear transition after exact complete-line deduplication. The clear is at Console raw 906.227133, swap 64839, set=0x1, all surface IDs zero, gpu=0, graphics=1. These are the CPU black-fill branch conditions in the inspected v73 source. The last valid timestamped Console activity is raw 974.110843, so the capture records at least 67.883710 seconds of kernel activity after clearing. No later nonempty restoration is present in the retained log.
+This establishes a clear-to-black rendering path with later kernel activity. It does not establish hardware sleep, backlight-off, the actual user-space submitter, or the upstream reason for clearing.
+
+2. Exact line handling / capture limits
+Console has 3,954,257 bytes, 30,055 physical lines and 32 NUL bytes. It explicitly contains 31 occurrences of "Pong console capture WRAP lost text". Exact full original byte lines were grouped; all original line numbers remain in the JSON. No raw file was rewritten.
+RAM marker repeats 4 times; first-visible and RESTORED repeat 4 times; EMPTIED repeats 3 times with the SAME raw timestamp, swap number and complete message. These are duplicated recorded lines, not four visible-start events or three distinct clears.
+There are 25,235 additional repeated complete nonempty lines. The capture has gaps/replayed text, so missing receipts cannot prove no event ever occurred. The separate collector validation compared old v72 Console, dylib and hidden IPS byte-for-byte to the earlier FUSE extraction and all matched; duplication must not simply be attributed to the new exporter.
+
+3. Display timeline (Console raw time only)
+- RAM marker: 26.071857; physical L4, L506, L1145, L1919.
+- First visible frame: 79.341296; first L1796. This is a visible frame/boot-console takeover, not proof that the desktop appeared.
+- RESTORED: 79.347480; L1798, L2572, L3111, L4053; surface1 in layer0, set=0x80000007, gpu=0, graphics=1, swap1.
+- Last retained frame-statistics line: raw text [901.1003957], reporting 387 frames in 5009ms. That timestamp has seven digits after the decimal and is intentionally not converted to a decimal interval here.
+- Legacy clear line: 906.227119; L27976, L28847, L29720; swap64839, layers0x1->0x0.
+- Detailed EMPTIED: 906.227133; L27977, L28848, L29721; set0x1, surfaces0,0,0,0, gpu0, graphics1.
+- Last valid timestamp activity: 974.110843, L30054, CoreAnalyticsHub timer event. L30055 is NUL. There are 327 distinct canonical timestamped lines later than the clear, including memory-status and CoreAnalytics events. No MiniIOMFB/nonempty-restoration line appears in that retained post-clear set.
+Intervals: RAM->first-visible53.269439s; RAM->clear880.155276s; first-visible->clear826.885837s; clear->last-recorded-activity67.883710s.
+These are differences on the Console clock, not physical power-on measurements. Userland PongSB timestamps use time(NULL) and are not directly subtracted from them.
+
+4. v72 comparison
+v72 known RAM marker26.018808, clear843.811817/swap59068, last Console1034.719948.
+v73 clear906.227133 is 62.415316s later on raw values, or 62.362267s later relative to each run's RAM marker. The v73 first visible frame is earlier, but the clear is later; neither metric measures progress-bar percentage or proves the upstream stall improved.
+v72 retained 190.908131s of Console activity after clear; v73 retains67.883710s. This is a shorter observed post-clear interval, not evidence that v73 necessarily died sooner. The observed black transition itself remains the same all-zero-layer/CPU-fill pattern.
+
+5. Source-to-runtime correspondence
+MiniIOMobileFramebuffer.cpp:1108–1115 tests sid==0, !gpuFrame, bottom layer, set bit0 and fGraphics, then writes 0xff000000 across panel rows. Every logged prerequisite is present in the EMPTIED record. The transition log follows the drawing loop.
+Both RESTORED and EMPTIED show submitter=? pid=-1. This exactly fits the reviewed v73 diagnostic defect: present() captures per-slot identity (:911–912); presenter() copies payload to a separate static buffer (:957,965–968); show() incorrectly tries to recover the original slot from that copied pointer (:1153–1157). It is not a real process identity and must not be called the clearing process.
+Small correction remains to copy identity with the same queued frame under the queue lock and pass it explicitly to show, preserving frame/surface lifetime.
+
+6. PongSB receipts
+The complete 97-byte file is:
+[63] Pong UI18: SpringBoard adapter ctor (v73)
+[67] Pong UI18: wake scheduled on main queue +10s
+
+The adapter constructor and pre-dispatch scheduling site were reached. The library identity in this capture matches the v73 host candidate UUID DCBDA011-9CA3-3BA9-AF5F-CFAF07A981DF.
+No wake_home begin, screen-property or callback-end record was saved in this file; the same markers were not found in the captured Console. The scheduling line is emitted BEFORE dispatch_after_f, so it cannot prove that dispatch scheduling completed. Entry logging precedes UIScreen calls, which is a better observation boundary than v72, but file open/write/fsync/Console coverage still limit absence claims. Thread-state causality is left to the separate runtime analysis.
+
+Evidence files
+- extracted/files/logs/PongConsole.txt (unchanged)
+- extracted/files/mobile/Library/Logs/PongSB-5.txt (unchanged)
+- analysis/source-excerpts-v73.txt and v73-source-review.txt
+- analysis/v73-display-runtime.json (exact grouped original lines, counts and derived intervals)

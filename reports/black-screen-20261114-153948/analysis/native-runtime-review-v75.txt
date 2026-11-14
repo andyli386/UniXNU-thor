@@ -1,0 +1,110 @@
+v75 黑屏：原生线程等待、文件访问回执与崩溃链复核
+采集：2026-11-14 15:39:48，PongBoot-pull-20261114-153948
+对照：2026-11-14 10:31:39 的 v74
+范围：只读分析已导出的日志及现有符号；无手机操作、无修改固件或产品源码。
+
+确定性结论
+1. v75 的 backboardd group_wait interpose 确实运行了。五个快照均在实际导出库的 _pong_bbd_group_wait+0x38 内等待原 dispatch_group_wait 返回。PongBBD 文件不存在不能解释成“没有命中”：记录放在返回后，恰好对未返回的等待没有持久入口证据。
+2. 本轮 SpringBoard 在 time128–972 的五个完整样本均停在 FBSystemShellInitialize → BackBoardServices/BoardServices 的同步XPC回复等待。上一轮相近time965已经采到CoverSheet/窗口生命周期/lstat64。因此两轮确实不同，但不能用这五个点推断整段连续同一次等待，也不能把黑屏归结为唯一某个group。
+3. 新增唯一慢stat回执是成功调用：time1462，lstat FindMySafetyAlertsNotifications.bundle，返回0、errno0、226ms。它证明SpringBoard进程中的一次文件访问完成；该行没有tid，不能证明主线程已越过上述同步等待，226ms也不足以解释十多分钟。
+4. 音频重复退出不是只有“stackshot失败”这一表象。PID492原生reason再次明确 AQ::Server内部RPC超时，随后尝试stackshot并退出。其他三个audio退出没有同样完整reason字段，不能无条件套用PID492的触发点。
+5. 新提取出的完整局部原生对象显示，三个后期报告里 kernel_task 的 daemon.thread-exception 均等待 ReportCrash PID266。它给异常/诊断回应链补上了真实等待对象，但还不能连接为SpringBoard或BB group的owner，也不能代替AQ内部RPC接收者证据。
+
+一、版本与样本边界
+- Data中的libpong-ui18.dylib UUID：5FB87088-A68B-35BF-BB1B-180FCD76A481；195120字节，与Mac的v75产物匹配。
+- 11个PongBoot文件、70个快照块。参考共享缓存22H374，运行基址0x18ac44000、size=f37c8000。当前完整原生报告没有可核对的cache UUID，因此共享缓存符号化以22H374缓存不变为前提，原始运行地址均保留。
+- 6份IPS中，2份JetsamEvent完整JSON可读；4份stackshot/watchdog报告的外层正文不完整。后者单独解码完整reason/termination字段和完整process对象，不补造整个JSON。
+- SpringBoard/BB原始time为采样器time(NULL)，Console为另一套raw时钟。下文没有跨这两套时钟计算精确时差。
+- thread记录的run来自thread_basic_info.run_state：1=RUNNING、3=WAITING、4=UNINTERRUPTIBLE。不是TH_RUN等位标志；cpu量纲是/1000。
+
+二、SpringBoard PID5：记录止于何处
+文件：extracted/files/mobile/Library/Logs/PongBoot-SpringBoard.txt。
+主线程tid249，time128/190/308/673/972，elapsed60/122/240/604/904；对应主线程行4/13/22/34/46。
+五次都为run3、cpu0，链条：
+SBSystemAppMain → FBSystemShellInitialize → BackBoardServices +0x45aec → BoardServices +0xe254/+0x15e78/+0xa6ec → libxpc → dispatch_mach_send_and_wait_for_reply → mach_msg。
+这证明相应采样时刻在同步等回复，尚未提供消息ID、接收task/线程或接收方尚未完成的条件。不能把这个服务回复等待替换为“直接卡lstat”。
+
+最后一个详细栈是time972。后续只有tick：elapsed964/1024/1084/1144/1204/1264/1324/1384，PID始终5，线程数最终26。进程没有因这组样本显示重启，但没有接近24分钟的主线程栈，不能断言最后5分钟仍停在972的同一位置。
+当前boot_snapshot18.c:647的early表是60/120/240/600/900；:666–671在900后继续每600秒采样，所以下一组是elapsed1500，而不是永久停止采样。SB1384、BB1443、RB1440的末tick都尚未到1500。本轮清屏阶段落入900到1500的详细采样空窗，是可从源码解释的具体盲区。
+
+文件：extracted/files/mobile/Library/Logs/PongSB-5.txt，全部4行：
+[64] Pong UI18: SpringBoard adapter ctor (v73)
+[65] Pong UI18: wake scheduled on main queue +10s
+[65] Pong UI18: wake enqueue returned
+[1462] Pong SB stat: lstat(/System/Library/UserNotifications/Bundles/com.apple.FindMySafetyAlertsNotifications.bundle) -> 0 errno=0 ms=226
+
+ctor(v73)是陈旧标签，不能覆盖LC_UUID与实际hook帧证据。本轮仍无wake_home begin/end持久回执。原文件写入返回值没有完整核查，缺行只能说当前留存证据中未见。
+stat回执没有线程ID；不能据此证明SpringBoard主队列正常服务回调。原API返回0、errno0，路径已成功查询，不能将FindMySafetyAlertsNotifications.bundle判为缺失文件，更不应把它删掉或对所有stat造成功。
+
+三、BackBoard PID40：真实命中的未完成等待
+文件：extracted/files/mobile/Library/Logs/PongBoot-backboardd.txt。
+后台线程tid671在time107/167/288/648/950五个样本（行9/31/51/79/104）具有相同PC、FP、SP和调用链：
+__ulock_wait → __dlock_wait → __dispatch_group_wait_slow → libpong-ui18!_pong_bbd_group_wait+0x38 → caller0x1005d53e4 → dispatch串行lane worker。
+运行库基址0x100708000；hook返回PC0x10070c200对应库vmaddr0x4200，正是调用原API之后的返回位置。它是实际导出v75库符号匹配，不是凭字符串猜测。
+
+v74的caller是0x10069f3e4、注入库基址0x1007d2000；两者到v75均移动0xca000，caller都位于注入库基址下0x132c1c。这与相同进程镜像布局中的同一调用点一致，但没有主可执行文件实际映射，尚不能命名调用者函数或断言精确exe偏移。
+
+APFS inventory没有任何PongBBD文件；不是导出器漏选：Pong*在选择范围内，新文件只会在达到条件且原group_wait返回后创建。源码没有记录进入时的group指针/timeout/tid/caller，因此无法区分所有“没有返回回执”的原因。五次相同背景线程栈强烈支持长等待，仍不是连续跟踪同一次调用的完整记录。
+
+BB主线程tid347不是tid671。time107主线程正通过Accessibility链做LaunchServices同步查询；time167/288/648/950已在CFRunLoop/mach_msg等待。渲染服务线程也存在。不能由后台group等待宣称BB主线程一直堵死或显示链所有部分健康。
+
+同一个interpose函数也出现在lsd快照，源于库的全局符号替换，日志启用flag才限制为BB。函数名_pong_bbd_group_wait不代表这些lsd帧属于backboardd。
+
+四、LaunchServices：已经拿到具体等待环节，但未闭合UI请求owner
+文件：extracted/files/mobile/Library/Logs/PongBoot-lsd.txt；PongDiag进程观察显示84→352→386。
+- PID84 time127/187主线程在server RunLoop，time308工作线程正在LSDBExecutionContext syncRead。
+- Console raw553.734670记录PID352 lsd highwater退出；该进程本轮没有详细PongBoot样本。此事件本身不能解释它之前SpringBoard的全部等待。
+- PID386 time621/682主线程tid8295：_LSInstallProgressService performJournalRecovery → dispatch_sync等待队列。
+- time621/682后台tid8552：LAUNCH_SERVICES_CLIENTS_ARE_WAITING_FOR_THE_DATABASE_TO_FINISH_SEEDING → LSDatabaseBlockingFetchClient getServerStoreBlockingWithCompletionHandler → dispatch_group_wait。
+- tid8505 time621在数据库bundle注册/commit链；time682推进到LSDatabaseBuilder setSeedingComplete。只说明采样到该函数，不把函数入口等同于所有客户端已经收到完成回复。
+- audio PID82 time667主线程：_LSCopyServerStore → LSApplicationWorkspace applicationProxiesWithPlistFlags:bundleFlags: → AudioToolboxCore通知回调，正在同步XPC回复等待。与上述lsd播种期间相邻，构成“音频也依赖LS”的直接调用栈证据；没有请求ID/端口owner，不能配成同一条已证明的等待边。
+- time802，lsd tid8505又在_LSPersonaDatabase personasWithType → UserManagement → 同步NSXPC；主线程已回RunLoop。
+- time1163/1466，已采到的lsd线程为server RunLoop/空闲worker；不能说lsd从播种开始一直永久卡死。
+
+因此下一步应记录LS数据库播种完成的实际回复/服务ready条件，并跟踪具体请求，而不是绕过group_wait或强制数据库ready。当前SB五个主线程栈直接指向BoardServices/BackBoardServices，仍缺它与lsd或BB后台group之间的具体连接。
+
+五、音频：至少两层不同故障信息
+原Console去重后的audiomxd退出：
+raw718.339580 PID82  signal6 namespace39 description=writing stackshot failed, aborting
+raw804.458538 PID492 signal6 namespace39 description=writing stackshot took over 5s, aborting
+raw912.753477 PID531 signal6 namespace39 description=writing stackshot failed, aborting
+raw1171.338033 PID566 signal6 namespace39 description=writing stackshot failed, aborting
+namespace39是本地reason.h中的OS_REASON_AUDIO。signal与status是wait状态的两种解码，不能把signal6和status0并读为“SIGABRT且正常退出0”。
+
+.stacks+audiomxd-1970-01-01-001320.0002.ips第11行reason：
+AQ::Server: RPC timeout within audiomxd. Apparently deadlocked. Writing a stackshot and exiting.
+同文件第19行pid492、第15行exception0xbe18d1ee。只给PID492确认这条原生触发链；“Apparently deadlocked”是程序文本，尚无完整循环等待图。
+
+PID82 time667被采到前述LS同步查询。重启后的PID492 time792在dyld/AudioToolbox初始化；PID531 time881在dyld/libobjc/CoreAudio；PID566 time981在dyld/SoftLinking/AudioToolbox，time1045/1165已回NSRunLoop。最后PID694 time1235在VoiceTrigger/objc锁等待，time1296执行CoreDuet/Biome/HAENotifications主队列工作，time1417回NSRunLoop，末tick elapsed302。不同样本有推进，不能把所有audio实例归成固定地址死锁。
+本轮四次audio退出中前三次发生在Console清屏raw1156.380611之前；第四次在之后。与v74“首次audio退出晚于清屏”不同，但时间先后不能单独证明audio退出导致显示清屏。
+采样器记录的是本进程线程/寄存器/帧链，未调用原生OSAnalytics stackshot；间接CPU/I/O开销仍未A/B排除。待抓的是AQ请求/接收者及stackshot实际错误码/阶段，而非全局吞掉abort。
+
+六、原生异常回应链：从不完整IPS中可合法解码的局部证据
+四个不完整报告的processByPid部分都仅保留完整PID0(kernel_task)与PID1(launchd)对象，缺后续进程和binaryImages。不能借它们构建SB/BB用户态owner图。
+三个后期报告的kernel_task内都有以下完整原句：
+waitInfo: thread 106: mach_msg receive on port 0xf802c73088f72c15 name 0x1
+turnstileInfo: thread 106: turnstile blocked on task pid 266, hops: 1, priority: 80
+thread106.name: daemon.thread-exception
+
+样本与lastRunTime字段原值：
+.unknown-1970-01-01-001218.000.ips：478.915590989
+.stacks+audiomxd-1970-01-01-001320.0002.ips：543.367645989
+.unknown-1970-01-01-001939.0002.ips：921.768707031
+这里未进一步核对lastRunTime编码语义，故不把这些数字直接折成连续阻塞时长。
+Console物理行8513 raw273.987025写明ReportCrash[266]。因此等待对象的进程身份有本轮日志支持。这是异常/诊断路径的独立阻塞线索，尚不能推出它就是AQ内部RPC接收者，或它使SB等不到BBS回复。
+
+RunningBoard PID6主线程始终RunLoop；time945后台tid9904在OSAnalytics __WriteCrashReportWithStackshot同步XPC等待，与v74同类。它也不是runningboardd整个主线程堵死的证明。
+
+七、可直接改进的诊断点
+A. 把group_wait和stat改成有界在途记录：进入前只填预分配slot（tid、单调时间、group/path摘要、caller、timeout），返回后填结果；由独立低频worker输出长期未完成项。避免主路径每次fsync，不能以超时强制返回成功。
+B. 对SB的BBS同步请求记录消息/请求号、目标端口与接收方task/handler入口/完成回执；只有拿到这条边，才可把BB后台group、LS播种或persona服务列为确定UI根因。
+C. 优先插入elapsed1200的详细样本，可再加1800；1500本来已在后续600秒周期中，无需误认为缺失。另一方案是EMPTIED时及其后触发一次有界详细采样/在途slot输出。目前黑屏时段只有tick与一个无tid的stat完成行，不能把15分钟栈外推到24分钟。
+D. 原生异常链补ReportCrash的接收/回包状态和实际stackshot返回码/阶段；AQ超时另抓实际请求owner。两条链应分别修复和验证。
+
+证据文件
+native-key-evidence-v75.json：当前/基线关键进程样本、探针回执、原生完整字段、Console关键事件。
+native-pongboot-late.json：70个块的全部原始地址与条件符号化；未覆盖线程和状态返回码保留。
+native-ui18-frames.json：以实际导出库__text和image0 slide匹配的库内帧。
+native-partial-processes-v75.json：独立完整process对象内的waitInfo/turnstileInfo及位置；没有补造外层报告。
+native-snapshot-deadlines-v75.json：当前采样器early表、后续600秒周期、末tick与实际盲区。
+v75-source-review.txt、v75-source-evidence.json：探针位置、阈值、interpose别名与其他源码限制。

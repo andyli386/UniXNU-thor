@@ -1,0 +1,26 @@
+[
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001117.0002.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 31 column 3107 (char 27542)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001551.0002.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 23 column 3057 (char 26663)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000120.000.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 1018 column 2 (char 44118)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001444.000.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 28 column 4609 (char 28923)"
+  }
+]

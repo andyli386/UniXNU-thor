@@ -1,0 +1,175 @@
+{
+  "console_bytes": 3954257,
+  "console_lines": 30055,
+  "unique_nonempty": 4815,
+  "ram": {
+    "line": 4,
+    "text": "[   26.071857]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages",
+    "raw_literal": "26.071857",
+    "raw_second": 26,
+    "timestamp_standard": true,
+    "raw": 26.071857,
+    "since_ram": 0.0
+  },
+  "raw_bounds": [
+    26.071271,
+    974.110843
+  ],
+  "raw_duration_since_ram": 948.038986,
+  "kill_counts": {
+    "long-idle-exit": 6,
+    "idle-exit": 164
+  },
+  "first_softlimit": {
+    "line": 8061,
+    "text": "[  267.303618]: memorystatus: System will begin enforcing soft memory limits. memorystatus_available_pages: 25480 compressor_size: 22523",
+    "raw_literal": "267.303618",
+    "raw_second": 267,
+    "timestamp_standard": true,
+    "raw": 267.303618,
+    "since_ram": 241.23176099999998,
+    "available_pages": 25480,
+    "compressor_pages": 22523,
+    "available_mib": 99.53125,
+    "compressor_mib": 87.98046875
+  },
+  "equal_kernel_window": {
+    "duration_since_ram": 948.038986,
+    "not_causal_ab": true,
+    "v72": {
+      "raw_ram_anchor": 26.018808,
+      "raw_cutoff": 974.0577940000001,
+      "kill_count": 199,
+      "reason_counts": {
+        "long-idle-exit": 7,
+        "idle-exit": 188,
+        "highwater": 1,
+        "vm-compressor-thrashing": 3
+      },
+      "nonstandard_fraction_inside_window": 0,
+      "nonstandard_fraction_outside_window": 1,
+      "ambiguous_boundary_events": []
+    },
+    "v73": {
+      "raw_ram_anchor": 26.071857,
+      "raw_cutoff": 974.110843,
+      "kill_count": 170,
+      "reason_counts": {
+        "long-idle-exit": 6,
+        "idle-exit": 164
+      },
+      "nonstandard_fraction_inside_window": 4,
+      "nonstandard_fraction_outside_window": 0,
+      "ambiguous_boundary_events": []
+    }
+  },
+  "audio_memory_kills": [],
+  "malformed_timestamp_count": 59,
+  "prefetch_summary": {
+    "count": 13,
+    "mib": 318.515625,
+    "read_ms_total": 31869,
+    "epoch_bounds": [
+      111,
+      136
+    ],
+    "deferred_lines": [],
+    "clamped_complete_lines": [
+      "[134] Pong cache pre-read: .31 [82+10MiB] read=1589248 of 1589248 bytes ms=99 clamped to EOF complete gate-ok"
+    ]
+  },
+  "native_memory": [
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001208.0002.ips",
+      "header": {
+        "name": "PosterBoard",
+        "roots_installed": 0,
+        "timestamp": "1970-01-01 00:12:08.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "incident_id": "9E581F68-7F41-4644-8A50-99A9C4A462F7",
+        "share_with_app_devs": 0,
+        "bug_type": "509",
+        "app_name": "PosterBoard",
+        "bundleID": "com.apple.PosterBoard"
+      },
+      "memoryStatus": {
+        "compressorSize": 34395,
+        "compressions": 2145969,
+        "decompressions": 1923502,
+        "busyBufferCount": 105,
+        "memoryPressureDetails": {
+          "pagesWanted": 718,
+          "pagesReclaimed": 38852
+        },
+        "pageSize": 4096,
+        "memoryPressure": true,
+        "memoryPages": {
+          "active": 15540,
+          "throttled": 0,
+          "fileBacked": 20217,
+          "wired": 101853,
+          "purgeable": 0,
+          "inactive": 14858,
+          "free": 783,
+          "speculative": 681
+        }
+      },
+      "mib": {
+        "active": 60.703125,
+        "throttled": 0.0,
+        "fileBacked": 78.97265625,
+        "wired": 397.86328125,
+        "purgeable": 0.0,
+        "inactive": 58.0390625,
+        "free": 3.05859375,
+        "speculative": 2.66015625
+      },
+      "compressor_mib": 134.35546875,
+      "active_plus_inactive_mib": 118.7421875
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000116.000.ips",
+      "header": {
+        "bug_type": "288",
+        "timestamp": "1970-01-01 00:01:16.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "roots_installed": 0,
+        "incident_id": "DEC4917C-BB11-43F4-B02B-37322BBC190A"
+      },
+      "memoryStatus": {
+        "compressorSize": 3581,
+        "compressions": 27853,
+        "decompressions": 17082,
+        "busyBufferCount": 72,
+        "memoryPressureDetails": {
+          "pagesWanted": 646,
+          "pagesReclaimed": 47711
+        },
+        "pageSize": 4096,
+        "memoryPressure": false,
+        "memoryPages": {
+          "active": 52932,
+          "throttled": 0,
+          "fileBacked": 87531,
+          "wired": 57638,
+          "purgeable": 280,
+          "inactive": 49178,
+          "free": 855,
+          "speculative": 3993
+        }
+      },
+      "mib": {
+        "active": 206.765625,
+        "throttled": 0.0,
+        "fileBacked": 341.91796875,
+        "wired": 225.1484375,
+        "purgeable": 1.09375,
+        "inactive": 192.1015625,
+        "free": 3.33984375,
+        "speculative": 15.59765625
+      },
+      "compressor_mib": 13.98828125,
+      "active_plus_inactive_mib": 398.8671875
+    }
+  ]
+}

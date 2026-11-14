@@ -1,0 +1,43 @@
+{
+  "parsed": 4,
+  "snapshots": 0,
+  "a2_crashes": 0,
+  "rows": [
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001119.0003.ips",
+      "date": null,
+      "proc": null,
+      "reason": null,
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3267 (char 28218)\")",
+      "boot": null,
+      "chain": []
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000125.000.ips",
+      "date": null,
+      "proc": null,
+      "reason": null,
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 22 column 6460 (char 27325)\")",
+      "boot": null,
+      "chain": []
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001633.000.ips",
+      "date": null,
+      "proc": null,
+      "reason": null,
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 27 column 1916 (char 26812)\")",
+      "boot": null,
+      "chain": []
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000508.0002.ips",
+      "date": "1970-01-01 00:05:07.38 +0000",
+      "proc": null,
+      "reason": null,
+      "error": null,
+      "boot": null,
+      "chain": []
+    }
+  ]
+}

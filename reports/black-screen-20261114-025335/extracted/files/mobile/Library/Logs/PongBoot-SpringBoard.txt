@@ -1,0 +1,57 @@
+Pong tick: SpringBoard pid=5 seconds=60 threads=6
+Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=60 time=129 threads=6
+Pong boot snapshot: SpringBoard pid=5 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=100506000 cache=0x195148000 size=f37c8000
+thread=0 tid=248 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dca0c lr=1f6467988 fp=16f948460 sp=16f948420 frames: 1977adbf0 1977ad9d0 1977ad5d8 1977ad4a0 22dd49828 19f3917cc 22dd4913c 22dd49034 22dd52ec0 22dd52cb8 22dd526bc 19f24ea68 19f2330f8 22dd52678 22dd524c8 19f24ea68 19f22326c 22dd52474 22dd4a1ec 22dd4a178 19f24ea68 19f22326c 22dd4a158 22dd53ae0
+thread=1 tid=448 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f9c8a70 sp=16f9c8a20 frames: 1e33e00d0 1e33dff1c 19f2245e8 19f224984 1f656b828 1b126d6ec 1b1278e78 1b1271254 1a4e72e70 19f24ea68 19f2330f8 1a4e72d64 1a4e8a91c 1a4e8a88c 1a4e8a0f4 1a4e89cb0 1a4e6f090 1a4e5069c 1a4e4e2ec 1a4e4e3a0 1a4e5c8ec 1e789c464 19f24d830 19f24ea68
+thread=3 tid=789 state_result=0 info_result=0 run=3 cpu=0 pc=1e33e2a08 lr=19f2226bc fp=16fa53690 sp=16fa53670 frames: 19f222568 19f233398 19f232fa4 1b258de10 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=4 tid=797 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16fd71fa0 sp=16fd71f50 frames: 1e33e00d0 1e33dff1c 19f2245e8 19f224984 1f656b828 1967ac994 19676a630 19676bf18 19676be54 1978ab01c 1977d3748 1977adca4 1977ad9d0 1977d7934 1977d75b4 197a4fab8 1ba10388c 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10
+thread=5 tid=1291 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fcf19c0 sp=16fcf19a0 frames: 1f650eab0
+Pong boot snapshot END: SpringBoard pid=5 seconds=60 sampled=5 of 6
+Pong tick: SpringBoard pid=5 seconds=120 threads=6
+Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=120 time=190 threads=6
+Pong boot snapshot: SpringBoard pid=5 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=100506000 cache=0x195148000 size=f37c8000
+thread=0 tid=248 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f944510 sp=16f9444c0 frames: 1e33e00d0 1e33dff1c 19f2245e8 19f224984 1f656b828 1b126d6ec 1b1278e78 1b1271254 19f336aec 1ba10f660 1e771900c 1bc87996c 0
+thread=1 tid=448 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f9c8a70 sp=16f9c8a20 frames: 1e33e00d0 1e33dff1c 19f2245e8 19f224984 1f656b828 1b126d6ec 1b1278e78 1b1271254 1a4e72e70 19f24ea68 19f2330f8 1a4e72d64 1a4e8a91c 1a4e8a88c 1a4e8a0f4 1a4e89cb0 1a4e6f090 1a4e5069c 1a4e4e2ec 1a4e4e3a0 1a4e5c8ec 1e789c464 19f24d830 19f24ea68
+thread=3 tid=789 state_result=0 info_result=0 run=3 cpu=0 pc=1e33e2a08 lr=19f2226bc fp=16fa53690 sp=16fa53670 frames: 19f222568 19f233398 19f232fa4 1b258de10 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=4 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=5 tid=3126 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fb5fae0 sp=16fb5fac0 frames: 1f650eab0
+Pong boot snapshot END: SpringBoard pid=5 seconds=120 sampled=5 of 6
+Pong tick: SpringBoard pid=5 seconds=182 threads=5
+Pong tick: SpringBoard pid=5 seconds=242 threads=6
+Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=242 time=312 threads=6
+Pong boot snapshot: SpringBoard pid=5 seconds=242 image0=/private/var/pong/libpong-ui18.dylib image_slide=100506000 cache=0x195148000 size=f37c8000
+thread=0 tid=248 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f944510 sp=16f9444c0 frames: 1e33e00d0 1e33dff1c 19f2245e8 19f224984 1f656b828 1b126d6ec 1b1278e78 1b1271254 19f336aec 1ba10f660 1e771900c 1bc87996c 0
+thread=2 tid=789 state_result=0 info_result=0 run=3 cpu=0 pc=1e33e2a08 lr=19f2226bc fp=16fa53690 sp=16fa53670 frames: 19f222568 19f233398 19f232fa4 1b258de10 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=3 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=4 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=5 tid=4796 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fbe5b50 sp=16fbe5b30 frames: 1f650eab0
+Pong boot snapshot END: SpringBoard pid=5 seconds=242 sampled=5 of 6
+Pong tick: SpringBoard pid=5 seconds=304 threads=4
+Pong tick: SpringBoard pid=5 seconds=364 threads=5
+Pong tick: SpringBoard pid=5 seconds=424 threads=6
+Pong tick: SpringBoard pid=5 seconds=484 threads=13
+Pong tick: SpringBoard pid=5 seconds=544 threads=7
+Pong tick: SpringBoard pid=5 seconds=604 threads=5
+Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=604 time=674 threads=5
+Pong boot snapshot: SpringBoard pid=5 seconds=604 image0=/private/var/pong/libpong-ui18.dylib image_slide=100506000 cache=0x195148000 size=f37c8000
+thread=0 tid=248 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f944510 sp=16f9444c0 frames: 1e33e00d0 1e33dff1c 19f2245e8 19f224984 1f656b828 1b126d6ec 1b1278e78 1b1271254 19f336aec 1ba10f660 1e771900c 1bc87996c 0
+thread=2 tid=789 state_result=0 info_result=0 run=3 cpu=0 pc=1e33e2a08 lr=19f2226bc fp=16fa53690 sp=16fa53670 frames: 19f222568 19f233398 19f232fa4 1b258de10 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=3 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=4 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: SpringBoard pid=5 seconds=604 sampled=4 of 5
+Pong tick: SpringBoard pid=5 seconds=660 threads=7
+Pong tick: SpringBoard pid=5 seconds=720 threads=4
+Pong tick: SpringBoard pid=5 seconds=780 threads=4
+Pong tick: SpringBoard pid=5 seconds=841 threads=10
+Pong tick: SpringBoard pid=5 seconds=901 threads=9
+Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=901 time=970 threads=9
+Pong boot snapshot: SpringBoard pid=5 seconds=901 image0=/private/var/pong/libpong-ui18.dylib image_slide=100506000 cache=0x195148000 size=f37c8000
+thread=0 tid=248 state_result=0 info_result=0 run=1 cpu=299 pc=1e7dc2108 lr=1e77b801c fp=16f946d60 sp=16f946d30 frames: 1e7c6f5a0 1e7846940 1e7845ee8 1e7c6fe14 19a20b9a4 19a215720 19a207f9c 1ba105cac 1b11b9ec0 1ba105bd4 1b11ba500 1b11ba698 1b11ba314 1ba0d527c 1ba0c403c 19f3ae668 1ba0c35dc 1ba0c28f0 1ba0c21f8 1ba0ccae4 1ba0cad3c 1ba101644 1e798383c 1e79835c4
+thread=2 tid=789 state_result=0 info_result=0 run=3 cpu=0 pc=1e33e2a08 lr=19f2226bc fp=16fa53690 sp=16fa53670 frames: 19f222568 19f233398 19f232fa4 1b258de10 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=3 tid=13217 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16fe82ce0 sp=16fe82c90 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 196763bac 196768f7c 19a1ed354 1967c52b0 1f65106b0 1f650eabc
+thread=4 tid=13337 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16fb5e880 sp=16fb5e830 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 197a613c4 1a44dca6c 1f65106b0 1f650eabc
+thread=5 tid=13380 state_result=0 info_result=0 run=3 cpu=0 pc=1e33e2a08 lr=19f2226bc fp=16fc6b9e0 sp=16fc6b9c0 frames: 19f222568 19f233398 19f232fa4 23165b458 23165b2e8 23165285c 19f24ea68 19f2330f8 231652168 23165b198 19f24ea68 19f22326c 23165b148 1e7e20494 19f24d830 19f24ea68 19f258ea8 19f2296e8 19f235474 19f235b34 1f650e9d4 1f650eab0
+thread=6 tid=13397 state_result=0 info_result=0 run=3 cpu=19 pc=1e33e1fd8 lr=1f6518884 fp=16ff8f800 sp=16ff8f770 frames: 22b085c4c 230f9bd98 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=7 tid=13890 state_result=0 info_result=0 run=4 cpu=13 pc=1a3e4b510 lr=1a3e979bc fp=16f9cce00 sp=16f9ccdd0 frames: 19f24ea68 19f2330f8 1a3e97954 1a3e97c6c 22b08487c 22b08475c 19f24ea68 19f22326c 22b082e5c 22b08638c 19f24ea68 19f229a08 19f2394e4 19f22cdcc 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=8 tid=13895 state_result=0 info_result=0 run=4 cpu=9 pc=1e33e2000 lr=1967bba28 fp=16fbe5090 sp=16fbe4750 frames: 1967bb73c 1967f47e8 196783680 1b11b4600 1b11b434c 19f24d830 19f24ea68 19f258ea8 19f2296e8 19f235474 19f235b34 1f650e9d4 1f650eab0
+Pong boot snapshot END: SpringBoard pid=5 seconds=901 sampled=8 of 9

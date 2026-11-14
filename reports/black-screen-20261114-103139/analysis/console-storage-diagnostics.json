@@ -1,0 +1,82 @@
+[
+  {
+    "line": 145,
+    "text": "[   25.955057]: ArmDTPlatform: published DT nub ufshc"
+  },
+  {
+    "line": 254,
+    "text": "[   26.073476]: PONG_UFS BUILD smmu-cap-v2: optional-probe=0; transport=read-only"
+  },
+  {
+    "line": 257,
+    "text": "[   26.073503]: PONG_UFS: matched SM8475, validate firmware clocks"
+  },
+  {
+    "line": 261,
+    "text": "[   26.073602]: PONG_UFS: clocks active, read host state"
+  },
+  {
+    "line": 262,
+    "text": "[   26.073673]: PONG_UFS READ ONLY"
+  },
+  {
+    "line": 269,
+    "text": "[   26.073757]: PONG_UFS: storage write path enabled by pong_ufs_readwrite boot-arg"
+  },
+  {
+    "line": 273,
+    "text": "[   26.074809]: PONG_UFS: SMMU id0=4c017e71 id1=6000004b id2=00005111 HW banks=75 groups=113 effective banks=75 groups=113"
+  },
+  {
+    "line": 274,
+    "text": "[   26.074826]: PONG_UFS: SID e0 slot=0 firmware-bank=0 target-bank=74 action=migrate exact firmware mapping"
+  },
+  {
+    "line": 294,
+    "text": "[   26.127349]: PONG_UFS: transport ready LUN=0 block=4096 blocks=124271616; WRITE(10) FUA=enabled; writes stay inside declared SHNGROOT windows"
+  },
+  {
+    "line": 295,
+    "text": "[   26.129404]: PONG_UFS: SHNGROOT OS first read complete signature=1 base=2dfb00000 bytes=198000000; publish 512-byte read-write disk"
+  },
+  {
+    "line": 296,
+    "text": "[   26.131103]: PONG_UFS: SHNGROOT SystemOS first read complete signature=1 base=477b00000 bytes=ec400000; publish 512-byte read-write disk"
+  },
+  {
+    "line": 300,
+    "text": "[   26.132799]: PONG_UFS: SHNGROOT Data first read complete signature=1 base=563f00000 bytes=200105000; publish 512-byte read-write disk"
+  },
+  {
+    "line": 320,
+    "text": "[   26.159240]: Got boot device = IOService:/ArmDTPlatform/ufshc/NativeUfs/PongUfsBlock/IOBlockStorageDriver/Pong Pong OS root Media/AppleAPFSContainerScheme/AppleAPFSMedia/AppleAPFSContainer/CrystalUpdate22H374.J171J172OS@1"
+  },
+  {
+    "line": 351,
+    "text": "[   26.323481]: PONG APFS: UUID B07DF049-7AD9-47B5-9F8F-9EE728056398 bound to OS UFS window /dev/disk4s1"
+  },
+  {
+    "line": 355,
+    "text": "[   26.323551]: PONG APFS: UUID 4A77BA00-2826-44C4-B883-1FA92AC36880 bound to SystemOS UFS window /dev/disk3s1"
+  },
+  {
+    "line": 380,
+    "text": "[   26.331689]: PONG APFS: UUID 4A77BA00-2826-44C4-B883-1FA92AC36880 bound to SystemOS UFS window /dev/disk3s1"
+  },
+  {
+    "line": 382,
+    "text": "[   26.331726]: PONG APFS: UUID B07DF049-7AD9-47B5-9F8F-9EE728056398 bound to OS UFS window /dev/disk4s1"
+  },
+  {
+    "line": 388,
+    "text": "[   26.331794]: PONG APFS: UUID 26FD8349-9B9A-4F22-89EB-C81E070D2AB2 bound to Data UFS window /dev/disk5s2"
+  },
+  {
+    "line": 27403,
+    "text": "[  869.166608]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+  },
+  {
+    "line": 30469,
+    "text": "[  955.520118]: PONG EXIT audiomxd pid=529 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot took over 5s, aborting"
+  }
+]

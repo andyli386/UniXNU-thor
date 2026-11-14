@@ -1,0 +1,15 @@
+[92] pid=111 euid=501 entered
+[92] pid=111 euid=501 Pong A2: slot IOServiceGetMatchingServices addend=0x6da5e697 verified patched readback-ok
+[92] pid=111 euid=501 Pong A2: slot bootstrap_check_in addend=0x6c4fc59b verified patched readback-ok
+[92] pid=111 euid=501 Pong A2: slot IOServiceOpen addend=0x77dc76ff verified patched readback-ok
+[92] pid=111 euid=501 Pong A2: slot IOServiceMatching addend=0x69a8ca62 verified patched readback-ok
+[92] pid=111 euid=501 Pong A2: slot patch done 4 of 4
+[92] pid=111 euid=501 Pong A2: bootstrap_check_in com.apple.unfreed begin
+[92] pid=111 euid=501 Pong A2: bootstrap_check_in com.apple.unfreed -> 0 sp=3843
+[92] pid=111 euid=501 Pong A2: bootstrap_check_in com.apple.fairplayd begin
+[92] pid=111 euid=501 Pong A2: bootstrap_check_in com.apple.fairplayd -> 0 sp=4355
+[92] pid=111 euid=501 Pong A2: bootstrap_check_in com.apple.fairplayd.versioned begin
+[92] pid=111 euid=501 Pong A2: bootstrap_check_in com.apple.fairplayd.versioned -> 0 sp=4611
+[92] pid=111 euid=501 Pong A2: IOServiceMatching com_apple_driver_FairPlayIOKit -> 0x139e09300
+[92] pid=111 euid=501 Pong A2: matchings begin
+[92] pid=111 euid=501 Pong A2: matchings provider=com_apple_driver_FairPlayIOKit class=- uc=- -> 0 iter=0

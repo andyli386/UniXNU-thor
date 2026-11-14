@@ -1,0 +1,186 @@
+# v72 / 20261114-010642：当前线程、迁移结果与黑屏证据
+
+目录：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-010642
+本报告只读本轮已经完成提取并镜像到Mac的日志、既有符号及参考二进制，不操作手机、不挂载、不改源码。
+基线：v71 / PongBoot-pull-20261113-223514；更早诊断队列问题基线为v70 / 212453。
+
+## 1. 结论先行
+
+本轮仍发生黑屏，但最新SpringBoard样本不能继续称为“同一个MediaRemote once等待”：
+- v71的time965主线程是MRAVLocalEndpoint audioDiscoverySession中的dispatch_once wait。
+- v72的time972主线程run=1，正在Foundation/NSError错误描述构建路径，包含dispatch_once_callout（执行初始化），不是那条dispatch_once wait。
+- 最多16个回溯帧未到达上层业务调用者，无法从这个样本确定具体NSError内容或错误来源，更不能把错误对象描述代码本身判作根因。
+
+迁移流程已经向后运行并发出结束通知；迁移结果仍为success=false，不能说所有插件成功。
+本轮同时有两个独立的真实故障证据：
+1. PosterBoard PID426的process-launch watchdog超30秒，termination完整可读；
+2. audiomxd PID79和479确实crashed并换PID，且corpse创建因数量上限失败，未取得相应完整崩溃栈。
+音频崩溃在v71也已出现，不能归因为v72观察注入新引入。
+
+新音频daemon栈提高了覆盖，但没有提供SpringBoard once token、XPC目的端及请求owner，因此不能将这些并存问题拼成唯一已证明因果链。
+
+## 2. 版本、完整性和身份
+
+提取的libpong-ui18.dylib：
+UUID 1E1A9C7E-932C-3A62-AACA-EDAB65CA7A9F，194528 B，与v72候选一致。
+PongDM-85中有本轮运行时原生async hook回执；新增audiomxd/mediaremoted本地栈也实际存在。
+PongSB文件本轮未找到，语义边界见第7节。
+
+全部PongBoot cache=0x18db48000，size与此前一致，cache slide=0xdb48000。
+日志/报头明文22H374，但截断系统stackshot没有完整binaryImages；共享缓存符号继续按已挂载22H374参考缓存进行条件式对应，不能声称本轮设备cache UUID已独立核验。
+
+本轮不是“四份native都无用”：
+- .PosterBoard-...001059...ips，27768 B：顶部termination、captureTime、bootSessionUUID完整；内部stackshot截断。
+- .stacks+datamigrator-...000123...ips，27508 B：reason和memoryStatus完整，processByPid截断。
+- .stacks+datamigrator-...001203...ips，30192 B：reason和memoryStatus完整，processByPid截断。
+- JetsamEvent-...000832...ips，102316 B：完整JSON，181条process记录。
+
+没有完整全系统线程owner图，不等于完整字段不能使用。本报告只使用独立解码成功的完整字段，没有给损坏JSON补造尾部。
+
+PosterBoard顶部保留：
+bootSessionUUID=B1BD4690-CB70-485B-B466-79175874D744；
+uptime=640；
+displayState=ON；
+captureTime=1970-01-01 00:10:48.6563 +0000。
+这提供一份报告的Darwin boot身份，不是所有PongBoot快照都有独立boot UUID验证。
+displayState=ON属于该早期采样，不是843秒后黑屏状态的证明。
+
+完整Jetsam中datamigrator UUID=5C6D0688-FEC4-3BAB-A1BE-F5D59C9E10E3，与参考执行文件一致。其main返回PC对应当前slide0xa46000。共享缓存UUID仍缺失，两种身份核验不能混为一谈。
+
+## 3. 迁移已经结束处理，但存在实际失败
+
+PongDM-85.txt：
+[74] diagnostics swizzled to the native async path；
+12条日志中1条安装、11次调用。
+原async=0被转成1的时间：530、712、729、755、761、779、823。
+其余79、332、391、590原本已经async=1。
+这些是调用前回执，不是原生API返回或诊断写盘完成回执。
+
+DM85共5批快照，time134/195/315/675/978。
+5批中均未采到v70的completion dispatch_sync返回点、PID timeout同步诊断返回点或OSAnalytics同步诊断栈。
+time978仅3线程，之后tick seconds964记录4线程；不能仅凭线程数宣称业务成功，但已不呈现v70那组持续双栈。
+
+新的外部完成证据：
+lockdownd.log 00:14:10.774044：
+Received notification: com.apple.datamigrator.migrationDidFinish
+00:14:24.887715：
+Data Migration Completed: true
+
+与此同时：
+com.apple.migration.plist
+LastSystemVersion=22H374
+DMLastMigrationResults.success=false
+DMLastMigrationResults.buildVersion=22H374
+
+准确解释是“迁移流程结束通知已发出，但最终插件总体结果为失败”，不是互相矛盾，也不能把通知中的Completed:true当成全部迁移成功。
+
+晚期datamigrator临时报告还给出明确失败对象：
+com.apple.PreferencesMigrator (PreferencesMigrator.migrator) - Got Watchdogged, pid 241, after 30 seconds (erase)
+该完整reason字段说明至少有PreferencesMigrator的watchdog事件。它不包含完整插件线程图，不能确定其内部等待对象；也不能未经关联证明它是唯一导致最终success=false的插件。
+
+## 4. SpringBoard当前栈与v71不同
+
+PID4、主线程T247：
+time130、192、311、674仍为旧FrontBoard系统shell初始化的同步reply路径。
+time972进入Foundation错误描述构建，原字段run=1、cpu=9：
+_objc_msgSend$length
+-[NSString substringWithRange:]
+__NSFrameworkPathFromLibraryPath
++[NSBundle bundleForClass:]
+__NSFoundationBundle block
+_dispatch_once_callout
+NSError _cocoaErrorString / _retainedUserInfoCallBackForKey:
+CoreFoundation error-description回调
+-[NSError redactedDescription]
+
+这是执行中的一个样本；不能将cpu=9擅自换算为9%，也不能仅因栈含once_callout就称once死锁。
+当前回溯在Foundation内被16帧上限截断，具体错误内容和上层业务仍未知。
+后续seconds963 / threads23 tick证明采样线程仍运行，不证明主线程一直保持同一栈或已经完成UI启动。
+
+因此：
+- 不能沿用v71最新MRAVLocalEndpoint audioDiscoverySession once为v72已实测根因；
+- 也不能据一次Foundation运行样本宣称媒体问题已彻底修好；
+- 目前只确定主线程样本已经变化，缺少足够晚期owner和错误内容来定最终阻塞。
+
+## 5. 新音频进程日志的实际含义
+
+mediaremoted PID10：
+time109/169/289/650/953，共5批。
+最新time953仅main runloop和workq可见，报告3线程（采样线程自身省略）。
+这并不证明所有MediaRemote请求均完成，也没有把SB某个RPC绑定到该进程。
+
+audiomxd出现三个实例：
+PID79：time130/190/312；
+PID479：time697/757/880；
+PID598：time944/1006。
+三组不能拼成同一个线程长时间卡住。
+
+最新PID598/time1006有：
+- main runloop；
+- T13880的PC/LR与多级帧在MIL，run=4、cpu=13；
+- CoreMedia的semaphore/runloop线程；
+- CoreAudio、caulk等semaphore线程；
+- AudioServerDriverTransports_Base的condition wait；
+- 其余workq或runloop。
+未取得内核waitInfo/owner，不能把MIL run=4直接定义为某个具体busy页，也不能把常见semaphore栈一律判为故障。
+
+Console完整原文：
+raw631.563131 audiomxd[79] Corpse failure, too many 6
+raw631.563168 Process[79] crashed: audiomxd. Too many corpses being created.
+raw884.024679 audiomxd[479] Corpse failure, too many 6
+raw884.024715 Process[479] crashed: audiomxd. Too many corpses being created.
+
+随后分别出现新PID479和598。上下文未给exit namespace/code/exception；本轮未提取到audiomxd IPS。
+可确定发生crash与corpse创建失败，不能把corpse数量上限或稍早CPU wake警告直接当原始崩因。
+
+主采集又核实v71已有PID77在raw962.662306 crashed并换PID625。
+所以这不是本轮新增代码导致崩溃的证明；本轮观测更完整且发生时刻不同，不能进行未经控制的单变量因果归因。
+
+## 6. PosterBoard watchdog与Jetsam应分开
+
+PosterBoard PID426：
+termination.code=2343432205（0x8badf00d）；
+namespace=<0xA>；
+process-launch watchdog；
+后台进程启动耗尽30.00秒wall-clock额度；
+报告应用CPU时间0.478秒、应用CPU占比0%（按报告原文）。
+PongDiag也记录该PID退出data=0x9并换PID498。
+
+这些足以确认一次具体的PosterBoard启动超时；内部stackshot不完整，不能确定是某一锁、音频RPC、I/O或调度导致超时。
+其他PosterBoard PID更换不能自动套用相同watchdog原因。
+本轮Console另有同PID对应：L21197原始[648.743767] Process[426] crashed，与上述PID426 watchdog报告对应，且早于显示清层。PID498在raw844.015622是idle-exit，不能称又一次watchdog。PID621在L31860显示Process crashed，原始时间字符串[989.1006275]有7位小数，本文原样保留、不擅自归一化；没有该PID的IPS，因此不能复制PID426的超时原因。PID653随后在raw1007.685322出现CPU wake警告，该警告本身不是崩溃原因。整体可确定UI周边进程并不稳定，但清层的直接提交者和原因仍缺证据。
+
+完整JetsamEvent 00:08:31.55：
+largestProcess=backboardd；
+唯一带reason的进程为lsd PID354，reason=highwater，rpages=4096。
+因此不能说这份Jetsam杀的是backboardd或SpringBoard。largestProcess与victim不是同义。
+该报告中SB4和BB40仍在列表里，active/frontmost也不是桌面已经可见的证明。
+
+## 7. 显示清层与缺失PongSB日志
+
+主报告已取得raw843.811附近的显示transition。本报告将其放在迁移流程结束附近的时序中，而不从接近的时间推导唯一原因。
+v72源码审计已明确：show中的task/pid取自内核presenter上下文，不是原始SwapEnd提交者。不能以此判定“内核主动清屏”或“某个用户进程明确提交空帧”。
+本轮set/gpu/graphics/surface字段可用于核对CPU填黑分支；具体条件由主显示分析引用实际transition记录，不补造字段。
+
+PongSB文件未找到。新增持久写入位于UIScreen等调用之后，且open失败没有独立errno回执。
+因此缺文件可能覆盖：wake没有进入主队列、在首条写入前阻塞、文件打开失败等情形。不能选一个未经证实的原因，也不能说wake执行成功。
+下一轮最小观察改善是：函数首行entry、每个selector调用前后、ABI PASS/SKIP、文件写失败errno，以及单调时间。main queue completed也只证明对象/软件调用路径，不能直接当物理背光发光证明。
+
+## 8. 具体下一步
+
+优先捕捉现有两个明确故障的原始原因：
+1. audiomxd退出时的signal/namespace/code和首个异常，避免仅剩corpse数量限制提示；
+2. PosterBoard启动watchdog的主线程/服务端等待及加载里程碑；
+3. SB当前NSError的domain/code和上层调用者，避免只停在redactedDescription内部；
+4. wake首条entry和显示原始SwapEnd提交者元数据。
+
+保留已经让DM流程前进的async诊断处理，保留真实false结果，不伪造迁移成功。
+当前音频daemon观察不足以替代请求ID、once token/owner或实际XPC端点关联；不要把所有后台音频等待拼成一条确定链。
+没有本轮证据支持只继续修改v71那个once点就能彻底修复黑屏。
+
+可复核：
+native-pongboot-late.json（本地原地址和条件符号）
+native-runtime-transition.json（关键线程、覆盖、结果、崩溃元数据）
+native-partial-documents.json（逐字段独立解码；标注完整/截断）
+audio-crash-context.json（两次crash上下文）
+native-identity-timeline.json（提取库身份、cache及部分报告boot UUID）

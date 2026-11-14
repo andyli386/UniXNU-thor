@@ -1,0 +1,61 @@
+Source: /Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+Observed UTC: 2026-11-14T02:39:24.998668+00:00
+1087: 		IOMemoryDescriptor *memory=base->client?base->client:base->memory;
+1088: 		size_t offset=(size_t)(base->pixels()-(base->client?base->kpixels:base->kbase));
+1089: 		beginGraphics();
+1090: 		gpuFrame=pong_scanout_frame(memory,offset,base->info.bytesPerRow,fPanelWidth,fPanelHeight)==1;
+1091:         pongDisplayTrace(20,swapWord(swap,SWAP_ID),gpuFrame?4:8,swapWord(swap,SWAP_SURFACE(0)),fPanelWidth,fPanelHeight,base->info.bytesPerRow);
+1092: 	}
+1093: 	/* A delivered GPU copy whose completion is uncertain must never race a
+1094: 	 * CPU write. Result 2 poisons the handoff; result 0 permits CPU fallback. */
+1095: 	if(pong_scanout_quarantined()){IOLockUnlock(fLock);return kIOReturnNotReady;}
+1096: #endif
+1097: 	if(fGpuOnly && !gpuFrame) {
+1098: 		static unsigned missed=0;
+1099: 		if(missed++<4)IOLog("PONG GPU ONLY: no completed GPU frame; CPU composition disabled\n");
+1100: 		IOLockUnlock(fLock);return kIOReturnNotReady;
+1101: 	}
+1102: 
+1103: 	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+1104: 		uint32_t sid = swapWord(swap, SWAP_SURFACE(layer));
+1105: 		int32_t src[4], dst[4];
+1106: 		MiniIOSurface * s;
+1107: 
+1108: 		layers |= sid != 0 ? 1u << layer : 0;
+1109: 		/* the frames' surfaces: is it a few, in turn? */
+1110: 		for (unsigned i = 0; layer == 0 && sid != 0 && i < 8; i++) {
+1111: 			if (fStatSurfaces[i] == 0 || fStatSurfaces[i] == sid) {
+1112: 				fStatSurfaces[i] = sid;
+1113: 				break;
+1114: 			}
+1115: 		}
+1116: 		if (sid == 0) {
+1117: 			/* the bottom layer taken away: nothing is shown, the screen is black */
+1118: 			if (!gpuFrame && layer == 0 && (set & 1) && fGraphics) {
+1119: 				for (uint32_t y = 0; y < fPanelHeight; y++) {
+1120: 					uint32_t *row=(uint32_t *)(fBase + (size_t)y * fRowBytes);
+1121: 					for (uint32_t x=0;x<fPanelWidth;x++) row[x]=0xff000000u;
+1122: 				}
+1123: 			}
+1124: 			continue;
+1125: 		}
+1126: 		memcpy(src, swap + SWAP_SOURCE(layer), sizeof(src));
+1127: 		memcpy(dst, swap + SWAP_DEST(layer), sizeof(dst));
+1128: 		s = surfaces[layer];
+1129: 		if (report) {
+1130: 			IOLog("MiniIOMobileFramebuffer: swap %u layer %u: surface %u%s (%ux%u '%c%c%c%c') "
+1131: 			    "from %d,%d %dx%d to %d,%d %dx%d, layers set 0x%x\n", swapWord(swap, SWAP_ID), layer, sid,
+1132: 			    s ? "" : " MISSING", s ? s->info.width : 0, s ? s->info.height : 0,
+1133: 			    s ? (int) (s->info.pixelFormat >> 24 & 0xff) : '?', s ? (int) (s->info.pixelFormat >> 16 & 0xff) : '?',
+1134: 			    s ? (int) (s->info.pixelFormat >> 8 & 0xff) : '?', s ? (int) (s->info.pixelFormat & 0xff) : '?',
+1135: 			    src[0], src[1], src[2], src[3], dst[0], dst[1], dst[2], dst[3], set);
+1136: 		}
+1137: 		if (s == NULL) {
+1138: 			continue;
+1139: 		}
+1140: 		if (s->info.bytesPerElement == 4 && s->info.planeCount == 0) {
+1141: 			if (!gpuFrame) drawLayer(s, src, dst);
+1142: 		}
+1143: 	}
+1144: 	drawn = mach_absolute_time();
+

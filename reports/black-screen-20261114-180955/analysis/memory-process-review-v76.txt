@@ -1,0 +1,123 @@
+THOR v76 / 2026-11-14 18:09:55 采集：内存、服务退出、UFS 与迁移评审
+对照：2026-11-14 15:39:48 的 v75；全部基于已提取源字节和现有源码，只读分析。
+
+一、确定结论
+
+本轮最终 RAM 仍为665MiB，没有扩容。新 bank 日志增加了可见性，但不能替代启动器拥有权、原始交接与裁剪前后证据。中后期原生快照 wired 约394–399MiB，memoryPressure=true，压缩器约135–138MiB，内存压力仍然存在。
+
+有若干改善迹象：在相同的 RAM 后979.808285秒窗口里，vm-compressor-thrashing处置从6次降到2次；同一13个预读窗口累计read_ms从47.773秒变35.063秒；迁移完成通知约提前7分多。它们不是受控单变量实验，不能证明某个v76改动单独起效，更不能替代UI成功。
+
+本轮没有lsd highwater记录，但不能由此宣布32MiB限额已经生效。lsd PID86仍消失并换成365，现有日志未确定其退出原因。唯一完整Jetsam里lsd的lifetimeMax仅14.67MiB，且没有实际memlimit字段，不能用这份报告验证32MiB覆盖。唯一highwater受害者是biomed PID21。
+
+surface计数两次都是live71MiB/kept pool0MiB，没有出现新释放回执。源码确认pool只在分配失败后回收重试，不是VM压力主动回收；新pool计量还有满池替换漏加容量的bug。因此这些行既不能证明主动回收已起作用，也不能证明整个启动阶段pool一直为0。
+
+migration落盘success仍false、.AppleSetupDone缺失；新原生报告再次包含“unsupported screen class, no apple logo found”。这项实际兼容问题并未因进度条更快而消失。
+
+二、RAM 的精确范围
+
+Console物理4–7行（重复回放位置见memory-supplement-v76.json）：
+raw26.067760：3 owned banks，665MiB managed before kernel reservations，4KiB页。
+bank0：0x800004000 + 0x10000000，268435456字节，256MiB。
+bank1：0x800000000 + 0x4000，16384字节，0.015625MiB。
+bank2：0x810004000 + 0x198fc000，428851200字节，408.984375MiB。
+
+按地址排序三段首尾连续，合并为[0x800000000,0x829900000)，共0x29900000=697303040字节=665MiB。bank1打印“0MiB”是整数取整，不是零长度，也不能把256+0+408误算成实际只有664MiB。
+
+v76源码打印位于XNU裁剪之后，只能确定最终接纳结果。源码代理核对的第一个高端allowed区间为921MiB，减DarwinBoot的256MiB高端保留恰好665MiB，支持当前只取得这段范围的解释；仍需UEFI内存图/每段申请结果才能确认其他范围为何没取得。
+raw26.301645：vm_compressor_mode=2；raw27.294698：VM swap disabled by boot argument。
+
+三、共同窗口与真实内存状态
+
+本轮Console最后标准六位小数时间戳为raw1005.876045，减RAM锚点26.067760，覆盖979.808285秒。
+v75锚点26.137305，比较截止raw1005.945590。两轮完整日志长短不同，以下为共同窗口：
+
+原因                         v75     v76
+idle-exit                    145      99
+long-idle-exit                17      42
+vm-compressor-thrashing        6       2
+highwater                     1       1
+总计                        169     144
+
+本轮highwater是biomed；v75是lsd。正常idle处置单独保留，不叫作崩溃。当前没有保留到SpringBoard、backboardd、runningboardd、audiomxd被memorystatus杀死的事件。
+
+原生报告内存表（使用各报告自己的时钟，不与Console raw时间精确相减）：
+报告/报告时钟              wired MiB  compressor MiB   pressure
+datamigrator 00:01:25        310.00         19.73        false
+Jetsam       00:05:08        373.83         87.29        未提供布尔值
+PosterBoard  00:11:19        399.25        134.93        true
+unknown      00:16:33        394.12        138.13        true
+
+两份后期报告表明压力依然存在。早期wired高于v75早期快照，但两次显示初始化时间不同，不能把非同阶段的一对值直接判为回归。
+唯一完整Jetsam的largestProcess=backboardd PID40，rpages=19774→77.2421875MiB，lifetimeMax=95.1953125MiB。SpringBoard PID5约5.21MiB，runningboardd PID6约2.97MiB。进程rpages与系统wired不能简单相加，也不能单凭最大进程判断泄漏。
+Jetsam zoneMapSize=65703936字节约62.66MiB；largestZone=APFS_4K_OBJS，10403840字节约9.92MiB。不支持把全部约400MiB wired都归给这一APFS zone。
+
+首次soft-limit回执raw262.907997：available=98.9140625MiB，compressor=87.2890625MiB。
+清屏附近同一raw时钟的两个采样：raw677.164272 available85.875MiB/compressor131.3046875MiB；raw685.469363 available66.16015625MiB/compressor126.8984375MiB。这只能说明该阶段资源状态，不能凭两个采样证明清屏由内存触发。
+最后保留的内存回执raw977.308286：available_pages=22028，即86.046875MiB；compressor_size=34131，即133.32421875MiB。这是内核该指标，不等于free页数。
+
+四、IOSurface 与 pool：新日志出现，但回收效果没有被证实
+
+Console物理1823/raw83.486430：
+MiniIOSurface: live 71 MB in 4 surfaces, kept pool 0 MB (crossed 1 x 64MB)
+物理8145/raw269.356357：
+MiniIOSurface: live 71 MB in 4 surfaces, kept pool 0 MB (release crossed 1 x 64MB)
+物理26364/raw838.757881：
+MiniIOSurface: selector 44 not implemented (scalars 4 in, 0 out; structure 0 in, 0 out)
+
+在保留Console中没有“released ... kept pieces ... under pressure”行。不能把缺行当作绝对从未执行，但本轮没有该回收路径成功的运行证据。
+
+源码评审确定：MiniIOSurfaceReleaseKept唯一调用位于两种surface backing分配均失败后的第二次尝试，没有主动VM pressure通知、可配置总字节预算或真实owner记账。literal“under pressure”不能取代代码里的真实触发条件。
+
+另有确定的新计量bug：满池替换减了被驱逐块容量却漏加新块，随后减法可能uint64下溢；当前变量只用于计量/打印，释放按真实四槽和busy状态执行，尚无证据表明这个计量错误直接控制分配/导致黑屏。当前两条0MiB样本没有排除该bug。统计又只在live跨桶时打印，不能代表后半段pool状态。
+
+五、lsd 与其他服务退出
+
+lsd：
+PongDiag物理22：[69] []→[86]；127：[485] [86]→[]；129：[490] []→[365]。
+没有lsd PONG EXIT、memorystatus处置或完整原生终止原因可闭合PID86的消失。因此这里只报告换代，不称highwater、SIGABRT或watchdog。
+唯一完整Jetsam中的PID86：active、priority140、rpages864=3.375MiB，lifetimeMax3756=14.671875MiB。报告无active/inactive memlimit字段。既未达到旧16MiB阈值，也未直接读出32，不能用“本轮没有highwater”证明新策略已加载。
+
+确有CPU monitor相关回执：raw109.514357 PID86约41秒唤醒45100次；raw495.494795 PID365约8秒唤醒45063次；PID86有391条独立“denied attempt to escape CPU monitor”日志。v75已有同类警告及782条拒绝，不是v76才出现。它们值得在LS服务链中核对，但警告本身不能替代退出原因。
+
+biomed：raw262.914164 PID21 highwater；原生完整Jetsam也标记reason=highwater，rpages3180=12.421875MiB、priority40。
+
+同一共同窗口内的业务退出：
+- audiomxd：v75 3次SIGABRT；v76 1次，PID81/raw964.638680，namespace39，“writing stackshot failed, aborting”。本轮没有原生AQ reason报告，不能直接把v75 PID492的RPC timeout原文贴作本轮确定原因。
+- PosterBoard：v75 1次namespace10/0x8badf00d launch watchdog，另1次明确idle退出；v76 3次同类launch watchdog，PID405/raw682.446748、446/raw818.146394、496/raw949.613220。当前两份相关原生报告分别确认405与446的30秒启动watchdog。总体指标并非全部改善。
+- usermanagerd：watch只观察到PID69，本轮没有它的退出回执；persona manifest version1确实加载，nextsession.kb/UserSessionID相关错误仍有。不能沿用早期照片中的persona连崩结论。
+- fairplayd.A2：44条独立PONG EXIT均signal0/status0/namespace0，是正常退出记录。
+- migrationpluginwrapper：3条独立退出，PID149/218/245均signal0/status0/namespace0。本轮未出现v75后期的三条namespace2/SIGKILL。
+
+六、预读与 migration
+
+两轮同为13窗口、318.515625MiB：v75累计read_ms47773，v76为35063，减少12.710秒。当前worker epoch104打开首文件、139记录finished；13个窗口均记录complete/gate-ok，其中最后截到EOF的窗口保留真实短目标长度。没有deferred/gate-fail行。
+这表明这一批窗口此次读取更快，不是纯盘带宽测试，也不能归因于尚未修改的预读门控。实际界面仍有其他等待条件。
+
+lockdownd自己的用户态时钟：
+                     v75                 v76
+migrationDidFinish   00:19:19.049694      00:11:56.443533
+Completed=true      00:19:40.691340      00:12:03.302286
+同类通知分别提前442.606161秒与457.389054秒。完成通知不等同所有插件成功。
+
+本轮PongDM-84.txt有3次diagnostics：[80]async1、[333]async1、[627]async0→1。v75完整留存文件有13次，其中10次async0→1；文件覆盖时长不同，不能把3/13当成相同时间窗口故障率。
+新的datamigrator原生报告（00:01:25，PID84）再次保留完整reason字段：“unsupported screen class, no apple logo found”。该文件与v75不同，是新事件；body截断，但该字段可独立完整解码。
+
+提取到的mobile/Library/Preferences/com.apple.migration.plist中DMLastMigrationResults.success=false；db/.AppleSetupDone未出现。migration、migrationpluginwrapper、springboard.datamigrator三份plist与v75字节相同：它们是本轮提取时的持久状态，内容相同本身不能证明重新执行过每个插件。本轮新的PongDM/通知/原生报告则证明迁移相关路径确实再次活动。
+
+七、日志完整性与结论边界
+
+Console4086189字节，31607物理行；分析按完整字节行分组得到4751条独立非空行，保留所有重复物理位置。26802份重复非空行、33个NUL、32个物理WRAP。原始内容未改、未在NUL处截断；非标准小数时间戳不转换成精确时刻。相同完整时间戳行的回放仅计一次，日志缺失不能证明事件绝对不存在。
+
+本轮4份IPS：1份完整Jetsam、3份截断body；截断报告仅引用能够独立解码的完整字段，不补括号伪造完整JSON/线程图。两份PosterBoard相关报告的bootSessionUUID一致为67047A62-7BBE-4259-AFAD-32E03500F479，与旧轮不同。报告自己的捕获日期、用户态time(NULL)、Console raw为不同时间域，不混算精确时序。
+
+当前最稳妥结论是：v76确有一些阶段耗时和处置次数改善，但RAM没有增加、wired/压缩压力仍高、lsd有效限额未读回、selector44仍Unsupported、migration具体兼容错误复现；pool回收尚无成功运行回执且计量新增bug。不能把这次黑屏说成17项方案已经完整实施后仍无效，也不能仅靠内存数字断定UI的直接阻塞者。
+
+八、结构化证据
+
+analysis/memory-current.json：Console计数、内存事件、统一窗口、进程与plist。
+analysis/memory-summary-current.json：摘要、原生memoryStatus、完整性与退出原因。
+analysis/memory-supplement-v76.json：逐bank、surface完整原文及物理位置、native字段、迁移内容。
+analysis/memory-focus-v76.json：精确bank算术、lsd策略边界、共同窗口业务退出、CPU monitor对照。
+analysis/native-memory-body-validity.json：每份IPS完整性。
+analysis/analyze-memory-v76.py、analyze-memory-extra-v76.py：此次解析逻辑。
+代码对照：THOR-current-code-review-20261114/v76-source-review.txt及同目录原始源码证据。

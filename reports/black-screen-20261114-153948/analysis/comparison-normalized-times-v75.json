@@ -1,0 +1,23 @@
+{
+  "dedup": {
+    "console_bytes": 6220563,
+    "physical_lines": 47429,
+    "nul_bytes": 49,
+    "unique_nonempty": 7770,
+    "duplicate_nonempty_lines": 39589,
+    "noncanonical_timestamp_types": 76,
+    "wrap_physical_lines": 48
+  },
+  "ram_relative": {
+    "v74": {
+      "first": 59.600352,
+      "clear": 666.159832,
+      "last": 977.793086
+    },
+    "v75": {
+      "first": 71.277595,
+      "clear": 1130.243306,
+      "last": 1458.21944
+    }
+  }
+}

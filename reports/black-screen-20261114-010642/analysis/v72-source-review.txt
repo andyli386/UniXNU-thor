@@ -1,0 +1,154 @@
+THOR v72 / 2026-11-14：显示来源、音频观察与持久唤醒日志源码复核
+======================================================================
+源码：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong
+HEAD：258f07ec1ffa922d243679d5affa1b21dc355ca4
+时间：2026-11-13 23:11:59 +08:00
+基线：ff088266071d56991ce3cc0aa8c560561f412961（v71）
+复核时工作树干净。已重新阅读AGENTS.md。
+范围：只读最新代码、现成配置与候选库UUID/nm；不访问手机，不挂载，不构建、不刷机、不做镜像哈希/回读审计或benchmark。
+设备实测结果由本轮采集另行补充，以下不能被当成已上机验收。
+
+一、结论
+----------------------------------------------------------------------
+v72增加了有价值的实际显示mask/渲染状态、音频进程栈和SpringBoard落盘回执，但没有新增音频业务实现或显示功能修复。
+最重要的问题是新增“提交者task/pid”采集位置不正确：
+它在内核presenter线程的show()里查询当前进程，不能恢复发起SwapEnd的用户进程。
+因此新日志中task/pid应按“执行show的上下文”解释，不能据此宣称内核主动决定清屏，也不能用它回答是SpringBoard/backboardd谁提交了空帧。
+
+新set/gpu/graphics/swap字段仍有效：若本轮EMPTIED日志明确为surface全0、set&1、gpu=0、graphics=1，那么与show源码结合，可以补上v71缺失的CPU填黑分支条件。这是本轮值得重点验收的改善。
+
+二、版本与构建边界
+----------------------------------------------------------------------
+tracked Git diff只有：
+userland/ui_compat18.c：35行新增/调整；
+userland/boot_snapshot18.c：1行新增；
+总31 insertions / 5 deletions。
+提交说明同时称重新构建kernel并加入显示transition日志，但kernel源文件在独立build-tree中，不在上述两文件diff内。
+
+实际检查的kernel源：
+/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+该文件git ls-files --error-unmatch返回1，在当前XNU仓库不受跟踪。不能用主仓库HEAD或XNU HEAD单独固定其全部内容；本报告引用当前实际文件行号。需要把修改固化到正式patch/来源流程，避免仅存临时build-tree。
+
+现成候选：
+/tmp/libpong-ui18-v72.dylib
+194528字节
+UUID 1E1A9C7E-932C-3A62-AACA-EDAB65CA7A9F
+nm可见 _wake_home=0x6998、_pong_dm_capture=0x9324、_pong_sb_note=0xad2c。
+这证明候选库的身份/符号存在；本轮设备库须独立匹配，不由候选推定。
+
+/tmp/v72-final.toml：
+args=939个ASCII字节，含NUL为940，小于1024容量。
+注入名单确实新增mediaremoted、audiomxd，同时保留pong_boot_snapshot=1、vm_compressor=2。
+本轮不是只有源码白名单而忘加启动配置；设备是否实际用了配置仍需armed/新进程日志确认。
+
+三、显示transition日志：可用字段与确定缺陷
+----------------------------------------------------------------------
+MiniIOMobileFramebuffer.cpp:1135–1157：
+仅layers != fLayersShown时打印：
+MiniIOMFB layers EMPTIED/RESTORED/CHANGED:
+task=... pid=... set=0x... surfaces=... gpu=... graphics=... swap=...
+
+分类：
+- 新layers=0 → EMPTIED；
+- 旧layers=0且新非0 → RESTORED；
+- 其余非0 mask变化 → CHANGED。
+这里比较的是层bitmask，不是popcount层数。
+旧日志swap #N是fSwapsShown；新swap=N是swapWord(SWAP_ID)，两者现在可以区分。
+set、四个surface ID、gpuFrame和fGraphics是在show处理时读取/产生，适合核实实际分支。
+仍未打印SWAP_LAYERS_CLEARED。
+
+确定的调用者来源问题：
+:1149 proc_selfname(submitter,...)
+:1152 proc_selfpid()
+发生在show里。
+:505 kernel_thread_start(presenterMain,this,&thread)；
+:942–944 presenterMain→presenter；
+:958–961 presenter从队列取swap并调用show。
+本文件show的唯一调用是这条内核工作线程路径。
+XNU osfmk/kern/thread.c:1905–1916 kernel_thread_create明确task=kernel_task；:1949/:1969构成kernel_thread_start调用链。
+所以show中的current process属于内核presenter，既不是调用者线程也不是由队列保存的提交者。现有队列没有携带提交者PID/TID/name。
+代码注释“when the swap runs on caller context”不适用于当前presenter路径。
+
+最小忠实修复：
+在IOMobileFramebufferUserClient::externalMethod selector5（SwapEnd）的用户线程入口，或present入队前记录PID/TID/name与原始Swap ID；
+将这份小型provenance元数据按SWAP_QUEUE相同槽位保存，presenter取swap时一并取出，再在show transition中打印。
+不能等到show里才查询current process。避免仅存proc指针而不管理生命周期，也避免PID复用造成误配。
+保留原set/cleared/surface/原始ID/实际show结果；只在状态变化时有界输出。
+
+CPU清黑条件仍是:1101–1107：
+layer0 sid==0、set&1、fGraphics、!gpuFrame。
+如果本轮transition回执给出全部条件，该日志在分支之后打印，可结合代码证明CPU黑色填充执行；否则保留缺失条件。
+这仍不能证明背光被关闭或hardware sleep。selector12 RequestPowerChange依然仅返回成功，不执行面板电源操作。
+不能通过保留旧帧或伪造surface来掩盖真实清层请求。
+
+四、音频进程观察：覆盖增加，不等于依赖链闭合
+----------------------------------------------------------------------
+ui_compat18.c:2488–2491：
+mediaremoted、audiomxd与locationd/filecoordinationd走snapshot后return的分支。
+不再注册通用compositor_image，避免persona/container策略加入观察进程。
+它们仍在分支前执行通用dup2/setvbuf/banner；“观察分支”不是零时序扰动。
+
+boot_snapshot18.c:682–688新增两个名字。
+初次快照阈值仍60秒，短命实例可能没有完整快照。
+最多32线程、最多16个回溯帧，仍缺XPC request-id/port owner/selector与once owner。
+仅拿到mediaremoted/audiomxd栈，不足以证明SpringBoard当前请求一定正在这两个进程的哪条线程处理。
+v71基于符号的候选服务方向不能被源码注释升格为实测RPC端点；本轮要用真实当前栈或服务端入口/回复关联验证。
+
+没有新增音频driver、HAL endpoint、MediaRemote/AVFCore协议或超时实现。因此“加观察”不能直接称为黑屏/媒体初始化功能修复。
+
+五、SpringBoard持久日志：能证明什么，还缺什么
+----------------------------------------------------------------------
+ui_compat18.c:164–180新增pong_sb_note：
+/private/var/mobile/Library/Logs/PongSB-<pid>.txt
+open append → dprintf(time(NULL)) → fsync → close → pong_console_line。
+
+wake_home现在将原3类消息写入该文件：
+screen native/logical/scale；
+native home request accepted；
+main queue wake completed backlight/lockscreen存在标记。
+
+这解决了v71仅看Console漏用户态日志的观察缺口。
+但第一条记录在UIScreen mainScreen/nativeBounds/bounds/scale/nativeScale调用之后；没有函数最开始的entry。
+若主队列没进入，或以上任一调用卡住，或open失败，都可能无PongSB文件。
+open失败没有errno专用回执。
+completed中的backlight/lockscreen只表示对象存在，不逐项表示hold/wake selector ABI命中或硬件亮屏。
+unlock只在isUILocked及ABI条件下调用，无该行不等于unlock失败。
+wake_home仍仅安排一次，hold仍为300秒，不是永久亮屏。
+time(NULL)不是单调耗时；fsync在主队列同步执行，新增观察有少量时序影响，实际是否阻塞需当前栈，不凭代码猜黑屏原因。
+
+建议：
+函数第一条写entry；
+逐项记录对象/selector ABI PASS或SKIP、调用开始/返回；
+记录持久文件open/write失败errno；
+用单调时间关联显示事件；
+对于void wake请求，不把返回当硬件发光证明。
+
+六、采集应新增/保留的文件
+----------------------------------------------------------------------
+新增重点：
+- mobile/Library/Logs/PongSB-*.txt
+- logs/PongBoot-mediaremoted.txt
+- mobile/Library/Logs/PongBoot-mediaremoted.txt
+- logs/PongBoot-audiomxd.txt
+- mobile/Library/Logs/PongBoot-audiomxd.txt
+snapshot按euid0/非0选择两个目录，因此两侧均应收集，不能仅凭缺某一侧文件判未注入。
+
+继续保留：
+- PongConsole.txt（检索新MiniIOMFB layers EMPTIED/RESTORED/CHANGED；有NUL时用文本方式读）
+- PongDM-*.txt、PongA2-*.txt
+- SpringBoard/backboardd/runningboardd/datamigrator等PongBoot
+- CrashReporter含隐藏临时.stacks*.ips
+- 真实迁移结果plist
+- 实际libpong-ui18.dylib身份（不做镜像哈希）
+
+七、验收顺序
+----------------------------------------------------------------------
+1. 用本轮提取库UUID/大小对应v72；确认armed配置与两个新daemon日志。
+2. 把EMPTIED的set/gpu/graphics/surface条件与show清黑分支对应；task/pid当前按内核presenter上下文解释，不误作提交者。
+3. 看PongSB是否已有screen、accepted、completed；按逐条语义解释，缺文件不直接推断主队列未执行。
+4. 当前SpringBoard等待与新音频daemon线程关联；如缺owner/endpoint，明确未知，不拼接确定链。
+5. 迁移仍用真实结果、PongDM调用前/后与栈验收。v72没有新增DM调用后日志，不能从forcing async=1等同完成。
+6. 只有取得实际提交者与调用原因，才区分正常撤下启动画面、主动熄屏、未形成下一界面或驱动错误。
+
+本报告为源码/现成候选复核，未将任何未读取的本轮设备结果预先写成成功。
+

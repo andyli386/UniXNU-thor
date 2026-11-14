@@ -1,0 +1,23 @@
+Pong tick: filecoordinationd pid=309 seconds=60 threads=5
+Pong boot snapshot BEGIN: filecoordinationd pid=309 seconds=60 time=474 threads=5
+Pong boot snapshot: filecoordinationd pid=309 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=100a80000 cache=0x195284000 size=f37c8000
+thread=1 tid=6751 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f4cda20 sp=16f4cda00 frames: 1f664aab0
+thread=2 tid=6804 state_result=0 info_result=0 run=3 cpu=0 pc=1e351cf60 lr=19f372990 fp=16f553fa0 sp=16f553f90 frames: 19f372964 0
+thread=3 tid=7354 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f5d9b50 sp=16f5d9b30 frames: 1f664aab0
+thread=4 tid=7380 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f65fb50 sp=16f65fb30 frames: 1f664aab0
+Pong boot snapshot END: filecoordinationd pid=309 seconds=60 sampled=4 of 5
+Pong tick: filecoordinationd pid=309 seconds=120 threads=3
+Pong boot snapshot BEGIN: filecoordinationd pid=309 seconds=120 time=535 threads=3
+Pong boot snapshot: filecoordinationd pid=309 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=100a80000 cache=0x195284000 size=f37c8000
+thread=1 tid=6804 state_result=0 info_result=0 run=3 cpu=0 pc=1e351cf60 lr=19f372990 fp=16f553fa0 sp=16f553f90 frames: 19f372964 0
+thread=2 tid=8417 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f5d9b50 sp=16f5d9b30 frames: 1f664aab0
+Pong boot snapshot END: filecoordinationd pid=309 seconds=120 sampled=2 of 3
+Pong tick: filecoordinationd pid=309 seconds=182 threads=3
+Pong tick: filecoordinationd pid=309 seconds=242 threads=3
+Pong boot snapshot BEGIN: filecoordinationd pid=309 seconds=242 time=656 threads=3
+Pong boot snapshot: filecoordinationd pid=309 seconds=242 image0=/private/var/pong/libpong-ui18.dylib image_slide=100a80000 cache=0x195284000 size=f37c8000
+thread=1 tid=6804 state_result=0 info_result=0 run=3 cpu=0 pc=1e351cf60 lr=19f372990 fp=16f553fa0 sp=16f553f90 frames: 19f372964 0
+thread=2 tid=8417 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f5d9b50 sp=16f5d9b30 frames: 1f664aab0
+Pong boot snapshot END: filecoordinationd pid=309 seconds=242 sampled=2 of 3
+Pong tick: filecoordinationd pid=309 seconds=300 threads=3
+Pong tick: filecoordinationd pid=309 seconds=360 threads=3

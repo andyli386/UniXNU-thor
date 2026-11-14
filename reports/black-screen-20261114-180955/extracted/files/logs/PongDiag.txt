@@ -1,0 +1,185 @@
+Pong diag: worker start pid=6 time=44
+[44] Pong console capture: proc_info dmesg pid=6 first=44960B
+[49] Pong watch: fairplayd.A2 (none) -> [60]
+[49] Pong watch: fairplaydeviceidentityd (none) -> []
+[49] Pong watch: locationd (none) -> [44]
+[49] Pong watch: timed (none) -> [43]
+[49] Pong watch: lockdownd (none) -> [54]
+[49] Pong watch: usermanagerd (none) -> [69]
+[49] Pong watch: containermanagerd (none) -> [45]
+[49] Pong watch: PosterBoard (none) -> []
+[49] Pong watch: SpringBoard (none) -> [5]
+[49] Pong watch: backboardd (none) -> [40]
+[49] Pong watch: runningboardd (none) -> [6]
+[49] Pong watch: lsd (none) -> []
+[49] Pong watch: com.apple.datamig (none) -> []
+[49] Pong watch: com.apple.migrationplug (none) -> []
+[49] Pong watch: datamigratorhelper (none) -> []
+[49] Pong watch: securityd (none) -> []
+[49] Pong watch: mobileassetd (none) -> []
+[64] Pong watch: containermanagerd [45] -> [72,45]
+[64] Pong watch: securityd [] -> [78]
+[69] Pong watch: lsd [] -> [86]
+[69] Pong watch: com.apple.datamig [] -> [84]
+[69] Pong watch: mobileassetd [] -> [82]
+[79] Pong watch: fairplayd.A2 [60] -> []
+[79] Pong watch: pid 60 exited data=0x0
+[89] Pong watch: fairplayd.A2 [] -> [130]
+[94] Pong watch: com.apple.migrationplug [] -> [149]
+[99] Pong watch: fairplayd.A2 [130] -> []
+[99] Pong watch: pid 130 exited data=0x0
+[104] Pong cache pre-read: opened /System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.01
+[104] Pong cache pre-read: pool free=5317(incl speculative) inactive=32793
+[109] Pong watch: fairplayd.A2 [] -> [175]
+[114] Pong watch: fairplayd.A2 [175] -> []
+[114] Pong watch: pid 175 exited data=0x0
+[117] Pong cache pre-read: .01 [0+68MiB] read=71303168 of 71303168 bytes ms=12529 complete complete gate-ok
+[117] Pong cache pre-read: opened /System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.03
+[117] Pong cache pre-read: pool free=3513(incl speculative) inactive=33984
+[119] Pong cache pre-read: .03 [21+19MiB] read=19922944 of 19922944 bytes ms=2464 complete complete gate-ok
+[119] Pong cache pre-read: pool free=5030(incl speculative) inactive=32076
+[123] Pong cache pre-read: .03 [44+30MiB] read=31457280 of 31457280 bytes ms=3869 complete complete gate-ok
+[123] Pong cache pre-read: opened /System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.05
+[123] Pong cache pre-read: pool free=3601(incl speculative) inactive=33126
+[125] Pong cache pre-read: .05 [30+26MiB] read=27262976 of 27262976 bytes ms=1900 complete complete gate-ok
+[125] Pong cache pre-read: opened /System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.09
+[125] Pong cache pre-read: pool free=3845(incl speculative) inactive=32618
+[128] Pong cache pre-read: .09 [10+30MiB] read=31457280 of 31457280 bytes ms=3042 complete complete gate-ok
+[128] Pong cache pre-read: opened /System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.11
+[128] Pong cache pre-read: pool free=4649(incl speculative) inactive=31710
+[129] Pong watch: fairplayd.A2 [] -> [191]
+[130] Pong cache pre-read: .11 [46+12MiB] read=12582912 of 12582912 bytes ms=1812 complete complete gate-ok
+[130] Pong cache pre-read: pool free=2986(incl speculative) inactive=33135
+[133] Pong cache pre-read: .11 [88+10MiB] read=10485760 of 10485760 bytes ms=2973 complete complete gate-ok
+[133] Pong cache pre-read: opened /System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.25
+[133] Pong cache pre-read: pool free=3600(incl speculative) inactive=32213
+[133] Pong cache pre-read: .25 [16+24MiB] read=25165824 of 25165824 bytes ms=577 complete complete gate-ok
+[133] Pong cache pre-read: pool free=3158(incl speculative) inactive=32373
+[134] Pong cache pre-read: .25 [72+26MiB] read=27262976 of 27262976 bytes ms=598 complete complete gate-ok
+[134] Pong cache pre-read: opened /System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.27
+[134] Pong cache pre-read: pool free=3984(incl speculative) inactive=31463
+[136] Pong cache pre-read: .27 [14+28MiB] read=29360128 of 29360128 bytes ms=2408 complete complete gate-ok
+[136] Pong cache pre-read: opened /System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.31
+[136] Pong cache pre-read: pool free=3951(incl speculative) inactive=31134
+[138] Pong cache pre-read: .31 [0+28MiB] read=29360128 of 29360128 bytes ms=2096 complete complete gate-ok
+[138] Pong cache pre-read: pool free=4231(incl speculative) inactive=31049
+[139] Pong cache pre-read: .31 [82+10MiB] read=1589248 of 1589248 bytes ms=96 clamped to EOF complete gate-ok
+[139] Pong cache pre-read: opened /System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64.40
+[139] Pong cache pre-read: pool free=3756(incl speculative) inactive=31547
+[139] Pong cache pre-read: .40 [78+16MiB] read=16777216 of 16777216 bytes ms=699 complete complete gate-ok
+[139] Pong cache pre-read: worker finished
+[139] Pong watch: fairplayd.A2 [191] -> [201]
+[139] Pong watch: pid 191 exited data=0x0
+[144] Pong watch: fairplayd.A2 [201] -> []
+[144] Pong watch: pid 201 exited data=0x0
+[149] Pong watch: fairplayd.A2 [] -> [206]
+[154] Pong watch: fairplayd.A2 [206] -> []
+[154] Pong watch: pid 206 exited data=0x0
+[159] Pong watch: com.apple.migrationplug [149] -> [218]
+[164] Pong watch: fairplayd.A2 [] -> [223]
+[174] Pong watch: fairplayd.A2 [223] -> []
+[174] Pong watch: pid 223 exited data=0x0
+[179] Pong watch: fairplayd.A2 [] -> [230]
+[189] Pong watch: fairplayd.A2 [230] -> [237]
+[189] Pong watch: pid 230 exited data=0x0
+[199] Pong watch: fairplayd.A2 [237] -> [241]
+[199] Pong watch: pid 237 exited data=0x0
+[204] Pong watch: fairplayd.A2 [241] -> []
+[204] Pong watch: pid 241 exited data=0x0
+[209] Pong watch: fairplayd.A2 [] -> [244]
+[209] Pong watch: com.apple.migrationplug [218] -> [245]
+[214] Pong watch: fairplayd.A2 [244] -> []
+[214] Pong watch: pid 244 exited data=0x0
+[235] Pong watch: fairplayd.A2 [] -> [255]
+[240] Pong watch: fairplaydeviceidentityd [] -> [262]
+[255] Pong watch: fairplayd.A2 [255] -> [266]
+[255] Pong watch: pid 255 exited data=0x0
+[270] Pong watch: fairplayd.A2 [266] -> []
+[270] Pong watch: pid 266 exited data=0x0
+[290] Pong watch: fairplayd.A2 [] -> [274]
+[310] Pong watch: fairplayd.A2 [274] -> [288]
+[310] Pong watch: pid 274 exited data=0x0
+[325] Pong watch: fairplayd.A2 [288] -> [293]
+[325] Pong watch: pid 288 exited data=0x0
+[355] Pong watch: fairplayd.A2 [293] -> []
+[355] Pong watch: pid 293 exited data=0x0
+[365] Pong watch: fairplayd.A2 [] -> [302]
+[370] Pong watch: fairplayd.A2 [302] -> []
+[370] Pong watch: pid 302 exited data=0x0
+[375] Pong watch: fairplayd.A2 [] -> [306]
+[395] Pong watch: fairplayd.A2 [306] -> [314]
+[395] Pong watch: pid 306 exited data=0x0
+[410] Pong watch: mobileassetd [82] -> []
+[415] Pong watch: mobileassetd [] -> [321]
+[420] Pong watch: fairplayd.A2 [314] -> [324]
+[420] Pong watch: pid 314 exited data=0x0
+[435] Pong watch: fairplayd.A2 [324] -> [330]
+[435] Pong watch: pid 324 exited data=0x0
+[440] Pong watch: fairplayd.A2 [330] -> []
+[440] Pong watch: pid 330 exited data=0x0
+[445] Pong watch: fairplayd.A2 [] -> [337]
+[460] Pong watch: fairplayd.A2 [337] -> [343]
+[460] Pong watch: pid 337 exited data=0x0
+[470] Pong watch: fairplayd.A2 [343] -> []
+[470] Pong watch: lockdownd [54] -> []
+[470] Pong watch: pid 343 exited data=0x0
+[475] Pong watch: fairplayd.A2 [] -> [348]
+[485] Pong watch: lsd [86] -> []
+[490] Pong watch: fairplayd.A2 [348] -> [371]
+[490] Pong watch: lsd [] -> [365]
+[490] Pong watch: pid 348 exited data=0x0
+[500] Pong watch: fairplayd.A2 [371] -> []
+[500] Pong watch: pid 371 exited data=0x0
+[505] Pong watch: fairplayd.A2 [] -> [378]
+[520] Pong watch: fairplayd.A2 [378] -> []
+[520] Pong watch: pid 378 exited data=0x0
+[525] Pong watch: fairplaydeviceidentityd [262] -> []
+[535] Pong watch: fairplayd.A2 [] -> [394]
+[550] Pong watch: fairplayd.A2 [394] -> [402]
+[550] Pong watch: pid 394 exited data=0x0
+[560] Pong watch: fairplayd.A2 [402] -> [407]
+[560] Pong watch: PosterBoard [] -> [405]
+[560] Pong watch: pid 402 exited data=0x0
+[575] Pong watch: fairplayd.A2 [407] -> []
+[575] Pong watch: pid 407 exited data=0x0
+[580] Pong watch: fairplayd.A2 [] -> [414]
+[595] Pong watch: fairplayd.A2 [414] -> []
+[595] Pong watch: pid 414 exited data=0x0
+[630] Pong watch: fairplayd.A2 [] -> [422]
+[660] Pong watch: fairplayd.A2 [422] -> []
+[660] Pong watch: pid 422 exited data=0x0
+[670] Pong watch: fairplayd.A2 [] -> [439]
+[685] Pong watch: PosterBoard [405] -> [446]
+[685] Pong watch: com.apple.migrationplug [245] -> []
+[685] Pong watch: pid 405 exited data=0x9
+[705] Pong watch: lockdownd [] -> [447]
+[710] Pong watch: fairplayd.A2 [439] -> []
+[710] Pong watch: pid 439 exited data=0x0
+[720] Pong watch: fairplayd.A2 [] -> [454]
+[735] Pong watch: fairplayd.A2 [454] -> [467]
+[735] Pong watch: pid 454 exited data=0x0
+[750] Pong watch: fairplayd.A2 [467] -> []
+[750] Pong watch: pid 467 exited data=0x0
+[755] Pong watch: fairplayd.A2 [] -> [472]
+[785] Pong watch: fairplayd.A2 [472] -> []
+[785] Pong watch: pid 472 exited data=0x0
+[790] Pong watch: fairplayd.A2 [] -> [481]
+[820] Pong watch: PosterBoard [446] -> [496]
+[820] Pong watch: pid 446 exited data=0x9
+[845] Pong watch: fairplayd.A2 [481] -> []
+[845] Pong watch: pid 481 exited data=0x0
+[860] Pong watch: fairplayd.A2 [] -> [503]
+[910] Pong watch: fairplayd.A2 [503] -> []
+[910] Pong watch: pid 503 exited data=0x0
+[915] Pong watch: fairplayd.A2 [] -> [528]
+[945] Pong watch: lockdownd [447] -> []
+[945] Pong watch: containermanagerd [72,45] -> [72]
+[950] Pong watch: PosterBoard [496] -> [545]
+[950] Pong watch: pid 496 exited data=0x9
+[960] Pong watch: containermanagerd [72] -> [551,72]
+[965] Pong watch: fairplayd.A2 [528] -> []
+[965] Pong watch: pid 528 exited data=0x0
+[970] Pong watch: fairplayd.A2 [] -> [556]
+[995] Pong watch: fairplayd.A2 [556] -> []
+[996] Pong watch: pid 556 exited data=0x0
+[1006] Pong watch: fairplayd.A2 [] -> [562]

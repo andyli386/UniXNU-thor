@@ -1,0 +1,125 @@
+{
+  "console_bytes": 6220563,
+  "physical_lines": 47429,
+  "unique_nonempty": 7770,
+  "nul_bytes": 49,
+  "noncanonical_timestamp_types": 76,
+  "first_visible": [
+    {
+      "line": 1877,
+      "physical_lines": [
+        1877,
+        2642,
+        3651,
+        4565,
+        5531
+      ],
+      "copies": 5,
+      "raw": "[   97.414900]: MiniIOMobileFramebuffer: first visible frame; releasing boot console",
+      "time_literal": "97.414900",
+      "us": 97414900
+    }
+  ],
+  "transitions": [
+    {
+      "line": 1879,
+      "physical_lines": [
+        1879,
+        2644,
+        3653,
+        4567,
+        5533
+      ],
+      "copies": 5,
+      "raw": "[   97.421223]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1",
+      "time_literal": "97.421223",
+      "us": 97421223,
+      "fields": {
+        "state": "RESTORED",
+        "submitter": "backboardd",
+        "pid": 40,
+        "set": "0x80000007",
+        "surfaces": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "gpu": 0,
+        "graphics": 1,
+        "swap": 1
+      }
+    },
+    {
+      "line": 37378,
+      "physical_lines": [
+        37378,
+        38224,
+        39084,
+        39946,
+        40813,
+        41562,
+        42445,
+        43253
+      ],
+      "copies": 8,
+      "raw": "[ 1156.380611]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=83377",
+      "time_literal": "1156.380611",
+      "us": 1156380611,
+      "fields": {
+        "state": "EMPTIED",
+        "submitter": "backboardd",
+        "pid": 40,
+        "set": "0x1",
+        "surfaces": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpu": 0,
+        "graphics": 1,
+        "swap": 83377
+      }
+    }
+  ],
+  "post_clear": [
+    {
+      "clear_line": 37378,
+      "clear_us": 1156380611,
+      "last_us": 1484356745,
+      "seconds_to_last": 327.976134,
+      "canonical_records_after": 1589,
+      "restored_after": []
+    }
+  ],
+  "maximum_canonical_time": {
+    "line": 47428,
+    "physical_lines": [
+      47428
+    ],
+    "copies": 1,
+    "raw": "[ 1484.356745]: memorystatus: failed to kill a process and no memory was reclaimed",
+    "time_literal": "1484.356745",
+    "us": 1484356745
+  },
+  "exit_counts": {
+    "fairplayd.A2": 55,
+    "com.apple.migrat": 13,
+    "audiomxd": 4,
+    "PosterBoard": 4
+  },
+  "new_receipt_files": [
+    {
+      "file": "extracted/files/mobile/Library/Logs/PongDM-80.txt",
+      "bytes": 1134,
+      "line_count": 14
+    },
+    {
+      "file": "extracted/files/mobile/Library/Logs/PongSB-5.txt",
+      "bytes": 274,
+      "line_count": 4
+    }
+  ],
+  "iosurface_samples": 2
+}

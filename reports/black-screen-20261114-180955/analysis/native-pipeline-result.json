@@ -1,0 +1,22 @@
+[
+  {
+    "script": "/tmp/thor_native_parse_v73.py",
+    "returncode": 0
+  },
+  {
+    "script": "/tmp/thor_native_facts_v73.py",
+    "returncode": 0
+  },
+  {
+    "script": "/tmp/thor_focus_chains_v73.py",
+    "returncode": 0
+  },
+  {
+    "script": "/tmp/thor_pongboot_v73.py",
+    "returncode": 0
+  },
+  {
+    "script": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-180955/analysis/symbolize-ui18-v76.py",
+    "returncode": 0
+  }
+]

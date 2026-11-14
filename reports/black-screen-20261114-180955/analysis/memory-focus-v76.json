@@ -1,0 +1,449 @@
+{
+  "ram_banks": [
+    {
+      "index": 0,
+      "start": "0x800004000",
+      "length": "0x10000000",
+      "bytes": 268435456,
+      "mib": 256.0,
+      "end_exclusive": "0x810004000"
+    },
+    {
+      "index": 1,
+      "start": "0x800000000",
+      "length": "0x4000",
+      "bytes": 16384,
+      "mib": 0.015625,
+      "end_exclusive": "0x800004000"
+    },
+    {
+      "index": 2,
+      "start": "0x810004000",
+      "length": "0x198fc000",
+      "bytes": 428851200,
+      "mib": 408.984375,
+      "end_exclusive": "0x829900000"
+    }
+  ],
+  "ram_total_bytes": 697303040,
+  "ram_total_mib": 665,
+  "ordered_banks_contiguous": true,
+  "ram_union": [
+    "0x800000000",
+    "0x829900000"
+  ],
+  "runtime_effective_lsd_limit_observed": false,
+  "no_lsd_highwater_in_retained_console": true,
+  "lsd_disappearance_cause": "not established by retained logs",
+  "same_window_exit_counts": {
+    "v76": {
+      "cutoff_raw": 1005.876045,
+      "counts": [
+        {
+          "name": "PosterBoard",
+          "signal": "9",
+          "namespace": "10",
+          "code": "0x8badf00d",
+          "count": 3
+        },
+        {
+          "name": "audiomxd",
+          "signal": "6",
+          "namespace": "39",
+          "code": "0x0",
+          "count": 1
+        }
+      ],
+      "events": [
+        {
+          "line": 21434,
+          "text": "[  682.446748]: PONG EXIT PosterBoard pid=405 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:405 exhausted real (wall clock) time allowance of 30.00 seconds"
+        },
+        {
+          "line": 25376,
+          "text": "[  818.146394]: PONG EXIT PosterBoard pid=446 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:446 exhausted real (wall clock) time allowance of 30.00 seconds"
+        },
+        {
+          "line": 30459,
+          "text": "[  949.613220]: PONG EXIT PosterBoard pid=496 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:496 exhausted real (wall clock) time allowance of 30.00 seconds"
+        },
+        {
+          "line": 30514,
+          "text": "[  964.638680]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+        }
+      ]
+    },
+    "v75": {
+      "cutoff_raw": 1005.9455899999999,
+      "counts": [
+        {
+          "name": "audiomxd",
+          "signal": "6",
+          "namespace": "39",
+          "code": "0x0",
+          "count": 3
+        },
+        {
+          "name": "PosterBoard",
+          "signal": "9",
+          "namespace": "10",
+          "code": "0x8badf00d",
+          "count": 1
+        },
+        {
+          "name": "PosterBoard",
+          "signal": "9",
+          "namespace": "1",
+          "code": "0x9",
+          "count": 1
+        }
+      ],
+      "events": [
+        {
+          "line": 23029,
+          "text": "[  718.339580]: PONG EXIT audiomxd pid=82 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+        },
+        {
+          "line": 23090,
+          "text": "[  732.688477]: PONG EXIT PosterBoard pid=401 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:401 exhausted real (wall clock) time allowance of 30.00 seconds"
+        },
+        {
+          "line": 26063,
+          "text": "[  804.458538]: PONG EXIT audiomxd pid=492 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot took over 5s, aborting"
+        },
+        {
+          "line": 26141,
+          "text": "[  814.369341]: PONG EXIT PosterBoard pid=500 signal=9 status=0 namespace=1 code=0x9 description=none"
+        },
+        {
+          "line": 29097,
+          "text": "[  912.753477]: PONG EXIT audiomxd pid=531 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+        }
+      ]
+    }
+  },
+  "ls_cpu_monitor": {
+    "v76": {
+      "denial_count": 391,
+      "first": [
+        {
+          "line": 2736,
+          "text": "[  114.960802]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        }
+      ],
+      "last": [
+        {
+          "line": 3852,
+          "text": "[  149.262045]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        }
+      ],
+      "wake_violations": [
+        {
+          "line": 2708,
+          "text": "[  109.514357]: process lsd[86] caught waking the CPU 45100 times over ~41 seconds, averaging 1092 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 15683,
+          "text": "[  495.494795]: process lsd[365] caught waking the CPU 45063 times over ~8 seconds, averaging 5504 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        }
+      ],
+      "interpretation": "Prior run also had these messages. Warning is not proof of eventual exit cause."
+    },
+    "v75": {
+      "denial_count": 782,
+      "first": [
+        {
+          "line": 1839,
+          "text": "[   94.250720]: process lsd[84] denied attempt to escape CPU monitor (missing required entitlement)."
+        }
+      ],
+      "last": [
+        {
+          "line": 21641,
+          "text": "[  674.885622]: process lsd[386] denied attempt to escape CPU monitor (missing required entitlement)."
+        }
+      ],
+      "wake_violations": [
+        {
+          "line": 1834,
+          "text": "[   92.485832]: process lsd[84] caught waking the CPU 45060 times over ~25 seconds, averaging 1776 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 16967,
+          "text": "[  531.693171]: process lsd[352] caught waking the CPU 45011 times over ~33 seconds, averaging 1353 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 17913,
+          "text": "[  562.368354]: process lsd[386] caught waking the CPU 45029 times over ~4 seconds, averaging 10843 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        }
+      ],
+      "interpretation": "Prior run also had these messages. Warning is not proof of eventual exit cause."
+    }
+  },
+  "migration_notification_delta_seconds": {
+    "migrationDidFinish_v75_minus_v76": 442.606161,
+    "Completed_true_v75_minus_v76": 457.389054
+  },
+  "interpretation": "Run durations differ; equal-window kernel events anchored to RAM. Userland timestamps, native IPS dates and raw kernel clocks are separate. Faster notification is not migration success.",
+  "jetsam_report": [
+    {
+      "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000508.0002.ips",
+      "bytes": 113060,
+      "same_path_in_baseline": false,
+      "bytes_identical_to_baseline": false,
+      "header": {
+        "bug_type": "298",
+        "timestamp": "1970-01-01 00:05:08.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "roots_installed": 0,
+        "incident_id": "509DC02F-1B6A-4337-B32D-F232AD5D34C7"
+      },
+      "body_complete": true,
+      "fields": {
+        "date": {
+          "value": "1970-01-01 00:05:07.38 +0000",
+          "line": 8,
+          "complete_value": true,
+          "scope": "body top-level"
+        },
+        "memoryStatus": {
+          "value": {
+            "compressorSize": 22346,
+            "compressions": 394302,
+            "decompressions": 294685,
+            "zoneMapCap": 218951680,
+            "largestZone": "APFS_4K_OBJS",
+            "largestZoneSize": 10403840,
+            "pageSize": 4096,
+            "uncompressed": 80565,
+            "zoneMapSize": 65703936,
+            "memoryPages": {
+              "active": 25679,
+              "throttled": 0,
+              "fileBacked": 24305,
+              "wired": 95701,
+              "anonymous": 25712,
+              "purgeable": 228,
+              "inactive": 23104,
+              "free": 2251,
+              "speculative": 1234
+            }
+          },
+          "line": 12,
+          "complete_value": true,
+          "scope": "body top-level"
+        },
+        "largestProcess": {
+          "value": "backboardd",
+          "line": 34,
+          "complete_value": true,
+          "scope": "body top-level"
+        }
+      },
+      "selected_processes": [
+        {
+          "uuid": "3e0a222c-6e90-3b04-bf29-142fca1302b6",
+          "states": [
+            "daemon",
+            "idle"
+          ],
+          "idleDelta": 120971032,
+          "csFlags": 570433537,
+          "purgeable": 0,
+          "age": 4240517485,
+          "fds": 25,
+          "coalition": 138,
+          "csTrustLevel": 4294967295,
+          "rpages": 327,
+          "priority": 0,
+          "mem_regions": 78,
+          "physicalPages": {
+            "internal": [
+              1,
+              280
+            ]
+          },
+          "freeze_skip_reason:": "out-of-budget",
+          "pid": 69,
+          "cpuTime": 0.442746,
+          "name": "usermanagerd",
+          "lifetimeMax": 343,
+          "resident_mib": 1.27734375,
+          "lifetimeMax_mib": 1.33984375
+        },
+        {
+          "states": [
+            "active"
+          ],
+          "genCount": 0,
+          "purgeable": 14,
+          "rpages": 3180,
+          "physicalPages": {
+            "internal": [
+              111,
+              3173
+            ]
+          },
+          "mem_regions": 309,
+          "uuid": "4c3846aa-5bf9-32b4-92b9-53c4875ab697",
+          "fds": 200,
+          "name": "biomed",
+          "priority": 40,
+          "csTrustLevel": 4294967295,
+          "cpuTime": 7.551386,
+          "freeze_skip_reason:": "out-of-budget",
+          "age": 4246674780,
+          "coalition": 42,
+          "csFlags": 570425345,
+          "reason": "highwater",
+          "pid": 21,
+          "lifetimeMax": 3180,
+          "killDelta": 4555,
+          "resident_mib": 12.421875,
+          "lifetimeMax_mib": 12.421875
+        },
+        {
+          "uuid": "ac9c708f-2c22-304b-9085-62d9a5abb398",
+          "states": [
+            "active"
+          ],
+          "csFlags": 570425345,
+          "purgeable": 0,
+          "age": 3738479888,
+          "fds": 25,
+          "coalition": 170,
+          "csTrustLevel": 4294967295,
+          "rpages": 864,
+          "priority": 140,
+          "mem_regions": 102,
+          "physicalPages": {
+            "internal": [
+              313,
+              424
+            ]
+          },
+          "freeze_skip_reason:": "out-of-budget",
+          "pid": 86,
+          "cpuTime": 9.552242,
+          "name": "lsd",
+          "lifetimeMax": 3756,
+          "resident_mib": 3.375,
+          "lifetimeMax_mib": 14.671875
+        },
+        {
+          "uuid": "c695090d-8c75-3a7a-935c-0ccd4c5fd963",
+          "states": [
+            "active"
+          ],
+          "csFlags": 570425345,
+          "purgeable": 0,
+          "age": 3785264050,
+          "fds": 25,
+          "coalition": 160,
+          "csTrustLevel": 4294967295,
+          "rpages": 2531,
+          "priority": 140,
+          "mem_regions": 211,
+          "physicalPages": {
+            "internal": [
+              146,
+              2216
+            ]
+          },
+          "freeze_skip_reason:": "out-of-budget",
+          "pid": 81,
+          "cpuTime": 7.001958,
+          "name": "audiomxd",
+          "lifetimeMax": 3397,
+          "resident_mib": 9.88671875,
+          "lifetimeMax_mib": 13.26953125
+        },
+        {
+          "uuid": "4b6b633c-b512-3242-9222-93583b3cb409",
+          "states": [
+            "active",
+            "frontmost"
+          ],
+          "csFlags": 570425345,
+          "purgeable": 0,
+          "age": 4249400970,
+          "fds": 25,
+          "coalition": 8,
+          "csTrustLevel": 4294967295,
+          "rpages": 1335,
+          "priority": 160,
+          "mem_regions": 156,
+          "physicalPages": {
+            "internal": [
+              220,
+              980
+            ]
+          },
+          "freeze_skip_reason:": "out-of-budget",
+          "pid": 5,
+          "cpuTime": 3.235921,
+          "name": "SpringBoard",
+          "lifetimeMax": 1386,
+          "resident_mib": 5.21484375,
+          "lifetimeMax_mib": 5.4140625
+        },
+        {
+          "uuid": "ee4becdb-6c93-3aeb-bfe7-2c2bb90ba8d9",
+          "states": [
+            "active"
+          ],
+          "csFlags": 570425345,
+          "purgeable": 0,
+          "age": 4244627595,
+          "fds": 25,
+          "coalition": 80,
+          "csTrustLevel": 4294967295,
+          "rpages": 19774,
+          "priority": 170,
+          "mem_regions": 281,
+          "physicalPages": {
+            "internal": [
+              14450,
+              675
+            ]
+          },
+          "freeze_skip_reason:": "out-of-budget",
+          "pid": 40,
+          "cpuTime": 15.832963,
+          "name": "backboardd",
+          "lifetimeMax": 24370,
+          "resident_mib": 77.2421875,
+          "lifetimeMax_mib": 95.1953125
+        },
+        {
+          "uuid": "0957c99a-b15d-3b39-b1b3-ab63cb6eca4e",
+          "states": [
+            "active"
+          ],
+          "csFlags": 570425345,
+          "purgeable": 0,
+          "age": 4249246993,
+          "fds": 25,
+          "coalition": 12,
+          "csTrustLevel": 4294967295,
+          "rpages": 760,
+          "priority": 180,
+          "mem_regions": 106,
+          "physicalPages": {
+            "internal": [
+              384,
+              304
+            ]
+          },
+          "freeze_skip_reason:": "out-of-budget",
+          "pid": 6,
+          "cpuTime": 5.280474,
+          "name": "runningboardd",
+          "lifetimeMax": 983,
+          "resident_mib": 2.96875,
+          "lifetimeMax_mib": 3.83984375
+        }
+      ]
+    }
+  ]
+}

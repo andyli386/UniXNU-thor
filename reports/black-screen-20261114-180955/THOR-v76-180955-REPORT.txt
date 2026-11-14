@@ -1,0 +1,196 @@
+THOR v76 黑屏日志与代码联合分析
+采集日期：2026-11-14，Asia/Shanghai
+本轮标识：PongBoot-pull-20261114-180955
+对照：v75 / 20261114-153948；必要处参考 v74 / 20261114-103139。
+
+一、结论
+
+本轮确实运行了 v76。画面仍然黑，但 SpringBoard 最后一次详细快照已经越过 v75 的 BBS 同步回复等待，进入主 scene 连接完成后的锁屏视图加载。这是实际初始化位置的推进；尚未观察到真实 UI 帧恢复。
+
+内核日志约683.959秒时，backboardd提交全空图层，当前framebuffer代码按该请求填黑。之后到1005.876秒仍有系统活动，共约321.917秒，没有保留到RESTORED。因此日志支持“进度图层撤下后，真实UI尚未完成接管”；不能把清黑当成当场整机停止运行，也不能据此证明后续永远不会故障。
+
+资源和兼容问题仍在：RAM仍665MiB；wired/压缩压力仍高；migration最终success=false；selector44仍Unsupported；PosterBoard三次启动watchdog。部分耗时和资源处置指标比v75好，PosterBoard watchdog却更多，整机UI验收仍失败。
+
+v76只落实了上一份17项计划的部分内容。RAM扩容、真实ownership、主动内存压力预算、UI请求完成条件、迁移兼容等没有完整实现。本轮不能解释为“17项集中方案已经全部执行但仍无效”。
+
+二、提取与身份
+
+i386原始目录：
+/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-180955
+其中Data-runtime.img是本次只读Data副本；extracted/files为选取的原始日志和状态文件。
+
+Mac mini分析目录：
+/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-180955
+
+代码基线：
+v76 cd95023ab2f83abf82ed62e75a4c269e25dc4c10
+v75 e35afb319245c30039d0c63140b2503079f9cdcc
+代码工作区检查仅有未跟踪reports/。本次未修改产品源码、构建镜像、刷写或重启手机。
+
+采集18:09:55开始，18:14:07结束，读取250.428秒。
+Data长度8,591,003,648字节，129块均完整；采集前后recovery boot ID均为ff648f2b-1f11-4258-8173-632b00e2b903。Data及其dm-7映射未挂载；相关write/discard计数未变化。
+导出73个选取文件，共4,809,956字节；导出器无选取文件错误，宿主副本始终以只读方式打开。两条Unknown XF警告对应AppleAccount缓存目录和WorkflowKit临时目录，路径已写入capture-evidence-v76.json。
+18:18:58再次观察仍为同一个recovery boot，pstore目录为空；未对设备执行后续启动操作。
+
+设备Data中的libpong-ui18.dylib：195168字节，LC_UUID=07D7E424-02CE-3BFF-9852-04AEF2401677，与v76候选一致。内核新增bank和pool格式也在本轮实际日志出现。旧ctor(v73)是未更新字符串，不能据此判成刷回旧版。本次没有做整镜像hash或镜像回读审计。
+
+证据完整性：
+- Console原始4,086,189字节、31,607物理行；4,751种非空字节行，26,802条重复回放行，33个NUL，32条WRAP记录，39类非标准小数位时间文本。
+- 原文件完整保留。可读分析副本按完整字节行分组并保留原行号/重复位置；没有在NUL处截断。只有六位小数的Console时间用于精确相减。
+- 11个PongBoot文件，共52个完整BEGIN/END快照块。
+- 4份IPS中，1份Jetsam完整，3份原生诊断报告正文截断。只独立解码完整字段和完整process对象，未补括号伪造成完整JSON。
+- 共享缓存符号使用本轮基址0x195284000与既有22H374符号；未从完整binaryImages独立核实本轮缓存UUID，因此该部分保留缓存版本未变的前提。注入库帧则用本次提取库直接重新符号化。
+
+三、显示时间线：清黑动作明确，真实UI尚未接管
+
+以下为同一Console时间域的秒数，不与PongBoot/time(NULL)直接相减：
+
+27.296558：THOR INJECT armed，246 chars。
+27.304933：SystemOS mounted，ro=1 union=1。
+27.378019：Data mount PASS path=/private/var，rw=1。
+83.338947：first visible frame，释放启动文字控制台。
+83.344863：RESTORED，backboardd PID40，surfaces=1,0,0,0。
+682.446748：PosterBoard PID405，process-launch watchdog，30秒wall-clock allowance耗尽。
+683.958940：EMPTIED，backboardd PID40，set=0x1，surfaces=0,0,0,0，gpu=0 graphics=1，swap=47828。
+818.146394：PosterBoard PID446再次同类watchdog。
+838.757881：MiniIOSurface selector44 not implemented。
+949.613220：PosterBoard PID496再次同类watchdog。
+964.638680：audiomxd PID81，writing stackshot failed, aborting，signal6。
+1005.876045：最后一条可精确解析的Console记录，diagnosticextens CPU wake警告。
+
+当前MiniIOMobileFramebuffer.cpp:1116附近仍在底层sid==0、set&1、graphics有效且非gpuFrame时，逐像素写0xff000000。因此清黑是对全空图层提交的处理，不能直接叫作LCD或UFS突然停机。
+清黑之后有1224条去重后的标准时间记录，持续321.917105秒，未见后续RESTORED。不能用这些条目证明真实UI出现。
+
+与v75对照：
+                         v75              v76
+首次可见帧               97.414900         83.338947
+全空图层清黑             1156.380611       683.958940
+最后标准时间记录         1484.356745       1005.876045
+清黑后保留活动           327.976134秒      321.917105秒
+后续RESTORED             无               无
+
+首帧提前约14.076秒，清黑提前约472.422秒；清黑更早不能独立解释成整体更好或更差，应结合真实UI初始化状态。
+
+时间关联的边界：
+- 本轮PosterBoard首次watchdog与清黑相差1.512192秒，但v74相差10.497392秒，v75清黑附近没有对应PosterBoard退出。它是需关联UI接管的线索，尚非三轮共同根因。
+- selector44本轮可见报警比首次清黑晚154.798941秒，不能仅用这条报警解释此前清黑。
+- 本轮唯一audio退出比清黑晚280.679740秒，不能把这次退出当作首次清黑的直接触发。更早的共享依赖问题仍需要独立证据。
+
+四、SpringBoard有推进；BB后台等待不能等同于全系统卡死
+
+SpringBoard PID5、主线程TID249的关键样本：
+- time130/elapsed60：LaunchServices数据库/应用记录初始化，ulock_wait2，run3。
+- time192/315/674：FBSystemShellInitialize → BBS/BoardServices → XPC同步回复等待，run3。
+- time972/elapsed902：run1、cpu210，已经进入主scene连接后的锁屏构建：
+
+UIApplication workspace:didCreateScene
+→ scene:willConnectToSession
+→ SpringBoard _completeStartupAfterMainSceneConnect
+→ SBLockScreenManager loadViewsIfNeeded
+→ SBCoverSheetPresentationManager loadViewsIfNeeded
+→ SBCoverSheetSlidingViewController loadView
+→ NSBundle bundleForClass
+→ NSFrameworkPathFromLibraryPath
+→ NSResolveSymlinksInPathUsingCache
+
+v75相近elapsed900的最后详细样本仍在BBS回复等待；v76这个位置确实更后。v74也曾进入CoverSheet/窗口生命周期，所以不是整个项目首次到达该阶段。
+当前PC在libobjc，LR/上层在Foundation路径解析；run1是RUNNING，未采到lstat syscall。这张单点样本不能证明某路径缺失、永久文件系统死锁或UFS故障，也不能证明锁屏视图已经生成有效surface。
+
+新PongBBD-40.txt只有一行：
+[79] Pong BBD: group_wait 0x13bd54ac0 begin tmo=18446744073709551615 caller=0x10091a3e4
+
+这里的timeout是UINT64_MAX/FOREVER编码。后台TID684的五个样本命中实际v76库_pong_bbd_group_wait+0x74，caller一致，PC/FP/SP不变；未保留返回行。它支持长期等待存在。
+但BB主线程TID331后期是RunLoop，且同一轮SB已经推进到scene后的锁屏加载，所以不能把该后台group直接定义为SB全过程的唯一阻塞条件。日志没有TID/call代次/enter-leave/接收者，owner尚未闭合。
+
+PongSB只保留ctor、wake scheduled、wake enqueue returned三行，无wake_home begin/end、无stat慢调用回执。探针是返回后且有阈值才输出，缺行不等于没有stat调用或依赖全部正常。
+v76增加了1050/1200秒快照，但本轮SB最后elapsed902，BB962、RB960，未到新阈值。没有这些新增样本不能判为调度失效；清黑现场仍没有事件触发栈。
+
+五、内存与lsd：部分指标改善，容量和压力未解决
+
+新bank回执：
+bank0 0x800004000 + 0x10000000 = 256MiB
+bank1 0x800000000 + 0x4000 = 16KiB
+bank2 0x810004000 + 0x198fc000 = 408.984375MiB
+三段相邻，合并[0x800000000,0x829900000)，697,303,040字节，精确665MiB。bank1的0MiB只是取整。
+
+源码中首个高端allowed范围为921MiB，ClaimPongRam预留高端256MiB，921−256=665，和本轮范围精确对应。这支持当前只接管该范围的解释。新打印发生在XNU裁剪之后，仍缺原始UEFI图、每区间AllocatePages结果、handoff前后与有效maxmem，尚不能证明其他高端范围为什么未进入VM。v76没有修改容量交接逻辑，新增打印不等于扩容。
+
+后期可独立解码原生内存字段：wired约399.25/394.12MiB，compressor约134.93/138.13MiB，memoryPressure=true。最后内核样本available约86.05MiB、compressor约133.32MiB；available不是free页数，不能直接与原生free混用。
+
+按各自RAM锚点对齐979.808285秒的同长窗口：
+                                  v75        v76
+idle-exit                         145        99
+long-idle-exit                    17         42
+compressor-thrashing处置          6          2
+highwater                        1          1
+以上memorystatus记录合计          169        144
+audiomxd SIGABRT                  3          1
+PosterBoard启动watchdog           1          3
+
+idle/long-idle是系统回收退出，不能全部称为崩溃；PosterBoard本轮反而更多watchdog。因此只能说部分资源/服务指标改善，不能宣布整体稳定性修复。v75还有一次PosterBoard idle退出，未混入watchdog。
+
+lsd细节：
+- 本轮highwater对象是biomed PID21，原生resident约12.42MiB。
+- 没有保留到lsd同类highwater；但lsd PID86仍在PongDiag epoch485消失，490变为PID365，退出原因尚未闭合。
+- 唯一完整Jetsam里lsd86 resident3.375MiB、lifetimeMax14.67MiB，尚低于旧16MiB，没有active memlimit字段。
+- 提交说明称v24 OS窗口手改active32MiB；生成器仍直接复制原装16/12策略，没有版本化定向覆盖。不能由“这次没highwater”证明32MiB生效，也不能仅凭原装源策略反过来否认最终镜像可能手改。
+- lsd多个后期样本已回RunLoop，不能称其一直永久卡在journal recovery。
+
+相同13个预读窗口、318.515625MiB：v75累计read_ms=47.773秒，v76=35.063秒，减少12.710秒。此值包括运行负载、缓存与调度影响，不是独立测得的UFS硬件带宽；代码没有新增压力门控，所以不能把变化直接归因于这项尚未实现的机制。
+
+六、migration、PosterBoard和异常报告仍有实际失败
+
+迁移通知在各自用户态时钟中从v75约19:19/19:40提前到v76约11:56/12:03，分别提前442.606/457.389秒。这说明通知阶段更早。
+但本轮com.apple.migration.plist的DMLastMigrationResults.success仍false，db/.AppleSetupDone未出现，新datamigrator原生报告仍有：
+unsupported screen class, no apple logo found
+不能用Completed=true通知代替全部迁移插件真实成功。PongDM本轮3次diagnostics、v75全文件13次，因覆盖时长不同，不当作同长故障率。
+
+PosterBoard三次均为30秒process-launch watchdog，说明启动完成条件没有及时满足。现有报告尚未提供完整的PosterBoard用户线程/scene依赖图；应把它与锁屏视图和有效surface接管一起处理，不能仅关闭watchdog换取进程存活。
+
+本轮audiomxd原文只有writing stackshot failed, aborting；没有本轮AQ reason IPS。v75的AQ::Server RPC timeout不能代填本轮触发原因。
+两份后期部分IPS中，完整kernel_task对象显示daemon.thread-exception TID106等待ReportCrash PID253；RunningBoard后台线程另见OSAnalytics同步回复等待。异常报告链仍有未完成状态，但未与SB/BBS或音频业务请求证明为同一接收者。
+保留三份部分报告的原始字节和可独立解码字段；不能凭缺少完整IPS把故障直接定成内存、磁盘或ReportCrash一个原因。
+
+七、v76代码实际落实与确定可修的问题
+
+1. 新增确定计量bug：MiniIOSurface.cpp:346–352满池替换减旧capacity后放入新块，却漏加新capacity；多次替换/后续减法可能uint64下溢。全引用检查显示该变量只用于统计/打印，未参与分配和回收选择。本轮两条pool记录都为0，没有观察到极大值；不能把该静态bug直接判成这次黑屏原因。
+   修改：在同一锁保护下维护旧/新容量差，与实际槽位一致，锁外打印。
+
+2. pool仅在surface分配的两种backing路径都失败后，释放闲置槽并重试一次；尚未接VM压力通知、未加入总字节预算。日志中的under pressure文字不等于实际VM压力回调。
+   本轮只有live71MiB/4surfaces/pool0MiB两个样本，无released kept pieces回执；不能证明新回收路径触发，也不能推断整个启动过程中pool永远为0。
+
+3. selector44仍只有enum，没有externalMethod case、task identity解析和真实ledger更新；本轮838.757881的Unsupported与源码一致。它是实际接口缺口，但目前不是已闭合的首次清黑根因。
+
+4. stat/lstat/group_wait返回后的errno保护已经增加；A2/BBD note去掉fsync。但ui_compat18.c:177的pong_sb_note仍同步fsync，DM note也仍同步；前置gate、入口errno、TLS防重入、原子预算和异步writer未补齐。BBD BEGIN仍同步open/dprintf/close。提交描述中的observer hygiene只完成一部分。
+
+5. 快照增加1050/1200（1500原周期已有），无1800或EMPTIED触发，没有真正in-flight/TID/generation/owner关联；本轮未运行到新增阈值，不能据此判新调度失败。
+
+6. 内核状态被保存为53,208行全树patch、362个文件段，其中237个为.rej/.orig。其他跟踪文件未找到自动应用该patch的入口。保存快照和从干净工作树按构建配方可重建是两个验收项，后者仍缺证据。
+
+7. v76未修改预读门控、LS数据库完成契约、SB/BBS回复协议、scene/surface交接、音频handler、迁移兼容或原生ReportCrash完成逻辑。整合计划继续有效，本次是部分实现的运行结果。
+
+八、根据本轮证据收敛同一批修复，避免再逐版补一条日志
+
+第一组：完成UI接管链。以已到达的scene/锁屏loadView为起点，核对bundle/资源路径与实际首帧完成条件，关联PosterBoard的启动请求、ready/失败回复、BB收到的surface。BBD BEGIN加入TID/调用代次及实际完成者；不能强制wait成功或保留旧进度图冒充UI。
+
+第二组：完成资源和接口。RAM补齐UEFI取得/拒绝、原始handoff与cap来源后处理实际遗漏；lsd覆盖固化到生成源并输出有效memlimit；surface池预算/主动压力回收与selector44真实ownership共用生命周期。先修已经确定的pool计量漏加。
+
+第三组：完成真实迁移与异常返回。对screen class/no apple logo分支和失败插件一次核对设备能力/资源/provisioning；把音频业务失败与产生stackshot失败分开记录/修复，保证报告完整或有明确失败回执。
+
+共同配套：补齐低扰动writer、pending调用、EMPTIED现场、原始日志增量与失败计数；整理实际可应用的版本化补丁。全部进入同一候选，固定参数做一次完整联合验收。
+
+验收仍以真实锁屏/桌面或预期Setup界面可见、主线程可响应、关键迁移/服务真实完成、持续至少5分钟无无法恢复清黑或UI重启循环为准。下一候选连续采集覆盖约30分钟；UI晚出现时继续保留至少5分钟。当前这次只覆盖到Console约16分46秒，不能拿它验证30分钟稳定性或未到阈值的采样点。
+
+九、证据索引（均相对于本报告目录）
+
+analysis/capture-evidence-v76.json：采集、只读状态、文件覆盖、警告路径、UUID。
+analysis/display-runtime-v76.json；display-comparison-v75.json；comparison-normalized-times-v76.json：显示事件与同域时间差。
+analysis/poster-clear-three-boots.json：v74/v75/v76 PosterBoard与清黑相邻性核对。
+analysis/v76-framebuffer-source.json：当前填黑分支原始源码读取结果。
+analysis/memory-process-review-v76.txt；memory-focus-v76.json；memory-summary-current.json；memory-current.json；memory-supplement-v76.json：资源/lsd/迁移与同长窗口证据。
+analysis/native-runtime-review-v76.txt；native-key-evidence-v76.json；native-pongboot-late.json；native-prefix-v76.json；native-ui18-frames.json：线程栈、实际hook身份、完整与部分IPS。
+analysis/source-v76/v76-source-review.txt及同目录7份JSON：当前代码/候选/构建来源/策略审查。
+extracted/manifest.json；extracted/inventory.jsonl；extracted/files：原始提取清单、元数据和文件。
+PongConsole-deduplicated.txt：便于阅读的分组副本，原Console保留在extracted/files/logs/PongConsole.txt。
+
+可分享压缩包不包含Data镜像和dylib二进制；这些保留在本地工作主机。完整原始日志、分析和复查脚本随报告提供。

@@ -1,0 +1,47 @@
+{
+  "reference": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-025335/analysis/source-excerpts-v73.txt",
+  "current": "/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp",
+  "pairs": [
+    {
+      "v73_line": 1108,
+      "v74_line": 1116,
+      "same": true
+    },
+    {
+      "v73_line": 1109,
+      "v74_line": 1117,
+      "same": true
+    },
+    {
+      "v73_line": 1110,
+      "v74_line": 1118,
+      "same": true
+    },
+    {
+      "v73_line": 1111,
+      "v74_line": 1119,
+      "same": true
+    },
+    {
+      "v73_line": 1112,
+      "v74_line": 1120,
+      "same": true
+    },
+    {
+      "v73_line": 1113,
+      "v74_line": 1121,
+      "same": true
+    },
+    {
+      "v73_line": 1114,
+      "v74_line": 1122,
+      "same": true
+    },
+    {
+      "v73_line": 1115,
+      "v74_line": 1123,
+      "same": true
+    }
+  ]
+}
+

@@ -1,0 +1,87 @@
+{
+  "complete": true,
+  "exported_files": 86,
+  "exported_bytes": 7127229,
+  "warnings": [
+    "Warning: Unknown XF \u000f at inode 5008",
+    "Warning: Unknown XF \u000f at inode 7826"
+  ],
+  "warning_paths": [
+    {
+      "path": "mobile/Library/Caches/com.apple.AppleAccount/fsCachedData",
+      "bytes": 0,
+      "uid": 501,
+      "gid": 501,
+      "mode": "0o755",
+      "mode_raw": 16877,
+      "inode": 5008,
+      "private_id": 5008,
+      "mtime_ns": 331655568853,
+      "bsd_flags": 0,
+      "directory": true,
+      "symlink": false
+    },
+    {
+      "path": "mobile/tmp/com.apple.WorkflowKit.BackgroundShortcutRunner/com.apple.WorkflowKit.BackgroundShortcutRunner",
+      "bytes": 0,
+      "uid": 501,
+      "gid": 501,
+      "mode": "0o755",
+      "mode_raw": 16877,
+      "inode": 7826,
+      "private_id": 7826,
+      "mtime_ns": 1336754800937,
+      "bsd_flags": 0,
+      "directory": true,
+      "symlink": false
+    }
+  ],
+  "pongbbd_inventory": [],
+  "macho_uuids": {
+    "pong/libpong-ui18.dylib": "5FB87088-A68B-35BF-BB1B-180FCD76A481",
+    "pong/libpong-ui.dylib": "9C222EED-9C05-3486-90ED-E93837FB6AA7"
+  },
+  "errors": [],
+  "source_stat_unchanged": true,
+  "capture": {
+    "started_local": "2026-11-14T15:39:48.615480+08:00",
+    "serial": "<device-serial>",
+    "device_writes": false,
+    "method": "read-only physical Data window; unmounted idle dm-7 mapping retained",
+    "total": 19401801728,
+    "records": [
+      {
+        "name": "OS",
+        "offset": 1048576,
+        "length": 6845104128,
+        "block": 512,
+        "flags": 1
+      },
+      {
+        "name": "SystemOS",
+        "offset": 6846152704,
+        "length": 3963617280,
+        "block": 512,
+        "flags": 1
+      },
+      {
+        "name": "Data",
+        "offset": 10809769984,
+        "length": 8591003648,
+        "block": 512,
+        "flags": 1
+      }
+    ],
+    "expected_bytes": 8591003648,
+    "chunk_bytes": 67108864,
+    "chunks_completed": 129,
+    "validated_bytes": 8591003648,
+    "dd_returncode": 0,
+    "read_bytes": 8591003648,
+    "elapsed_seconds": 251.633,
+    "no_write_or_discard_counter_change": true,
+    "capture_status": "complete",
+    "collector_status": "pending_readonly_host_extraction",
+    "finished_local": "2026-11-14T15:44:01.723923+08:00"
+  }
+}

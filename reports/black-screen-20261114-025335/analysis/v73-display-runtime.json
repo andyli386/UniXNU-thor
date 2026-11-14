@@ -1,0 +1,158 @@
+{
+  "review_utc": "2026-11-13T19:17:40.873987+00:00",
+  "scope": "display transitions and SpringBoard receipt path only; no new device access",
+  "console": {
+    "path": "/workspace/scratch/8f895aed6545/THOR-v73-025335/extracted/files/logs/PongConsole.txt",
+    "bytes": 3954257,
+    "physical_lines": 30055,
+    "nul_bytes": 32,
+    "ends_in_nul": true,
+    "unique_complete_lines": 4817,
+    "canonical_unique_timestamp_lines": 4718,
+    "duplicate_full_nonempty_line_types": 4707,
+    "additional_duplicate_full_nonempty_lines": 25235,
+    "wrap_lost_text_markers": 31
+  },
+  "deduplication": "Exact complete original byte lines are grouped without rewriting raw input; all physical line positions retained. Canonical timestamp intervals use exactly six fractional digits. Repeated timestamps/messages are not counted as new events.",
+  "ram_boot_marker": {
+    "console_time_raw": "26.071857",
+    "console_time_us": 26071857,
+    "physical_lines": [
+      4,
+      506,
+      1145,
+      1919
+    ],
+    "copies": 4,
+    "raw_line": "[   26.071857]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages"
+  },
+  "first_visible_frame": {
+    "console_time_raw": "79.341296",
+    "console_time_us": 79341296,
+    "physical_lines": [
+      1796,
+      2570,
+      3109,
+      4051
+    ],
+    "copies": 4,
+    "raw_line": "[   79.341296]: MiniIOMobileFramebuffer: first visible frame; releasing boot console"
+  },
+  "restored_unique": [
+    {
+      "console_time_raw": "79.347480",
+      "console_time_us": 79347480,
+      "physical_lines": [
+        1798,
+        2572,
+        3111,
+        4053
+      ],
+      "copies": 4,
+      "raw_line": "[   79.347480]: MiniIOMFB layers RESTORED: submitter=? pid=-1 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1"
+    }
+  ],
+  "emptied_unique": [
+    {
+      "console_time_raw": "906.227133",
+      "console_time_us": 906227133,
+      "physical_lines": [
+        27977,
+        28848,
+        29721
+      ],
+      "copies": 3,
+      "raw_line": "[  906.227133]: MiniIOMFB layers EMPTIED: submitter=? pid=-1 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=64839"
+    }
+  ],
+  "legacy_clear_unique": [
+    {
+      "console_time_raw": "906.227119",
+      "console_time_us": 906227119,
+      "physical_lines": [
+        27976,
+        28847,
+        29720
+      ],
+      "copies": 3,
+      "raw_line": "[  906.227119]: MiniIOMobileFramebuffer: swap #64839: surfaces in layers 0x0 now (0x1 before): 0 0 0 0"
+    }
+  ],
+  "last_frame_statistics_raw": {
+    "console_time_raw": null,
+    "console_time_us": null,
+    "physical_lines": [
+      27954,
+      28825,
+      29698
+    ],
+    "copies": 3,
+    "raw_line": "[  901.1003957]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+  },
+  "last_valid_timestamp_activity": {
+    "console_time_raw": "974.110843",
+    "console_time_us": 974110843,
+    "physical_lines": [
+      30054
+    ],
+    "copies": 1,
+    "raw_line": "[  974.110843]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+  },
+  "unique_canonical_activity_lines_after_clear": 327,
+  "nonempty_restoration_after_clear": [],
+  "post_clear_console_activity_seconds": 67.88371,
+  "ram_to_clear_seconds": 880.155276,
+  "ram_to_first_visible_seconds": 53.269439,
+  "v72_comparison": {
+    "ram_raw": "26.018808",
+    "legacy_clear_raw": "843.811817",
+    "last_console_raw": "1034.719948",
+    "clear_swap_number": 59068,
+    "post_clear_activity_seconds": 190.908131,
+    "v73_clear_later_raw_seconds": 62.415316,
+    "v73_clear_later_relative_to_ram_seconds": 62.362267,
+    "caveat": "Comparison values from preceding verified v72 review; v73 detailed clear is 14 microseconds after its legacy clear. Console raw clock is not userland time(NULL) or physical power-on time."
+  },
+  "current_source_branch": {
+    "path": "/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp",
+    "lines": "1108-1115",
+    "condition": "sid==0 && !gpuFrame && layer==0 && (set&1) && fGraphics",
+    "recorded_values": {
+      "set": 1,
+      "surfaces": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gpu": 0,
+      "graphics": 1,
+      "swap": 64839
+    },
+    "operation": "writes 0xff000000 across fBase panel rows",
+    "boundary": "Supports CPU black-fill path execution with matching source; does not identify user submitter, backlight state, hardware sleep or upstream reason."
+  },
+  "submitter_provenance": {
+    "observed": "submitter=? pid=-1 for RESTORED and EMPTIED",
+    "source_explanation": "present records fSwapWho/fSwapWhoPid per slot, but presenter copies into separate static swap and show tries to recover original slot by pointer range. This drops metadata.",
+    "true_submitter_known": false
+  },
+  "springboard_receipts": {
+    "path": "/workspace/scratch/8f895aed6545/THOR-v73-025335/extracted/files/mobile/Library/Logs/PongSB-5.txt",
+    "bytes": 97,
+    "content": "[63] Pong UI18: SpringBoard adapter ctor (v73)\n[67] Pong UI18: wake scheduled on main queue +10s\n",
+    "ctor_recorded": true,
+    "scheduling_site_recorded": true,
+    "wake_home_begin_recorded": false,
+    "wake_home_end_recorded": false,
+    "clock": "time(NULL), not Console raw clock",
+    "interpretation": "Ctor and pre-dispatch scheduling-site reached; no saved callback-entry receipt. Absence alone does not prove callback never ran, and scheduling text precedes dispatch_after_f."
+  },
+  "noncanonical_timestamp_line_types": 59,
+  "limits": [
+    "Console explicitly reports WRAP lost text; absence is limited to retained evidence.",
+    "Last frame-statistics raw timestamp has seven fractional digits; retained as raw rather than normalized into a duration.",
+    "Clear-to-last-activity is a recorded liveness lower bound, not a stability regression or proof of the actual shutdown time.",
+    "Frozen extracted inputs are unchanged."
+  ]
+}

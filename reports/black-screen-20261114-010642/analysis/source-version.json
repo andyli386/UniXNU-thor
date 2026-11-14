@@ -1,0 +1,34 @@
+{
+  "captured_at": "2026-11-14T01:12:22.210723+08:00",
+  "repository": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong",
+  "head": "258f07ec1ffa922d243679d5affa1b21dc355ca4",
+  "clean": {
+    "whole_worktree_before_report_creation": true,
+    "tracked_worktree_after_report_creation": true,
+    "index_clean": true,
+    "whole_worktree_after_report_creation": false
+  },
+  "git_status_before": "",
+  "git_status_after": "?? reports/\n",
+  "note": "New report directory is intentionally untracked. No git add or commit. No source modifications or hashes. Candidate identity is host-only until runtime extraction is matched.",
+  "candidate_library": {
+    "path": "/tmp/libpong-ui18-v72.dylib",
+    "bytes": 194528,
+    "uuid": "1E1A9C7E-932C-3A62-AACA-EDAB65CA7A9F",
+    "architecture": "arm64"
+  },
+  "checked_source_paths": [
+    "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/userland/ui_compat18.c",
+    "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/userland/boot_snapshot18.c",
+    "/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp",
+    "/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/osfmk/kern/thread.c",
+    "/tmp/v72-final.toml"
+  ],
+  "kernel_framebuffer_file_tracked_in_xnu_git": false,
+  "applicable_instructions": [
+    "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/AGENTS.md"
+  ],
+  "nested_report_agents_found": false,
+  "storage_scope": "Analysis reports and source metadata only; raw device logs remain on i386 as directed."
+}
+

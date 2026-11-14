@@ -1,0 +1,44 @@
+THOR v77 RAM 交接记录
+2026-11-14
+
+v76 真机记录
+PongConsole.txt 开机约 26.068 秒记录了三个区间：
+  0x800004000 + 0x10000000
+  0x800000000 + 0x00004000
+  0x810004000 + 0x198FC000
+合计 697303040 字节，665 MiB，170240 个 4 KiB 页，尚未扣除内核保留。
+三个区间覆盖 [0x800000000, 0x829900000)。旧 FD 把 bank A 整段描述为
+[0x800000000, 0x839900000)。旧版 ClaimPongRam 为 UEFI 保留最后 256 MiB，
+所以 XNU 没有收到 [0x829900000, 0x839900000)。
+
+可接管范围复核
+旧 FD 的 921 MiB 描述不能直接用于扩大接管。THOR 既有真机 recovery FDT
+与本次 i386 实时只读 /proc/iomem 都给出 [0x800000000,0x837500000) 和
+[0x837b00000,0x839900000)。FD 的连续描述掩盖了中间 6 MiB 缺口。
+更严格的 stock UEFI HYP 排除范围是 [0x830000000,0x840000000)。依据是
+旧 THOR 审查 analysis/thor-memory256-review-20261024/review.md 第 36 行，
+并与 1030 的 THOR 固件内存表相符。本次 i386 的真机 FDT header 无附加
+memreserve tuple，也核对了 38 个 reserved-memory 固定地址/长度，无一和
+[0x829900000,0x830000000) 相交。新交接仅考虑这 103 MiB。
+
+v77 源码与构建
+实际 FD 工程为 /Users/<user>/projects/thor-unixnu1029/uefi-thor。
+DarwinBootPkg/Driver/DarwinBoot.c 的变更已单独提交 7f57b3a，原内存表的
+未提交变更保留。运行 Boot Services 时保留该池。ExitBootServices 成功后，
+从该次成功 MapKey 对应的最终 map 中筛选原池与 THOR 安全范围的交集，
+取仍为 WB Conventional、无 Runtime 属性的 4 KiB 对齐页，可排除 GOP
+及已经交接的区间。保留 EFI loader/runtime/boot services 分配。使用原
+ADT RAM wire，主窗大小与 ABI 保持原有值。pong_ram_reclaim=0 可回退。
+
+候选 FD：/Users/<user>/projects/thor-unixnu1030/thor-out/v77-uefi-ram.fd。
+DarwinBoot24 模块日志 darwinboot-v77-module-build.log。
+重链及验证日志位于 thor-out/v77-uefi-ram/。与 v76 解包比较，外层和内层
+文件 GUID 集合相同，29 个内层文件中唯一变更的是 DarwinBoot24。
+ASan/UBSan C 桌面测试通过，包括上限 768 MiB、HYP 排除、页范围裁剪、
+EFI 类型与属性、GOP、重叠、容量和坏 map。原运行 FD 保留。
+
+真机验收
+读取同一启动的 Pong RAM 总量和每 bank 区间。最大增量是 103 MiB，
+理论上限 768 MiB（196608 页，扣除内核保留前）。固件若使用原池部分
+页面，增量会更小。须实测总量超过 665 MiB、增量均位于
+[0x829900000,0x830000000)，再结合启动稳定性和内存压力评估收益。

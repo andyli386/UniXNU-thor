@@ -1,0 +1,4 @@
+bindings build: 22H374 prelink_base: 0xfffffff00b000000
+base 0xfffffff005130000 slide 0x5ed0000
+closure components: 15 library-only: 3
+prelinked kernel: 51904512 bytes -> /Users/<user>/projects/thor-unixnu1030/UniXNU-pong/../thor-out/v77/kernel-integrated/kernel-ipados18-thor.macho

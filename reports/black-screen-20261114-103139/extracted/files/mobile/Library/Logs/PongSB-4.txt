@@ -1,0 +1,3 @@
+[63] Pong UI18: SpringBoard adapter ctor (v73)
+[63] Pong UI18: wake scheduled on main queue +10s
+[63] Pong UI18: wake enqueue returned

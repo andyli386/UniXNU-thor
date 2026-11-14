@@ -1,0 +1,33 @@
+{
+  "at": "2026-11-14T01:06:42.556265+08:00",
+  "prefix": "PongBoot-pull-20261114-010642",
+  "directory": "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642",
+  "free_bytes": 84805578752,
+  "results": {
+    "identity": {
+      "rc": 0,
+      "out": "uid=0(root) gid=0(root) groups=0(root),1004(input),1007(log),1011(adb),1015(sdcard_rw),1028(sdcard_r),1078(ext_data_rw),1079(ext_obb_rw),3001(net_bt_admin),3002(net_bt),3003(inet),3006(net_bw_stats),3009(readproc),3011(uhid),3012(readtracefs) context=u:r:su:s0\nLinux localhost 5.10.209-android12-9-00019-g4ea09a298bb4-ab12292661 #1 SMP PREEMPT Wed Aug 28 22:16:09 UTC 2024 aarch64\na20691e0-0494-4d18-9b5b-a85004cc8f7e\n185.20 1472.30\n",
+      "err": ""
+    },
+    "bootreason": {
+      "rc": 0,
+      "out": "\n\nunknown\nstack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure cgroup.memory=nokmem console=ttyMSM0,115200n8 loglevel=6 kpti=0 kernel.panic_on_rcu_stall=1 swiotlb=noforce loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none cpufreq.default_governor=performance can.stats_timer=0 fsa4480_i2c.async_probe=1 slub_debug=- disable_dma32=on video=vfb:640x400,bpp=32,memsize=3072000 disable_dma32=on swinfo.fingerprint=thor:12/OS2.0.4.0.VLACNXM:user mtdoops.fingerprint=thor:12/OS2.0.4.0.VLACNXM:user bootconfig  bootinfo.pureason=0x40001 bootinfo.pdreason=0x2 debug_ext.initrd_size=101428 hwid.hwid_value=589824 hwid.project=6 hwid.build_adc=65569 hwid.project_adc=16812 msm_drm.dsi_display0=qcom,mdss_dsi_l1_38_0c_0a_dsc_cmd: msm_drm.oled_wp=0bc30c4b msm_drm.debugpolicy=0x20 rootwait ro init=/init block2mtd.block2mtd=/dev/block/sda15,2097152 mtdoops.mtddev=0 mtdoops.record_size=2097152 mtdoops.dump_oops=0 printk.always_kmsg_dump=1 log_buf_len=2M loglevel=6 msm_geni_serial.con_enabled=0\n",
+      "err": ""
+    },
+    "battery": {
+      "rc": 0,
+      "out": "95\nCharging\n4361000\n389\n",
+      "err": ""
+    },
+    "pstore": {
+      "rc": 0,
+      "out": "total 0\ndrwxr-x---  2 root root 0 1970-02-08 18:09 .\ndrwxr-xr-x 10 root root 0 1970-01-01 08:00 ..\n",
+      "err": ""
+    },
+    "partition": {
+      "rc": 0,
+      "out": "/dev/block/sda36\ntotal 0\nlrwxrwxrwx 1 root root 0 2026-11-14 01:06 dm-7 -> ../../../../../../../../../../virtual/block/dm-7\nrootfs / rootfs rw,seclabel,size=5385668k,nr_inodes=1346417 0 0\ntmpfs /dev tmpfs rw,seclabel,nosuid,relatime,size=5691872k,nr_inodes=1422968,mode=755 0 0\ndevpts /dev/pts devpts rw,seclabel,relatime,mode=600,ptmxmode=000 0 0\nproc /proc proc rw,relatime,gid=3009,hidepid=invisible 0 0\nsysfs /sys sysfs rw,seclabel,relatime 0 0\nselinuxfs /sys/fs/selinux selinuxfs rw,relatime 0 0\ntmpfs /mnt tmpfs rw,seclabel,nosuid,nodev,noexec,relatime,size=5691872k,nr_inodes=1422968,mode=755,gid=1000 0 0\ntmpfs /apex tmpfs rw,seclabel,nosuid,nodev,noexec,relatime,size=5691872k,nr_inodes=1422968,mode=755 0 0\ntmpfs /linkerconfig tmpfs rw,seclabel,nosuid,nodev,noexec,relatime,size=5691872k,nr_inodes=1422968,mode=755 0 0\ntmpfs /mnt/installer tmpfs rw,seclabel,nosuid,nodev,noexec,relatime,size=5691872k,nr_inodes=1422968,mode=755,gid=1000 0 0\ntmpfs /mnt/androidwritable tmpfs rw,seclabel,nosuid,nodev,noexec,relatime,size=5691872k,nr_inodes=1422968,mode=755,gid=1000 0 0\nnone /dev/blkio cgroup rw,nosuid,nodev,noexec,relatime,blkio 0 0\nnone /dev/cg2_bpf cgroup2 rw,nosuid,nodev,noexec,relatime 0 0\nnone /dev/cpuctl cgroup rw,nosuid,nodev,noexec,relatime,cpu 0 0\nnone /acct cgroup rw,nosuid,nodev,noexec,relatime,cpuacct 0 0\nnone /dev/cpuset cgroup rw,nosuid,nodev,noexec,relatime,cpuset,noprefix,release_agent=/sbin/cpuset_release_agent 0 0\nnone /dev/memcg cgroup rw,nosuid,nodev,noexec,relatime,memory 0 0\ntmpfs /tmp tmpfs rw,seclabel,relatime,size=5691872k,nr_inodes=1422968 0 0\nbinder /dev/binderfs binder rw,relatime,max=1048576,stats=global 0 0\npstore /sys/fs/pstore pstore rw,seclabel,relatime 0 0\nnone /config configfs rw,relatime 0 0\nmtp /dev/usb-ffs/mtp functionfs rw,relatime 0 0\nadb /dev/usb-ffs/adb functionfs rw,relatime 0 0\nfastboot /dev/usb-ffs/fastboot functionfs rw,relatime 0 0\ntmpfs /mnt/vendor/persist tmpfs rw,seclabel,relatime,size=5691872k,nr_inodes=1422968 0 0\ntmpfs /lib/modules tmpfs rw,seclabel,relatime,size=5691872k,nr_inodes=1422968 0 0\ntmpfs /vendor/lib/modules/1.1 tmpfs rw,seclabel,relatime,size=5691872k,nr_inodes=1422968 0 0\n/dev/block/sda35 /cache ext4 rw,seclabel,nosuid,nodev,noatime 0 0\n/dev/block/sda17 /metadata ext4 rw,seclabel,nosuid,nodev,noatime,discard 0 0\n",
+      "err": ""
+    }
+  }
+}

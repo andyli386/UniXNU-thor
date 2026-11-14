@@ -1,0 +1,74 @@
+Mac mini 当前构建与候选库身份（供本轮 Recovery Data 对齐）
+观察时间 UTC：2026-11-14T02:27:32.883708+00:00
+观察机器：macmini / e4fXV9-i97U-rpYz
+
+范围
+只读当前仓库元数据、既有构建结果/日志和小型 dylib 的 Mach-O load commands。
+未构建、未改源码、未操作手机；未读取镜像内容、未做 cache/固件/镜像哈希审计。
+手机本轮 Recovery boot_id 由主任务提供：05f116e8-f5c4-4108-9b22-f483250bec01。本报告未独立读取手机。
+
+1. 当前仓库
+路径：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong
+HEAD：d562bc1419e7ae5fd7ffdf0d89951736b69e8ae5
+提交时间：2026-11-14 08:01:39 +0800
+主题：thor v74: submitter carried from the queue slot; exit reasons to console; wake enqueue receipt
+git status --short：?? reports/
+结论：已跟踪工作区/索引干净；当前外层 HEAD 仍是 v74。
+两个内核诊断变更此前已在实际 xnu-work 只读核实；外层提交本身仍只含 userland 一行，不能将外层 HEAD 当作完整 kernel 来源证明。
+
+2. 候选 ui18 库
+v74：
+路径：/Users/<user>/projects/thor-unixnu1030/thor-out/libpong-ui18-v74.dylib
+大小：194576 bytes
+LC_UUID：FFEC574F-B64E-351D-AD62-3077876C92B5
+mtime UTC：2026-11-14T00:01:39.022478+00:00
+Mach-O：thin little-endian 64-bit；CPU_TYPE_ARM64 0x100000c，subtype 0。
+
+v73 对照：
+路径：/Users/<user>/projects/thor-unixnu1030/thor-out/libpong-ui18-v73.dylib
+大小：194576 bytes
+LC_UUID：DCBDA011-9CA3-3BA9-AF5F-CFAF07A981DF
+mtime UTC：2026-11-13T17:41:42.220365+00:00
+
+两版大小完全相同，不能用文件大小区分。UUID 可用于区分这两份实际候选的链接身份。
+Data 中有某版文件只能证明该文件在 Data 上；若要证明运行时加载，还需日志/崩溃报告 Binary Images 或其他加载证据。
+
+3. 已有构建结果与最新日志
+结果文件：/Users/<user>/projects/thor-unixnu1030/thor-out/PONG_BUILD_RESULT.json
+build_complete=true
+returncode=0
+profile=Pong-iPadOS18-22H374-Darwin24
+tree=/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree
+Darwin=24.6.0
+XNU version=11417.140.69
+XNU reference commit=43a90889846e00bfb5cf1d255cdc0a701a1e05a4
+结果记录的 kernel：
+/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/out/ipados18/kernel/mach.development.pong
+bytes=17767568
+image_verification="skipped by request"
+
+结果指向的 log 与顶层最新 build-*.log 相同：
+/Users/<user>/projects/thor-unixnu1030/thor-out/build-20261113T235937Z.log
+日志大小：116780 bytes，1189 行
+日志 mtime UTC：2026-11-13T23:59:41.448625+00:00
+末尾记录 STRIP mach.development.pong，最后为：
+built kernel at /Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_PONG//mach.development.pong
+日志含编译/链接 warnings；结果状态和末尾均记录构建完成。本轮没有重跑构建，也没有通过该日志推定手机正在运行此内核。
+
+4. 当前 manifest 的声明
+路径：/Users/<user>/projects/thor-unixnu1030/thor-out/manifest.json
+image=boot-thor-unixnu-v74.img
+image_bytes=168034304
+state=offline-verified-not-hardware-tested
+hardware_tested=false
+这些是现有 manifest 的声明，不是本轮重新验证的镜像/设备状态。
+
+5. 供本轮采集对齐的最小判断
+- Data 库 UUID 为 FFEC574F-B64E-351D-AD62-3077876C92B5：与 Mac v74 候选链接身份相同。
+- Data 库 UUID 为 DCBDA011-9CA3-3BA9-AF5F-CFAF07A981DF：与 Mac v73 候选链接身份相同。
+- 新 wake enqueue returned 是 v74 userland 新增 marker；ctor 字样仍为 (v73)，不可据此误判。
+- 内核 submitter/PONG EXIT 是否生效，需要新运行日志核实，不能从 Data 库 UUID 推导。
+
+原始证据：
+/workspace/scratch/8f895aed6545/v74-host-build-identity-20261114-0227.json
+

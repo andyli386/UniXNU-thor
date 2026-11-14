@@ -1,0 +1,552 @@
+{
+  "root": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-103139",
+  "zip_bytes": 1136954,
+  "entries": 136,
+  "report_bytes": 19218,
+  "entries_crc": {
+    "PACKAGE-CONTENTS.json": {
+      "bytes": 12924,
+      "crc": 2177273694
+    },
+    "PongConsole-deduplicated.txt": {
+      "bytes": 660325,
+      "crc": 2590679923
+    },
+    "RESULT.json": {
+      "bytes": 551,
+      "crc": 2256054583
+    },
+    "SHNGROOT.bin": {
+      "bytes": 4096,
+      "crc": 3561019258
+    },
+    "THOR-v74-103139-REPORT.txt": {
+      "bytes": 19218,
+      "crc": 1020299567
+    },
+    "after.json": {
+      "bytes": 3845,
+      "crc": 148922826
+    },
+    "analysis/analyze-display-current.py": {
+      "bytes": 7805,
+      "crc": 2456684852
+    },
+    "analysis/analyze-memory-current.py": {
+      "bytes": 15430,
+      "crc": 2510782216
+    },
+    "analysis/console-storage-diagnostics.json": {
+      "bytes": 3003,
+      "crc": 385674990
+    },
+    "analysis/framebuffer-cpu-empty-compare-v73.json": {
+      "bytes": 932,
+      "crc": 441616272
+    },
+    "analysis/framebuffer-cpu-empty-current.txt": {
+      "bytes": 3039,
+      "crc": 2139340934
+    },
+    "analysis/memory-analysis-run.txt": {
+      "bytes": 11033,
+      "crc": 3023427187
+    },
+    "analysis/memory-current.json": {
+      "bytes": 472527,
+      "crc": 3019360146
+    },
+    "analysis/memory-process-review.txt": {
+      "bytes": 10507,
+      "crc": 2674902724
+    },
+    "analysis/memory-summary-current.json": {
+      "bytes": 44924,
+      "crc": 3539986475
+    },
+    "analysis/native-a2-crashes.json": {
+      "bytes": 3,
+      "crc": 1885917764
+    },
+    "analysis/native-a2-samples.json": {
+      "bytes": 3,
+      "crc": 1885917764
+    },
+    "analysis/native-current-selected.json": {
+      "bytes": 3,
+      "crc": 1885917764
+    },
+    "analysis/native-current-summary.json": {
+      "bytes": 890,
+      "crc": 1930415950
+    },
+    "analysis/native-exit-timeline-v74.json": {
+      "bytes": 3531,
+      "crc": 456953770
+    },
+    "analysis/native-facts-v74.log": {
+      "bytes": 1525,
+      "crc": 3045772734
+    },
+    "analysis/native-focus-chains-v74.log": {
+      "bytes": 73,
+      "crc": 3750572534
+    },
+    "analysis/native-focus-chains.json": {
+      "bytes": 3,
+      "crc": 1885917764
+    },
+    "analysis/native-identity-timeline.json": {
+      "bytes": 17670,
+      "crc": 1976247346
+    },
+    "analysis/native-memory-body-validity.json": {
+      "bytes": 950,
+      "crc": 3904926885
+    },
+    "analysis/native-parser-v74.log": {
+      "bytes": 1290,
+      "crc": 3293632907
+    },
+    "analysis/native-partial-fields-v74.json": {
+      "bytes": 2895,
+      "crc": 2776596621
+    },
+    "analysis/native-pongboot-late.json": {
+      "bytes": 1653070,
+      "crc": 194464898
+    },
+    "analysis/native-pongboot-v74.log": {
+      "bytes": 3522,
+      "crc": 256387711
+    },
+    "analysis/native-reason-fields-v74.json": {
+      "bytes": 790,
+      "crc": 384080882
+    },
+    "analysis/native-runtime-key-evidence-v74.json": {
+      "bytes": 54547,
+      "crc": 929740141
+    },
+    "analysis/native-runtime-review-v74.txt": {
+      "bytes": 11021,
+      "crc": 2153298485
+    },
+    "analysis/native-sampler-trigger-source.json": {
+      "bytes": 11459,
+      "crc": 2458817993
+    },
+    "analysis/native-ui18-frames.json": {
+      "bytes": 4817,
+      "crc": 520651038
+    },
+    "analysis/native-ui18-symbolize-v74.log": {
+      "bytes": 3424,
+      "crc": 2322631572
+    },
+    "analysis/native-ui18-v74-nm.txt": {
+      "bytes": 21700,
+      "crc": 1700141767
+    },
+    "analysis/native-v74-v73-focus.json": {
+      "bytes": 533075,
+      "crc": 393154612
+    },
+    "analysis/stackshot-source-evidence.json": {
+      "bytes": 14663,
+      "crc": 1745171525
+    },
+    "analysis/symbolize-ui18-v74.py": {
+      "bytes": 2299,
+      "crc": 2595236014
+    },
+    "analysis/v74-display-review.txt": {
+      "bytes": 8563,
+      "crc": 163026471
+    },
+    "analysis/v74-display-runtime.json": {
+      "bytes": 165449,
+      "crc": 296654489
+    },
+    "analysis/v74-display-summary.json": {
+      "bytes": 8873,
+      "crc": 2715512071
+    },
+    "analysis/v74-host-build-identity-20261114-0227.json": {
+      "bytes": 8612,
+      "crc": 4077607452
+    },
+    "analysis/v74-host-build-identity-20261114-0227.txt": {
+      "bytes": 3815,
+      "crc": 4061531033
+    },
+    "analysis/v74-offline-source-evidence.json": {
+      "bytes": 16776,
+      "crc": 2251704201
+    },
+    "analysis/v74-offline-source-review.txt": {
+      "bytes": 7236,
+      "crc": 3615305254
+    },
+    "before.json": {
+      "bytes": 3840,
+      "crc": 2582259927
+    },
+    "capture-reader.py": {
+      "bytes": 5668,
+      "crc": 4089747866
+    },
+    "capture.log": {
+      "bytes": 2244,
+      "crc": 4036746986
+    },
+    "dd.stderr": {
+      "bytes": 0,
+      "crc": 0
+    },
+    "direct-export-apfs-direct-export.cpp": {
+      "bytes": 12572,
+      "crc": 129299006
+    },
+    "direct-export-command.txt": {
+      "bytes": 257,
+      "crc": 3890381835
+    },
+    "direct-export-postprocess.log": {
+      "bytes": 910,
+      "crc": 1342481237
+    },
+    "direct-export-postprocess.py": {
+      "bytes": 3703,
+      "crc": 3053844045
+    },
+    "direct-export-process.json": {
+      "bytes": 417,
+      "crc": 2544707516
+    },
+    "direct-export.log": {
+      "bytes": 4067,
+      "crc": 885015528
+    },
+    "extracted/files/logs/PongBoot-containermanagerd.txt": {
+      "bytes": 4183,
+      "crc": 3397648763
+    },
+    "extracted/files/logs/PongBoot-filecoordinationd.txt": {
+      "bytes": 2467,
+      "crc": 1970024955
+    },
+    "extracted/files/logs/PongBoot-locationd.txt": {
+      "bytes": 15055,
+      "crc": 476666940
+    },
+    "extracted/files/logs/PongBoot-runningboardd.txt": {
+      "bytes": 9038,
+      "crc": 2816042153
+    },
+    "extracted/files/logs/PongConsole.txt": {
+      "bytes": 4102813,
+      "crc": 200452571
+    },
+    "extracted/files/logs/PongDiag.txt": {
+      "bytes": 9836,
+      "crc": 2736633249
+    },
+    "extracted/files/logs/keybagd.log.0": {
+      "bytes": 2450,
+      "crc": 1660945358
+    },
+    "extracted/files/logs/lockdownd.log": {
+      "bytes": 13848,
+      "crc": 3773752042
+    },
+    "extracted/files/logs/usermanagerd.log.0": {
+      "bytes": 15811,
+      "crc": 2917486513
+    },
+    "extracted/files/mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001117.0002.ips": {
+      "bytes": 27542,
+      "crc": 4122588340
+    },
+    "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001551.0002.ips": {
+      "bytes": 26681,
+      "crc": 3714358893
+    },
+    "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000120.000.ips": {
+      "bytes": 44136,
+      "crc": 1538822886
+    },
+    "extracted/files/mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001444.000.ips": {
+      "bytes": 28923,
+      "crc": 1683209972
+    },
+    "extracted/files/mobile/Library/Logs/Pong-audio-volume18.log": {
+      "bytes": 181,
+      "crc": 593611423
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-111.txt": {
+      "bytes": 1237,
+      "crc": 1659788310
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-158.txt": {
+      "bytes": 1237,
+      "crc": 2588639825
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-171.txt": {
+      "bytes": 1252,
+      "crc": 498224247
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-184.txt": {
+      "bytes": 1252,
+      "crc": 704732161
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-195.txt": {
+      "bytes": 1252,
+      "crc": 1293437791
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-204.txt": {
+      "bytes": 1252,
+      "crc": 3465448503
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-214.txt": {
+      "bytes": 1252,
+      "crc": 2753663146
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-223.txt": {
+      "bytes": 1252,
+      "crc": 2612934731
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-229.txt": {
+      "bytes": 1252,
+      "crc": 2619156997
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-233.txt": {
+      "bytes": 1252,
+      "crc": 1785370570
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-237.txt": {
+      "bytes": 1252,
+      "crc": 974852787
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-243.txt": {
+      "bytes": 1252,
+      "crc": 2126850895
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-257.txt": {
+      "bytes": 1252,
+      "crc": 1391782209
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-261.txt": {
+      "bytes": 1252,
+      "crc": 733581725
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-266.txt": {
+      "bytes": 1252,
+      "crc": 3841548583
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-281.txt": {
+      "bytes": 1252,
+      "crc": 4103668411
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-286.txt": {
+      "bytes": 1252,
+      "crc": 331156187
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-293.txt": {
+      "bytes": 1252,
+      "crc": 1040982197
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-304.txt": {
+      "bytes": 1252,
+      "crc": 4040139805
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-311.txt": {
+      "bytes": 1252,
+      "crc": 1846341925
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-325.txt": {
+      "bytes": 1252,
+      "crc": 2719797413
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-329.txt": {
+      "bytes": 1252,
+      "crc": 728154972
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-338.txt": {
+      "bytes": 1252,
+      "crc": 3254773187
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-357.txt": {
+      "bytes": 1252,
+      "crc": 3018925423
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-369.txt": {
+      "bytes": 1252,
+      "crc": 4215320748
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-373.txt": {
+      "bytes": 1252,
+      "crc": 4132867869
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-384.txt": {
+      "bytes": 1252,
+      "crc": 263905447
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-391.txt": {
+      "bytes": 1252,
+      "crc": 136777434
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-397.txt": {
+      "bytes": 1252,
+      "crc": 2084155837
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-407.txt": {
+      "bytes": 1252,
+      "crc": 2944979065
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-414.txt": {
+      "bytes": 1252,
+      "crc": 3354722070
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-421.txt": {
+      "bytes": 1252,
+      "crc": 2077858088
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-430.txt": {
+      "bytes": 1252,
+      "crc": 2975562329
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-440.txt": {
+      "bytes": 1252,
+      "crc": 2395626083
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-452.txt": {
+      "bytes": 1252,
+      "crc": 692389768
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-464.txt": {
+      "bytes": 1252,
+      "crc": 2262295352
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-470.txt": {
+      "bytes": 1252,
+      "crc": 1574456296
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-473.txt": {
+      "bytes": 1252,
+      "crc": 578402097
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-489.txt": {
+      "bytes": 1252,
+      "crc": 3536034471
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-512.txt": {
+      "bytes": 1252,
+      "crc": 564958082
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-533.txt": {
+      "bytes": 1252,
+      "crc": 2338497224
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-544.txt": {
+      "bytes": 1252,
+      "crc": 205484369
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-547.txt": {
+      "bytes": 1252,
+      "crc": 1242937414
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-559.txt": {
+      "bytes": 1252,
+      "crc": 2327971327
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-570.txt": {
+      "bytes": 1267,
+      "crc": 1734109384
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-60.txt": {
+      "bytes": 1222,
+      "crc": 1609115110
+    },
+    "extracted/files/mobile/Library/Logs/PongA2-85.txt": {
+      "bytes": 1222,
+      "crc": 1506850111
+    },
+    "extracted/files/mobile/Library/Logs/PongBoot-SpringBoard.txt": {
+      "bytes": 11841,
+      "crc": 132078626
+    },
+    "extracted/files/mobile/Library/Logs/PongBoot-audiomxd.txt": {
+      "bytes": 21134,
+      "crc": 2307264888
+    },
+    "extracted/files/mobile/Library/Logs/PongBoot-backboardd.txt": {
+      "bytes": 19098,
+      "crc": 2221215835
+    },
+    "extracted/files/mobile/Library/Logs/PongBoot-com.apple.datamigrator.txt": {
+      "bytes": 20560,
+      "crc": 4009953303
+    },
+    "extracted/files/mobile/Library/Logs/PongBoot-com.apple.migrationpluginwrapper.txt": {
+      "bytes": 9624,
+      "crc": 3756138065
+    },
+    "extracted/files/mobile/Library/Logs/PongBoot-lsd.txt": {
+      "bytes": 6093,
+      "crc": 900954682
+    },
+    "extracted/files/mobile/Library/Logs/PongBoot-mediaremoted.txt": {
+      "bytes": 5568,
+      "crc": 1359300406
+    },
+    "extracted/files/mobile/Library/Logs/PongDM-80.txt": {
+      "bytes": 475,
+      "crc": 708649822
+    },
+    "extracted/files/mobile/Library/Logs/PongSB-4.txt": {
+      "bytes": 135,
+      "crc": 707831665
+    },
+    "extracted/files/mobile/Library/Preferences/com.apple.migration.plist": {
+      "bytes": 281,
+      "crc": 2068603571
+    },
+    "extracted/files/mobile/Library/Preferences/com.apple.migrationpluginwrapper.plist": {
+      "bytes": 2354,
+      "crc": 668623880
+    },
+    "extracted/files/mobile/Library/Preferences/com.apple.springboard.datamigrator.plist": {
+      "bytes": 72,
+      "crc": 3089537597
+    },
+    "extracted/inventory.jsonl": {
+      "bytes": 1028638,
+      "crc": 442808295
+    },
+    "extracted/manifest.json": {
+      "bytes": 1517901,
+      "crc": 362763045
+    },
+    "extraction.json": {
+      "bytes": 1009,
+      "crc": 191908157
+    },
+    "failed-attempt-102630/adb-log-tail.txt": {
+      "bytes": 4999,
+      "crc": 2691935792
+    },
+    "failed-attempt-102630/extraction.json": {
+      "bytes": 870,
+      "crc": 3466389342
+    },
+    "failed-attempt-102630/usb-disconnect-check.json": {
+      "bytes": 2555,
+      "crc": 771323969
+    },
+    "recovery-after-export.json": {
+      "bytes": 15319,
+      "crc": 184186865
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "source": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/userland/boot_snapshot18.c",
+  "early_source_line": 647,
+  "early_seconds": [
+    60,
+    120,
+    240,
+    600,
+    900
+  ],
+  "post_early_source_lines": [
+    670,
+    671
+  ],
+  "post_early_increment_ms": 600000,
+  "subsequent_seconds": [
+    1500,
+    2100,
+    2700
+  ],
+  "tick_source_lines": [
+    662,
+    663,
+    664
+  ],
+  "tick_ms": 60000,
+  "clock": "CLOCK_MONOTONIC relative to worker initialization",
+  "current_last_ticks": {
+    "SpringBoard": 1384,
+    "backboardd": 1443,
+    "runningboardd": 1440
+  },
+  "interpretation": "Snapshots do not stop at 900; next snapshot is elapsed 1500. Current display-clear period falls between detailed samples. Recommend adding 1200 (and optionally 1800) or a bounded EMPTIED-triggered sample."
+}

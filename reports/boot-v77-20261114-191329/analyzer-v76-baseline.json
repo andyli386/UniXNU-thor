@@ -1,0 +1,230 @@
+{
+  "export_root": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-180955/extracted/files",
+  "boot_id": null,
+  "candidate_identified": false,
+  "console": {
+    "files": [
+      "logs/PongConsole.txt"
+    ],
+    "mode": "legacy-single-anchor",
+    "boot_labels": [],
+    "legacy_lines": 31607,
+    "raw_physical_lines": 31607,
+    "invalid_timestamp_lines": 291,
+    "nul_lines": 33
+  },
+  "checks": {
+    "runtime_staging": {
+      "status": "SKIP",
+      "meaning": "no v77 runtime staging receipt in the selected kernel log",
+      "evidence": [
+        {
+          "file": "pong/libpong-ui-v77.dylib",
+          "expected_uuid": "9FCCBB70-F843-3FF8-AB78-DAF5B4582068",
+          "expected_bytes": 197872
+        }
+      ]
+    },
+    "mount_and_injection": {
+      "status": "PASS",
+      "meaning": "look for SystemOS, Data mount, and armed injection receipts",
+      "evidence": [
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 380,
+          "raw": "[   27.304933]: PONG APFS: SystemOS mounted dev=d000007 ro=1 union=1 flags=14809021",
+          "kernel_us": 27304933
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 412,
+          "raw": "[   27.378019]: PONG APFS: Data mount PASS path=/private/var device=/dev/disk5s2 rw=1 bytes=8591003648",
+          "kernel_us": 27378019
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 350,
+          "raw": "[   27.296558]: THOR INJECT: armed from boot args (246 chars) /private/var/pong/libpong-ui18.dylib SpringBoard backboardd containermanagerd runningboardd user",
+          "kernel_us": 27296558
+        }
+      ]
+    },
+    "managed_memory": {
+      "status": "SKIP",
+      "meaning": "legacy bank evidence lacks v77 boot identity",
+      "evidence": [
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 4,
+          "raw": "[   26.067760]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages",
+          "kernel_us": 26067760
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 5,
+          "raw": "[   26.067780]: Pong RAM: bank 0 0x800004000 + 0x10000000 (256 MiB)",
+          "kernel_us": 26067780
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 6,
+          "raw": "[   26.067789]: Pong RAM: bank 1 0x800000000 + 0x4000 (0 MiB)",
+          "kernel_us": 26067789
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 7,
+          "raw": "[   26.067798]: Pong RAM: bank 2 0x810004000 + 0x198fc000 (408 MiB)",
+          "kernel_us": 26067798
+        }
+      ],
+      "managed_bytes": 697303040,
+      "reported_mib": 665,
+      "ranges": [
+        {
+          "start": "0x800000000",
+          "end_exclusive": "0x800004000"
+        },
+        {
+          "start": "0x800004000",
+          "end_exclusive": "0x810004000"
+        },
+        {
+          "start": "0x810004000",
+          "end_exclusive": "0x829900000"
+        }
+      ]
+    },
+    "lsd_runtime_limits": {
+      "status": "SKIP",
+      "meaning": "no usable lsd limit readback in the matched runningboardd session",
+      "evidence": []
+    },
+    "layer_recovery": {
+      "status": "SKIP",
+      "meaning": "no layer restore observed after the final clear; cursor continuity or boot identity is unverified",
+      "evidence": [
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 21453,
+          "raw": "[  683.958940]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47828",
+          "kernel_us": 683958940
+        }
+      ],
+      "first_frame_events": 1,
+      "layer_transitions": 2,
+      "UI_visibility": "unverified",
+      "kernel_activity_after_clear_us": 321917105
+    },
+    "daemon_faults": {
+      "status": "FAIL",
+      "meaning": "selected known daemon failures appeared",
+      "evidence": [
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 21434,
+          "raw": "[  682.446748]: PONG EXIT PosterBoard pid=405 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:405 exhausted real (wall clock) time allowance of 30.00 seconds",
+          "kernel_us": 682446748
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 25376,
+          "raw": "[  818.146394]: PONG EXIT PosterBoard pid=446 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:446 exhausted real (wall clock) time allowance of 30.00 seconds",
+          "kernel_us": 818146394
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 30459,
+          "raw": "[  949.613220]: PONG EXIT PosterBoard pid=496 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:496 exhausted real (wall clock) time allowance of 30.00 seconds",
+          "kernel_us": 949613220
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 30514,
+          "raw": "[  964.638680]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting",
+          "kernel_us": 964638680
+        }
+      ],
+      "counts": {
+        "process-launch": 3,
+        "stackshot": 1
+      }
+    },
+    "migration": {
+      "status": "SKIP",
+      "meaning": "persistent migration state lacks a client result from a matching datamigrator PID",
+      "evidence": [
+        {
+          "file": "mobile/Library/Preferences/com.apple.migration.plist",
+          "success": false,
+          "build": "22H374"
+        }
+      ],
+      "plugin_begin": 0,
+      "plugin_end": 0,
+      "plugin_failures": 0
+    },
+    "observers": {
+      "status": "SKIP",
+      "meaning": "observer evidence or display-trigger capture is incomplete",
+      "evidence": [],
+      "session_count": 0,
+      "call_receipts": 0,
+      "trigger_captures": 0,
+      "trigger_posts": 0,
+      "probe_omissions": 0
+    },
+    "kernel_log_coverage": {
+      "status": "SKIP",
+      "meaning": "kernel log does not establish continuous 30 minute coverage",
+      "evidence": [
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 1,
+          "raw": "[   26.067179]:  vm_cache_geometry_colors: 0",
+          "kernel_us": 26067179
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 31605,
+          "raw": "[ 1005.876045]: process diagnosticextens[539] caught waking the CPU 45088 times over ~46 seconds, averaging 967 wakes / second and violating a limit of 45000 wakes over 300 seconds.",
+          "kernel_us": 1005876045
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 506,
+          "raw": "Pong console capture WRAP lost text"
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 1142,
+          "raw": "Pong console capture WRAP lost text"
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 1918,
+          "raw": "Pong console capture WRAP lost text"
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 2845,
+          "raw": "Pong console capture WRAP lost text"
+        },
+        {
+          "file": "logs/PongConsole.txt",
+          "line": 3961,
+          "raw": "Pong console capture WRAP lost text"
+        }
+      ],
+      "first_kernel_us": 26067179,
+      "last_kernel_us": 1005876045,
+      "cursor_gaps": 32
+    },
+    "visible_ui_and_input": {
+      "status": "SKIP",
+      "meaning": "requires real display and input observations for five minutes",
+      "evidence": []
+    }
+  },
+  "overall": "SKIP"
+}

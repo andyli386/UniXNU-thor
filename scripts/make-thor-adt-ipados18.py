@@ -121,10 +121,16 @@ def main():
                         help='software IOPlatformUUID seed, not an Apple silicon identifier')
     parser.add_argument('--chip-id', type=lambda value: int(value, 16), default=None,
                         help='software IOPlatformUUID seed, not an Apple silicon identifier')
-    parser.add_argument('--ufs', '--ufs-probe', dest='ufs_probe', action='store_true',
-                        help='publish the Pong SM8475 UFS nub; optional probes require a separate boot argument')
-    parser.add_argument('--root-match-volume-uuid', default=None,
-                        help='/chosen/root-matching UUID of the APFS system volume')
+    ufs_mode = parser.add_mutually_exclusive_group()
+    ufs_mode.add_argument('--ufs', action='store_true',
+                          help='publish the UFS nub and boot the installed APFS system volume')
+    ufs_mode.add_argument('--ufs-probe', action='store_true',
+                          help='publish the UFS nub for storage bring-up')
+    root_source = parser.add_mutually_exclusive_group()
+    root_source.add_argument('--volume-layout', type=Path,
+                             help='use os.uuid from the installed APFS volume layout')
+    root_source.add_argument('--root-match-volume-uuid',
+                             help='/chosen/root-matching UUID of the APFS system volume')
     parser.add_argument('--boot-manifest', type=Path, default=None,
                         help='actual staged development boot manifest; hash with SHA-384')
     parser.add_argument('--development-debug', action='store_true',
@@ -140,11 +146,20 @@ def main():
     args = parser.parse_args()
     if os.environ.get('PONG_HARDWARE_DTB'):
         pass  # thor: SM8475 defaults match; vendor DTB cells differ
-    if args.root_match_volume_uuid:
+    if args.volume_layout is not None:
+        try:
+            args.root_match_volume_uuid = json.loads(args.volume_layout.read_text())['os']['uuid']
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            parser.error(f'--volume-layout must contain os.uuid: {error}')
+        if not isinstance(args.root_match_volume_uuid, str):
+            parser.error('--volume-layout os.uuid must be a UUID string')
+    if args.root_match_volume_uuid is not None:
         try:
             args.root_match_volume_uuid = str(uuid.UUID(args.root_match_volume_uuid))
         except ValueError:
-            parser.error('--root-match-volume-uuid must be a valid UUID')
+            parser.error('the APFS system volume UUID must be a valid UUID')
+    if args.ufs and not args.root_match_volume_uuid:
+        parser.error('--ufs needs --volume-layout or --root-match-volume-uuid; use --ufs-probe for storage bring-up')
 
     if args.dram_size <= 0 or args.dram_size > 0xFFFFFFFFFFFFFFFF - DRAM_BASE:
         parser.error('--dram-size must be a positive physical size that does not overflow DRAM_BASE')
@@ -182,6 +197,12 @@ def main():
             int(backlight['bl_inverted_dbv']), backlight['channel'], backlight['version'])),
         ('pong-audio-dma', bytes(16)),
         ('darwinboot-memory-ranges', bytes(32 + 64 * 16)),
+        # THOR Phase B: fixed-size buffer DarwinBoot fills before EBS with
+        # high-address EFI map diagnostics; XNU reads and prints it to
+        # PongConsole (after EBS there is no UEFI Print to use).
+        # Layout: [total_high(8)][conventional_high(8)][owned(8)][count(4)]
+        #         then per-descriptor: [type(4)][pad(4)][attr(8)][start(8)][size(8)] = 32B
+        ('darwinboot-mem-diag', bytes(4096)),
         ('pong-allocatable-ram', b''.join(
             struct.pack('<QQ', int(bank['base'], 0), int(bank['size'], 0))
             for bank in json.loads((ROOT / 'configs/pong-memory-sm8475.json').read_text())['allocatable'])),
@@ -322,7 +343,7 @@ def main():
             ('ee', struct.pack('<I', 0)),
             ('pon-ppid', struct.pack('<I', 0x013)),
             ('volume-up-ppid', struct.pack('<I', 0x18d)),
-        ]), *([ufs] if args.ufs_probe else [])]),
+        ]), *([ufs] if args.ufs or args.ufs_probe else [])]),
         # THOR: vmm-present=1 is a compatibility declaration, not hardware
         # detection. kern.hv_vmm_present (hvg_sysctl.c IODTGetDefault) needs
         # it or watchdogd SIGTRAP-loops and its third exit panics the kernel

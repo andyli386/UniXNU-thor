@@ -1,0 +1,2582 @@
+[
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001208.0002.ips",
+    "bytes": 27889,
+    "header": {
+      "name": "PosterBoard",
+      "roots_installed": 0,
+      "timestamp": "1970-01-01 00:12:08.00 +0000",
+      "os_version": "iPhone OS 18.7.10 (22H374)",
+      "incident_id": "9E581F68-7F41-4644-8A50-99A9C4A462F7",
+      "share_with_app_devs": 0,
+      "bug_type": "509",
+      "app_name": "PosterBoard",
+      "bundleID": "com.apple.PosterBoard"
+    },
+    "complete_top_level_fields": {
+      "deployVersion": 210,
+      "variant": "stackshot",
+      "incident": "9E581F68-7F41-4644-8A50-99A9C4A462F7",
+      "crashReporterKey": "5748c6c2d02afc1180d2c0db407066739b39c5bb",
+      "modelCode": "iPhone17,1",
+      "cpuType": "ARM-64",
+      "osVersion": {
+        "train": "iPhone OS 18.7.10",
+        "build": "22H374",
+        "releaseType": "User"
+      },
+      "variantVersion": 2,
+      "captureTime": "1970-01-01 00:12:07.6428 +0000",
+      "pid": 470,
+      "roots_installed": 0,
+      "bug_type": "509",
+      "procName": "PosterBoard",
+      "procPath": "/Applications/PosterBoard.app/PosterBoard",
+      "bundleInfo": {
+        "CFBundleIdentifier": "com.apple.PosterBoard"
+      },
+      "termination": {
+        "flags": 0,
+        "code": 2343432205,
+        "namespace": "<0xA>",
+        "details": [
+          "process-launch watchdog transgression: osservice<com.apple.PosterBoard>:470 exhausted real (wall clock) time allowance of 30.00 seconds",
+          "ProcessVisibility: Background",
+          "ProcessState: Running",
+          "WatchdogEvent: process-launch",
+          "WatchdogVisibility: Background",
+          "WatchdogCPUStatistics: (",
+          "\"Elapsed total CPU time (seconds): 61.200 (user 3.070, system 58.130), 26% CPU\",",
+          "\"Elapsed application CPU time (seconds): 0.405, 0% CPU\"",
+          ")",
+          "ThermalInfo: (",
+          "\"Thermal Level:   0\",",
+          "\"Thermal State:   nominal\"",
+          ")"
+        ]
+      },
+      "bootSessionUUID": "31E8E988-D21A-4AB8-A33C-71BFD7795050",
+      "uptime": 720,
+      "thermalPressureLevel": "ThermalPressureLevelNominal (0)",
+      "displayState": "ON"
+    },
+    "full_document_valid": false,
+    "stop_error": {
+      "at": 1412,
+      "key_or_index": "stackshot",
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3157 (char 27607)\")"
+    },
+    "partial_field": {
+      "name": "stackshot",
+      "complete_entries_only": {
+        "memoryStatus": {
+          "compressorSize": 34395,
+          "compressions": 2145969,
+          "decompressions": 1923502,
+          "busyBufferCount": 105,
+          "memoryPressureDetails": {
+            "pagesWanted": 718,
+            "pagesReclaimed": 38852
+          },
+          "pageSize": 4096,
+          "memoryPressure": true,
+          "memoryPages": {
+            "active": 15540,
+            "throttled": 0,
+            "fileBacked": 20217,
+            "wired": 101853,
+            "purgeable": 0,
+            "inactive": 14858,
+            "free": 783,
+            "speculative": 681
+          }
+        }
+      },
+      "container_complete": false,
+      "stop_error": {
+        "at": 1796,
+        "key_or_index": "processByPid",
+        "error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3157 (char 27607)\")"
+      }
+    }
+  },
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000116.000.ips",
+    "bytes": 30197,
+    "header": {
+      "bug_type": "288",
+      "timestamp": "1970-01-01 00:01:16.00 +0000",
+      "os_version": "iPhone OS 18.7.10 (22H374)",
+      "roots_installed": 0,
+      "incident_id": "DEC4917C-BB11-43F4-B02B-37322BBC190A"
+    },
+    "complete_top_level_fields": {
+      "build": "iPhone OS 18.7.10 (22H374)",
+      "product": "iPhone17,1",
+      "kernel": "Darwin Kernel Version 24.6.0: 2026年11月10日 星期二 15时35分52秒 CST; stelax:ios-obj/DEVELOPMENT_ARM64_PONG",
+      "tuning": {},
+      "incident": "DEC4917C-BB11-43F4-B02B-37322BBC190A",
+      "crashReporterKey": "5748c6c2d02afc1180d2c0db407066739b39c5bb",
+      "reason": "unsupported screen class, no apple logo found",
+      "frontmostPids": [
+        5
+      ],
+      "exception": "0xbadedbad",
+      "codeSigningMonitor": 0,
+      "roots_installed": 0,
+      "bug_type": "288",
+      "pid": 81,
+      "memoryStatus": {
+        "compressorSize": 3581,
+        "compressions": 27853,
+        "decompressions": 17082,
+        "busyBufferCount": 72,
+        "memoryPressureDetails": {
+          "pagesWanted": 646,
+          "pagesReclaimed": 47711
+        },
+        "pageSize": 4096,
+        "memoryPressure": false,
+        "memoryPages": {
+          "active": 52932,
+          "throttled": 0,
+          "fileBacked": 87531,
+          "wired": 57638,
+          "purgeable": 280,
+          "inactive": 49178,
+          "free": 855,
+          "speculative": 3993
+        }
+      }
+    },
+    "full_document_valid": false,
+    "stop_error": {
+      "at": 920,
+      "key_or_index": "processByPid",
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 276 column 2 (char 30002)\")"
+    },
+    "partial_field": {
+      "name": "processByPid",
+      "complete_entries_only": {
+        "0": {
+          "timesThrottled": 0,
+          "pageIns": 0,
+          "rawFlags": "0x20800001",
+          "timesDidThrottle": 0,
+          "procname": "kernel_task",
+          "jetsamCoalition": 3,
+          "copyOnWriteFaults": 0,
+          "pageFaults": 81,
+          "threadById": {
+            "232": {
+              "id": 232,
+              "schedPriority": 91,
+              "system_usec": 10,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 91,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849212836
+              ],
+              "continuation": [
+                0,
+                68840842224
+              ],
+              "lastRunTime": 22.164730572,
+              "systemTime": 1.0572e-05,
+              "name": "VM_cswap_trigger"
+            },
+            "106": {
+              "id": 106,
+              "schedPriority": 80,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 0,
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68840163164
+                ]
+              ],
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849633024
+              ],
+              "continuation": [
+                0,
+                68840085872
+              ],
+              "lastRunTime": 75.65539151,
+              "systemTime": 0,
+              "name": "daemon.thread-exception"
+            },
+            "120": {
+              "continuation": [
+                0,
+                68845218336
+              ],
+              "userTime": 0,
+              "systemTime": 1.5156e-05,
+              "id": 120,
+              "basePriority": 81,
+              "lastRunTime": 48.897684531,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 15,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68849770120
+              ]
+            },
+            "149": {
+              "id": 149,
+              "schedPriority": 80,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 193,
+              "schedFlags": [
+                "TH_SFLAG_FLOOR_PROMOTED"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841833424
+                ],
+                [
+                  0,
+                  68840162156
+                ],
+                [
+                  0,
+                  68840157208
+                ],
+                [
+                  0,
+                  68840053448
+                ],
+                [
+                  0,
+                  68847037940
+                ],
+                [
+                  0,
+                  68847138896
+                ],
+                [
+                  0,
+                  68913640136
+                ],
+                [
+                  0,
+                  68913587136
+                ],
+                [
+                  0,
+                  68847122180
+                ],
+                [
+                  0,
+                  68847119848
+                ],
+                [
+                  0,
+                  68847094356
+                ],
+                [
+                  0,
+                  68847129936
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650747412719739
+              ],
+              "lastRunTime": 48.8274475,
+              "systemTime": 0.00019177,
+              "name": "Waiting_'IOAESAccelerator'"
+            },
+            "121": {
+              "continuation": [
+                0,
+                68842341248
+              ],
+              "userTime": 0,
+              "systemTime": 1.1041e-05,
+              "id": 121,
+              "basePriority": 81,
+              "lastRunTime": 48.897673489,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 11,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68849349104
+              ]
+            },
+            "163": {
+              "id": 163,
+              "schedPriority": 80,
+              "system_usec": 105,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650698115972011
+              ],
+              "continuation": [
+                0,
+                68840212976
+              ],
+              "lastRunTime": 2.55106625,
+              "systemTime": 0.000104322,
+              "name": "smr.reclaim:4"
+            },
+            "107": {
+              "id": 107,
+              "schedPriority": 80,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 0,
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68840163164
+                ]
+              ],
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849633072
+              ],
+              "continuation": [
+                0,
+                68840085872
+              ],
+              "lastRunTime": 75.65539151,
+              "systemTime": 0,
+              "name": "daemon.thread-backtrace"
+            },
+            "114": {
+              "id": 114,
+              "schedPriority": 31,
+              "system_usec": 5957,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 31,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849295224
+              ],
+              "continuation": [
+                0,
+                68841274652
+              ],
+              "lastRunTime": 0.845707239,
+              "systemTime": 0.005895312,
+              "name": "VM_pageout_garbage_collect"
+            },
+            "233": {
+              "id": 233,
+              "schedPriority": 91,
+              "system_usec": 160111,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 91,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849295312
+              ],
+              "continuation": [
+                0,
+                68841315492
+              ],
+              "lastRunTime": 0.335666979,
+              "systemTime": 0.158443645,
+              "name": "VM_compressor"
+            },
+            "227": {
+              "id": 227,
+              "system_usec": 94674,
+              "kernelFrames": [
+                [
+                  0,
+                  68841833424
+                ],
+                [
+                  0,
+                  68840162156
+                ],
+                [
+                  0,
+                  68840157208
+                ],
+                [
+                  0,
+                  68844984316
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68848816772
+              ],
+              "lastRunTime": 0.011886354,
+              "systemTime": 0.093687812,
+              "schedPriority": 81
+            },
+            "122": {
+              "continuation": [
+                0,
+                68842341420
+              ],
+              "userTime": 0,
+              "systemTime": 1.0104e-05,
+              "id": 122,
+              "basePriority": 81,
+              "lastRunTime": 48.897663385,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 10,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68849349056
+              ]
+            },
+            "157": {
+              "id": 157,
+              "schedPriority": 80,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 0,
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68840163164
+                ]
+              ],
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650698115922859
+              ],
+              "continuation": [
+                0,
+                68840212976
+              ],
+              "lastRunTime": 75.65539151,
+              "systemTime": 0,
+              "name": "smr.reclaim:1"
+            },
+            "108": {
+              "id": 108,
+              "schedPriority": 94,
+              "system_usec": 254,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 94,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68848724224
+              ],
+              "continuation": [
+                0,
+                68840343516
+              ],
+              "lastRunTime": 12.873436562,
+              "systemTime": 0.00025177,
+              "name": "thread_call_daemon"
+            },
+            "115": {
+              "id": 115,
+              "schedPriority": 81,
+              "system_usec": 14,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849756872
+              ],
+              "continuation": [
+                0,
+                68841344168
+              ],
+              "lastRunTime": 48.977033802,
+              "systemTime": 1.4218e-05,
+              "name": "VM_reclaim_scavenger"
+            },
+            "172": {
+              "continuation": [
+                0,
+                68845218336
+              ],
+              "userTime": 0,
+              "systemTime": 7.968e-06,
+              "id": 172,
+              "basePriority": 81,
+              "lastRunTime": 48.85259151,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 8,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68849852720
+              ]
+            },
+            "116": {
+              "id": 116,
+              "schedPriority": 63,
+              "system_usec": 78,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 63,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849617648
+              ],
+              "continuation": [
+                0,
+                68840085872
+              ],
+              "lastRunTime": 48.826304479,
+              "systemTime": 7.7239e-05,
+              "name": "daemon.core-analytics-events"
+            },
+            "123": {
+              "continuation": [
+                0,
+                68844900328
+              ],
+              "userTime": 0,
+              "systemTime": 8.697e-06,
+              "id": 123,
+              "basePriority": 81,
+              "lastRunTime": 48.897654687,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 8,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68848816128
+              ]
+            },
+            "130": {
+              "id": 130,
+              "schedPriority": 93,
+              "system_usec": 14416,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 93,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68848719104
+              ],
+              "continuation": [
+                0,
+                68840344164
+              ],
+              "lastRunTime": 0.005377812,
+              "systemTime": 0.014265833,
+              "name": "thread call high #1"
+            },
+            "165": {
+              "id": 165,
+              "schedPriority": 80,
+              "system_usec": 110,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650698115988395
+              ],
+              "continuation": [
+                0,
+                68840212976
+              ],
+              "lastRunTime": 13.548491875,
+              "systemTime": 0.000109166,
+              "name": "smr.reclaim:5"
+            },
+            "109": {
+              "id": 109,
+              "schedPriority": 80,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 0,
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68840163164
+                ]
+              ],
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68848963080
+              ],
+              "continuation": [
+                0,
+                68840212976
+              ],
+              "lastRunTime": 75.65539151,
+              "systemTime": 0,
+              "name": "smr.reclaim:0"
+            },
+            "235": {
+              "id": 235,
+              "schedPriority": 31,
+              "system_usec": 1634,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 31,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650730651717315
+              ],
+              "continuation": [
+                0,
+                68926844360
+              ],
+              "lastRunTime": 0.050643489,
+              "systemTime": 0.00161776,
+              "name": "apfs_purgatory_cleaner"
+            },
+            "173": {
+              "id": 173,
+              "schedPriority": 95,
+              "system_usec": 16,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 95,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650725499104303
+              ],
+              "continuation": [
+                0,
+                68845258512
+              ],
+              "lastRunTime": 48.864560677,
+              "systemTime": 1.6197e-05,
+              "name": "VM_memorystatus_1"
+            },
+            "117": {
+              "continuation": [
+                0,
+                68847264676
+              ],
+              "userTime": 0,
+              "systemTime": 1.1093e-05,
+              "id": 117,
+              "basePriority": 81,
+              "lastRunTime": 48.977022708,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 11,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                1,
+                14466650738383391499
+              ]
+            },
+            "180": {
+              "id": 180,
+              "schedPriority": 81,
+              "system_usec": 16,
+              "state": [
+                "TH_WAIT"
+              ],
+              "user_usec": 0,
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849381576
+              ],
+              "continuation": [
+                0,
+                68843699820
+              ],
+              "lastRunTime": 48.351514375,
+              "systemTime": 1.651e-05,
+              "name": "CFIL_STATS_REPORT"
+            },
+            "124": {
+              "continuation": [
+                0,
+                68844900328
+              ],
+              "userTime": 0,
+              "systemTime": 7.083e-06,
+              "id": 124,
+              "basePriority": 81,
+              "lastRunTime": 48.897647604,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 7,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68848816128
+              ]
+            },
+            "131": {
+              "id": 131,
+              "name": "thread call kernel #1",
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 2675,
+              "schedFlags": [
+                "TH_SFLAG_EAGERPREEMPT"
+              ],
+              "user_usec": 0,
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68848719744
+              ],
+              "continuation": [
+                0,
+                68840344164
+              ],
+              "lastRunTime": 0.147476406,
+              "systemTime": 0.002647864,
+              "schedPriority": 81
+            },
+            "159": {
+              "id": 159,
+              "schedPriority": 80,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 0,
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68840163164
+                ]
+              ],
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650698115939243
+              ],
+              "continuation": [
+                0,
+                68840212976
+              ],
+              "lastRunTime": 75.65539151,
+              "systemTime": 0,
+              "name": "smr.reclaim:2"
+            },
+            "229": {
+              "id": 229,
+              "schedPriority": 91,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 137555,
+              "snapshotFlags": [
+                "kThreadIOPassive"
+              ],
+              "user_usec": 0,
+              "basePriority": 91,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849295192
+              ],
+              "continuation": [
+                0,
+                68841314112
+              ],
+              "lastRunTime": 0.050156354,
+              "systemTime": 0.136122916,
+              "name": "VM_pageout_external_iothread"
+            },
+            "243": {
+              "id": 243,
+              "schedPriority": 81,
+              "system_usec": 10462,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p",
+                "kThreadIOPassive"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841833424
+                ],
+                [
+                  0,
+                  68840162156
+                ],
+                [
+                  0,
+                  68840157208
+                ],
+                [
+                  0,
+                  68840053700
+                ],
+                [
+                  0,
+                  68845216900
+                ],
+                [
+                  0,
+                  68845217860
+                ],
+                [
+                  0,
+                  68927454828
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650730653081251
+              ],
+              "lastRunTime": 0.545842187,
+              "systemTime": 0.010353645,
+              "name": "apfs_transaction_flusher"
+            },
+            "167": {
+              "id": 167,
+              "schedPriority": 80,
+              "system_usec": 93,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650698116004779
+              ],
+              "continuation": [
+                0,
+                68840212976
+              ],
+              "lastRunTime": 8.351987187,
+              "systemTime": 9.2135e-05,
+              "name": "smr.reclaim:6"
+            },
+            "174": {
+              "id": 174,
+              "schedPriority": 95,
+              "system_usec": 10,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 95,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650725499104351
+              ],
+              "continuation": [
+                0,
+                68845258512
+              ],
+              "lastRunTime": 48.864550156,
+              "systemTime": 1.052e-05,
+              "name": "VM_memorystatus_2"
+            },
+            "181": {
+              "id": 181,
+              "system_usec": 47268332,
+              "schedPriority": 0,
+              "state": [
+                "TH_RUN",
+                "TH_IDLE"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p",
+                "kThreadOnCore"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841808304
+                ],
+                [
+                  0,
+                  68840177356
+                ],
+                [
+                  0,
+                  68840177708
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 0,
+              "lastMadeRunnableTime": 48.848302239,
+              "userTime": 0,
+              "lastRunTime": 0.032443593,
+              "systemTime": 47.265537343,
+              "name": "idle #1"
+            },
+            "125": {
+              "continuation": [
+                0,
+                68845218336
+              ],
+              "userTime": 0,
+              "systemTime": 8.541e-06,
+              "id": 125,
+              "basePriority": 81,
+              "lastRunTime": 48.897639062,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 8,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68849787440
+              ]
+            },
+            "237": {
+              "id": 237,
+              "schedPriority": 92,
+              "system_usec": 3616,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 92,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68848721664
+              ],
+              "continuation": [
+                0,
+                68840344164
+              ],
+              "lastRunTime": 0.258936979,
+              "systemTime": 0.003578697,
+              "name": "thread call kernel-high #1"
+            },
+            "175": {
+              "id": 175,
+              "schedPriority": 95,
+              "system_usec": 10,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 95,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650725499104399
+              ],
+              "continuation": [
+                0,
+                68845258512
+              ],
+              "lastRunTime": 48.864540208,
+              "systemTime": 9.947e-06,
+              "name": "VM_memorystatus_3"
+            },
+            "119": {
+              "id": 119,
+              "schedPriority": 81,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 0,
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68840163164
+                ]
+              ],
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849242024
+              ],
+              "continuation": [
+                0,
+                68840085872
+              ],
+              "lastRunTime": 75.65539151,
+              "systemTime": 0,
+              "name": "VM_io_reprioritize_thread"
+            },
+            "182": {
+              "id": 182,
+              "system_usec": 47489471,
+              "schedPriority": 0,
+              "state": [
+                "TH_RUN",
+                "TH_IDLE"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p",
+                "kThreadOnCore"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841808304
+                ],
+                [
+                  0,
+                  68840177356
+                ],
+                [
+                  0,
+                  68840177708
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 0,
+              "lastMadeRunnableTime": 48.844010416,
+              "userTime": 0,
+              "lastRunTime": 0.051693593,
+              "systemTime": 47.484372447,
+              "name": "idle #2"
+            },
+            "126": {
+              "continuation": [
+                0,
+                68845218336
+              ],
+              "userTime": 0,
+              "systemTime": 8.177e-06,
+              "id": 126,
+              "basePriority": 81,
+              "lastRunTime": 48.897630885,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 8,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68848335364
+              ]
+            },
+            "169": {
+              "id": 169,
+              "schedPriority": 80,
+              "system_usec": 196,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650698116021163
+              ],
+              "continuation": [
+                0,
+                68840212976
+              ],
+              "lastRunTime": 0.61583401,
+              "systemTime": 0.000194427,
+              "name": "smr.reclaim:7"
+            },
+            "183": {
+              "id": 183,
+              "system_usec": 48006727,
+              "schedPriority": 0,
+              "state": [
+                "TH_RUN",
+                "TH_IDLE"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p",
+                "kThreadOnCore"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841808304
+                ],
+                [
+                  0,
+                  68840177356
+                ],
+                [
+                  0,
+                  68840177708
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 0,
+              "lastMadeRunnableTime": 48.841429791,
+              "userTime": 0,
+              "lastRunTime": 0.051691041,
+              "systemTime": 47.996240625,
+              "name": "idle #3"
+            },
+            "127": {
+              "continuation": [
+                0,
+                68845218336
+              ],
+              "userTime": 0,
+              "systemTime": 7.604e-06,
+              "id": 127,
+              "basePriority": 81,
+              "lastRunTime": 48.897623281,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 7,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68848801360
+              ]
+            },
+            "134": {
+              "id": 134,
+              "schedPriority": 81,
+              "system_usec": 1121,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650738383392059
+              ],
+              "continuation": [
+                0,
+                68847264676
+              ],
+              "lastRunTime": 8.961221666,
+              "systemTime": 0.001110104,
+              "name": "IOPMrootDomain"
+            },
+            "184": {
+              "id": 184,
+              "schedPriority": 0,
+              "state": [
+                "TH_RUN",
+                "TH_IDLE"
+              ],
+              "system_usec": 41657547,
+              "snapshotFlags": [
+                "kThreadOnCore"
+              ],
+              "user_usec": 0,
+              "basePriority": 0,
+              "lastMadeRunnableTime": 48.83906052,
+              "userTime": 0,
+              "continuation": [
+                0,
+                68840177648
+              ],
+              "lastRunTime": 1.0156e-05,
+              "systemTime": 41.650697812,
+              "name": "idle #4"
+            },
+            "128": {
+              "continuation": [
+                0,
+                68842829128
+              ],
+              "userTime": 0,
+              "systemTime": 2.7239e-05,
+              "id": 128,
+              "basePriority": 81,
+              "lastRunTime": 48.852599479,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 27,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68849779080
+              ]
+            },
+            "185": {
+              "id": 185,
+              "schedPriority": 0,
+              "state": [
+                "TH_RUN",
+                "TH_IDLE"
+              ],
+              "system_usec": 44766871,
+              "snapshotFlags": [
+                "kThreadOnCore"
+              ],
+              "user_usec": 0,
+              "basePriority": 0,
+              "lastMadeRunnableTime": 48.834165052,
+              "userTime": 0,
+              "continuation": [
+                0,
+                68840177648
+              ],
+              "lastRunTime": 0.000765416,
+              "systemTime": 44.758883385,
+              "name": "idle #5"
+            },
+            "129": {
+              "continuation": [
+                0,
+                68842813452
+              ],
+              "userTime": 0,
+              "systemTime": 4.8333e-05,
+              "id": 129,
+              "basePriority": 81,
+              "lastRunTime": 48.864524947,
+              "user_usec": 0,
+              "schedPriority": 81,
+              "system_usec": 48,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "waitEvent": [
+                0,
+                68849779288
+              ]
+            },
+            "192": {
+              "id": 192,
+              "schedPriority": 95,
+              "system_usec": 5,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 95,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849020136
+              ],
+              "continuation": [
+                0,
+                68840184484
+              ],
+              "lastRunTime": 48.789706093,
+              "systemTime": 5.312e-06,
+              "name": "sched_update_powered_cores"
+            },
+            "178": {
+              "id": 178,
+              "schedPriority": 81,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 9,
+              "schedFlags": [
+                "TH_SFLAG_FLOOR_PROMOTED"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841833424
+                ],
+                [
+                  0,
+                  68840162156
+                ],
+                [
+                  0,
+                  68840157208
+                ],
+                [
+                  0,
+                  68840053448
+                ],
+                [
+                  0,
+                  68847432928
+                ],
+                [
+                  0,
+                  68847426280
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650738383523451
+              ],
+              "lastRunTime": 48.852563593,
+              "systemTime": 9.01e-06,
+              "name": "frames to the panel"
+            },
+            "101": {
+              "id": 101,
+              "schedPriority": 91,
+              "system_usec": 885063,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 91,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849308864
+              ],
+              "continuation": [
+                0,
+                68841270464
+              ],
+              "lastRunTime": 0.050822343,
+              "systemTime": 0.875843593,
+              "name": "VM_pageout_scan"
+            },
+            "508": {
+              "id": 508,
+              "name": "thread call qos-ui #1",
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 153,
+              "schedFlags": [
+                "TH_SFLAG_EAGERPREEMPT"
+              ],
+              "user_usec": 0,
+              "basePriority": 47,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68848722304
+              ],
+              "continuation": [
+                0,
+                68840344164
+              ],
+              "lastRunTime": 0.553207864,
+              "systemTime": 0.00015151,
+              "schedPriority": 47
+            },
+            "186": {
+              "id": 186,
+              "system_usec": 45255128,
+              "schedPriority": 0,
+              "state": [
+                "TH_RUN",
+                "TH_IDLE"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p",
+                "kThreadOnCore"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841808304
+                ],
+                [
+                  0,
+                  68840177356
+                ],
+                [
+                  0,
+                  68840177708
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 0,
+              "lastMadeRunnableTime": 48.832655208,
+              "userTime": 0,
+              "lastRunTime": 0.001141302,
+              "systemTime": 45.252470781,
+              "name": "idle #6"
+            },
+            "403": {
+              "id": 403,
+              "name": "thread call user #1",
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 789,
+              "schedFlags": [
+                "TH_SFLAG_EAGERPREEMPT"
+              ],
+              "user_usec": 0,
+              "basePriority": 31,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68848720384
+              ],
+              "continuation": [
+                0,
+                68840344164
+              ],
+              "lastRunTime": 0.007536041,
+              "systemTime": 0.000780937,
+              "schedPriority": 31
+            },
+            "102": {
+              "id": 102,
+              "system_usec": 46628047,
+              "schedPriority": 0,
+              "state": [
+                "TH_RUN",
+                "TH_IDLE"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p",
+                "kThreadOnCore"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841808304
+                ],
+                [
+                  0,
+                  68840177356
+                ],
+                [
+                  0,
+                  68840177708
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 0,
+              "lastMadeRunnableTime": 49.215080104,
+              "userTime": 0,
+              "lastRunTime": 0.009523281,
+              "systemTime": 46.621505416,
+              "name": "idle #0"
+            },
+            "187": {
+              "id": 187,
+              "system_usec": 17651098,
+              "schedPriority": 0,
+              "state": [
+                "TH_RUN",
+                "TH_IDLE"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p",
+                "kThreadOnCore"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841808304
+                ],
+                [
+                  0,
+                  68840177356
+                ],
+                [
+                  0,
+                  68840177708
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 0,
+              "lastMadeRunnableTime": 48.83115552,
+              "userTime": 0,
+              "lastRunTime": 6.4479e-05,
+              "systemTime": 17.644316041,
+              "name": "idle #7"
+            },
+            "194": {
+              "id": 194,
+              "system_usec": 7226,
+              "kernelFrames": [
+                [
+                  0,
+                  68841833424
+                ],
+                [
+                  0,
+                  68840162156
+                ],
+                [
+                  0,
+                  68840157208
+                ],
+                [
+                  0,
+                  68839894856
+                ],
+                [
+                  0,
+                  68848061488
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68839894316
+              ],
+              "lastRunTime": 0.234708385,
+              "systemTime": 0.007151145,
+              "schedPriority": 81
+            },
+            "103": {
+              "id": 103,
+              "schedPriority": 95,
+              "system_usec": 5175,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 95,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68848138492
+              ],
+              "continuation": [
+                0,
+                68848138492
+              ],
+              "lastRunTime": 0.095865052,
+              "systemTime": 0.005121302,
+              "name": "sched_maintenance_thread"
+            },
+            "110": {
+              "id": 110,
+              "schedPriority": 81,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 123,
+              "schedFlags": [
+                "TH_SFLAG_FLOOR_PROMOTED"
+              ],
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68841833424
+                ],
+                [
+                  0,
+                  68840162156
+                ],
+                [
+                  0,
+                  68840157208
+                ],
+                [
+                  0,
+                  68840053448
+                ],
+                [
+                  0,
+                  68847085684
+                ],
+                [
+                  0,
+                  68841800908
+                ]
+              ],
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849855096
+              ],
+              "lastRunTime": 8.631675572,
+              "systemTime": 0.000122395,
+              "name": "IOServiceTerminateThread"
+            },
+            "188": {
+              "id": 188,
+              "schedPriority": 81,
+              "system_usec": 794,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 81,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650738383400251
+              ],
+              "continuation": [
+                0,
+                68847264676
+              ],
+              "lastRunTime": 0.258930312,
+              "systemTime": 0.000785781,
+              "name": "CoreAnalyticsHub"
+            },
+            "230": {
+              "id": 230,
+              "schedPriority": 31,
+              "system_usec": 3,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 31,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68841274044
+              ],
+              "continuation": [
+                0,
+                68841274044
+              ],
+              "lastRunTime": 48.578407656,
+              "systemTime": 3.072e-06,
+              "name": "VM_pressure"
+            },
+            "104": {
+              "id": 104,
+              "schedPriority": 80,
+              "system_usec": 14767,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849627248
+              ],
+              "continuation": [
+                0,
+                68840085872
+              ],
+              "lastRunTime": 0.063252135,
+              "systemTime": 0.014613958,
+              "name": "daemon.deferred-deallocation"
+            },
+            "161": {
+              "id": 161,
+              "schedPriority": 80,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "system_usec": 0,
+              "snapshotFlags": [
+                "kKernel64_p"
+              ],
+              "user_usec": 0,
+              "kernelFrames": [
+                [
+                  0,
+                  68840163164
+                ]
+              ],
+              "basePriority": 80,
+              "userTime": 0,
+              "waitEvent": [
+                1,
+                14466650698115955627
+              ],
+              "continuation": [
+                0,
+                68840212976
+              ],
+              "lastRunTime": 75.65539151,
+              "systemTime": 0,
+              "name": "smr.reclaim:3"
+            },
+            "105": {
+              "id": 105,
+              "schedPriority": 93,
+              "system_usec": 2616,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 93,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849633168
+              ],
+              "continuation": [
+                0,
+                68840085872
+              ],
+              "lastRunTime": 33.522303333,
+              "systemTime": 0.002589375,
+              "name": "daemon.thread-stack"
+            },
+            "231": {
+              "id": 231,
+              "schedPriority": 91,
+              "system_usec": 3,
+              "state": [
+                "TH_WAIT",
+                "TH_UNINT"
+              ],
+              "user_usec": 0,
+              "basePriority": 91,
+              "userTime": 0,
+              "waitEvent": [
+                0,
+                68849755536
+              ],
+              "continuation": [
+                0,
+                68841187176
+              ],
+              "lastRunTime": 48.578391302,
+              "systemTime": 3.437e-06,
+              "name": "VM_object_reaper_thread"
+            }
+          },
+          "userTimeTask": 0,
+          "pid": 0,
+          "systemTimeTask": 340.239481614,
+          "flags": [
+            "sharedRegionNone"
+          ],
+          "residentMemoryBytes": 20480
+        },
+        "1": {
+          "resampled_images": [
+            [
+              "eda938b3-86c9-36f1-a44d-57fe093237ff",
+              4306219008,
+              ""
+            ],
+            [
+              "15662d9d-d5db-3b2a-9637-0c305481cea1",
+              4307066880,
+              ""
+            ]
+          ],
+          "timesThrottled": 0,
+          "pageIns": 1021,
+          "codeSigningAuxiliaryInfo": 0,
+          "rawFlags": "0x40780001",
+          "waitInfo": [
+            "thread 707: semaphore port 0xc8c3de303c027f03 owned by pid 1"
+          ],
+          "timesDidThrottle": 0,
+          "csTrustLevel": 4294967295,
+          "systemTimeTask": 18.356895,
+          "procname": "launchd",
+          "copyOnWriteFaults": 52,
+          "threadById": {
+            "239": {
+              "id": 239,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 3803203,
+              "qosRequested": "QOS_CLASS_USER_INITIATED",
+              "snapshotFlags": [
+                "kUser64_p",
+                "kThreadIdleWorker"
+              ],
+              "user_usec": 26995,
+              "basePriority": 37,
+              "userFrames": [
+                [
+                  2,
+                  1311328680
+                ],
+                [
+                  2,
+                  1631349424
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_USER_INITIATED",
+              "userTime": 0.026714531,
+              "waitEvent": [
+                1,
+                14466650738384646043
+              ],
+              "continuation": [
+                0,
+                68844854024
+              ],
+              "lastRunTime": 0.131378125,
+              "systemTime": 3.794836822,
+              "schedPriority": 37
+            },
+            "707": {
+              "id": 707,
+              "state": [
+                "TH_WAIT"
+              ],
+              "name": "fairplayd.A2 throttled after exit()",
+              "qosRequested": "QOS_CLASS_DEFAULT",
+              "snapshotFlags": [
+                "kUser64_p"
+              ],
+              "user_usec": 4,
+              "system_usec": 45,
+              "basePriority": 31,
+              "userFrames": [
+                [
+                  2,
+                  1311329136
+                ],
+                [
+                  2,
+                  168667320
+                ],
+                [
+                  3,
+                  6264
+                ],
+                [
+                  2,
+                  1631356592
+                ],
+                [
+                  2,
+                  1631349436
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_DEFAULT",
+              "userTime": 4.791e-06,
+              "waitEvent": [
+                0,
+                68836942988
+              ],
+              "continuation": [
+                0,
+                68840226460
+              ],
+              "lastRunTime": 2.551219062,
+              "systemTime": 4.4895e-05,
+              "schedPriority": 31
+            },
+            "755": {
+              "id": 755,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 2645,
+              "qosRequested": "QOS_CLASS_USER_INITIATED",
+              "snapshotFlags": [
+                "kUser64_p",
+                "kThreadIdleWorker"
+              ],
+              "user_usec": 1750,
+              "basePriority": 37,
+              "userFrames": [
+                [
+                  2,
+                  1311328680
+                ],
+                [
+                  2,
+                  1631349424
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_USER_INITIATED",
+              "userTime": 0.001732552,
+              "waitEvent": [
+                1,
+                14466650738389613731
+              ],
+              "continuation": [
+                0,
+                68844854024
+              ],
+              "lastRunTime": 0.000730833,
+              "systemTime": 0.002617447,
+              "schedPriority": 37
+            },
+            "501": {
+              "id": 501,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 400152,
+              "qosRequested": "QOS_CLASS_USER_INITIATED",
+              "snapshotFlags": [
+                "kUser64_p",
+                "kThreadIdleWorker"
+              ],
+              "user_usec": 21846,
+              "basePriority": 37,
+              "userFrames": [
+                [
+                  2,
+                  1311328680
+                ],
+                [
+                  2,
+                  1631349424
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_USER_INITIATED",
+              "userTime": 0.021618906,
+              "waitEvent": [
+                1,
+                14466650738388087419
+              ],
+              "continuation": [
+                0,
+                68844854024
+              ],
+              "lastRunTime": 0.131478385,
+              "systemTime": 0.395984531,
+              "schedPriority": 37
+            },
+            "241": {
+              "id": 241,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 101,
+              "qosRequested": "QOS_CLASS_DEFAULT",
+              "snapshotFlags": [
+                "kUser64_p"
+              ],
+              "user_usec": 11,
+              "basePriority": 31,
+              "userFrames": [
+                [
+                  2,
+                  1311346528
+                ],
+                [
+                  2,
+                  168749412
+                ],
+                [
+                  1,
+                  0
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_DEFAULT",
+              "userTime": 1.1041e-05,
+              "waitEvent": [
+                1,
+                14466650730652933571
+              ],
+              "continuation": [
+                0,
+                68845218336
+              ],
+              "lastRunTime": 2.551493541,
+              "systemTime": 0.000100052,
+              "schedPriority": 31
+            },
+            "754": {
+              "id": 754,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 1287,
+              "qosRequested": "QOS_CLASS_USER_INITIATED",
+              "snapshotFlags": [
+                "kUser64_p",
+                "kThreadIdleWorker"
+              ],
+              "user_usec": 313,
+              "basePriority": 37,
+              "userFrames": [
+                [
+                  2,
+                  1311328680
+                ],
+                [
+                  2,
+                  1631349424
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_USER_INITIATED",
+              "userTime": 0.000310104,
+              "waitEvent": [
+                1,
+                14466650738383972803
+              ],
+              "continuation": [
+                0,
+                68844854024
+              ],
+              "lastRunTime": 0.130682656,
+              "systemTime": 0.001274062,
+              "schedPriority": 37
+            },
+            "500": {
+              "id": 500,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 123801,
+              "qosRequested": "QOS_CLASS_USER_INITIATED",
+              "snapshotFlags": [
+                "kUser64_p",
+                "kThreadIdleWorker"
+              ],
+              "user_usec": 21531,
+              "basePriority": 37,
+              "userFrames": [
+                [
+                  2,
+                  1311328680
+                ],
+                [
+                  2,
+                  1631349424
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_USER_INITIATED",
+              "userTime": 0.021307187,
+              "waitEvent": [
+                1,
+                14466650738388111995
+              ],
+              "continuation": [
+                0,
+                68844854024
+              ],
+              "lastRunTime": 0.131665468,
+              "systemTime": 0.122511979,
+              "schedPriority": 37
+            },
+            "461": {
+              "id": 461,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 5746,
+              "qosRequested": "QOS_CLASS_USER_INITIATED",
+              "snapshotFlags": [
+                "kUser64_p",
+                "kThreadIdleWorker"
+              ],
+              "user_usec": 793,
+              "basePriority": 37,
+              "userFrames": [
+                [
+                  2,
+                  1311328680
+                ],
+                [
+                  2,
+                  1631349424
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_USER_INITIATED",
+              "userTime": 0.000785416,
+              "waitEvent": [
+                1,
+                14466650738386848195
+              ],
+              "continuation": [
+                0,
+                68844854024
+              ],
+              "lastRunTime": 0.130460104,
+              "systemTime": 0.00568677,
+              "schedPriority": 37
+            }
+          },
+          "pageFaults": 5650,
+          "jetsamCoalition": 3,
+          "userTimeTask": 0.407856093,
+          "pid": 1,
+          "csFlags": 570425345,
+          "flags": [
+            "uuidFaultFlags0x00700000",
+            "resampledExtraImages",
+            "sharedRegionSystem"
+          ],
+          "residentMemoryBytes": 5218624
+        },
+        "5": {
+          "timesThrottled": 0,
+          "codeSigningAuxiliaryInfo": 0,
+          "pageIns": 1919,
+          "systemTimeTask": 1.030303229,
+          "rawFlags": "0x4408C401",
+          "waitInfo": [
+            "thread 248: unknown type 22 (owner 0, context 0xc8c3de298f27f543)",
+            "thread 664: semaphore port 0xc8c3de303bed2263 owned by pid 5"
+          ],
+          "timesDidThrottle": 0,
+          "frontmost": 1,
+          "csTrustLevel": 4294967295,
+          "procname": "SpringBoard",
+          "copyOnWriteFaults": 224,
+          "threadById": {
+            "664": {
+              "id": 664,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 286,
+              "qosRequested": "QOS_CLASS_DEFAULT",
+              "snapshotFlags": [
+                "kUser64_p"
+              ],
+              "user_usec": 23,
+              "basePriority": 31,
+              "userFrames": [
+                [
+                  2,
+                  1311351240
+                ],
+                [
+                  2,
+                  169149908
+                ],
+                [
+                  4,
+                  63228
+                ],
+                [
+                  2,
+                  1631356592
+                ],
+                [
+                  2,
+                  1631349436
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_DEFAULT",
+              "userTime": 2.3229e-05,
+              "waitEvent": [
+                0,
+                68836942988
+              ],
+              "continuation": [
+                0,
+                68840226460
+              ],
+              "lastRunTime": 0.871834791,
+              "systemTime": 0.000283385,
+              "schedPriority": 31
+            },
+            "633": {
+              "id": 633,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 500,
+              "qosRequested": "QOS_CLASS_USER_INTERACTIVE",
+              "snapshotFlags": [
+                "kUser64_p",
+                "kThreadIdleWorker"
+              ],
+              "user_usec": 146,
+              "basePriority": 47,
+              "userFrames": [
+                [
+                  2,
+                  1311328680
+                ],
+                [
+                  2,
+                  1631349424
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_USER_INTERACTIVE",
+              "userTime": 0.000145364,
+              "waitEvent": [
+                1,
+                14466650738386834803
+              ],
+              "continuation": [
+                0,
+                68844854024
+              ],
+              "lastRunTime": 4.571974739,
+              "systemTime": 0.000494791,
+              "schedPriority": 47
+            },
+            "248": {
+              "id": 248,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 1028723,
+              "qosRequested": "QOS_CLASS_USER_INTERACTIVE",
+              "schedFlags": [
+                "TH_SFLAG_FLOOR_PROMOTED"
+              ],
+              "snapshotFlags": [
+                "kUser64_p",
+                "kKernel64_p",
+                "kHasDispatchSerial",
+                "kThreadMain"
+              ],
+              "user_usec": 42484,
+              "kernelFrames": [
+                [
+                  0,
+                  68841833424
+                ],
+                [
+                  0,
+                  68840162156
+                ],
+                [
+                  0,
+                  68840157208
+                ],
+                [
+                  0,
+                  68840040660
+                ],
+                [
+                  0,
+                  68841202292
+                ],
+                [
+                  0,
+                  68840946576
+                ],
+                [
+                  0,
+                  68840957020
+                ],
+                [
+                  0,
+                  68841787112
+                ],
+                [
+                  0,
+                  68848289604
+                ],
+                [
+                  0,
+                  68841784928
+                ],
+                [
+                  1,
+                  0
+                ]
+              ],
+              "basePriority": 47,
+              "dispatch_queue_label": "com.apple.main-thread",
+              "userFrames": [
+                [
+                  2,
+                  25285320
+                ],
+                [
+                  2,
+                  28380492
+                ],
+                [
+                  2,
+                  30826308
+                ],
+                [
+                  2,
+                  1381830040
+                ],
+                [
+                  2,
+                  661854572
+                ],
+                [
+                  1,
+                  0
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_USER_INTERACTIVE",
+              "userTime": 0.042042291,
+              "waitEvent": [
+                1,
+                14466650698120951107
+              ],
+              "lastRunTime": 0.109041197,
+              "systemTime": 1.028424218,
+              "schedPriority": 47
+            },
+            "448": {
+              "id": 448,
+              "state": [
+                "TH_WAIT"
+              ],
+              "system_usec": 1112,
+              "qosRequested": "QOS_CLASS_UTILITY",
+              "snapshotFlags": [
+                "kUser64_p",
+                "kThreadIdleWorker"
+              ],
+              "user_usec": 370,
+              "basePriority": 20,
+              "userFrames": [
+                [
+                  2,
+                  1311328680
+                ],
+                [
+                  2,
+                  1631349424
+                ]
+              ],
+              "qosEffective": "QOS_CLASS_UTILITY",
+              "userTime": 0.000366718,
+              "waitEvent": [
+                1,
+                14466650738386852659
+              ],
+              "continuation": [
+                0,
+                68844854024
+              ],
+              "lastRunTime": 4.571935729,
+              "systemTime": 0.001100833,
+              "schedPriority": 20
+            }
+          },
+          "pageFaults": 4255,
+          "jetsamCoalition": 8,
+          "userTimeTask": 0.042577604,
+          "pid": 5,
+          "csFlags": 570425345,
+          "flags": [
+            "foreground",
+            "isImpDonor",
+            "isLiveImpDonor",
+            "isDirtyTracked",
+            "sharedRegionSystem"
+          ],
+          "residentMemoryBytes": 3065728
+        }
+      },
+      "container_complete": false,
+      "stop_error": null
+    }
+  }
+]

@@ -1,0 +1,44 @@
+{
+  "checked_at_utc": "2026-11-13",
+  "public_core_head": "7d85ede80092050f4d87f72ac7229bb605ce07fb",
+  "public_sheng_head": "1108068537d5396edb2c63b2f8c6f5b97b0a4bbc",
+  "scope": {
+    "sheng_recent_commits": 40,
+    "audio_plugin_commits": 6,
+    "local_history": "Pong migration/ipados18; evidence level retained per record"
+  },
+  "pong_public_origin_status": "404 during unauthenticated lookup; no inference about deleted/private",
+  "sources": [
+    {
+      "url": "https://github.com/UniXNU/UniXNU",
+      "topic": "core version"
+    },
+    {
+      "url": "https://github.com/UniXNU/UniXNU-sheng/blob/main/porting.toml",
+      "topic": "board-specific qualification evidence"
+    },
+    {
+      "url": "https://unixnu.com/zh/porting/migration",
+      "topic": "OS/SoC/board integration boundaries"
+    },
+    {
+      "url": "https://github.com/UniXNU/UniXNU-sheng/commit/dea464ef093349dd746582691b0eaa3807fe1441",
+      "topic": "audio host clock"
+    },
+    {
+      "url": "https://github.com/UniXNU/UniXNU-sheng/commit/0215f34a6d5307dab53e9a81dff9ae0fd047f3be",
+      "topic": "host-compiled smoothness work, not hardware-qualified in that record"
+    },
+    {
+      "url": "https://github.com/Lakr233/vphone-cli/issues/658",
+      "topic": "independent adjacent project hypothesis, not THOR proof"
+    },
+    {
+      "url": "https://github.com/Lakr233/vphone-cli/issues/680",
+      "topic": "build-specific limits of the adjacent case"
+    }
+  ],
+  "full_tool_response_note": "Full research retrieval receipts retained on the development hosts; portable log package uses this source index plus bounded review instead of duplicating entire remote documents.",
+  "review": "upstream-v73-review.md",
+  "current_policy_evidence": "upstream-v73-policy-runtime-evidence.json"
+}

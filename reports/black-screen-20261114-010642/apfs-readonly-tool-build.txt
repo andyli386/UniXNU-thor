@@ -1,0 +1,6 @@
+Official source: https://github.com/sgan81/apfs-fuse
+commit: 66b86bd525e8cb90f9012543be89b1f092b75cf3
+lzfse submodule: e634ca58b4821d9f3d560cdc6df5dec02ffc93fd
+GCC 16 compatibility: added missing #include <cstdint> to ApfsLib/PList.h only. No functional change.
+CMake 4 compatibility: configure with -DCMAKE_POLICY_VERSION_MINIMUM=3.5.
+Read-only driver; do not use lax mode or debug cryptographic flag 16.

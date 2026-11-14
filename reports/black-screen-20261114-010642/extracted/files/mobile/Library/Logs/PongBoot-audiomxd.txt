@@ -1,0 +1,166 @@
+Pong tick: audiomxd pid=79 seconds=60 threads=33
+Pong boot snapshot BEGIN: audiomxd pid=79 seconds=60 time=130 threads=33
+Pong boot snapshot: audiomxd pid=79 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=100460000 cache=0x18db48000 size=f37c8000
+thread=0 tid=579 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddca0c lr=1eee67988 fp=16f9f3100 sp=16f9f30c0 frames: 1b5247e48 23e4ff538 1b04497a4 1b056831c 10040d6b4 1b527996c 0
+thread=2 tid=614 state_result=0 info_result=0 run=4 cpu=0 pc=1f0800fd4 lr=1f0618740 fp=16fafd0c0 sp=16fafd010 frames: 1f0744938 1f0743660 1f06dc190 1f070b9cc 1f0ef266c 1f0ef1b88 1c562511c 197c4d830 197c4ea68 197c596a4 197c355e8 197c35b34 1eef0e9d4 1eef0eab0
+thread=3 tid=615 state_result=0 info_result=0 run=1 cpu=0 pc=1b5247438 lr=1b524af2c fp=16fb823c0 sp=16fb81e70 frames: 1b5248f7c 1b5249aa0 1b5247ec4 1a1478768 197c4ea68 197c2326c 1a1367bf4 1a13679ac 1a13671b0 1a13670cc 1a1368964 19cac38fc 1eef6c8c4 1eef6e2dc 197c4eaa4 197c256dc
+thread=4 tid=620 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16fc099d0 sp=16fc099b0 frames: 1eef0eab0
+thread=5 tid=790 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc980 lr=197c3c520 fp=16fc8f000 sp=16fc8efa0 frames: 197c3ccfc 197c3337c 197c32fa4 19e42b2f8 19e42cf28 19e42db90 19e4343b8 19e42c074 19e42bcc8 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10
+thread=6 tid=794 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16fd15b50 sp=16fd15b30 frames: 1eef0eab0
+thread=7 tid=795 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16fd9bfe0 sp=16fd9bfc0 frames: 1eef0eab0
+thread=8 tid=807 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=197bf62d4 fp=16fe21e10 sp=16fe21e00 frames: 197c228b8 19ca54d2c 19c9de310 1eef106b0 1eef0eabc
+thread=9 tid=808 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16fea6d50 sp=16fea6d00 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 19ca56098 19c9de310 1eef106b0 1eef0eabc
+thread=10 tid=809 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ff29350 sp=16ff29300 frames: 1dbde00d0 1dbddff1c 197c245e8 197c24984 1eef6b828 19e43308c 19e432e44 19e43a310 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=11 tid=810 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc980 lr=197c3c520 fp=16ffb38d0 sp=16ffb3870 frames: 197c3ccfc 197c3337c 197c32fa4 19e42b2f8 19e42b3e0 1a14ac244 1a14a8a0c 1a1320ee0 197c4d830 197c4ea68 197c58ea8 197c296e8 197c35474 197c35b34 1eef0e9d4 1eef0eab0
+thread=12 tid=813 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc980 lr=197c3c520 fp=170145a20 sp=1701459c0 frames: 197c3ccfc 197c3337c 197c32fa4 19e42b2f8 19e42b3e0 1008581dc 197c4d830 197c4ea68 197c596a4 197c355e8 197c35b34 1eef0e9d4 1eef0eab0
+thread=13 tid=817 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=1701cbb60 sp=1701cbb40 frames: 1eef0eab0
+thread=14 tid=852 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=17035db60 sp=17035db40 frames: 1eef0eab0
+thread=15 tid=854 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1c5107810 fp=1703e3e30 sp=1703e3e20 frames: 1c4e718f0 1c4e71a70 1eef106b0 1eef0eabc
+thread=16 tid=855 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170469f80 sp=170469f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=17 tid=856 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=1704eff80 sp=1704eff50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=18 tid=859 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=170575bf0 sp=170575b60 frames: 24790bbf0 18f1c52b0 1eef106b0 1eef0eabc
+thread=19 tid=1047 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=1700bff80 sp=1700bff50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=20 tid=1126 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=170680ee0 sp=170680e90 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 10398fd20 103b416e8 1eef106b0 1eef0eabc
+thread=21 tid=1643 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=1702d7b60 sp=1702d7b40 frames: 1eef0eab0
+thread=22 tid=1644 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=1705fbe10 sp=1705fbde0 frames: 2278b2400 2278b174c 2278b22b8 1eef106b0 1eef0eabc
+thread=23 tid=1650 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170707f80 sp=170707f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=24 tid=1652 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=170813b50 sp=170813b30 frames: 1eef0eab0
+thread=25 tid=1661 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=17091fb50 sp=17091fb30 frames: 1eef0eab0
+thread=26 tid=1667 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=1709a5b50 sp=1709a5b30 frames: 1eef0eab0
+thread=27 tid=1668 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=170a2bfe0 sp=170a2bfc0 frames: 1eef0eab0
+thread=28 tid=1669 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=170ab1b60 sp=170ab1b40 frames: 1eef0eab0
+thread=29 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=30 tid=1672 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=31 tid=1837 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170899f80 sp=170899f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+Pong boot snapshot END: audiomxd pid=79 seconds=60 sampled=31 of 33
+Pong tick: audiomxd pid=79 seconds=120 threads=18
+Pong boot snapshot BEGIN: audiomxd pid=79 seconds=120 time=190 threads=18
+Pong boot snapshot: audiomxd pid=79 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=100460000 cache=0x18db48000 size=f37c8000
+thread=0 tid=579 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f9f2480 sp=16f9f2430 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 18f163bac 10040ddb0 1b527996c 0
+thread=2 tid=614 state_result=0 info_result=0 run=4 cpu=16 pc=1f05fcb20 lr=1f065ab98 fp=16fafd990 sp=16fafd980 frames: 1f065ab98 1f065ab58 1f0659014 1f0659068 1f0ef1e64 1c562511c 197c4d830 197c4ea68 197c596a4 197c355e8 197c35b34 1eef0e9d4 1eef0eab0
+thread=3 tid=790 state_result=0 info_result=0 run=3 cpu=1 pc=1dbddc9a8 lr=1eef0ea5c fp=16fc8fa80 sp=16fc8fa60 frames: 1eef0eab0
+thread=4 tid=807 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=197bf62d4 fp=16fe21e10 sp=16fe21e00 frames: 197c228b8 19ca54d2c 19c9de310 1eef106b0 1eef0eabc
+thread=5 tid=808 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16fea6d50 sp=16fea6d00 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 19ca56098 19c9de310 1eef106b0 1eef0eabc
+thread=6 tid=813 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=170145b60 sp=170145b40 frames: 1eef0eab0
+thread=7 tid=854 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1c5107810 fp=1703e3e30 sp=1703e3e20 frames: 1c4e718f0 1c4e71a70 1eef106b0 1eef0eabc
+thread=8 tid=855 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170469f80 sp=170469f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=9 tid=856 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=1704eff80 sp=1704eff50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=10 tid=859 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=170575bf0 sp=170575b60 frames: 24790bbf0 18f1c52b0 1eef106b0 1eef0eabc
+thread=11 tid=1047 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=1700bff80 sp=1700bff50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=12 tid=1126 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=170680ee0 sp=170680e90 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 10398fd20 103b416e8 1eef106b0 1eef0eabc
+thread=13 tid=1644 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=1705fbe10 sp=1705fbde0 frames: 2278b2400 2278b174c 2278b22b8 1eef106b0 1eef0eabc
+thread=14 tid=1650 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170707f80 sp=170707f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=15 tid=1837 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170899f80 sp=170899f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=16 tid=2743 state_result=0 info_result=0 run=3 cpu=1 pc=1dbddc9a8 lr=1eef0ea5c fp=16fd15b60 sp=16fd15b40 frames: 1eef0eab0
+thread=17 tid=2746 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: audiomxd pid=79 seconds=120 sampled=17 of 18
+Pong tick: audiomxd pid=79 seconds=181 threads=16
+Pong tick: audiomxd pid=79 seconds=241 threads=16
+Pong boot snapshot BEGIN: audiomxd pid=79 seconds=241 time=312 threads=16
+Pong boot snapshot: audiomxd pid=79 seconds=241 image0=/private/var/pong/libpong-ui18.dylib image_slide=100460000 cache=0x18db48000 size=f37c8000
+thread=0 tid=579 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f9f2480 sp=16f9f2430 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 18f163bac 10040ddb0 1b527996c 0
+thread=2 tid=807 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=197bf62d4 fp=16fe21e10 sp=16fe21e00 frames: 197c228b8 19ca54d2c 19c9de310 1eef106b0 1eef0eabc
+thread=3 tid=808 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16fea6d50 sp=16fea6d00 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 19ca56098 19c9de310 1eef106b0 1eef0eabc
+thread=4 tid=854 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1c5107810 fp=1703e3e30 sp=1703e3e20 frames: 1c4e718f0 1c4e71a70 1eef106b0 1eef0eabc
+thread=5 tid=855 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170469f80 sp=170469f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=6 tid=856 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=1704eff80 sp=1704eff50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=7 tid=859 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=170575bf0 sp=170575b60 frames: 24790bbf0 18f1c52b0 1eef106b0 1eef0eabc
+thread=8 tid=1047 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=1700bff80 sp=1700bff50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=9 tid=1126 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=170680ee0 sp=170680e90 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 10398fd20 103b416e8 1eef106b0 1eef0eabc
+thread=10 tid=1644 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=1705fbe10 sp=1705fbde0 frames: 2278b2400 2278b174c 2278b22b8 1eef106b0 1eef0eabc
+thread=11 tid=1650 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170707f80 sp=170707f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=12 tid=1837 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170899f80 sp=170899f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=13 tid=4408 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16fb83b60 sp=16fb83b40 frames: 1eef0eab0
+thread=14 tid=4618 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16fc09b60 sp=16fc09b40 frames: 1eef0eab0
+thread=15 tid=5099 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16fafdb50 sp=16fafdb30 frames: 1eef0eab0
+Pong boot snapshot END: audiomxd pid=79 seconds=241 sampled=15 of 16
+Pong tick: audiomxd pid=79 seconds=303 threads=16
+Pong tick: audiomxd pid=79 seconds=363 threads=20
+Pong tick: audiomxd pid=79 seconds=423 threads=15
+Pong tick: audiomxd pid=79 seconds=483 threads=15
+Pong tick: audiomxd pid=79 seconds=543 threads=19
+Pong tick: audiomxd pid=479 seconds=60 threads=17
+Pong boot snapshot BEGIN: audiomxd pid=479 seconds=60 time=697 threads=17
+Pong boot snapshot: audiomxd pid=479 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=101209000 cache=0x18db48000 size=f37c8000
+thread=0 tid=10357 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc980 lr=197c3c520 fp=16ec48ea0 sp=16ec48e40 frames: 197c3ccfc 197c3337c 197c32fa4 10984dbec 109acf268 1c514fddc 1c51512b4 1c5039db8 1c4fa87a4 1a136e870 1a13d05d8 1a13fa7d0 1a14bfeb4 1a1449438 197c4ea68 197c2326c
+thread=2 tid=10429 state_result=0 info_result=0 run=4 cpu=0 pc=1f0d17c10 lr=1f12e462c fp=16edd9c30 sp=16edd9bf0 frames: 1f0f8ebe0 1f14ac9c0 1f14ad3b8 1f14adb68 1f0e67f3c 1f0e67cb4 1f0ef1ba4 1c562511c 197c4d830 197c4ea68 197c596a4 197c355e8 197c35b34 1eef0e9d4 1eef0eab0
+thread=3 tid=10611 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=16eff2640 sp=16eff25b0 frames: 1a132d874 1a13573b8 1a135723c 1a1320ee0 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=4 tid=10692 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=197bf62d4 fp=16f078e10 sp=16f078e00 frames: 197c228b8 19ca54d2c 19c9de310 1eef106b0 1eef0eabc
+thread=5 tid=10693 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f0fdd50 sp=16f0fdd00 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 19ca56098 19c9de310 1eef106b0 1eef0eabc
+thread=6 tid=10694 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=16f184500 sp=16f184470 frames: 1a132d874 1a132a4c0 1a14894fc 1a1320ee0 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=7 tid=10701 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f290b50 sp=16f290b30 frames: 1eef0eab0
+thread=8 tid=10792 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1c5107810 fp=16ef6ce30 sp=16ef6ce20 frames: 1c4e718f0 1c4e71a70 1eef106b0 1eef0eabc
+thread=9 tid=10793 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16f316f80 sp=16f316f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=10 tid=10794 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16f39cf80 sp=16f39cf50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=11 tid=10831 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=16f4a8bf0 sp=16f4a8b60 frames: 24790bbf0 18f1c52b0 1eef106b0 1eef0eabc
+thread=12 tid=11102 state_result=0 info_result=0 run=3 cpu=0 pc=19998172c lr=199a1f508 fp=16f206440 sp=16f206260 frames: 199a1da78 199a1edc8 1999568d8 199a4ec50 19045a5c4 190459958 1904596e4 190449a88 18f1677c4 1903f6308 1903e00b8 1903dd1d4 1903dd7d4 18f1570c0 224ce9b2c 224cf3844
+thread=13 tid=11237 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16ed54f80 sp=16ed54f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=14 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=15 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=16 tid=11258 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f6bfee0 sp=16f6bfe90 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 1099d3d20 109b856e8 1eef106b0 1eef0eabc
+Pong boot snapshot END: audiomxd pid=479 seconds=60 sampled=16 of 17
+Pong tick: audiomxd pid=479 seconds=120 threads=19
+Pong boot snapshot BEGIN: audiomxd pid=479 seconds=120 time=757 threads=19
+Pong boot snapshot: audiomxd pid=479 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=101209000 cache=0x18db48000 size=f37c8000
+thread=0 tid=10357 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ec49480 sp=16ec49430 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 18f163bac 1011b6db0 1b527996c 0
+thread=2 tid=10429 state_result=0 info_result=0 run=4 cpu=0 pc=1f065987c lr=1f0ef24e4 fp=16eddaa00 sp=16edda7b0 frames: 1f0ef1b88 1c562511c 197c4d830 197c4ea68 197c596a4 197c355e8 197c35b34 1eef0e9d4 1eef0eab0
+thread=3 tid=10692 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=197bf62d4 fp=16f078e10 sp=16f078e00 frames: 197c228b8 19ca54d2c 19c9de310 1eef106b0 1eef0eabc
+thread=4 tid=10693 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f0fdd50 sp=16f0fdd00 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 19ca56098 19c9de310 1eef106b0 1eef0eabc
+thread=5 tid=10701 state_result=0 info_result=0 run=3 cpu=3 pc=1dbddc9a8 lr=1eef0ea5c fp=16f290b50 sp=16f290b30 frames: 1eef0eab0
+thread=6 tid=10792 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1c5107810 fp=16ef6ce30 sp=16ef6ce20 frames: 1c4e718f0 1c4e71a70 1eef106b0 1eef0eabc
+thread=7 tid=10793 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16f316f80 sp=16f316f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=8 tid=10794 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16f39cf80 sp=16f39cf50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=9 tid=10831 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=16f4a8bf0 sp=16f4a8b60 frames: 24790bbf0 18f1c52b0 1eef106b0 1eef0eabc
+thread=10 tid=11237 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16ed54f80 sp=16ed54f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=11 tid=11258 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f6bfee0 sp=16f6bfe90 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 1099d3d20 109b856e8 1eef106b0 1eef0eabc
+thread=12 tid=11463 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16eee6e10 sp=16eee6de0 frames: 2278b2400 2278b174c 2278b22b8 1eef106b0 1eef0eabc
+thread=13 tid=11466 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16f422f80 sp=16f422f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=14 tid=11467 state_result=0 info_result=0 run=3 cpu=4 pc=1dbddc9a8 lr=1eef0ea5c fp=16f52ea90 sp=16f52ea70 frames: 1eef0eab0
+thread=15 tid=11522 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16ffa6f80 sp=16ffa6f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=16 tid=12128 state_result=0 info_result=0 run=3 cpu=2 pc=1dbddc9a8 lr=1eef0ea5c fp=16eff2b60 sp=16eff2b40 frames: 1eef0eab0
+thread=17 tid=12129 state_result=0 info_result=0 run=3 cpu=1 pc=1dbddc9a8 lr=1eef0ea5c fp=16f184b60 sp=16f184b40 frames: 1eef0eab0
+thread=18 tid=12240 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16ee60a60 sp=16ee60a40 frames: 1eef0eab0
+Pong boot snapshot END: audiomxd pid=479 seconds=120 sampled=18 of 19
+Pong tick: audiomxd pid=479 seconds=182 threads=17
+Pong tick: audiomxd pid=479 seconds=242 threads=19
+Pong boot snapshot BEGIN: audiomxd pid=479 seconds=242 time=880 threads=19
+Pong tick: audiomxd pid=598 seconds=60 threads=17
+Pong boot snapshot BEGIN: audiomxd pid=598 seconds=60 time=944 threads=17
+Pong boot snapshot: audiomxd pid=598 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=1009c5000 cache=0x18db48000 size=f37c8000
+thread=0 tid=13878 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f48d480 sp=16f48d430 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 18f163bac 100972db0 1b527996c 0
+thread=2 tid=13880 state_result=0 info_result=0 run=4 cpu=7 pc=1f102a01c lr=1f0dd5628 fp=16f597f30 sp=16f597df0 frames: 1f0dd6c6c 1f0dd6de0 1f0e68640 1f0e67cb4 1f0ef1ba4 1c562511c 197c4d830 197c4ea68 197c596a4 197c355e8 197c35b34 1eef0e9d4 1eef0eab0
+thread=3 tid=13889 state_result=0 info_result=0 run=1 cpu=4 pc=19ea0db30 lr=1aaf8b5b8 fp=16f6a40f0 sp=16f6a40d0 frames: 19e9eff70 19e9efafc 1eef6c8c4 1eef6e2dc 197c4eaa4 197c256dc 197c2cdcc 197c26250 197c2cdcc 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=4 tid=13907 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f72ab60 sp=16f72ab40 frames: 1eef0eab0
+thread=5 tid=13921 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=197bf62d4 fp=16f8bce10 sp=16f8bce00 frames: 197c228b8 19ca54d2c 19c9de310 1eef106b0 1eef0eabc
+thread=6 tid=13922 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f941d50 sp=16f941d00 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 19ca56098 19c9de310 1eef106b0 1eef0eabc
+thread=7 tid=14013 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1c5107810 fp=16fb5ae30 sp=16fb5ae20 frames: 1c4e718f0 1c4e71a70 1eef106b0 1eef0eabc
+thread=8 tid=14014 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fbe0f80 sp=16fbe0f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=9 tid=14015 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fc66f80 sp=16fc66f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=10 tid=14021 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=16fcecbf0 sp=16fcecb60 frames: 24790bbf0 18f1c52b0 1eef106b0 1eef0eabc
+thread=11 tid=14097 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fad4f80 sp=16fad4f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=12 tid=14103 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16fd71ee0 sp=16fd71e90 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 103f32d20 1040e46e8 1eef106b0 1eef0eabc
+thread=13 tid=14113 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fdf8e10 sp=16fdf8de0 frames: 2278b2400 2278b174c 2278b22b8 1eef106b0 1eef0eabc
+thread=14 tid=14116 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fe7ef80 sp=16fe7ef50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=15 tid=14131 state_result=0 info_result=0 run=4 cpu=33 pc=190206f70 lr=197c4ea68 fp=17043fe80 sp=17043fe80 frames: 197c2326c 1901e36a0 19cdbcadc 19cb1b780 1904087e0 190407f70 18f17a72c 18f16e158 18f16dc10 18f16dad8 1eef6c8c4 1eef6e2dc 197c4eaa4 197c256dc 197c2cdcc 197c26250
+thread=16 tid=14149 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170764f80 sp=170764f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+Pong boot snapshot END: audiomxd pid=598 seconds=60 sampled=16 of 17
+Pong tick: audiomxd pid=598 seconds=121 threads=17
+Pong boot snapshot BEGIN: audiomxd pid=598 seconds=121 time=1006 threads=17
+Pong boot snapshot: audiomxd pid=598 seconds=121 image0=/private/var/pong/libpong-ui18.dylib image_slide=1009c5000 cache=0x18db48000 size=f37c8000
+thread=0 tid=13878 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f48d480 sp=16f48d430 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 18f163bac 100972db0 1b527996c 0
+thread=2 tid=13880 state_result=0 info_result=0 run=4 cpu=13 pc=1f06df630 lr=1f06df62c fp=16f597550 sp=16f5974f0 frames: 1f06e9a7c 1f06e5bf8 1f06e5710 1f06e5fd4 1f06e60e0 1f06e6574 1f06e6328 1f06eab6c 1f06df174 1f06de6f4 1f06e9940 1f06df5b4 1f06df354 1f06e99e0 1f06dde48 1f06ddb1c
+thread=3 tid=13907 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f72a960 sp=16f72a940 frames: 1eef0eab0
+thread=4 tid=13921 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=197bf62d4 fp=16f8bce10 sp=16f8bce00 frames: 197c228b8 19ca54d2c 19c9de310 1eef106b0 1eef0eabc
+thread=5 tid=13922 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f941d50 sp=16f941d00 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 19ca56098 19c9de310 1eef106b0 1eef0eabc
+thread=6 tid=14013 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1c5107810 fp=16fb5ae30 sp=16fb5ae20 frames: 1c4e718f0 1c4e71a70 1eef106b0 1eef0eabc
+thread=7 tid=14014 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fbe0f80 sp=16fbe0f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=8 tid=14015 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fc66f80 sp=16fc66f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=9 tid=14021 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=16fcecbf0 sp=16fcecb60 frames: 24790bbf0 18f1c52b0 1eef106b0 1eef0eabc
+thread=10 tid=14097 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fad4f80 sp=16fad4f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=11 tid=14103 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16fd71ee0 sp=16fd71e90 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 103f32d20 1040e46e8 1eef106b0 1eef0eabc
+thread=12 tid=14113 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fdf8e10 sp=16fdf8de0 frames: 2278b2400 2278b174c 2278b22b8 1eef106b0 1eef0eabc
+thread=13 tid=14116 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=16fe7ef80 sp=16fe7ef50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=14 tid=14131 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=170440b60 sp=170440b40 frames: 1eef0eab0
+thread=15 tid=14149 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcb70 lr=1f18e8818 fp=170764f80 sp=170764f50 frames: 1f18e6e2c 1f18fd094 1eef106b0 1eef0eabc
+thread=16 tid=15092 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f7b0b50 sp=16f7b0b30 frames: 1eef0eab0
+Pong boot snapshot END: audiomxd pid=598 seconds=121 sampled=16 of 17

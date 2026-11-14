@@ -1,0 +1,4 @@
+J171 com.apple.lsd {'ActiveSoftMemoryLimit': 32, 'InactiveHardMemoryLimit': 12, 'JetsamPriority': 140}
+J171 com.apple.lsd.system {'ActiveSoftMemoryLimit': 32, 'InactiveHardMemoryLimit': 12, 'JetsamPriority': 140}
+J172 com.apple.lsd {'ActiveSoftMemoryLimit': 32, 'InactiveHardMemoryLimit': 12, 'JetsamPriority': 140}
+J172 com.apple.lsd.system {'ActiveSoftMemoryLimit': 32, 'InactiveHardMemoryLimit': 12, 'JetsamPriority': 140}

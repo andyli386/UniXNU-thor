@@ -1,0 +1,60 @@
+{
+  "started_local": "2026-11-14T01:06:59.811642+08:00",
+  "serial": "<device-serial>",
+  "device_writes": false,
+  "method": "read-only physical Data window; unmounted idle dm-7 mapping retained",
+  "total": 19401801728,
+  "records": [
+    {
+      "name": "OS",
+      "offset": 1048576,
+      "length": 6845104128,
+      "block": 512,
+      "flags": 1
+    },
+    {
+      "name": "SystemOS",
+      "offset": 6846152704,
+      "length": 3963617280,
+      "block": 512,
+      "flags": 1
+    },
+    {
+      "name": "Data",
+      "offset": 10809769984,
+      "length": 8591003648,
+      "block": 512,
+      "flags": 1
+    }
+  ],
+  "expected_bytes": 8591003648,
+  "dd_returncode": 0,
+  "read_bytes": 8591003648,
+  "elapsed_seconds": 239.594,
+  "no_write_or_discard_counter_change": true,
+  "capture_status": "complete",
+  "collector_status": "complete",
+  "finished_local": "2026-11-14T01:11:00.896377+08:00",
+  "selected_files": 84,
+  "selected_bytes": 5001362,
+  "host_apfs_detached": true,
+  "collector_finished_local": "2026-11-14T01:14:42.548812+08:00",
+  "reader": {
+    "tool": "sgan81/apfs-fuse",
+    "commit": "66b86bd525e8cb90f9012543be89b1f092b75cf3",
+    "volume_index": 1,
+    "volume_uuid": "26FD8349-9B9A-4F22-89EB-C81E070D2AB2",
+    "volume_name": "Data",
+    "mode": "strict, readonly, no lax mode; uid/gid mapped to 1000"
+  },
+  "selected_file_errors": [],
+  "selected_file_skipped": [],
+  "uid_gid_caveat": "APFS-FUSE mapped host stat; do not infer original owner if uid/gid mount mapping is enabled",
+  "runtime_library": {
+    "path": "/private/var/pong/libpong-ui18.dylib",
+    "bytes": 194528,
+    "uuid": "1E1A9C7E-932C-3A62-AACA-EDAB65CA7A9F"
+  },
+  "remote_source_directory": "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642",
+  "mac_development_report_directory": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-010642"
+}

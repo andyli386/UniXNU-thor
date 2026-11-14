@@ -1,0 +1,210 @@
+THOR v73：本轮黑屏日志、代码及上游核查
+采集批次：20261114-025335
+报告日期：2026-11-14（Mac / i386 当地时间；UTC 为 2026-11-13）
+
+一、主要结论
+
+本轮确实有进展，仍没有拿到稳定桌面证据。
+
+1. 已从连接 i386 的 Recovery 完整读取本次 Data，导出 76 个文件。实际 libpong-ui18.dylib 的 UUID 与 v73 候选一致，新增 SpringBoard ctor 回执也写明 v73。
+2. 本轮与 v72 有实质区别：audiomxd 在五次快照中一直是 PID83，所保留记录未见上一轮的音频崩溃重启；SpringBoard 最新主线程已进入系统 shell 的 window-scene 连接链，离开了前两轮最后看到的媒体 once 等待 / NSError 描述格式化位置。
+3. 本轮黑屏有直接软件行为证据：Console raw906.227133 时四个显示层 surface 全为0，走 CPU framebuffer 填黑分支；其后至少仍有67.883710秒规范内核日志。不能把这个黑屏直接称作整机死机、背光关闭或硬件休眠。
+4. v73 的两个关键诊断目标仍不完整：显示提交者信息出队时丢失，实测仍是 ?/-1；原始退出理由仅写到与当前 Recovery 不匹配的 pmsg 地址，重启导出链路没有建立。这两项是确定的采证缺陷，尚不能宣称它们就是黑屏根因。
+5. 上游核查找到了相关修复和一项未落地的集成差异，但没有找到已经验证、直接对应本轮 scene/pointer 单点栈的补丁。当前最该闭合的是“scene 连接是否完成、谁清空显示层、之后是否提交桌面内容”，并同步查明内存占用所有者。
+
+二、采集身份与完整性
+
+设备：i386 上 ADB serial <device-serial>，用户已手动进入 Recovery。
+Recovery boot_id：e79bfa2b-009b-46c4-b90d-94956a06303b。
+读取区间：userdata 内 Data 窗口 offset10809769984、length8591003648。
+采集开始：2026-11-14 02:55:24 +08；完成02:59:30 +08。
+实际读取8591003648字节，读取进程退出0；前后Recovery boot_id相同，底层写入/丢弃计数无变化。
+原始Data只保存于i386，不将8.59GB原始镜像重复搬到Mac。
+
+Desktop Commander拒绝了挂载操作，因此改用普通主机文件的纯用户态APFS读取器。它使用O_RDONLY、拒绝设备文件，不挂载、不使用FUSE。已有APFS库只读解析GPT内APFS分区，校验Data volume index1与UUID26FD8349-9B9A-4F22-89EB-C81E070D2AB2。
+导出结果：76文件，4546480字节；metadata inventory4341节点；errors/skipped均为空；源镜像大小/mtime/ctime/inode未变化。
+原生UID/GID/mode来自APFS inode，不是先前FUSE的主机映射。
+同一新读取器还对旧v72镜像进行了具体交叉校验：Console、ui18库、隐藏PosterBoard IPS与旧FUSE导出逐字节相同。此验证覆盖三类实际读取路径，不冒充所有APFS格式的穷尽验证。
+唯一APFS解析警告是AppleAccount缓存inode4597的未知XF15，不涉及选出的日志；警告已记录。
+
+当前用户库：194576字节，LC_UUID DCBDA011-9CA3-3BA9-AF5F-CFAF07A981DF。
+外层仓库HEAD：9a9a3f07002b730481651088e1a2ffc79dace788。
+实际XNU工作树HEAD：43a90889846e00bfb5cf1d255cdc0a701a1e05a4。
+MiniIOMobileFramebuffer、MiniIOSurface和ramoops header在XNU工作树中为untracked，kern_exit.c为modified。因此外层v73提交本身不能完整重建当前内核；已保留源码小摘录和真实编译依赖记录。
+本轮没有改系统源码、构建固件、刷机或操作手机重启；新增的是主机日志读取/分析工具及报告。
+
+三、与v72的实际变化
+
+项目                         v72                         v73
+SpringBoard PID              4                           5
+最后SB主线程阶段             NSError/NSBundle描述格式化   系统shell window-scene连接
+audiomxd记录                 79→479→598，保存了崩溃       五次采样均83，未保存同类崩溃
+首次可见帧(raw)              90.322578                   79.341296
+清空显示层(raw)              843.811817                  906.227133
+清空时swap                   59068                       64839
+清空后的Console覆盖          约190.91秒                  约67.88秒
+SpringBoard早期回执          无PongSB文件                ctor63 / 调度位置67
+迁移结果plist success        false                       false
+
+清屏的原始时间晚了62.415316秒；以各自RAM标记为原点，晚了62.362267秒。这个差别不能换算为进度条百分比，也不是性能修复的控制变量证明。
+观察时长不同：v73清屏后只保存了约68秒，不能因为它比v72短就认定系统更早死机。
+Console有31条显式WRAP lost text标记。相同原始RESTORED行出现4次、EMPTIED行出现3次，去掉ring回放后分别只有一次事件。
+Console raw、PongBoot/PongDiag epoch、native报告header/captureTime/uptime分别保留，未假设固定时钟偏移。
+
+四、SpringBoard当前走到了哪里
+
+最新PongBoot-SpringBoard快照time970，PID5，主线程T248，run=1。24帧提供了比v72更深的原生调用链：
+
+SBSystemShellEmbeddedDisplayController displayAssertionDidGainControlOfDisplay
+→ _createSystemShellSceneWithOrientation
+→ FBSceneManager / FBScene activate / FBSScene didCreate
+→ FBLocalSynchronousSceneClientProvider sendSceneCreate
+→ UIApplication _connectUISceneFromFBSScene
+→ SBEmbeddedDisplayWindowSceneDelegate scene:willConnect / _configureForConnectingWindowScene
+→ SBSystemPointerInteractionManager initWithMultiDisplayUserInteractionCoordinator:
+→ SBMultiDisplayUserInteractionCoordinator addPointerInteractionObserver:+0
+
+这是一份正在执行的单点栈，支持“系统shell已推进到显示控制权与场景连接阶段”。它不证明scene连接已经返回、首个桌面surface已经提交或主RunLoop已经稳定。
+符号名依据本轮cache base0x195148000、slide0x15148000及同22H374参考cache做条件符号化；原始地址保留在详表。本轮未重新取得完整运行cache UUID或逐字验证cache镜像，因此不能把参考cache条件省略成对所有运行二进制的重新核验。
+尤其不能因为叶子名称带Pointer或MultiDisplay，就认定缺鼠标驱动、缺多显示驱动或该函数死锁。+0表示采样命中该函数入口；需要同一线程多次进展和调用返回证据，不能将该函数改成空返回。
+较早time190/312/674采样仍在FrontBoard系统shell同步回复链，最新栈与其不同。推进是真实差异，但不能保证再等固定秒数就出界面。
+
+PongSB-5.txt仅有：
+  [63] Pong UI18: SpringBoard adapter ctor (v73)
+  [67] Pong UI18: wake scheduled on main queue +10s
+没有保存wake_home begin、屏幕属性或回调结束回执。
+源码中scheduled这行在dispatch_after_f调用之前，严格只证明到达调度位置；不是enqueue已返回或唤醒回调已执行的证明。文件写入/flush结果也未逐项记录。它应与主线程进展合并解释，不能仅凭缺行宣布永久死锁。
+
+五、黑屏的直接证据与尚缺的因果关系
+
+本轮关键行：
+[906.227133] MiniIOMFB layers EMPTIED: submitter=? pid=-1 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=64839
+
+实际编译源MiniIOMobileFramebuffer.cpp的show()在底层surface为0、set含底层位、software路径、graphics已启用时，将整个framebuffer写为0xff000000。该条件与本轮字段匹配。
+之后继续记录APFS/内存等活动，最后规范内核时间974.110843；保存范围内没有新的非空层恢复。
+
+目前不能确认是哪一个用户态调用者撤掉了最后一层。v73在present()的原始slot记录了提交者，却在presenter()将swap复制到另一个静态缓冲；show()仍试图根据这个新缓冲的地址反推原slot，因此得到who=-1。
+本轮?/-1正好验证这个诊断缺陷。它不是“进程-1提交”、不是kernel_task实际发起清屏，也不是一个新的已证黑屏原因。
+
+合理但未证实的解释是：旧进度条显示层已撤掉，而桌面window-scene尚未完成可见提交，资源压力拉长了中间的空白期。要确认，需要把真实清屏提交者、scene连接返回、后续非空提交对应起来，不能用目前的相邻时间推定因果。
+
+六、服务与迁移状态
+
+audiomxd在time125到968的五组快照中均为PID83，mediaremoted保持PID10。现存记录未复现v72的音频崩溃重启；这不等同于音频业务已完全健康。
+本轮仍有大量CPU wake告警。wake告警本身不能当成SIGABRT或崩溃原因。
+
+PosterBoard PID470的一份部分IPS给出30秒process-launch watchdog，termination code0x8badf00d。Console相同行回放不能算成多次崩溃。报告中的系统CPU和内存压力都很高，但其完整线程图没有保存下来，尚不能确定等待所有者。
+两份native IPS均为截断文件；仅使用可独立完整解码的termination、memoryStatus等子对象，不补括号伪造完整报告。最新DM快照也有部分线程读取失败；backboardd有一个尚未建立可执行映射的dispatch_group_wait，不能宣布全部后台初始化已结束。
+
+迁移状态仍要区分：lockdownd在epoch922.638325收到migrationDidFinish，epoch937.750881读取到Data Migration Completed:true；与此同时，实际com.apple.migration.plist中DMLastMigrationResults.success仍是false，LastSystemVersion为22H374，.AppleSetupDone不存在。
+因此“迁移阶段已经通知结束”不能替代“所有迁移任务成功”，更不能替代“SpringBoard已进入可用桌面”。
+
+七、为什么启动仍然很慢
+
+内核日志明确：3个owned bank，总计665MiB管理窗口，4KiB页；compressor mode2，swap由boot-arg关闭。
+较早DM stackshot的完整memoryStatus子对象：wired225.15MiB、active+inactive398.87MiB、compressor13.99MiB，memoryPressure=false。
+后来的PosterBoard报告：wired397.86MiB、active+inactive118.74MiB、compressor134.36MiB，memoryPressure=true；累计compressions2145969、decompressions1923502。
+这说明可供普通工作集使用的空间变少，压缩和解压开销很重；并没有证明wired增长一定是泄漏，也没有定位具体分配者。
+
+按各自RAM标记对齐948.038986秒观察窗口：
+v72：199次回收，包括188 idle-exit、7 long-idle-exit、1 highwater、3 vm-compressor-thrashing。
+v73：170次回收，164 idle-exit、6 long-idle-exit，未记录highwater/压缩抖动回收。
+两轮并非严格A/B实验。v73这一窗口没有上述压力杀进程记录，仍不能说没有压力；native memoryStatus已直接记录压力为true。
+
+缓存预读13个窗口、318.515625MiB全部完成，合计read_ms31.869秒（v72为41.466秒）。一个窗口正确截到EOF，无defer。预读耗时改善不足以解释后续十几分钟的启动时序，也不是独立UFS硬件吞吐测试。
+压缩/解压累计次数不能当UFS字节数；当前665MiB也不能用手机标称RAM或其他板子的内存配置直接替换。应先对应实际loader/ADT、保留区、内核可管理bank及wired分配所有者。
+
+八、上游有没有解决过
+
+这次核查了公开UniXNU核心、UniXNU-sheng最近40个提交、音频插件最近6个提交、官方移植文档，以及本地继承的Pong 22H374历史。没有把仅有源码或主机构建的状态说成真机已修好。
+公开核心核查HEAD为7d85ede80092050f4d87f72ac7229bb605ce07fb；Sheng为1108068537d5396edb2c63b2f8c6f5b97b0a4bbc。Sheng近期主线主要覆盖macOS/root窗口等不同范围，不能直接套到本轮22H374。
+Chengdong-Yu/UniXNU-pong本次公开访问返回404；只能说明公开访问不可用，不能判断删除或私有。同22H374的以下证据来自本地版本化历史。
+
+最相关的候选：
+
+A. services26–28几何/像素布局/首帧交接，以及services98 SwapWait(0)
+   这些解决过具体显示接口问题；当前THOR实际编译的MiniIOMobileFramebuffer已含关键逻辑，并不是新漏掉的通用补丁。
+
+B. services107 InterfaceNamer握手
+   同22H374历史记录有明确真机首帧结果，原等待链是SB→wifid→IOKit quiet。
+   当前源码已有该握手；本轮最新scene连接栈不是这条等待链，不能直接重复移植并宣布修复。
+
+C. services73 AirPlay端点策略
+   历史native crash明确audiomxd因routediscoverer DiscoveryMode RPC超时退出；当时HAL/DSP已经ready。改法是让audiomxd使用进程内端点管理。
+   该历史文档只证明修改/构建完成，没有修复后的真机验证。
+   当前Pong源码已有airplayd.Enabled=false策略，但本轮Data目标/private/var/preferences/FeatureFlags/Domain/AirPlay.plist确实不存在。
+   Console明确执行load_init_program的/sbin/launchd普通分支，未走显式pong_init_path=/pong/init分支。最终bootargs全文及OS卷/sbin/launchd身份未重读，因此不扩大结论。
+   这是一项实际集成差异。本轮音频PID稳定，故它属于v72历史回归/集成候选，不能越过当前scene创建证据成为本轮既定主因。
+
+D. Sheng音频时钟修复
+   官方记录有真机播放/录音验证；Pong源码已包含对应时钟处理，但它依赖真实后端连接。
+   当前THOR实际libPongPower.a只有QcomSmem和PongSmmuLease两个对象，没有完整音频服务。与此同时，PongAudio插件的ready/ABI检查在后端不可用时返回空设备列表，不会仅因缺后端而自动发布假speaker。因此“缺硬件音频后端”不能直接推出本轮音频崩溃或UI失败。
+
+E. 本轮scene/pointer精确调用栈
+   针对八个具体类名/selector检查本地移植记录和官方板级记录，没有找到直接对应的已验证修复。
+   Sheng公开pointer修复针对实体键盘/触控板及不同OS配置，不是SB注册observer的同因证据。
+
+另有独立vphone-cli issue658记录虚拟speaker与音频崩溃/媒体等待的相近情况，但它不是UniXNU上游，同项目issue680的18.6.2又未崩溃。只能帮助提出待验证假设，不能把虚拟平台补丁搬到THOR。
+
+九、已经能给出的具体修改建议
+
+优先级0：修正诊断中的两个确定错误。
+1. 将swap payload、surfaces、提交者名字和PID在同一队列锁内从同一slot复制出来，显式传给show()。不要从复制后指针反查slot，不改变fence退休和surface生命周期语义。
+2. 在corpse构建前保留有界原始退出字段，并将同一记录同步输出到已经可提取的Console：raw rv、reason是否存在、namespace/code/description、原始exception/code/subcode及时间；corpse返回码另行记录。不要扩大/关闭corpse限制，也不要改变退出行为。
+
+优先级1：围绕当前scene连接闭合运行证据。
+3. 对同一SpringBoard主线程增加少量有界的后续快照，记录scene连接进入与返回、主队列回调开始/结束及真实非空显示提交。当前+0的一个样本不足以判断永久阻塞。
+4. 将空层提交和后续surface提交对应到真实进程、scene/display context，确认进度条撤除后谁应提供下一帧。保留原有行为，不以禁止清黑、伪造成功或跳过scene函数来掩盖问题。
+5. 对wired/IOSurface/驱动分配建立所有者和释放量统计，再决定是生命周期修复还是需要扩大板级已合法取得的RAM窗口。不要直接照搬Sheng的内存bank、DMA或寄存器常量。
+
+优先级2：完成上游配置差异的单项集成。
+6. 如果要验证AirPlay历史修复，应在现有THOR启动前Data provisioning路径加入精确featureflag，保留已有override，并核回读和原生provider实际选择。不要直接开启整个/pong/init，避免同时改变Data seed、Setup、HAL挂载、身份和stdio。
+   候选内容：{ "airplayd": { "Enabled": false } }，存为系统读取的plist；当前只给建议，未写设备。
+
+ramoops长期修正另有前提：
+Darwin源码Console基址0x85200000，pmsg基址0x85400000；Recovery实际保留4MiB区间0xa7000000–0xa73fffff，配置Console/pmsg各2MiB。旧地址在Recovery归为普通System RAM。
+必须先统一实际loader、Darwin和Recovery的内存保留/所有权契约，再修改地址。不能只把常量改成0xa7000000就宣称可靠。
+本轮pstore为空、/dev/mem不存在，没有读取任意物理内存，也不能说原始诊断字节一定被覆盖或一定尚存。
+
+十、下一轮怎样算真正通过
+
+可见桌面的判据应同时包括：scene连接完成、主队列继续处理、真实非空桌面内容提交并显示，以及继续运行时没有反复清层/关键服务重启。
+当前只满足了其中部分中间阶段。raw清屏晚一分钟、PID较大、wake scheduled、renderer hook成功、迁移Completed true，都不能单独充当桌面成功判据。
+应针对仍未闭合的阶段采样，不再把每一轮都按“同样黑屏，所以完全没进展”或“只剩最后一个补丁”处理。
+
+十一、文件位置
+
+i386原始采集与导出：
+/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-025335/
+
+Mac当前开发目录中的结论和日志镜像：
+/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-025335/
+
+重点文件：
+THOR-v73-025335-REPORT.txt：本报告。
+extracted/manifest.json、inventory.jsonl：导出清单与Data元数据。
+extracted/files/logs/PongConsole.txt、PongDiag.txt、lockdownd.log：本轮原始日志。
+extracted/files/mobile/Library/Logs/PongSB-5.txt、PongBoot-SpringBoard.txt、PongBoot-audiomxd.txt等：运行回执和快照。
+analysis/v73-source-review.txt、source-excerpts-v73.txt、compilation-provenance-v73.json：实际源码/编译证据。
+analysis/v73-display-review.txt、v73-display-runtime.json：清屏和覆盖核查。
+analysis/v73-memory-latency.txt、v73-memory-latency.json：内存/耗时分析。
+analysis/native-waits.txt、native-runtime-transition.json及符号化记录：运行栈详表。
+analysis/upstream-v73-review.md：上游逐项适用性与证据等级。
+analysis/ramoops-contract-check.json：实际Recovery与Darwin的地址契约差异。
+collector-validation-v72.json：新读取器与旧提取结果的具体交叉校验。
+
+轻量下载包含原始导出日志、元数据、分析和读取工具记录，不含8.59GB Data镜像及两个运行库二进制。它们仍保存在主机原始证据目录。
+
+十二、上游原始来源
+
+https://github.com/UniXNU/UniXNU
+https://github.com/UniXNU/UniXNU-sheng
+https://github.com/UniXNU/UniXNU-sheng/blob/main/porting.toml
+https://unixnu.com/zh/porting/migration
+https://unixnu.com/zh/porting/display
+https://unixnu.com/zh/porting/power
+https://github.com/UniXNU/UniXNU-sheng/commit/dea464ef093349dd746582691b0eaa3807fe1441
+https://github.com/Lakr233/vphone-cli/issues/658
+https://github.com/Lakr233/vphone-cli/issues/680
+
+本地历史记录以当前仓库migration/ipados18内services26–28、services73、services98、services107、services125等文件为准；它们的源码、主机构建与真机验证状态分别列明于上游核查报告。

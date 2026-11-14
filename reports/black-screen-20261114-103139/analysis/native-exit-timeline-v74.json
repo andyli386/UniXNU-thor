@@ -1,0 +1,82 @@
+[
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 21541,
+    "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 22412,
+    "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 23283,
+    "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 24137,
+    "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 24970,
+    "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 25749,
+    "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 26669,
+    "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 27403,
+    "text": "[  869.166608]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 27603,
+    "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 28337,
+    "text": "[  869.166608]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 28550,
+    "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 29284,
+    "text": "[  869.166608]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 30226,
+    "text": "[  869.166608]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 30469,
+    "text": "[  955.520118]: PONG EXIT audiomxd pid=529 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot took over 5s, aborting"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 31161,
+    "text": "[  869.166608]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+  },
+  {
+    "file": "extracted/files/logs/PongConsole.txt",
+    "line": 31404,
+    "text": "[  955.520118]: PONG EXIT audiomxd pid=529 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot took over 5s, aborting"
+  }
+]

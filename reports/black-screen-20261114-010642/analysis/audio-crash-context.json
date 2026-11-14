@@ -1,0 +1,246 @@
+[
+  [
+    {
+      "line": 20178,
+      "text": "[  628.737709]: MiniIOMobileFramebuffer: 386 frames in 5008 ms (77 a second), 12964 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+    },
+    {
+      "line": 20179,
+      "text": "[  628.737753]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 386 under 18, 0 under 26, 0 under 35, 0 longer (the longest 14 ms); half under 13 ms, 95 in 100 under 14 ms; 0 pauses"
+    },
+    {
+      "line": 20180,
+      "text": "[  628.909740]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20181,
+      "text": "[  629.404610]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20182,
+      "text": "[  629.745306]: memorystatus_perform_idle_demotion() timed out stuck process 435 [SetStoreUpdateService], moving to idle band"
+    },
+    {
+      "line": 20183,
+      "text": "[  629.910632]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20184,
+      "text": "[  630.391864]: MobileGestaltHel[464] triggered unnest of range 0x1f3800000->0x1f3a00000 of DYLD shared region in VM map 0x6da379b87dcd3b93. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+    },
+    {
+      "line": 20185,
+      "text": "[  630.391892]: MobileGestaltHel[464] triggered unnest of range 0x1f3a00000->0x1fe200000 of DYLD shared region in VM map 0x6da379b87dcd3b93. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+    },
+    {
+      "line": 20186,
+      "text": "[  630.405493]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20187,
+      "text": "[  630.910820]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20188,
+      "text": "[  631.406624]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20189,
+      "text": "[  631.563131]: audiomxd[79] Corpse failure, too many 6"
+    },
+    {
+      "line": 20190,
+      "text": "[  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created."
+    },
+    {
+      "line": 20191,
+      "text": "[  631.911993]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20192,
+      "text": "[  632.406838]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20193,
+      "text": "[  632.912516]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20194,
+      "text": "[  633.407335]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20195,
+      "text": "[  633.747847]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+    },
+    {
+      "line": 20196,
+      "text": "[  633.747890]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 14 ms; 0 pauses"
+    },
+    {
+      "line": 20197,
+      "text": "[  633.912718]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20198,
+      "text": "[  634.408542]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20199,
+      "text": "[  634.913869]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20200,
+      "text": "[  635.408695]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20201,
+      "text": "[  635.914017]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20202,
+      "text": "[  636.005547]: process nfcd[457] caught waking the CPU 45029 times over ~9 seconds, averaging 4952 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    },
+    {
+      "line": 20203,
+      "text": "[  636.409825]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 20204,
+      "text": "[  636.491410]: containermanager[476] triggered unnest of range 0x1f3800000->0x1f3a00000 of DYLD shared region in VM map 0x6da379b87dcdf6e3. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+    },
+    {
+      "line": 20205,
+      "text": "[  636.491441]: containermanager[476] triggered unnest of range 0x1f3a00000->0x1fe200000 of DYLD shared region in VM map 0x6da379b87dcdf6e3. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+    },
+    {
+      "line": 20206,
+      "text": "[  636.678307]: audiomxd[479] triggered unnest of range 0x1f3800000->0x1f3a00000 of DYLD shared region in VM map 0x6da379b87dca09b3. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+    },
+    {
+      "line": 20207,
+      "text": "[  636.678333]: audiomxd[479] triggered unnest of range 0x1f3a00000->0x1fe200000 of DYLD shared region in VM map 0x6da379b87dca09b3. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+    }
+  ],
+  [
+    {
+      "line": 28070,
+      "text": "[  879.593571]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28071,
+      "text": "[  880.018845]: process healthd[575] caught waking the CPU 45123 times over ~32 seconds, averaging 1399 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    },
+    {
+      "line": 28072,
+      "text": "[  880.088448]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28073,
+      "text": "[  880.594779]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28074,
+      "text": "[  881.089586]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28075,
+      "text": "[  881.595339]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28076,
+      "text": "[  881.862802]: process AudioConverterSe[596] caught waking the CPU 45009 times over ~3 seconds, averaging 11806 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    },
+    {
+      "line": 28077,
+      "text": "[  882.090161]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28078,
+      "text": "[  882.596487]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28079,
+      "text": "[  883.091275]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28080,
+      "text": "[  883.597340]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28081,
+      "text": "[  884.024679]: audiomxd[479] Corpse failure, too many 6"
+    },
+    {
+      "line": 28082,
+      "text": "[  884.024715]: Process[479] crashed: audiomxd. Too many corpses being created."
+    },
+    {
+      "line": 28083,
+      "text": "[  884.092161]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28084,
+      "text": "[  884.588654]: audiomxd[598] triggered unnest of range 0x1f3800000->0x1f3a00000 of DYLD shared region in VM map 0x6da379b87dca39b3. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+    },
+    {
+      "line": 28085,
+      "text": "[  884.588683]: audiomxd[598] triggered unnest of range 0x1f3a00000->0x1fe200000 of DYLD shared region in VM map 0x6da379b87dca39b3. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+    },
+    {
+      "line": 28086,
+      "text": "[  884.597493]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28087,
+      "text": "\u0000"
+    },
+    {
+      "line": 28088,
+      "text": "Pong console capture WRAP lost text"
+    },
+    {
+      "line": 28089,
+      "text": "8:messageClients of 19 available events"
+    },
+    {
+      "line": 28090,
+      "text": "[  670.434202]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28091,
+      "text": "[  670.939701]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28092,
+      "text": "[  670.989152]: process healthd[453] caught waking the CPU 45249 times over ~44 seconds, averaging 1026 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    },
+    {
+      "line": 28093,
+      "text": "[  671.434577]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28094,
+      "text": "[  671.859401]: process liveactivitiesd[465] caught waking the CPU 45095 times over ~44 seconds, averaging 1003 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    },
+    {
+      "line": 28095,
+      "text": "[  671.939932]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28096,
+      "text": "[  672.070705]: tx_flush:1362: disk4 xid 807 tx stats: # 740 owait 54 3742us finish 763 bar2 740 f 37 enter 18 fq 20 23 155us close 0us prep 157us flush 7547us"
+    },
+    {
+      "line": 28097,
+      "text": "[  672.180495]: ktrace: changing state from 0 to 2, owned by tailspind[492]void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28098,
+      "text": "[  672.940258]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+    },
+    {
+      "line": 28099,
+      "text": "[  673.429581]: process icloudmailagent[486] caught waking the CPU 45071 times over ~34 seconds, averaging 1294 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    }
+  ]
+]

@@ -1,0 +1,27 @@
+{
+  "v75": {
+    "ram_anchor": 26.137305,
+    "first_visible": 97.4149,
+    "clear": 1156.380611,
+    "last": 1484.356745,
+    "first_visible_from_ram": 71.277595,
+    "clear_from_ram": 1130.243306,
+    "visible_interval": 1058.965711,
+    "post_clear_seconds": 327.976134
+  },
+  "v76": {
+    "ram_anchor": 26.06776,
+    "first_visible": 83.338947,
+    "clear": 683.95894,
+    "last": 1005.876045,
+    "first_visible_from_ram": 57.271187000000005,
+    "clear_from_ram": 657.89118,
+    "visible_interval": 600.619993,
+    "post_clear_seconds": 321.917105
+  },
+  "differences": {
+    "clear_v76_minus_v75": -472.42167100000006,
+    "first_visible_v76_minus_v75": -14.075952999999998,
+    "selector44_after_clear": 154.798941
+  }
+}

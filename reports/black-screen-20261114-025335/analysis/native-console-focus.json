@@ -1,0 +1,77 @@
+{
+  "display": [
+    {
+      "text": "[   79.347480]: MiniIOMFB layers RESTORED: submitter=? pid=-1 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1",
+      "first_line": 1798,
+      "occurrences": 4,
+      "lines": [
+        1798,
+        2572,
+        3111,
+        4053
+      ]
+    },
+    {
+      "text": "[  906.227133]: MiniIOMFB layers EMPTIED: submitter=? pid=-1 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=64839",
+      "first_line": 27977,
+      "occurrences": 3,
+      "lines": [
+        27977,
+        28848,
+        29721
+      ]
+    }
+  ],
+  "audio_init_policy": [],
+  "raw_exit": [],
+  "ui_sb_open": [],
+  "audio_crash": [],
+  "poster_crash": [
+    {
+      "text": "[  732.800078]: PosterBoard[470] Corpse failure, too many 6",
+      "first_line": 22505,
+      "occurrences": 9,
+      "lines": [
+        22505,
+        23326,
+        24177,
+        25032,
+        25877,
+        26708,
+        27396,
+        28267,
+        29140
+      ]
+    },
+    {
+      "text": "[  732.800177]: Process[470] crashed: PosterBoard. Too many corpses being created.",
+      "first_line": 22506,
+      "occurrences": 9,
+      "lines": [
+        22506,
+        23327,
+        24178,
+        25033,
+        25878,
+        26709,
+        27397,
+        28268,
+        29141
+      ]
+    }
+  ],
+  "migration_finish": [
+    {
+      "line": 23,
+      "text": "01/01/70 00:01:59.816774 pid=54 lockstart_local: Data Migration Completed: false"
+    },
+    {
+      "line": 99,
+      "text": "01/01/70 00:15:22.638325 pid=570 main_block_invoke: Received notification: com.apple.datamigrator.migrationDidFinish"
+    },
+    {
+      "line": 105,
+      "text": "01/01/70 00:15:37.750881 pid=570 lockstart_local: Data Migration Completed: true"
+    }
+  ]
+}

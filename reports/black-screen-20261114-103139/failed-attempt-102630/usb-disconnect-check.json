@@ -1,0 +1,37 @@
+{
+  "at": "2026-11-14T10:27:55.999050+08:00",
+  "results": [
+    {
+      "args": [
+        "/usr/bin/adb",
+        "devices",
+        "-l"
+      ],
+      "rc": 0,
+      "out": "List of devices attached\n\n",
+      "err": ""
+    },
+    {
+      "args": [
+        "lsusb"
+      ],
+      "rc": 0,
+      "out": "Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub\nBus 001 Device 003: ID 0bda:5411 Realtek Semiconductor Corp. RTS5411 Hub\nBus 001 Device 004: ID 048d:c101 Integrated Technology Express, Inc. ITE Device(8910)\nBus 001 Device 005: ID 1a81:1202 Holtek Semiconductor, Inc. wireless dongle\nBus 001 Device 006: ID 24ae:2015 Shenzhen Rapoo Technology Co., Ltd. Rapoo 2.4G Wireless Device\nBus 001 Device 022: ID 0bda:5411 Realtek Semiconductor Corp. RTS5411 Hub\nBus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub\nBus 002 Device 002: ID 0bda:0411 Realtek Semiconductor Corp. Hub\nBus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub\nBus 003 Device 002: ID 0489:e0cd Foxconn / Hon Hai MediaTek Bluetooth Adapter\nBus 003 Device 020: ID 18d1:4ee7 Google Inc. Nexus/Pixel Device (charging + debug)\nBus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub\n",
+      "err": ""
+    },
+    {
+      "args": [
+        "journalctl",
+        "-k",
+        "--since",
+        "15 minutes ago",
+        "--no-pager",
+        "-n",
+        "160"
+      ],
+      "rc": 0,
+      "out": "Nov 14 10:15:30 i386 kernel: usb 3-2: USB disconnect, device number 18\nNov 14 10:15:33 i386 kernel: usb 3-2: new high-speed USB device number 19 using xhci_hcd\nNov 14 10:15:33 i386 kernel: usb 3-2: New USB device found, idVendor=18d1, idProduct=4ee7, bcdDevice= 5.10\nNov 14 10:15:33 i386 kernel: usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3\nNov 14 10:15:33 i386 kernel: usb 3-2: Product: Xiaomi 12S Ultra\nNov 14 10:15:33 i386 kernel: usb 3-2: Manufacturer: Xiaomi\nNov 14 10:15:33 i386 kernel: usb 3-2: SerialNumber: <device-serial>\nNov 14 10:15:34 i386 kernel: usb 3-2: USB disconnect, device number 19\nNov 14 10:15:37 i386 kernel: usb 3-2: new high-speed USB device number 20 using xhci_hcd\nNov 14 10:15:37 i386 kernel: usb 3-2: New USB device found, idVendor=18d1, idProduct=4ee7, bcdDevice= 5.10\nNov 14 10:15:37 i386 kernel: usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3\nNov 14 10:15:37 i386 kernel: usb 3-2: Product: Xiaomi 12S Ultra\nNov 14 10:15:37 i386 kernel: usb 3-2: Manufacturer: Xiaomi\nNov 14 10:15:37 i386 kernel: usb 3-2: SerialNumber: <device-serial>\n",
+      "err": ""
+    }
+  ]
+}

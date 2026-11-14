@@ -1,0 +1,23 @@
+[
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001551.0002.ips",
+    "reason": "AQ::Server: RPC timeout within audiomxd. Apparently deadlocked. Writing a stackshot and exiting.",
+    "field_line": 11,
+    "field_char_offset": 510,
+    "field_utf8_byte_offset": 528,
+    "value_char_start": 521,
+    "value_char_end": 619,
+    "whole_document_complete": false
+  },
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000120.000.ips",
+    "reason": "unsupported screen class, no apple logo found",
+    "field_line": 11,
+    "field_char_offset": 510,
+    "field_utf8_byte_offset": 528,
+    "value_char_start": 521,
+    "value_char_end": 568,
+    "whole_document_complete": false
+  }
+]
+

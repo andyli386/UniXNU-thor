@@ -1,0 +1,35 @@
+2026-11-14T19:54:04+08:00
+FDT path /sys/firmware/devicetree/base/soc/spi@990000/fts@0
+compatible:
+st,spi
+status:
+ok
+spi-max-frequency:
+ 00 b7 1b 00
+lrwxrwxrwx 1 root root 0 2026-11-14 19:54 /sys/bus/spi/devices/spi1.0/driver -> ../../../../../../../bus/spi/drivers/fts
+spi:spi
+
+I: Bus=001c Vendor=0001 Product=0002 Version=0100
+N: Name="fts"
+P: Phys=fts/input0
+S: Sysfs=/devices/platform/soc/990000.spi/spi_master/spi1/spi1.0/input/input7
+U: Uniq=
+H: Handlers=event7 cpufreq kgsl sde 
+B: PROP=2
+B: EV=b
+B: KEY=400040420 0 0 408000 168000000000 f804d0428d060000
+B: ABS=a7f800000000000
+[    1.688969] Modules linked in: stmvl53l5(+) goodix_fod aw8697_haptic pm8941_pwrkey goodix_core nt36xxx_spi nt36xxx_i2c synaptics_dsx focaltech_fts gh_mem_notifier gh_irq_lend atmel_mxt_ts nb7vpq904m f_fs_ipc_log usb_f_gsi ipa_fmwk usb_f_cdev usb_f_ccid usb_f_diag lvstest ehset phy_qcom_emu msm_sharedmem mi_cnss_statistic cnss_prealloc cnss_nl cnss_utils cnss2 cnss_plat_ipc_qmi_svc spmi_glink_debug spmi_pmic_arb_debug spi_msm_geni sg qcom_i2c_pmic perf_helper gpio_testing_mode hdcp_qseecom zram lt9611uxc qcom_iommu_debug xlogchar rdbg frpc_adsprpc msm_rng hvc_gunyah qpnp_amoled_regulator qcom_pm8008_regulator fan53555 qfprom_sys hung_task_enh qcom_sync_file panel_event_notifier qcom_logbuf_vendor_hooks memlat qdss_bridge usb_f_qdss usb_bam sps_drv dwc3_msm phy_msm_ssusb_qmp phy_msm_snps_eusb2 repeater_i2c_eusb2 repeater phy_msm_snps_hs redriver shared_rail_scmi shared_rail_vendor gplaf_scmi gplaf_vendor plh_scmi plh_vendor rimps_log icnss2 wlan_firmware_service qti_adc_tm
+[    2.829838] sdpm_clk policy_engine cpu_voltage_cooling msm_lmh_dcvs bcl_soc qti_qmi_cdev qti_qmi_sensor_v2 qcom_spmi_temp_alarm qti_battery_charger_main_m81 qcom_pon radio_i2c_rtc6226_qca ispv3_cam_dev ispv3_mfd_dev synx_driver qcom_ipc_lite ir_spi i3c_master_msm_geni i2c_msm_geni stmvl53l5 goodix_fod aw8697_haptic pm8941_pwrkey goodix_core nt36xxx_spi nt36xxx_i2c synaptics_dsx focaltech_fts gh_mem_notifier gh_irq_lend atmel_mxt_ts nb7vpq904m f_fs_ipc_log usb_f_gsi ipa_fmwk usb_f_cdev usb_f_ccid usb_f_diag lvstest ehset phy_qcom_emu msm_sharedmem mi_cnss_statistic cnss_prealloc cnss_nl cnss_utils cnss2 cnss_plat_ipc_qmi_svc spmi_glink_debug spmi_pmic_arb_debug spi_msm_geni sg qcom_i2c_pmic perf_helper gpio_testing_mode hdcp_qseecom zram lt9611uxc qcom_iommu_debug xlogchar rdbg frpc_adsprpc msm_rng hvc_gunyah qpnp_amoled_regulator qcom_pm8008_regulator fan53555 qfprom_sys hung_task_enh qcom_sync_file panel_event_notifier qcom_logbuf_vendor_hooks memlat qdss_bridge
+[    2.830519] sdpm_clk policy_engine cpu_voltage_cooling msm_lmh_dcvs bcl_soc qti_qmi_cdev qti_qmi_sensor_v2 qcom_spmi_temp_alarm qti_battery_charger_main_m81 qcom_pon radio_i2c_rtc6226_qca ispv3_cam_dev ispv3_mfd_dev synx_driver qcom_ipc_lite ir_spi i3c_master_msm_geni i2c_msm_geni stmvl53l5 goodix_fod aw8697_haptic pm8941_pwrkey goodix_core nt36xxx_spi nt36xxx_i2c synaptics_dsx focaltech_fts gh_mem_notifier gh_irq_lend atmel_mxt_ts nb7vpq904m f_fs_ipc_log usb_f_gsi ipa_fmwk usb_f_cdev usb_f_ccid usb_f_diag lvstest ehset phy_qcom_emu msm_sharedmem mi_cnss_statistic cnss_prealloc cnss_nl cnss_utils cnss2 cnss_plat_ipc_qmi_svc spmi_glink_debug spmi_pmic_arb_debug spi_msm_geni sg qcom_i2c_pmic perf_helper gpio_testing_mode hdcp_qseecom zram lt9611uxc qcom_iommu_debug xlogchar rdbg frpc_adsprpc msm_rng hvc_gunyah qpnp_amoled_regulator qcom_pm8008_regulator fan53555 qfprom_sys hung_task_enh qcom_sync_file panel_event_notifier qcom_logbuf_vendor_hooks memlat qdss_bridge
+[    2.988437] [ FTS ] openChannel: spi_device: max_speed = 12000000 chip select = 00 bits_per_words = 8 mode = 0000 !
+[    2.998539] Modules linked in: fts_touch_spi(O+) xiaomi_touch(O) adsp_loader_dlkm(O) spf_core_dlkm(O) gpr_dlkm(O) snd_event_dlkm(O) q6_notifier_dlkm(O) q6_pdr_dlkm(O) swinfo(O) msm_drm(O) msm_mmrm(O) debug_ext(O) bootinfo(O) qrtr_gunyah qrtr_mhi qrtr_smd snd_usb_audio_qmi stm_ftrace stm_console stm_p_ost stm_p_basic coresight_hwevent coresight_tgu coresight_remote_etm coresight_dummy coresight_tpdm coresight_tpda coresight_cti coresight_stm stm_core coresight_replicator coresight_funnel coresight_tmc coresight_csr coresight qti_amoled_ecm hwmon slim_qcom_ngd_ctrl mtdoops mtdblock mtd_blkdevs block2mtd chipreg ofpart mtd migt millet_oem_cgroup millet_sig millet_binder millet_hs millet_pkg millet_core binder_gki qnoc_parrot icc_test goodix_health qcom_spmi_adc5 qcom_vadc_common gh_virtio_backend virtio_rpmsg_bus zisp_mcu mhi_dev_drv mhi_dev_net ep_pcie_drv binder_prio(C) qcedev_mod qce50 tz_log leds_qpnp_vibrator_ldo leds_qti_tri_led leds_qti_flash sdhci_msm qcom_lpm
+[    2.998571] qcom_cpufreq_hw_debug qcom_edac bt_fm_slim slimbus btpower mi_thermal_interface qti_devfreq_cdev qti_cpufreq_cdev qti_userspace_cdev ddr_cdev sdpm_clk policy_engine cpu_voltage_cooling msm_lmh_dcvs bcl_soc qti_qmi_cdev qti_qmi_sensor_v2 qcom_spmi_temp_alarm qti_battery_charger_main_m81 qcom_pon radio_i2c_rtc6226_qca ispv3_cam_dev ispv3_mfd_dev synx_driver qcom_ipc_lite ir_spi i3c_master_msm_geni i2c_msm_geni stmvl53l5 goodix_fod aw8697_haptic pm8941_pwrkey goodix_core nt36xxx_spi nt36xxx_i2c synaptics_dsx focaltech_fts gh_mem_notifier gh_irq_lend atmel_mxt_ts nb7vpq904m f_fs_ipc_log usb_f_gsi ipa_fmwk usb_f_cdev usb_f_ccid usb_f_diag lvstest ehset phy_qcom_emu msm_sharedmem mi_cnss_statistic cnss_prealloc cnss_nl cnss_utils cnss2 cnss_plat_ipc_qmi_svc spmi_glink_debug spmi_pmic_arb_debug spi_msm_geni sg qcom_i2c_pmic perf_helper gpio_testing_mode hdcp_qseecom zram lt9611uxc qcom_iommu_debug xlogchar rdbg frpc_adsprpc msm_rng hvc_gunyah qpnp_amoled_regulator
+[    2.999138] spi_geni 990000.spi: tx_fifo 16 rx_fifo 16 tx_width 32
+[    3.009831] [ FTS ] CONFIG PROJECT ID = 0000 
+[    3.009835] [ FTS ] CX PROJECT ID = 0000 
+[    3.022172] [ FTS ] fts_get_lockdown_info signature:A5 id:70 70 beforecnt:1,aftercnt:2
+[    3.043638] [ FTS ] parseBinFile: FILE Fw Version = 0031
+[    3.043659] [ FTS ] flash_burn: Firmware in the chip newer or equal to the one to burn! NO UPDATE ERROR 8000000C 
+[    3.064212] [ FTS ] fts_mode_handler: Sense ON
+[    3.115373] [ FTS ] Probe Finished! 

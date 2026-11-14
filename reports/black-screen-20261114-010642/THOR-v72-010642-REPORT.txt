@@ -1,0 +1,215 @@
+THOR v72：i386 Recovery 日志提取与黑屏复核
+采集批次：2026-11-14 01:06:59–01:11:00（主机本地时间，UTC+8）
+======================================================================
+
+一、结论
+----------------------------------------------------------------------
+这轮复现了“显示层被清空后，系统仍继续运行”。v72 的新日志补齐了上一轮缺失的分支条件：结合当前 MiniIOMobileFramebuffer.cpp，可以确认 CPU 走到把 framebuffer 可见区域填成 0xff000000 的路径。它不证明面板断电或整机停机；真正发起清层的用户进程及其理由仍未取得。
+
+本轮也有实际变化：SpringBoard 最后一个完整采样已不是 v71 的 MediaRemote dispatch_once_wait，而是在 Foundation/NSError 错误描述构建中运行。迁移流程发出了结束通知，但最终结果仍为 success=false；PreferencesMigrator 有明确的 30 秒 watchdog 记录。因此不能继续把这轮笼统解释成“同一个旧死锁”，也不能宣布迁移或媒体功能已经完全修好。
+
+两个真实的用户态故障需要优先查清：audiomxd 两次明确 crashed，以及 PosterBoard 启动 watchdog。内存压缩和预读仍在工作，但 665 MiB 配置下的后期工作集周转很重，本轮显示清空前已出现 compressor-thrashing。现有证据没有把这些现象连成一条唯一、已证明的黑屏因果链。
+
+对“是不是马上能看到界面”的判断：确有推进，已经跨过之前部分迁移等待；尚无稳定桌面或锁屏提交的证据，不能给出下一版必定出界面的保证，也不能保证只延长等待就会完成。
+
+二、采集结果与保存位置
+----------------------------------------------------------------------
+用户已手动将手机重启到 Recovery。本轮只从 Recovery 读取数据，没有为本次采集重启、刷写或修改手机。
+
+i386 原始采集目录：
+/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642
+
+Mac 当前开发目录中的结论与日志镜像：
+/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-010642
+
+主要结果：
+- Data 原始副本 Data-runtime.img：8,591,003,648 字节，完整读取，dd 返回 0。
+- 读取起止 Recovery boot ID 一致；设备写入/丢弃计数未变化。
+- 从主机副本选出 84 个日志、状态和库文件，共 5,001,362 字节；无选择文件读取错误、无超限跳过。
+- APFS 卷索引 1，卷名 Data；使用严格只读模式，不启用 lax 容错。提取后已卸载主机挂载。
+- Linux 读取时 UID/GID 映射为主机用户 1000；manifest 的 UID/GID 不能拿来判断手机上原始文件所有者。
+- 原始 Data 镜像留在 i386；Mac 保存轻量日志副本和分析。用户下载日志包不包含整块 Data 镜像及两份 dylib 二进制，保留库的大小/UUID身份记录。
+
+原始手机日志保存于两地目录下的 extracted/files；提取过程、文件清单和只读状态保存于 extraction.json、extracted/manifest.json、before.json、after.json 等文件。
+
+三、版本对应与证据边界
+----------------------------------------------------------------------
+Mac 源码 HEAD：258f07ec1ffa922d243679d5affa1b21dc355ca4（v72）。
+提取的 /private/var/pong/libpong-ui18.dylib：194,528 字节。
+UUID：1E1A9C7E-932C-3A62-AACA-EDAB65CA7A9F，与 v72 候选一致。
+
+实际日志中还有新增的 audiomxd/mediaremoted 栈和 MiniIOMFB transition 字段，56 份 PongBoot 快照均记录同一库路径、cache=0x18db48000。因此版本对应不仅依据主机上的文件名。
+
+源码检查与再次确认时 tracked 文件无 diff；保存报告后仓库存在未跟踪 reports 目录，没有加入 Git 索引或提交。MiniIOMobileFramebuffer.cpp 位于独立 build-tree，当前不受该 XNU 工作树 Git 跟踪，主仓库 HEAD 不能独自固定这段源码；相关原文摘录另存于分析目录。
+
+部分 PosterBoard 报告保留 Darwin bootSessionUUID：
+B1BD4690-CB70-485B-B466-79175874D744。
+这只是一份报告的 boot 身份，不等于每个快照都具有独立 boot UUID。
+
+共享缓存符号按既有 22H374 参考缓存对应；本轮没有完整的设备 cache UUID 字段可独立核对。因此具体固件函数名属于该参考缓存条件下的地址解释，原始 PC/LR/frames 全部保留，可复查；不能把“符号已对应”扩大成整份固件独立验收。
+
+四、黑屏机制：这次可以确定到 CPU 清黑分支
+----------------------------------------------------------------------
+原始 PongConsole.txt：
+
+L26983 [843.811817]: surfaces in layers 0x0 now (0x1 before): 0 0 0 0
+L26985 [843.811828]: MiniIOMFB layers EMPTIED: task=kernel_task pid=0 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=59068
+
+与当前 MiniIOMobileFramebuffer.cpp:1101–1107、1135–1157 对应：
+- layer 0 surface ID 为 0；
+- set & 1 为真；
+- gpuFrame 为假；
+- fGraphics 为真；
+- 这条 transition 日志在 CPU 填黑分支之后打印。
+
+上述条件全部出现，所以按本轮对应源码，可以确认软件清黑路径执行。相比 v71 只看到空层、缺少 set/gpu/graphics 的情况，本轮这个结论更确定。
+
+但是 task=kernel_task/pid=0 不是原始提交者。源码在 presenter 内核线程的 show() 中调用 proc_selfname/proc_selfpid；presenter 又由 kernel_thread_start 创建。它记录的是执行 show 的上下文，并未将 SwapEnd 用户线程的身份随队列传递。不能据此宣称“内核自己决定熄屏”，也不能认定 SpringBoard 或 backboardd 已被证明是清层发起者。
+
+两轮只按各自 Console 的 RAM 初始化锚点比较：
+指标                                 v71                 v72
+首次 visible 相对 RAM                66.333 秒           64.304 秒
+显示层清空相对 RAM                   648.261 秒          817.793 秒
+清层后仍保存的内核活动跨度           632.586 秒          190.908 秒
+后续非零层恢复                       未见                未见
+
+本轮比上一轮晚约 169.532 秒，即 2 分 49.5 秒清层。不能仅凭晚一些清层就称稳定性改善。
+
+本轮清层后，Console raw998.118276 仍有 APFS tx_flush，raw1034.719948 仍有 CoreAnalytics 定时器记录，即清层后至少继续记录约 3 分 10.9 秒。没有在保存范围内看到后续非零层恢复或新的帧统计。日志末端不是精确断电/重启时刻。
+
+五、迁移已发出完成通知，仍有实际失败
+----------------------------------------------------------------------
+lockdownd.log：
+00:14:10.774044  Received notification: com.apple.datamigrator.migrationDidFinish
+00:14:24.887715  Data Migration Completed: true
+
+同时 com.apple.migration.plist：
+LastSystemVersion = 22H374
+DMLastMigrationResults.success = false
+DMLastMigrationResults.buildVersion = 22H374
+
+这表示迁移流程结束通知已经发出，而最终插件总体结果仍失败。Completed:true 不等于所有插件成功，两个记录并不矛盾。
+
+晚期临时 stackshot 的完整 reason 提供具体失败对象：
+com.apple.PreferencesMigrator (PreferencesMigrator.migrator) - Got Watchdogged, pid 241, after 30 seconds (erase)
+
+至少这次插件操作发生过 watchdog；它的内部等待对象和全部失败插件列表仍不完整，不能认定它是唯一失败项。
+
+PongDM-85 共 12 行：1 条安装回执、11 次原生诊断调用；其中 7 次原 async=0 被改为 async=1，4 次本来已经 async=1。五批 DM 栈未再采到 v70 那组持续的同步诊断/结果回调双栈。调用前回执不能当原生 API 返回成功；结合结束通知，能说流程向后运行了，不能说所有业务成功。
+
+六、SpringBoard 最新采样变了，但尚未得到错误本体
+----------------------------------------------------------------------
+SpringBoard PID4、主线程 T247：
+- 用户态 time130、192、311、674，仍在 FrontBoard 系统 shell 初始化的同步 reply 路径。
+- time972，run=1，正在 NSString/NSBundle/NSError 错误描述构建路径：
+  NSString substringWithRange → NSBundle bundleForClass → dispatch_once_callout → NSError _cocoaErrorString / redactedDescription。
+
+v71 最后一次是 MRAVLocalEndpoint audioDiscoverySession 的 dispatch_once_wait；本轮不是那条 wait。once_callout 表示正在执行初始化，不可因为名称中有 once 就判死锁。cpu=9 是采样原字段，也不能直接写成 CPU 9%。
+
+当前回溯最多 16 帧，在 Foundation 内截断；缺 NSError domain/code、错误内容和上层业务调用者。单个运行中样本既不能证明媒体问题彻底解决，也不能将 NSError 格式化代码本身定为根因。后续 tick 仍有 23 线程，只证明采样线程仍活动，不证明桌面已经建立。
+
+本轮没有 PongSB 文件，Console 也未见对应 wake 回执。源码第一条持久记录位于多个 UIScreen 调用之后，且 open 失败没有 errno 回执。因此“主队列未进入”“首条记录前阻塞”“打开文件失败”等仍无法区分，不能从缺文件直接宣告 wake 成功或未执行。
+
+七、音频与 PosterBoard：有真实故障，原始原因尚需补齐
+----------------------------------------------------------------------
+audiomxd 三个实例：79 → 479 → 598。
+Console raw631.563168 明确 Process[79] crashed。
+Console raw884.024715 明确 Process[479] crashed。
+两次前一行均为 Corpse failure, too many 6。
+
+这证明进程发生 crash，同时诊断 corpse 创建受到数量限制。上下文没有 exit namespace/code、exception，也没有对应完整 audiomxd IPS；不能把 corpse 数量限制当原始崩因。
+
+已从当前 XNU 源码定位这两串文字：corpse.c:239–240 对全局 inflight_corpses 做门限检查；“6”是尝试后增的值，拒绝发生在 CAS 提交之前，不是 audiomxd 的崩溃次数。kern_exit.c:2087 则是 proc_prepareexit 在 task_mark_corpse 失败后的通用文案。原始退出已发生，诊断材料生成失败在后，取消这个门限不能修复原始异常。
+
+三个实例均有 CPU wake 超限，日志平均分别为 7,843、4,221、21,266 wakes/s。它们是异常调度负担的线索，不能仅凭警告判定随后 crash 的原因。可见 memorystatus killing 中没有这三个 audiomxd 实例，因此不能把它们归为本轮普通 idle 回收。
+
+v71 也已有 audiomxd PID77 crashed 并换 PID625，不能将本轮异常直接归因于 v72 新增观察注入。新增 daemon 栈没有请求 ID、XPC 端点或 once owner，不能将 SpringBoard、mediaremoted、audiomxd 并存的栈拼成已经证明的完整依赖链。
+
+PosterBoard：
+- PID426 的 termination 完整，0x8badf00d、process-launch watchdog，后台启动超过 30 秒；Console 同 PID raw648.743767 crashed。
+- PID498 在 raw844.015622 是 idle-exit，不能叫第二次相同 watchdog。
+- PID621 后来明确 crashed，但无对应 IPS，不能套用 PID426 原因；其原始时标 [989.1006275] 保持原样。
+- PID653 随后有 CPU wake 警告，警告不是崩溃证明。
+
+UI 周边进程仍不稳定，但未取得发起空帧的真正来源，也没有直接证明哪一项故障导致未出现下一界面。
+
+八、为什么仍然慢：不只是等待 UFS 把预读做完
+----------------------------------------------------------------------
+本轮保持 665 MiB managed RAM、vm_compressor_mode=2、swap disabled。预读完成 13/13 段、318.515625 MiB、0 deferred；read 循环累计 41.466 秒，v71 为 26.761 秒。这不是物理 UFS benchmark，也不是主迁移线程同步等待的证明，不能用它解释后续十几分钟的全部停留。
+
+按各自 RAM 初始化后相同的 1008.701140 秒窗口，去重回收事件为：
+原因                          v71          v72
+idle-exit                     237          235
+long-idle-exit                   2            7
+highwater                       0            1
+vm-compressor-thrashing          2            4
+合计                          241          247
+
+没有拿 v71 更长整轮的 375 条和本轮 247 条直接比较。这只是相同内核时间长度的观察，工作负载并非受控 A/B。
+
+本轮 raw655.092018 已有首次 compressor-thrashing，比清层早约 188.72 秒，之后清层前又有两次。v71 首次此类明确事件则在其清层之后，先后关系确实不同。这说明本轮压力在黑屏前已存在，不能自动判定它直接发起了清层。
+
+两个独立可解析的 native memoryStatus 样本中，wired 从约 231.15 MiB 增至 395.90 MiB；active+inactive 从约 388.68 MiB 降到 112.80 MiB；后一个样本 memoryPressure=true，压缩/解压累计次数 2,538,916 / 2,295,961。压缩正在工作且周转很重，但这些数不能定位 wired 增量的对象，也不能单凭增长判泄漏。
+
+完整 Jetsam 与 Console 双重指向 lsd PID354，reason=highwater，rpages=4096。它是服务触及自身限制的证据，不能直接改写为全局 OOM。Jetsam 的 largestProcess=backboardd 不代表被杀的是 backboardd。
+
+实际启动耗时需要同时考虑插件 watchdog、进程重启/CPU wake 异常和内存周转，不能再只用“慢慢读盘，等完就好”概括。
+
+九、下一版建议：先让现有故障给出可定位的原因
+----------------------------------------------------------------------
+本轮任务是提取和分析，没有修改开发源码。建议按以下顺序做小而可验收的改动：
+
+1. 修正显示来源记录。
+   在 selector 5 / SwapEnd 用户线程入口记录 PID/TID/name、原始 Swap ID、set/cleared/surfaces，按同一队列槽位传给 presenter。不要到 show 中才查询 current task，也不要仅保存可能失效的 proc 指针。验收是能把一次 EMPTIED 对应到真实请求，而不是继续得到 kernel_task/pid0。
+
+2. 补原始故障记录，尤其 audiomxd 与 PosterBoard。
+   在已有异常/退出路径仍握有原因的位置做有界快照，保留 exception/signal/namespace/code 及进程身份，避免最后只剩 corpse 上限提示。不要为拿日志而提高 corpse 数量掩盖资源问题，不关闭真实 watchdog，不把崩溃改写成成功。
+   具体落点已经找到：bsd/kern/kern_exit.c 的 proc_prepareexit，1928–1938 有现成 Preferences 有界记录范例，函数内已有原始 rv、p_exit_reason、uu_exception/code/subcode。可在 corpse 分配之前对精确进程名 audiomxd 保存有限长度的这些字段，并单独记录 task_mark_corpse 返回 kr；同时进入当前可提取的 Console，不只依赖本轮未留下可用数据的 pstore。使用固定栈缓冲，不在退出路径新增内存分配或同步文件 I/O；不要只记录之后截取低位的 packed code。
+
+3. 补 SpringBoard 入口和失败上下文。
+   在 wake 调度点与函数最开始记录单调时间；逐项记录 ABI PASS/SKIP、调用开始/返回及文件打开失败 errno。对当前错误路径捕获 domain/code 和更深的有界回溯，不通过全局错误 description hook 造成重入。需要的是错误本体与上层调用者，而不是再多一张截在 Foundation 内的 16 帧样本。
+
+4. 保留已促使迁移向后运行的 async 处理及真实 success=false。
+   对 PreferencesMigrator watchdog 保留实际失败结果，并获取其主线程/服务端等待。不要通过伪造迁移成功或保留旧帧来替代根因修复。
+
+5. 单独处理内存与持续唤醒的可测问题。
+   wired 增长需要按内核/驱动分配类别归因；665 MiB 的可用范围如需扩大，应先核对真实物理内存和保留区域映射，不能只改一个容量数。音频的 wake 异常需要关联具体线程/唤醒源。用同一阶段的事件与工作集对照，不以某次进度条更长作为性能验收。
+
+保留现有正常启动路径与失败语义。以上是修改建议，不是已经完成的功能修复，也不承诺一次修改解决所有用户态差异。
+
+十、解析完整性与避免误判的约束
+----------------------------------------------------------------------
+本轮四份 native 报告中，三份整体截断，一份完整 Jetsam。使用的是独立完整解码的 termination/reason/memoryStatus 等字段，没有给截断 JSON 补造尾部。
+
+时间口径严格区分：
+- Console raw：内核事件的原始前缀，用于显示、内存回收、APFS 事件的同域先后。
+- 相对 RAM：各轮减去自己的 RAM 初始化锚点，用于公平一些的阶段比较；不是精确上电时间。
+- PongBoot/PongDM/PongA2、lockdownd：用户态 time(NULL)/1970 epoch。
+- native header、captureTime、uptime：分别保留，不从文件名反推内核 raw。
+
+因此没有把 migrationDidFinish 的 epoch 与 EMPTIED 的 raw 直接相减，也没有用不同文件的末尾时间差拟合整个启动的固定偏移。照片中何时变黑与内核日志的精确墙钟对应仍未取得。
+
+A2 旁证：57 份日志、228 个 slot readback-ok、57 份 4/4，168 次 bootstrap_check_in 均返回 0；56 次 FairPlay provider matching 均返回 0 且 iter=0，最后 PID680 尚未记录服务调用。这仍表示该观察下未得到 provider，不是可用硬件服务证明，也尚未与本轮 SB 错误建立直接因果。
+
+十一、证据索引
+----------------------------------------------------------------------
+以下文件均位于本报告所在目录，可与 extracted/files 中未改写的原始日志对照：
+
+analysis/capture-summary.json               采集尺寸、只读状态和两地主路径
+analysis/source-version.json                源码 HEAD、候选与已提取身份的分工
+analysis/v72-source-review.txt              v72 源码窄审与观察缺口
+analysis/source-excerpts-v72.txt            未跟踪 framebuffer 源码的关键原文
+analysis/corpse-diagnostic-source.txt       corpse 限制与原始退出诊断的代码落点
+analysis/v72-display-review.txt             显示清空分支与两轮时间对照
+analysis/v72-display-runtime.json           显示原始行、上下文及去重结果
+analysis/native-waits.txt                   线程、迁移、音频、PosterBoard结论
+analysis/native-runtime-transition.json     关键线程/结果结构化对照
+analysis/native-pongboot-late.json          原始地址与条件式符号对应
+analysis/native-partial-documents.json      原生报告完整/截断及可解析字段
+analysis/audio-crash-context.json           两次音频 crash 附近原文
+analysis/audio-console-comparison.json      v71 已存在的音频异常对照
+analysis/v72-memory-latency.txt              内存、预读、同窗口回收与时基说明
+analysis/v72-memory-latency.json             全部相关原始行和统计
+analysis/a2-current.json                    A2 观察计数及逐文件记录
+
+本报告的确定结论：本轮 CPU 清黑路径已被日志与源码对应；迁移结束通知与失败结果同时存在；SpringBoard 最后样本改变；音频和 UI 周边服务存在真实故障；系统在清层后继续运行。仍待取得的是清层请求的来源、下一帧未出现的直接原因，以及相关进程的完整失败上下文。

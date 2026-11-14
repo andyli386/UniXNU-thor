@@ -1,0 +1,49 @@
+Pong tick: mediaremoted pid=10 seconds=60 threads=3
+Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=60 time=107 threads=3
+Pong boot snapshot: mediaremoted pid=10 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=1009d8000 cache=0x195148000 size=f37c8000
+thread=0 tid=364 state_result=0 info_result=0 run=4 cpu=27 pc=1a8b8bb08 lr=1a8b74ae0 fp=16f906ec0 sp=16f906da0 frames: 1a8b8c87c 1a8b8c5d0 1a8b8c328 19f24ea68 19f22326c 1a8b8e37c 1005a97b0 1005a86f0 1005d8ce0 1005e7ca4 10057c030 1bc87996c 0
+thread=2 tid=652 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fa11b50 sp=16fa11b30 frames: 1f650eab0
+Pong boot snapshot END: mediaremoted pid=10 seconds=60 sampled=2 of 3
+Pong tick: mediaremoted pid=10 seconds=120 threads=11
+Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=120 time=167 threads=11
+Pong boot snapshot: mediaremoted pid=10 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=1009d8000 cache=0x195148000 size=f37c8000
+thread=0 tid=364 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f906510 sp=16f9064c0 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 196763bac 196768108 10057c06c 1bc87996c 0
+thread=2 tid=1832 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16fa92a50 sp=16fa92a00 frames: 1e33e00d0 1e33dff1c 19f2245e8 19f224984 1f656b828 1967ac994 19676a630 19676bf18 19676be54 1b0fcf4bc 1b0fcf368 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=3 tid=2091 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc980 lr=19f23c520 fp=16fba3000 sp=16fba2fa0 frames: 19f23ccfc 19f23337c 19f232fa4 1a5a2b2f8 1a5a2cf28 1a5a2db90 1a5a343b8 1a5a2c074 1a5a2bcc8 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=4 tid=2126 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16fc24610 sp=16fc245c0 frames: 1e33e00d0 1e33dff1c 19f2245e8 19f224984 1f656b828 1967ac994 19676a630 196769510 196769440 1b96c9530 1b96c684c 1b96c6714 1b96c57b0 1a73962b8 1a739f8d8 1a7394dbc 1a7394c0c 1a7394d6c 1a7394ba4 225993080 1a2781e70 19f24d830 19f24ea68 19f22cf64
+thread=5 tid=2170 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fd35b50 sp=16fd35b30 frames: 1f650eab0
+thread=6 tid=2171 state_result=0 info_result=0 run=4 cpu=0 pc=1e04926f8 lr=1e04d2220 fp=16fdbb490 sp=16fdbb400 frames: 1e04d2980 1e04d450c 1a8ceefb8 1005a9a20 1005a9268 19f24ea68 19f229a08 19f2394e4 19f22cdcc 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=7 tid=2187 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=1700db350 sp=1700db300 frames: 1e33e00d0 1e33dff1c 19f2245e8 19f224984 1f656b828 1a5a3308c 1a5a32e44 1a5a3a310 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=8 tid=2188 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc980 lr=19f23c520 fp=170165410 sp=1701653b0 frames: 19f23ccfc 19f23337c 19f232fa4 1a5a2b2f8 1a5a35fec 100575f88 10064f0a0 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0
+thread=9 tid=2190 state_result=0 info_result=0 run=4 cpu=0 pc=19526f130 lr=196767734 fp=170270650 sp=170270620 frames: 1979f65dc 1979df7c4 1979dd1d4 1979dd7d4 1a8ce232c 1a8ce94d8 1b7221a80 1b726861c 1b722b58c 19f24ea68 19f229a08 19f2394e4 19f235474 19f235b34 1f650e9d4 1f650eab0
+thread=10 tid=2627 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fa11a80 sp=16fa11a60 frames: 1f650eab0
+Pong boot snapshot END: mediaremoted pid=10 seconds=120 sampled=10 of 11
+Pong tick: mediaremoted pid=10 seconds=181 threads=7
+Pong tick: mediaremoted pid=10 seconds=241 threads=3
+Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=241 time=288 threads=3
+Pong boot snapshot: mediaremoted pid=10 seconds=241 image0=/private/var/pong/libpong-ui18.dylib image_slide=1009d8000 cache=0x195148000 size=f37c8000
+thread=0 tid=364 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f906510 sp=16f9064c0 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 196763bac 196768108 10057c06c 1bc87996c 0
+thread=2 tid=4436 state_result=0 info_result=0 run=3 cpu=3 pc=1e33dc9a8 lr=1f650ea5c fp=16fa11ae0 sp=16fa11ac0 frames: 1f650eab0
+Pong boot snapshot END: mediaremoted pid=10 seconds=241 sampled=2 of 3
+Pong tick: mediaremoted pid=10 seconds=304 threads=3
+Pong tick: mediaremoted pid=10 seconds=364 threads=6
+Pong tick: mediaremoted pid=10 seconds=424 threads=4
+Pong tick: mediaremoted pid=10 seconds=484 threads=3
+Pong tick: mediaremoted pid=10 seconds=544 threads=3
+Pong tick: mediaremoted pid=10 seconds=604 threads=4
+Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=604 time=651 threads=4
+Pong boot snapshot: mediaremoted pid=10 seconds=604 image0=/private/var/pong/libpong-ui18.dylib image_slide=1009d8000 cache=0x195148000 size=f37c8000
+thread=0 tid=364 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f906510 sp=16f9064c0 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 196763bac 196768108 10057c06c 1bc87996c 0
+thread=2 tid=10043 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fa11b50 sp=16fa11b30 frames: 1f650eab0
+thread=3 tid=10068 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: mediaremoted pid=10 seconds=604 sampled=3 of 4
+Pong tick: mediaremoted pid=10 seconds=660 threads=4
+Pong tick: mediaremoted pid=10 seconds=720 threads=3
+Pong tick: mediaremoted pid=10 seconds=780 threads=3
+Pong tick: mediaremoted pid=10 seconds=840 threads=3
+Pong tick: mediaremoted pid=10 seconds=901 threads=3
+Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=901 time=948 threads=3
+Pong boot snapshot: mediaremoted pid=10 seconds=901 image0=/private/var/pong/libpong-ui18.dylib image_slide=1009d8000 cache=0x195148000 size=f37c8000
+thread=0 tid=364 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f906510 sp=16f9064c0 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 196763bac 196768108 10057c06c 1bc87996c 0
+thread=2 tid=13458 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fa97930 sp=16fa97910 frames: 1f650eab0
+Pong boot snapshot END: mediaremoted pid=10 seconds=901 sampled=2 of 3

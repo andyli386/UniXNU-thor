@@ -1,0 +1,15 @@
+{
+  "capture": "PongBoot-pull-20261114-103139",
+  "complete": true,
+  "extracted_files": 75,
+  "extracted_bytes": 4766264,
+  "data_image_bytes": 8591003648,
+  "recovery_boot_id": "05f116e8-f5c4-4108-9b22-f483250bec01",
+  "source_head": "d562bc1419e7ae5fd7ffdf0d89951736b69e8ae5",
+  "ui18_uuid": "FFEC574F-B64E-351D-AD62-3077876C92B5",
+  "report": "THOR-v74-103139-REPORT.txt",
+  "direct_display_mechanism_confirmed": true,
+  "unique_upstream_cause_confirmed": false,
+  "phone_storage_writes_during_capture": false,
+  "project_source_changes": false
+}

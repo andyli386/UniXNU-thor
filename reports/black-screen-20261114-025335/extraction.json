@@ -1,0 +1,41 @@
+{
+  "started_local": "2026-11-14T02:55:24.500953+08:00",
+  "serial": "<device-serial>",
+  "device_writes": false,
+  "method": "read-only physical Data window; unmounted idle dm-7 mapping retained",
+  "total": 19401801728,
+  "records": [
+    {
+      "name": "OS",
+      "offset": 1048576,
+      "length": 6845104128,
+      "block": 512,
+      "flags": 1
+    },
+    {
+      "name": "SystemOS",
+      "offset": 6846152704,
+      "length": 3963617280,
+      "block": 512,
+      "flags": 1
+    },
+    {
+      "name": "Data",
+      "offset": 10809769984,
+      "length": 8591003648,
+      "block": 512,
+      "flags": 1
+    }
+  ],
+  "expected_bytes": 8591003648,
+  "dd_returncode": 0,
+  "read_bytes": 8591003648,
+  "elapsed_seconds": 244.812,
+  "no_write_or_discard_counter_change": true,
+  "capture_status": "complete",
+  "collector_status": "complete_readonly_direct_apfs",
+  "finished_local": "2026-11-14T02:59:30.791646+08:00",
+  "collector_files": 76,
+  "collector_bytes": 4546480,
+  "collector_never_mounted": true
+}

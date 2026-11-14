@@ -1,0 +1,229 @@
+1970-01-01 00:01:03.173095Z [69] (0x1fd536940) Starting usermanagerd...
+1970-01-01 00:01:04.299297Z [69] (0x1fd536940) LoadAllUserSessions: diskLoadUserSessions failed
+1970-01-01 00:01:04.329098Z [69] (0x1fd536940) Parsing persona manifest version: 1
+1970-01-01 00:01:04.329211Z [69] (0x1fd536940) Loaded persona manifest version: 1, generation: 0, 0 user(s)
+1970-01-01 00:01:04.329792Z [69] (0x1fd536940) No Persona Generation ID from manifest setting to 1
+1970-01-01 00:01:04.329836Z [69] (0x1fd536940) No user entries on the manifest, may be first creation/erase install scenario
+1970-01-01 00:01:04.330193Z [69] (0x1fd536940) Loaded persona manifest
+1970-01-01 00:01:04.331014Z [69] (0x1fd536940) Published generation value: 1
+1970-01-01 00:01:04.331082Z [69] (0x1fd536940) Generation changed notification posted
+1970-01-01 00:01:04.483852Z [69] (0x1fd536940) Failed to get data with contents of file /private/var/keybags/nextsession.kb: [2: No such file or directory]
+1970-01-01 00:01:04.484097Z [69] (0x1fd536940) Failed to load next session data: file does not exist
+1970-01-01 00:01:17.409654Z [69] (0x16faf5000) In getUserSessionAttributes:reply:
+1970-01-01 00:01:17.421300Z [69] (0x16faf5000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:01:17.421562Z [69] (0x16faf5000) getUserSessionAttributes: could not find the requested session
+1970-01-01 00:01:25.169032Z [69] (0x16fa6f000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:01:25.174743Z [69] (0x16fa6f000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:01:25.174798Z [69] (0x16fa6f000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:01:26.009072Z [69] (0x16fa6f000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:01:26.010384Z [69] (0x16fa6f000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:01:26.010557Z [69] (0x16fa6f000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:01:26.508430Z [69] (0x16faf5000) Failed to look up persona for pid 9: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:01:26.515308Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:9
+1970-01-01 00:01:28.549719Z [69] (0x16fa6f000) In getUserSessionAttributes:reply:
+1970-01-01 00:01:28.550005Z [69] (0x16fa6f000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:01:28.550059Z [69] (0x16fa6f000) getUserSessionAttributes: could not find the requested session
+1970-01-01 00:01:29.785614Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:29.886768Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:29.992261Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:30.093217Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:30.194056Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:30.296124Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:30.397062Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:30.497886Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:30.600466Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:30.702842Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:35.962794Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:35.963645Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:36.620809Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:133
+1970-01-01 00:01:46.636931Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:171
+1970-01-01 00:01:46.968527Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:171
+1970-01-01 00:01:56.407706Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:84
+1970-01-01 00:01:58.673941Z [69] (0x16faf5000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:01:58.674889Z [69] (0x16faf5000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:01:58.675398Z [69] (0x16faf5000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:02:03.816398Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:133
+1970-01-01 00:02:11.573521Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:133
+1970-01-01 00:02:17.011178Z [69] (0x16faf5000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:02:17.011674Z [69] (0x16faf5000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:02:17.012065Z [69] (0x16faf5000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:02:20.222884Z [69] (0x16faf5000) Registering PersonaObserver with machService:com.apple.searchd.personaobserver with asid:-1
+1970-01-01 00:02:20.224392Z [69] (0x16faf5000)  NO PERSONAL PERSONA found
+1970-01-01 00:02:20.224497Z [69] (0x16faf5000) Failed to register Persona Observer:com.apple.searchd.personaobserver
+1970-01-01 00:02:20.640232Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:201
+1970-01-01 00:02:22.985562Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:133
+1970-01-01 00:02:36.823861Z [69] (0x16fa6f000) In getUserSessionAttributes:reply:
+1970-01-01 00:02:36.848522Z [69] (0x16fa6f000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:02:36.848734Z [69] (0x16fa6f000) getUserSessionAttributes: could not find the requested session
+1970-01-01 00:02:39.417891Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.419664Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.419921Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.427297Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.534662Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.535100Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.535690Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.536079Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.536760Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.541916Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:39.543308Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:40.252466Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:02:59.909625Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:192
+1970-01-01 00:03:08.199105Z [69] (0x16fa6f000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:03:08.199695Z [69] (0x16fa6f000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:03:08.200130Z [69] (0x16fa6f000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:03:08.251027Z [69] (0x16fa6f000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:03:08.251130Z [69] (0x16fa6f000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:03:08.251166Z [69] (0x16fa6f000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:03:08.254259Z [69] (0x16fa6f000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:03:08.254353Z [69] (0x16fa6f000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:03:08.254436Z [69] (0x16fa6f000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:03:12.285717Z [69] (0x16fa6f000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:03:12.286621Z [69] (0x16fa6f000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:03:12.286729Z [69] (0x16fa6f000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:03:48.044631Z [69] (0x16fa6f000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:04:36.971727Z [69] (0x16fa6f000) Failed to look up persona for pid 249: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:04:44.265103Z [69] (0x16fa6f000) Failed to look up persona for pid 249: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:04:44.266684Z [69] (0x16fa6f000) Failed to look up persona for pid 249: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:04:53.357259Z [69] (0x16faf5000) Failed to look up persona for pid 249: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:04:54.856868Z [69] (0x16faf5000) Failed to look up persona for pid 249: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:04:54.874592Z [69] (0x16faf5000) Failed to look up persona for pid 249: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:04:54.875919Z [69] (0x16faf5000) Failed to look up persona for pid 249: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:04:54.878476Z [69] (0x16faf5000) Failed to look up persona for pid 249: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:04:54.879138Z [69] (0x16faf5000) Failed to look up persona for pid 249: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:06:57.527847Z [69] (0x16fa6f000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:07:30.057155Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:331
+1970-01-01 00:07:30.370630Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:331
+1970-01-01 00:07:31.897225Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:07:31.901593Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:07:32.052961Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:07:32.053704Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:07:32.858124Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:07:32.972917Z [69] (0x16faf5000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:07:41.250408Z [69] (0x16fa6f000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:07:42.938156Z [69] (0x16fa6f000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:07:42.961643Z [69] (0x16fa6f000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:08:56.979643Z [69] (0x16fa6f000) Registering PersonaObserver with machService:com.apple.searchd.personaobserver with asid:-1
+1970-01-01 00:08:57.010107Z [69] (0x16fa6f000)  NO PERSONAL PERSONA found
+1970-01-01 00:08:57.010237Z [69] (0x16fa6f000) Failed to register Persona Observer:com.apple.searchd.personaobserver
+1970-01-01 00:09:05.610563Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:05.726753Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:05.828061Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:05.933183Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:06.035705Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:06.137605Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:06.238528Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:06.341115Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:06.442048Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:06.542970Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:352
+1970-01-01 00:09:09.413612Z [69] (0x16fa6f000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:09:28.373347Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:28.491438Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:28.594018Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:28.695488Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:28.800476Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:28.901792Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:29.003014Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:29.108830Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:29.209896Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:29.310826Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:34.665169Z [69] (0x16faf5000) In UMSyncServer: No persona array OK:393
+1970-01-01 00:09:46.995064Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:51.712203Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:09:55.866142Z [69] (0x16fa6f000) In UMSyncServer: No persona array OK:218
+1970-01-01 00:13:08.480207Z [457] (0x1fd536940) Starting usermanagerd...
+1970-01-01 00:13:14.170694Z [457] (0x1fd536940) LoadAllUserSessions: diskLoadUserSessions failed
+1970-01-01 00:13:23.388360Z [457] (0x1fd536940) Parsing persona manifest version: 1
+1970-01-01 00:13:23.392269Z [457] (0x1fd536940) Loaded persona manifest version: 1, generation: 0, 0 user(s)
+1970-01-01 00:13:23.393076Z [457] (0x1fd536940) No Persona Generation ID from manifest setting to 1
+1970-01-01 00:13:23.393137Z [457] (0x1fd536940) No user entries on the manifest, may be first creation/erase install scenario
+1970-01-01 00:13:23.394272Z [457] (0x1fd536940) Loaded persona manifest
+1970-01-01 00:13:23.406695Z [457] (0x1fd536940) Published generation value: 1
+1970-01-01 00:13:23.406847Z [457] (0x1fd536940) Generation changed notification posted
+1970-01-01 00:13:23.500378Z [457] (0x1fd536940) Failed to get data with contents of file /private/var/keybags/nextsession.kb: [2: No such file or directory]
+1970-01-01 00:13:23.500785Z [457] (0x1fd536940) Failed to load next session data: file does not exist
+1970-01-01 00:13:34.039377Z [457] (0x16f487000) Failed to look up persona for pid 491: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:13:34.894615Z [457] (0x16f26f000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:13:34.894804Z [457] (0x16f2f5000) In UMSyncServer: No persona array OK:386
+1970-01-01 00:13:34.896421Z [457] (0x16f487000) In UMSyncServer: No persona array OK:491
+1970-01-01 00:15:19.199259Z [457] (0x16f26f000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:15:32.543838Z [457] (0x16f26f000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:16:30.593637Z [457] (0x16f26f000) Failed to look up persona for pid 550: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:16:35.963595Z [457] (0x16f26f000) Failed to look up persona for pid 550: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:16:36.363665Z [457] (0x16f26f000) Failed to look up persona for pid 550: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:16:36.480727Z [457] (0x16f26f000) Failed to look up persona for pid 550: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:16:36.481464Z [457] (0x16f26f000) Failed to look up persona for pid 550: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:16:36.515446Z [457] (0x16f26f000) Failed to look up persona for pid 550: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:16:36.516239Z [457] (0x16f26f000) Failed to look up persona for pid 550: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:16:36.518776Z [457] (0x16f26f000) Failed to look up persona for pid 550: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:16:36.519528Z [457] (0x16f26f000) Failed to look up persona for pid 550: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:18:18.281620Z [615] (0x1fd536940) Starting usermanagerd...
+1970-01-01 00:18:18.659727Z [615] (0x1fd536940) LoadAllUserSessions: diskLoadUserSessions failed
+1970-01-01 00:18:18.690725Z [615] (0x1fd536940) Parsing persona manifest version: 1
+1970-01-01 00:18:18.691403Z [615] (0x1fd536940) Loaded persona manifest version: 1, generation: 0, 0 user(s)
+1970-01-01 00:18:18.692627Z [615] (0x1fd536940) No Persona Generation ID from manifest setting to 1
+1970-01-01 00:18:18.692735Z [615] (0x1fd536940) No user entries on the manifest, may be first creation/erase install scenario
+1970-01-01 00:18:18.692802Z [615] (0x1fd536940) Loaded persona manifest
+1970-01-01 00:18:18.695738Z [615] (0x1fd536940) Published generation value: 1
+1970-01-01 00:18:18.695897Z [615] (0x1fd536940) Generation changed notification posted
+1970-01-01 00:18:18.718070Z [615] (0x1fd536940) Failed to get data with contents of file /private/var/keybags/nextsession.kb: [2: No such file or directory]
+1970-01-01 00:18:18.718427Z [615] (0x1fd536940) Failed to load next session data: file does not exist
+1970-01-01 00:18:19.049931Z [615] (0x16f3d7000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:18:19.050651Z [615] (0x16f3d7000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:18:29.083452Z [615] (0x16f4e3000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:18:31.543390Z [615] (0x16f3d7000) Failed to look up persona for pid 630: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:18:31.545250Z [615] (0x16f3d7000) In UMSyncServer: No persona array OK:630
+1970-01-01 00:18:40.836540Z [615] (0x16f45d000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:18:40.867625Z [615] (0x16f45d000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:18:40.868864Z [615] (0x16f45d000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:18:51.830053Z [615] (0x16f3d7000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:18:51.851453Z [615] (0x16f3d7000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:18:51.852429Z [615] (0x16f3d7000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:18:57.317851Z [615] (0x16f3d7000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:18:57.318354Z [615] (0x16f3d7000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:18:57.318432Z [615] (0x16f3d7000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:18:57.328349Z [615] (0x16f3d7000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:18:57.328449Z [615] (0x16f3d7000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:18:57.328489Z [615] (0x16f3d7000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:18:58.040638Z [615] (0x16f3d7000) In UMSyncServer: No persona array OK:646
+1970-01-01 00:18:58.041325Z [615] (0x16f3d7000) In UMSyncServer: No persona array OK:646
+1970-01-01 00:20:17.116162Z [675] (0x1fd536940) Starting usermanagerd...
+1970-01-01 00:20:19.956373Z [675] (0x1fd536940) LoadAllUserSessions: diskLoadUserSessions failed
+1970-01-01 00:20:20.369154Z [675] (0x1fd536940) Parsing persona manifest version: 1
+1970-01-01 00:20:20.393553Z [675] (0x1fd536940) Loaded persona manifest version: 1, generation: 0, 0 user(s)
+1970-01-01 00:20:20.395542Z [675] (0x1fd536940) No Persona Generation ID from manifest setting to 1
+1970-01-01 00:20:20.395635Z [675] (0x1fd536940) No user entries on the manifest, may be first creation/erase install scenario
+1970-01-01 00:20:20.396376Z [675] (0x1fd536940) Loaded persona manifest
+1970-01-01 00:20:21.403704Z [675] (0x1fd536940) Published generation value: 1
+1970-01-01 00:20:21.404115Z [675] (0x1fd536940) Generation changed notification posted
+1970-01-01 00:20:21.665784Z [675] (0x1fd536940) Failed to get data with contents of file /private/var/keybags/nextsession.kb: [2: No such file or directory]
+1970-01-01 00:20:21.667651Z [675] (0x1fd536940) Failed to load next session data: file does not exist
+1970-01-01 00:20:24.157025Z [675] (0x16f696000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:20:24.157897Z [675] (0x16f696000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:20:24.158131Z [675] (0x16f696000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:20:35.672831Z [675] (0x16f696000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:21:27.719827Z [675] (0x16f696000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:23:19.697729Z [774] (0x1fd536940) Starting usermanagerd...
+1970-01-01 00:23:19.787712Z [774] (0x1fd536940) LoadAllUserSessions: diskLoadUserSessions failed
+1970-01-01 00:23:19.796019Z [774] (0x1fd536940) Parsing persona manifest version: 1
+1970-01-01 00:23:19.798674Z [774] (0x1fd536940) Loaded persona manifest version: 1, generation: 0, 0 user(s)
+1970-01-01 00:23:19.798772Z [774] (0x1fd536940) No Persona Generation ID from manifest setting to 1
+1970-01-01 00:23:19.798815Z [774] (0x1fd536940) No user entries on the manifest, may be first creation/erase install scenario
+1970-01-01 00:23:19.799098Z [774] (0x1fd536940) Loaded persona manifest
+1970-01-01 00:23:19.804939Z [774] (0x1fd536940) Published generation value: 1
+1970-01-01 00:23:19.805040Z [774] (0x1fd536940) Generation changed notification posted
+1970-01-01 00:23:19.819889Z [774] (0x1fd536940) Failed to get data with contents of file /private/var/keybags/nextsession.kb: [2: No such file or directory]
+1970-01-01 00:23:19.820100Z [774] (0x1fd536940) Failed to load next session data: file does not exist
+1970-01-01 00:23:20.042669Z [774] (0x16f219000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:23:20.043314Z [774] (0x16f219000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:23:20.044015Z [774] (0x16f219000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:23:20.044299Z [774] (0x16f219000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:23:20.044344Z [774] (0x16f219000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:23:20.044377Z [774] (0x16f219000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:23:21.781740Z [774] (0x16f325000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"
+1970-01-01 00:23:30.290533Z [774] (0x16f325000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:23:30.305514Z [774] (0x16f325000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:23:30.305621Z [774] (0x16f325000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:23:30.342930Z [774] (0x16f325000) Error: USESSION_SET_UID was set but no UserSessionID was given!
+1970-01-01 00:23:30.343347Z [774] (0x16f325000) getUserSessionKeybagData: could not find the requested session
+1970-01-01 00:23:30.343402Z [774] (0x16f325000) FAILED to get userKeybagOpaqueData with error :2
+1970-01-01 00:23:35.137871Z [774] (0x16f325000) Failed to look up persona for pid 112: Error Domain=NSPOSIXErrorDomain Code=3 "No such process"

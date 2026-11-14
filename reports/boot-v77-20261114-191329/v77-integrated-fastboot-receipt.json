@@ -1,0 +1,153 @@
+{
+  "started_local": "2026-11-14T19:13:19.037+08:00",
+  "image": "/home/vincent/Projects/thor-unixnu/v77-staging/boot-thor-unixnu-v77-integrated.img",
+  "image_bytes": 168034304,
+  "serial": "<device-serial>",
+  "checks": [
+    {
+      "argv": [
+        "/usr/bin/adb",
+        "devices",
+        "-l"
+      ],
+      "rc": 0,
+      "stdout": "List of devices attached\n<device-serial>               recovery usb:1-2.2 product:thor model:Xiaomi_12S_Ultra device:thor transport_id:6",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/adb",
+        "-s",
+        "<device-serial>",
+        "shell",
+        "getprop ro.product.device; getprop ro.boot.slot_suffix; cat /proc/sys/kernel/random/boot_id"
+      ],
+      "rc": 0,
+      "stdout": "thor\n_a\nff648f2b-1f11-4258-8173-632b00e2b903",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/adb",
+        "-s",
+        "<device-serial>",
+        "reboot",
+        "bootloader"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/home/vincent/Projects/thor-unixnu/toolchains/google-platform-tools-37.0.0/platform-tools/fastboot",
+        "--unbuffered",
+        "-s",
+        "<device-serial>",
+        "getvar",
+        "product"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": "product: thor\nFinished. Total time: 0.004s"
+    },
+    {
+      "argv": [
+        "/home/vincent/Projects/thor-unixnu/toolchains/google-platform-tools-37.0.0/platform-tools/fastboot",
+        "--unbuffered",
+        "-s",
+        "<device-serial>",
+        "getvar",
+        "current-slot"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": "current-slot: a\nFinished. Total time: 0.004s"
+    },
+    {
+      "argv": [
+        "/home/vincent/Projects/thor-unixnu/toolchains/google-platform-tools-37.0.0/platform-tools/fastboot",
+        "--unbuffered",
+        "-s",
+        "<device-serial>",
+        "getvar",
+        "unlocked"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": "unlocked: yes\nFinished. Total time: 0.003s"
+    },
+    {
+      "argv": [
+        "/home/vincent/Projects/thor-unixnu/toolchains/google-platform-tools-37.0.0/platform-tools/fastboot",
+        "--unbuffered",
+        "-s",
+        "<device-serial>",
+        "getvar",
+        "is-userspace"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": "is-userspace: no\nFinished. Total time: 0.005s"
+    },
+    {
+      "argv": [
+        "/home/vincent/Projects/thor-unixnu/toolchains/google-platform-tools-37.0.0/platform-tools/fastboot",
+        "--unbuffered",
+        "-s",
+        "<device-serial>",
+        "getvar",
+        "max-download-size"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": "max-download-size: 805306368\nFinished. Total time: 0.006s"
+    }
+  ],
+  "boot_attempted": true,
+  "recovery_usb": [
+    {
+      "busnum": "1",
+      "devnum": "37",
+      "idVendor": "18d1",
+      "idProduct": "4ee7",
+      "path": "/sys/devices/pci0000:00/0000:00:08.1/0000:06:00.3/usb1/1-2/1-2.2"
+    }
+  ],
+  "requested_bootloader_local": "2026-11-14T19:13:19.388+08:00",
+  "updated_local": "2026-11-14T19:13:29.399+08:00",
+  "fastboot_usb": [
+    {
+      "busnum": "1",
+      "devnum": "39",
+      "idVendor": "18d1",
+      "idProduct": "d00d",
+      "path": "/sys/devices/pci0000:00/0000:00:08.1/0000:06:00.3/usb1/1-2/1-2.2"
+    }
+  ],
+  "boot_started_local": "2026-11-14T19:13:25.455+08:00",
+  "boot_started_utc": "2026-11-14T11:13:25.455+00:00",
+  "boot_command": [
+    "/home/vincent/Projects/thor-unixnu/toolchains/google-platform-tools-37.0.0/platform-tools/fastboot",
+    "--unbuffered",
+    "-s",
+    "<device-serial>",
+    "boot",
+    "/home/vincent/Projects/thor-unixnu/v77-staging/boot-thor-unixnu-v77-integrated.img"
+  ],
+  "boot_result": {
+    "argv": [
+      "/home/vincent/Projects/thor-unixnu/toolchains/google-platform-tools-37.0.0/platform-tools/fastboot",
+      "--unbuffered",
+      "-s",
+      "<device-serial>",
+      "boot",
+      "/home/vincent/Projects/thor-unixnu/v77-staging/boot-thor-unixnu-v77-integrated.img"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": "Sending 'boot.img' (164096 KB)                     OKAY [  3.752s]\nBooting                                            OKAY [  0.123s]\nFinished. Total time: 3.937s"
+  },
+  "boot_finished_local": "2026-11-14T19:13:29.399+08:00",
+  "accepted": true
+}

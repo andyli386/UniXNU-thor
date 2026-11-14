@@ -1,0 +1,85 @@
+{
+  "observed_at_utc": "2026-11-14T02:02:37.271387+00:00",
+  "host": "macmini",
+  "device_id": "e4fXV9-i97U-rpYz",
+  "repository": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong",
+  "head": "d562bc1419e7ae5fd7ffdf0d89951736b69e8ae5",
+  "commit_stat": "commit d562bc1419e7ae5fd7ffdf0d89951736b69e8ae5\nAuthor:     <name> <<e-mail>>\nAuthorDate: Sat Nov 14 08:01:39 2026 +0800\nCommit:     <name> <<e-mail>>\nCommitDate: Sat Nov 14 08:01:39 2026 +0800\n\n    thor v74: submitter carried from the queue slot; exit reasons to console; wake enqueue receipt\n    \n    v73 field results: audiomxd stable (one PID, no crashes), SpringBoard\n    reached the window-scene connection flow, first visible frame earlier\n    (79 s vs 90 s) - but the EMPTIED submitter line answered '?/-1'\n    because presenter() copies the swap into a static buffer before show()\n    and v73 reverse-looked that address up in the queue; and the PONG EXIT\n    records were never retrieved because the phone's Recovery does not\n    export the ramoops range Darwin writes (0x85200000 vs actual pstore at\n    0xa7000000 - an address contract that needs loader/Darwin/Recovery\n    alignment, deliberately not patched).\n    \n    - kernel: presenter() now copies the submitter name+pid out of the\n      same slot under the same lock and passes them to show() explicitly;\n      the transition line prints the real requester of the next EMPTIED.\n    - kernel: the bounded original exit reason is ALSO printed to the\n      console (PongConsole captures it); the ramoops write stays.\n    - lib: a 'wake enqueue returned' receipt completes the scheduling pair\n      (scheduled -> enqueue returned -> begin).\n    \n    boot v74 (e663ccff, kernel 1775e35c) + userdata v22 (3f6e7db9) with\n    lib v74 (57a2be64).\n\n userland/ui_compat18.c | 1 +\n 1 file changed, 1 insertion(+)\n",
+  "runtime_evidence_this_turn": false,
+  "scope": "Read-only current source review, not build, image, deployment, or device verification.",
+  "sources": [
+    {
+      "key": "framebuffer",
+      "path": "/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp",
+      "excerpts": [
+        {
+          "start_line": 242,
+          "end_line": 251,
+          "text": "242: \tIOLock *        fSwapLock;              /* around the next five */\n243: \tuint8_t         fSwap[SWAP_QUEUE][SWAP_SIZE];   /* the swaps on their way to the panel (fb_queue), from fSwapFirst on */\n244: \tMiniIOSurface * fSwapSurfaces[SWAP_QUEUE][SWAP_LAYERS]; /* ... their surfaces, held from SwapEnd on: their maker may let go of them */\n245: \tunsigned        fSwapFirst, fSwapsWaiting;\n246: \tstruct {uint32_t id;IOReturn result;} fRetired[64];\n247: \t/* THOR v73: the real swap submitter, captured in present() which runs\n248: \t * in the client thread of the SwapEnd user call - v72 logged the\n249: \t * presenter workloop (kernel_task pid=0), which answers nothing. */\n250: \tchar            fSwapWho[SWAP_QUEUE][20];\n251: \tint             fSwapWhoPid[SWAP_QUEUE];"
+        },
+        {
+          "start_line": 292,
+          "end_line": 298,
+          "text": "292: \tvirtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;\n293: \tbool publishModes(void);\n294: \tbool failStart(IOService * provider);\n295: \tMiniIOSurface * defaultSurface(void);\n296: \tIOReturn present(const uint8_t * swap);\n297: \tIOReturn show(const uint8_t * swap, MiniIOSurface ** surfaces, const char * who, int whoPid);\n298: \tvoid presenter(void);"
+        },
+        {
+          "start_line": 897,
+          "end_line": 922,
+          "text": "897: \tIOLockLock(fSwapLock);\n898: \tfStatSwapsLate += fSwapTime != 0 && now - fSwapTime > period && now - fSwapTime < pause;\n899: \tfSwapTime = now;\n900: \tfStatHeld += fSwapsWaiting >= swapQueue();\n901: \twhile (fSwapsWaiting >= swapQueue()) {\n902: \t\tif (IOLockSleepDeadline(fSwapLock, &fSwapsWaiting, deadline, THREAD_UNINT) == THREAD_TIMED_OUT &&\n903: \t\t    fSwapsWaiting >= swapQueue()) {\n904: \t\t\tfStatLost++;                    /* (the GPU has stopped answering: the frame before is waiting for it) */\n905: \t\t\tIOLockUnlock(fSwapLock);\n906: \t\t\treturn kIOReturnTimeout;\n907: \t\t}\n908: \t}\n909: \tunsigned slot = (fSwapFirst + fSwapsWaiting) % SWAP_QUEUE;\n910: \n911: \tproc_selfname(fSwapWho[slot], sizeof(fSwapWho[slot]));\n912: \tfSwapWhoPid[slot] = proc_selfpid();\n913: \tmemcpy(fSwap[slot], swap, SWAP_SIZE);\n914: \tfor (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {\n915: \t\tuint32_t sid = swapWord(swap, SWAP_SURFACE(layer));\n916: \n917: \t\tfSwapSurfaces[slot][layer] = sid != 0 ? MiniIOSurfaceCopy(sid) : NULL;\n918: \t}\n919: \tfSwapsWaiting++;\n920: \tIOLockWakeup(fSwapLock, fSwap, true);\n921: \tIOLockUnlock(fSwapLock);\n922: \treturn kIOReturnSuccess;"
+        },
+        {
+          "start_line": 954,
+          "end_line": 1006,
+          "text": "954: void\n955: IOMobileFramebuffer::presenter(void)\n956: {\n957: \tstatic uint8_t swap[SWAP_SIZE];         /* (one thread) */\n958: \tMiniIOSurface * surfaces[SWAP_LAYERS];\n959: \tchar presenterWho[20];                  /* THOR v74: submitter of the swap being shown */\n960: \tint presenterWhoPid;\n961: \n962: \tfor (;;) {\n963: \t\tIOLockLock(fSwapLock);\n964: \t\twhile (fSwapsWaiting == 0) {\n965: \t\t\tIOLockSleep(fSwapLock, fSwap, THREAD_UNINT);\n966: \t\t}\n967: \t\tmemcpy(swap, fSwap[fSwapFirst], SWAP_SIZE);\n968: \t\tmemcpy(surfaces, fSwapSurfaces[fSwapFirst], sizeof(surfaces));\n969: \t\t/* THOR v74: copy the submitter out of the SAME slot under the\n970: \t\t * SAME lock - v73 reverse-look-up the static buffer address\n971: \t\t * after the copy, which always answered who=-1 (\"submitter=?\n972: \t\t * pid=-1\" in the field log). */\n973: \t\tstrlcpy(presenterWho, fSwapWho[fSwapFirst], sizeof(presenterWho));\n974: \t\tpresenterWhoPid = fSwapWhoPid[fSwapFirst];\n975: \t\tIOLockUnlock(fSwapLock);\n976:         IOReturn result=show(swap,surfaces,presenterWho,presenterWhoPid);\n977:         IOLockLock(fSwapLock);\n978:         const uint32_t id=swapWord(swap,SWAP_ID);\n979:         fRetired[id%64]={id,result};\n980:         fSwapFirst=(fSwapFirst+1)%SWAP_QUEUE;--fSwapsWaiting;\n981:         IOLockWakeup(fSwapLock,&fSwapsWaiting,false);\n982:         IOLockUnlock(fSwapLock);\n983: \t\tfor (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {\n984: \t\t\tif (surfaces[layer] != NULL) {\n985: \t\t\t\tMiniIOSurfaceDrop(surfaces[layer]);\n986: \t\t\t}\n987: \t\t}\n988: \t\tMiniIOSurfaceClearKept();               /* (the next frame is some milliseconds away) */\n989: \t}\n990: }\n991: \n992: /* A swap's surfaces onto the panel, once the GPU is done with them. */\n993: IOReturn\n994: IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces, const char * who, int whoPid)\n995: {\n996: \tuint32_t set = swapWord(swap, SWAP_LAYERS_SET);\n997: \tuint64_t began = mach_absolute_time(), nanos, ready, shown, drawn;\n998: \tuint32_t layers = 0;\n999: \tbool report;\n1000: \tbool surfacesReady = true;\n1001: #if XNU_PONG_ADRENO_PLATFORM\n1002:     pongDisplayTrace(20,swapWord(swap,SWAP_ID),1,swapWord(swap,SWAP_SURFACE(0)));\n1003: #endif\n1004:     struct Readers {\n1005:         MiniIOSurface *held[SWAP_LAYERS]={};\n1006:         ~Readers(){for(auto *surface:held)if(surface)MiniIOSurfaceDisplayDone(surface);}"
+        },
+        {
+          "start_line": 1150,
+          "end_line": 1175,
+          "text": "1150: \tif (layers != fLayersShown) {\n1151: \t\tIOLog(\"MiniIOMobileFramebuffer: swap #%u: surfaces in layers 0x%x now (0x%x before): %u %u %u %u\\n\", fSwapsShown, layers,\n1152: \t\t    fLayersShown, swapWord(swap, SWAP_SURFACE(0)), swapWord(swap, SWAP_SURFACE(1)), swapWord(swap, SWAP_SURFACE(2)),\n1153: \t\t    swapWord(swap, SWAP_SURFACE(3)));\n1154: \t\t/* THOR v72: layer-count transitions are rare and pivotal. A\n1155: \t\t * nonzero->zero transition is the boot picture being torn down\n1156: \t\t * (v71 field: layers 0x1 -> 0x0, screen black, system alive\n1157: \t\t * 10+ more minutes with no restore). THOR v74: the submitter is\n1158: \t\t * carried from the queue slot by presenter() - v73's reverse\n1159: \t\t * address lookup always missed after the copy to the static\n1160: \t\t * buffer (field log: \"submitter=? pid=-1\"). */\n1161: \t\t{\n1162: \t\t\tIOLog(\"MiniIOMFB layers %s: submitter=%s pid=%d set=0x%x surfaces=%u,%u,%u,%u gpu=%d graphics=%d swap=%u\\n\",\n1163: \t\t\t    layers == 0 ? \"EMPTIED\" : (fLayersShown == 0 ? \"RESTORED\" : \"CHANGED\"),\n1164: \t\t\t    who ? who : \"?\", whoPid, set,\n1165: \t\t\t    swapWord(swap, SWAP_SURFACE(0)), swapWord(swap, SWAP_SURFACE(1)),\n1166: \t\t\t    swapWord(swap, SWAP_SURFACE(2)), swapWord(swap, SWAP_SURFACE(3)),\n1167: \t\t\t    gpuFrame ? 1 : 0, fGraphics ? 1 : 0, swapWord(swap, SWAP_ID));\n1168: \t\t}\n1169: \t\tfLayersShown = layers;\n1170: \t}\n1171: \n1172: \t/* every five seconds in which something was drawn: how many frames, and what each cost here */\n1173: \tfStatFrames++;\n1174: \tfStatDrawing += mach_absolute_time() - began;\n1175: \tif (fStatSince == 0) {"
+        }
+      ]
+    },
+    {
+      "key": "exit",
+      "path": "/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/bsd/kern/kern_exit.c",
+      "excerpts": [
+        {
+          "start_line": 1923,
+          "end_line": 1964,
+          "text": "1923: \tint create_corpse = FALSE;\n1924: \tbool corpse_source = false;\n1925: \ttask_t task = proc_task(p);\n1926: \n1927: \n1928: #if defined(PONG)\n1929: \t/* THOR v73: v72 field data - audiomxd crashed twice but \"Corpse\n1930: \t * failure, too many\" ate the diagnostics. This record is written\n1931: \t * BEFORE corpse preparation from the original exit state, so it\n1932: \t * survives corpse failure. The Preferences entry is the original\n1933: \t * bounded example; the list covers the daemons whose crash reasons\n1934: \t * this port keeps losing. */\n1935: \tif (strcmp(p->p_comm, \"Preferences\") == 0 ||\n1936: \t    strcmp(p->p_comm, \"audiomxd\") == 0 ||\n1937: \t    strcmp(p->p_comm, \"mediaremoted\") == 0 ||\n1938: \t    strcmp(p->p_comm, \"PosterBoard\") == 0 ||\n1939: \t    strcmp(p->p_comm, \"fairplayd.A2\") == 0 ||\n1940: \t    strncmp(p->p_comm, \"com.apple.migrat\", 16) == 0) {\n1941: \t\tchar line[768];\n1942: \t\tos_reason_t reason = p->p_exit_reason;\n1943: \t\tconst char *description = reason ? exit_reason_get_string_desc(reason) : NULL;\n1944: \t\tint length = snprintf(line, sizeof(line),\n1945: \t\t    \"PONG EXIT %s pid=%d signal=%d status=%d namespace=%u code=0x%llx description=%.512s\\n\",\n1946: \t\t    p->p_comm, proc_getpid(p), WTERMSIG(rv), WEXITSTATUS(rv), reason ? reason->osr_namespace : 0,\n1947: \t\t    reason ? reason->osr_code : 0ULL, description ? description : \"none\");\n1948: \t\tif (length > 0) {\n1949: \t\t\tpong_ramoops_diagnostic_write(line,\n1950: \t\t\t    length < (int)sizeof(line) ? length : (int)sizeof(line)-1);\n1951: \t\t\t/* THOR v74: the phone's Recovery does not export this\n1952: \t\t\t * ramoops range (its pstore sits elsewhere), so the\n1953: \t\t\t * bounded original exit reason also goes to the console,\n1954: \t\t\t * which PongConsole.txt does capture. The address\n1955: \t\t\t * contract needs loader/Darwin/Recovery alignment and is\n1956: \t\t\t * deliberately not patched here. */\n1957: \t\t\tprintf(\"%.*s\", length < (int)sizeof(line) ? length : (int)sizeof(line)-1, line);\n1958: \t\t}\n1959: \t}\n1960: #endif\n1961: \n1962: \tif (p->p_crash_behavior != 0 || p == initproc) {\n1963: \t\tproc_handle_critical_exit(p, rv);\n1964: \t}"
+        },
+        {
+          "start_line": 1994,
+          "end_line": 2004,
+          "text": "1994: \t\t/*\n1995: \t\t * Crash Reporter looks for the signal value, original exception\n1996: \t\t * type, and low 20 bits of the original code in code[0]\n1997: \t\t * (8, 4, and 20 bits respectively). code[1] is unmodified.\n1998: \t\t */\n1999: \t\tcode = ((WTERMSIG(rv) & 0xff) << 24) |\n2000: \t\t    ((ut->uu_exception & 0x0f) << 20) |\n2001: \t\t    ((int)ut->uu_code & 0xfffff);\n2002: \t\tsubcode = ut->uu_subcode;\n2003: \t\tetype = ut->uu_exception;\n2004: "
+        },
+        {
+          "start_line": 2092,
+          "end_line": 2106,
+          "text": "2092: \t\t(void)sys_perf_notify(self, proc_getpid(p));\n2093: \t}\n2094: \n2095: \n2096: \t/* stash the usage into corpse data if making_corpse == true */\n2097: \tif (create_corpse == TRUE) {\n2098: \t\tkr = task_mark_corpse(task);\n2099: \t\tif (kr != KERN_SUCCESS) {\n2100: \t\t\tif (kr == KERN_NO_SPACE) {\n2101: \t\t\t\tprintf(\"Process[%d] has no vm space for corpse info.\\n\", proc_getpid(p));\n2102: \t\t\t} else if (kr == KERN_NOT_SUPPORTED) {\n2103: \t\t\t\tprintf(\"Process[%d] was destined to be corpse. But corpse is disabled by config.\\n\", proc_getpid(p));\n2104: \t\t\t} else if (kr == KERN_TERMINATED) {\n2105: \t\t\t\tprintf(\"Process[%d] has been terminated before it could be converted to a corpse.\\n\", proc_getpid(p));\n2106: \t\t\t} else {"
+        }
+      ]
+    },
+    {
+      "key": "wake",
+      "path": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/userland/ui_compat18.c",
+      "excerpts": [
+        {
+          "start_line": 160,
+          "end_line": 187,
+          "text": "160: \n161: /* v72: SpringBoard wake/display receipts also go to a durable per-pid\n162:  * file - v71 review: a missing console line is not proof the wake path\n163:  * never ran (console mirror stops at the graphics takeover). */\n164: static void pong_sb_note(const char *format,...)\n165: {\n166:     char line[512];\n167:     va_list arguments;\n168:     va_start(arguments,format);\n169:     vsnprintf(line,sizeof(line),format,arguments);\n170:     va_end(arguments);\n171:     char path[96];\n172:     snprintf(path,sizeof(path),\"/private/var/mobile/Library/Logs/PongSB-%d.txt\",getpid());\n173:     static bool open_failed=false;\n174:     int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);\n175:     if(fd>=0){\n176:         dprintf(fd,\"[%lld] %s\\n\",(long long)time(NULL),line);\n177:         (void)fsync(fd);\n178:         close(fd);\n179:     }else if(!open_failed){\n180:         open_failed=true;\n181:         char trouble[160];\n182:         int n=snprintf(trouble,sizeof(trouble),\n183:                        \"PongSB log open errno=%d\",errno);\n184:         if(n>0)pong_console_line(trouble);\n185:     }\n186:     pong_console_line(line);\n187: }"
+        },
+        {
+          "start_line": 1651,
+          "end_line": 1666,
+          "text": "1651: static void wake_home(void *unused)\n1652: {\n1653:     (void)unused;\n1654:     /* v73: entry receipt first - v72 had no PongSB file at all, so\n1655:      * \"never entered the main queue\" / \"stuck before the first line\" /\n1656:      * \"file open failed\" were indistinguishable. */\n1657:     pong_sb_note(\"Pong UI18: wake_home begin\");\n1658:     id screen=((id(*)(id,SEL))objc_msgSend)((id)objc_lookUpClass(\"UIScreen\"),sel_registerName(\"mainScreen\"));\n1659:     if(screen) {\n1660:         CGRect native=((CGRect(*)(id,SEL))objc_msgSend)(screen,sel_registerName(\"nativeBounds\"));\n1661:         CGRect logical=((CGRect(*)(id,SEL))objc_msgSend)(screen,sel_registerName(\"bounds\"));\n1662:         double scale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName(\"scale\"));\n1663:         double nativeScale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName(\"nativeScale\"));\n1664:         pong_sb_note(\"Pong UI18: screen native=%.0fx%.0f logical=%.2fx%.2f scale=%.2f nativeScale=%.2f\",\n1665:             native.size.width,native.size.height,logical.size.width,logical.size.height,scale,nativeScale);\n1666:     }"
+        },
+        {
+          "start_line": 2560,
+          "end_line": 2572,
+          "text": "2560:         initialize_persona_manifest();return;\n2561:     }\n2562:     if(strcmp(name,\"SpringBoard\")==0) {\n2563:         springboard_process=true;\n2564:         pong_sb_note(\"Pong UI18: SpringBoard adapter ctor (v73)\");\n2565:         // Physical volume keys stay on the native HID/system event route.\n2566:         skip_setup=boot_option(\"pong_skip_setup=1\");\n2567:         CFPreferencesSetAppValue(CFSTR(\"SBDisableAutoDim\"),kCFBooleanTrue,kCFPreferencesCurrentApplication);\n2568:         pong_sb_note(\"Pong UI18: wake scheduled on main queue +10s\");\n2569:         dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,10*NSEC_PER_SEC),dispatch_get_main_queue(),NULL,wake_home);\n2570:         pong_sb_note(\"Pong UI18: wake enqueue returned\");\n2571:     }\n2572:     if(strcmp(name,\"backboardd\")==0) {"
+        }
+      ]
+    }
+  ]
+}

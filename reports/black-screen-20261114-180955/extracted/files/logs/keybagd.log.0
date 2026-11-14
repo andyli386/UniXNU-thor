@@ -1,0 +1,22 @@
+Thu Jan  1 00:01:02 1970 [25] <err> (0x207b76940) MKBDeviceSupportsEnhancedAPFS: dt = -8, bootarg = 1
+Thu Jan  1 00:01:02 1970 [25] <err> (0x207b76940) main: enhanced apfs mode
+Thu Jan  1 00:01:02 1970 [25] <err> (0x207b76940) seshat_sep_rm_init: cant fetch state
+Thu Jan  1 00:01:02 1970 [25] <err> (0x207b76940) getNVRam: Could not create string for value
+Thu Jan  1 00:01:02 1970 [25] <err> (0x16f5bd000) seshat_init_block_invoke_2: not se entangled or been unlocked or unsupported, not prewarming state: 0x6
+Thu Jan  1 00:01:02 1970 [25] <err> (0x16f5bd000) load_binary_dict: Could not open /var/root/.mkb_seshat_health: No such file or directory
+Thu Jan  1 00:01:02 1970 [25] <err> (0x16f643000) data_analytics_init_block_invoke: Checking in for data analytics
+Thu Jan  1 00:01:02 1970 [25] <err> (0x16f5bd000) HealthPlistCopyOrCreateNew: health plist doesnt exist or wrong version, creating new one
+Thu Jan  1 00:01:02 1970 [25] <err> (0x16f5bd000) seshat_evaluate_health_plist: not enough health data
+Thu Jan  1 00:01:02 1970 [25] <err> (0x16f6c9000) space_repetition_kick_block_invoke: space_repetition Check in
+Thu Jan  1 00:01:02 1970 [25] <err> (0x16f643000) data_analytics_init_block_invoke: set activity criteria
+Thu Jan  1 00:01:02 1970 [25] <err> (0x16f6c9000) space_repetition_kick_block_invoke: space_repetition set activity criteria
+Thu Jan  1 00:11:58 1970 [448] <err> (0x207b76940) MKBDeviceSupportsEnhancedAPFS: dt = -8, bootarg = 1
+Thu Jan  1 00:11:58 1970 [448] <err> (0x207b76940) main: enhanced apfs mode
+Thu Jan  1 00:11:58 1970 [448] <err> (0x207b76940) seshat_sep_rm_init: cant fetch state
+Thu Jan  1 00:11:58 1970 [448] <err> (0x207b76940) getNVRam: Could not create string for value
+Thu Jan  1 00:11:58 1970 [448] <err> (0x16f7c9000) seshat_init_block_invoke_2: not se entangled or been unlocked or unsupported, not prewarming state: 0x6
+Thu Jan  1 00:11:58 1970 [448] <err> (0x16f7c9000) seshat_evaluate_health_plist: not enough health data
+Thu Jan  1 00:11:58 1970 [448] <err> (0x16f743000) data_analytics_init_block_invoke: Checking in for data analytics
+Thu Jan  1 00:11:58 1970 [448] <err> (0x16f84f000) space_repetition_kick_block_invoke: space_repetition Check in
+Thu Jan  1 00:11:58 1970 [448] <err> (0x16f743000) data_analytics_init_block_invoke: activity criteria already set
+Thu Jan  1 00:11:58 1970 [448] <err> (0x16f84f000) space_repetition_kick_block_invoke: space_repetition activity criteria already set

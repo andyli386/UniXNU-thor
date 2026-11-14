@@ -1,0 +1,1370 @@
+{
+  "scope": "Native log analysis only; sample-limited; reference cache UUID not verified this run.",
+  "report_root": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-103139",
+  "runtime_ui18_uuid": "FFEC574F-B64E-351D-AD62-3077876C92B5",
+  "cache_base": "0x185b64000",
+  "cache_verified": false,
+  "reference_cache_uuid": "B59BD64D-4259-3186-9A8A-44DA70D91FAE",
+  "pongboot_files": 11,
+  "pongboot_blocks": 54,
+  "complete_ips_documents": 0,
+  "run_state": {
+    "source": "thread_basic_info.run_state",
+    "1": "RUNNING",
+    "3": "WAITING",
+    "4": "UNINTERRUPTIBLE",
+    "cpu_usage_scale": 1000
+  },
+  "wake_file": "extracted/files/mobile/Library/Logs/PongSB-4.txt",
+  "wake_text": "[63] Pong UI18: SpringBoard adapter ctor (v73)\n[63] Pong UI18: wake scheduled on main queue +10s\n[63] Pong UI18: wake enqueue returned\n",
+  "reason_fields": [
+    {
+      "file": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001551.0002.ips",
+      "reason": "AQ::Server: RPC timeout within audiomxd. Apparently deadlocked. Writing a stackshot and exiting.",
+      "field_line": 11,
+      "field_char_offset": 510,
+      "field_utf8_byte_offset": 528,
+      "value_char_start": 521,
+      "value_char_end": 619,
+      "whole_document_complete": false
+    },
+    {
+      "file": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000120.000.ips",
+      "reason": "unsupported screen class, no apple logo found",
+      "field_line": 11,
+      "field_char_offset": 510,
+      "field_utf8_byte_offset": 528,
+      "value_char_start": 521,
+      "value_char_end": 568,
+      "whole_document_complete": false
+    }
+  ],
+  "console_events_first_occurrence": [
+    {
+      "file": "extracted/files/logs/PongConsole.txt",
+      "line": 21541,
+      "text": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868"
+    },
+    {
+      "file": "extracted/files/logs/PongConsole.txt",
+      "line": 27403,
+      "text": "[  869.166608]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+    },
+    {
+      "file": "extracted/files/logs/PongConsole.txt",
+      "line": 30469,
+      "text": "[  955.520118]: PONG EXIT audiomxd pid=529 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot took over 5s, aborting"
+    }
+  ],
+  "processes": {
+    "PongBoot-runningboardd.txt": {
+      "file": "extracted/files/logs/PongBoot-runningboardd.txt",
+      "last_tick": {
+        "line": 74,
+        "text": "Pong tick: runningboardd pid=6 seconds=962 threads=8"
+      },
+      "timeline": [
+        {
+          "begin": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=60 time=103 threads=13",
+          "begin_line": 2,
+          "thread_line": 4,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=120 time=163 threads=8",
+          "begin_line": 18,
+          "thread_line": 20,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=242 time=285 threads=10",
+          "begin_line": 30,
+          "thread_line": 32,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=602 time=645 threads=9",
+          "begin_line": 48,
+          "thread_line": 50,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=902 time=945 threads=8",
+          "begin_line": 64,
+          "thread_line": 66,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        }
+      ],
+      "last_main": {
+        "line": 66,
+        "tid": 349,
+        "run": 3,
+        "cpu": 0,
+        "raw": "thread=0 tid=349 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16fd90660 sp=16fd90610 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18847d3c4 10006e7d4 1ad29596c 0",
+        "frames": [
+          {
+            "kind": "pc",
+            "runtime": "0x1d3df8bf4",
+            "unslid": "0x1ce294bf4",
+            "symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+          },
+          {
+            "kind": "lr",
+            "runtime": "0x1d3dfc17c",
+            "unslid": "0x1ce29817c",
+            "symbol": "0x1ce29817c libsystem_kernel.dylib!_mach_msg2_internal+0x48"
+          },
+          {
+            "kind": "frame0",
+            "runtime": "0x1d3dfc0d0",
+            "unslid": "0x1ce2980d0",
+            "symbol": "0x1ce2980d0 libsystem_kernel.dylib!_mach_msg_overwrite+0x1a8"
+          },
+          {
+            "kind": "frame1",
+            "runtime": "0x1d3dfbf1c",
+            "unslid": "0x1ce297f1c",
+            "symbol": "0x1ce297f1c libsystem_kernel.dylib!_mach_msg+0x14"
+          },
+          {
+            "kind": "frame2",
+            "runtime": "0x188407998",
+            "unslid": "0x1828a3998",
+            "symbol": "0x1828a3998 CoreFoundation!___CFRunLoopServiceMachPort+0x9c"
+          },
+          {
+            "kind": "frame3",
+            "runtime": "0x1884062d0",
+            "unslid": "0x1828a22d0",
+            "symbol": "0x1828a22d0 CoreFoundation!___CFRunLoopRun+0x4a8"
+          },
+          {
+            "kind": "frame4",
+            "runtime": "0x188407cb0",
+            "unslid": "0x1828a3cb0",
+            "symbol": "0x1828a3cb0 CoreFoundation!_CFRunLoopRunSpecific+0x218"
+          },
+          {
+            "kind": "frame5",
+            "runtime": "0x18847d3c4",
+            "unslid": "0x1829193c4",
+            "symbol": "0x1829193c4 CoreFoundation!_CFRunLoopRun+0x3c"
+          },
+          {
+            "kind": "frame6",
+            "runtime": "0x10006e7d4",
+            "unslid": null,
+            "symbol": "outside logged cache range; no executable mapping established"
+          },
+          {
+            "kind": "frame7",
+            "runtime": "0x1ad29596c",
+            "unslid": "0x1a773196c",
+            "symbol": "0x1a773196c /usr/lib/dyld+0x3596c [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame8",
+            "runtime": "0x0",
+            "unslid": null,
+            "symbol": "outside logged cache range; no executable mapping established"
+          }
+        ]
+      },
+      "diagnostic_workers": [
+        {
+          "begin": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=902 time=945 threads=8",
+          "thread": {
+            "line": 69,
+            "tid": 10726,
+            "run": 3,
+            "cpu": 0,
+            "raw": "thread=4 tid=10726 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=1700292f0 sp=1700292a0 frames: 1d3dfc0d0 1d3dfbf1c 18fc405e8 18fc40984 1e6f87828 1ac28164c 2233e14f8 2233c355c 196a03d38 18fc69830 18fc6aa68 18fc41478 18fc48dcc 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0",
+            "frames": [
+              {
+                "kind": "pc",
+                "runtime": "0x1d3df8bf4",
+                "unslid": "0x1ce294bf4",
+                "symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+              },
+              {
+                "kind": "lr",
+                "runtime": "0x1d3dfc17c",
+                "unslid": "0x1ce29817c",
+                "symbol": "0x1ce29817c libsystem_kernel.dylib!_mach_msg2_internal+0x48"
+              },
+              {
+                "kind": "frame0",
+                "runtime": "0x1d3dfc0d0",
+                "unslid": "0x1ce2980d0",
+                "symbol": "0x1ce2980d0 libsystem_kernel.dylib!_mach_msg_overwrite+0x1a8"
+              },
+              {
+                "kind": "frame1",
+                "runtime": "0x1d3dfbf1c",
+                "unslid": "0x1ce297f1c",
+                "symbol": "0x1ce297f1c libsystem_kernel.dylib!_mach_msg+0x14"
+              },
+              {
+                "kind": "frame2",
+                "runtime": "0x18fc405e8",
+                "unslid": "0x18a0dc5e8",
+                "symbol": "0x18a0dc5e8 libdispatch.dylib!__dispatch_mach_send_and_wait_for_reply+0x210"
+              },
+              {
+                "kind": "frame3",
+                "runtime": "0x18fc40984",
+                "unslid": "0x18a0dc984",
+                "symbol": "0x18a0dc984 libdispatch.dylib!_dispatch_mach_send_with_result_and_wait_for_reply$VARIANT$armv81+0x38"
+              },
+              {
+                "kind": "frame4",
+                "runtime": "0x1e6f87828",
+                "unslid": "0x1e1423828",
+                "symbol": "0x1e1423828 /usr/lib/system/libxpc.dylib+0xe828 [not in loaded symbol tables]"
+              },
+              {
+                "kind": "frame5",
+                "runtime": "0x1ac28164c",
+                "unslid": "0x1a671d64c",
+                "symbol": "0x1a671d64c OSAnalytics!__WriteCrashReportWithStackshot+0x238"
+              },
+              {
+                "kind": "frame6",
+                "runtime": "0x2233e14f8",
+                "unslid": "0x21d87d4f8",
+                "symbol": "0x21d87d4f8 /System/Library/PrivateFrameworks/RunningBoard.framework/RunningBoard+0x654f8 [not in loaded symbol tables]"
+              },
+              {
+                "kind": "frame7",
+                "runtime": "0x2233c355c",
+                "unslid": "0x21d85f55c",
+                "symbol": "0x21d85f55c /System/Library/PrivateFrameworks/RunningBoard.framework/RunningBoard+0x4755c [not in loaded symbol tables]"
+              },
+              {
+                "kind": "frame8",
+                "runtime": "0x196a03d38",
+                "unslid": "0x190e9fd38",
+                "symbol": "0x190e9fd38 RunningBoardServices!___45-[RBSXPCMessageContext handoffToQueue:block:]_block_invoke+0x24"
+              },
+              {
+                "kind": "frame9",
+                "runtime": "0x18fc69830",
+                "unslid": "0x18a105830",
+                "symbol": "0x18a105830 libdispatch.dylib!__dispatch_call_block_and_release+0x18"
+              },
+              {
+                "kind": "frame10",
+                "runtime": "0x18fc6aa68",
+                "unslid": "0x18a106a68",
+                "symbol": "0x18a106a68 libdispatch.dylib!__dispatch_client_callout+0xc"
+              },
+              {
+                "kind": "frame11",
+                "runtime": "0x18fc41478",
+                "unslid": "0x18a0dd478",
+                "symbol": "0x18a0dd478 libdispatch.dylib!__dispatch_mach_ipc_handoff_invoke$VARIANT$armv81+0x194"
+              },
+              {
+                "kind": "frame12",
+                "runtime": "0x18fc48dcc",
+                "unslid": "0x18a0e4dcc",
+                "symbol": "0x18a0e4dcc libdispatch.dylib!__dispatch_lane_serial_drain$VARIANT$armv81+0x108"
+              },
+              {
+                "kind": "frame13",
+                "runtime": "0x18fc498f0",
+                "unslid": "0x18a0e58f0",
+                "symbol": "0x18a0e58f0 libdispatch.dylib!__dispatch_lane_invoke$VARIANT$armv81+0x184"
+              },
+              {
+                "kind": "frame14",
+                "runtime": "0x18fc52710",
+                "unslid": "0x18a0ee710",
+                "symbol": "0x18a0ee710 libdispatch.dylib!__dispatch_root_queue_drain_deferred_wlh+0x108"
+              },
+              {
+                "kind": "frame15",
+                "runtime": "0x18fc52018",
+                "unslid": "0x18a0ee018",
+                "symbol": "0x18a0ee018 libdispatch.dylib!__dispatch_workloop_worker_thread+0x200"
+              },
+              {
+                "kind": "frame16",
+                "runtime": "0x1e6f2aa10",
+                "unslid": "0x1e13c6a10",
+                "symbol": "0x1e13c6a10 libsystem_pthread.dylib!__pthread_wqthread+0x120"
+              },
+              {
+                "kind": "frame17",
+                "runtime": "0x1e6f2aab0",
+                "unslid": "0x1e13c6ab0",
+                "symbol": "0x1e13c6ab0 libsystem_pthread.dylib!_start_wqthread+0x8"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "PongBoot-SpringBoard.txt": {
+      "file": "extracted/files/mobile/Library/Logs/PongBoot-SpringBoard.txt",
+      "last_tick": {
+        "line": 70,
+        "text": "Pong tick: SpringBoard pid=4 seconds=962 threads=26"
+      },
+      "timeline": [
+        {
+          "begin": "Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=60 time=124 threads=6",
+          "begin_line": 2,
+          "thread_line": 4,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294a0c libsystem_kernel.dylib!___ulock_wait2+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=124 time=188 threads=6",
+          "begin_line": 11,
+          "thread_line": 13,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=240 time=304 threads=6",
+          "begin_line": 21,
+          "thread_line": 23,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=601 time=666 threads=6",
+          "begin_line": 35,
+          "thread_line": 37,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=901 time=965 threads=20",
+          "begin_line": 48,
+          "thread_line": 50,
+          "run": 4,
+          "cpu": 308,
+          "pc_symbol": "0x1ce29a000 libsystem_kernel.dylib!_lstat64+0x8"
+        }
+      ],
+      "last_main": {
+        "line": 50,
+        "tid": 249,
+        "run": 4,
+        "cpu": 308,
+        "raw": "thread=0 tid=249 state_result=0 info_result=0 run=4 cpu=308 pc=1d3dfe000 lr=1871d7a28 fp=16f52ef80 sp=16f52e640 frames: 1871d773c 1872107e8 18719f680 1d7e916c8 1d7e928a0 1d7e91b28 18aba4418 18aba5090 1a760111c 1a76023b0 1d7e2c6ec 18aba4418 18ac03600 18abf6bf4 188413b84 188454d20 18aba45bc 18aba5090 18ac98a18 18aba48d4 18ab294a4 18abd331c 18abc27b4 18ab1ccdc",
+        "frames": [
+          {
+            "kind": "pc",
+            "runtime": "0x1d3dfe000",
+            "unslid": "0x1ce29a000",
+            "symbol": "0x1ce29a000 libsystem_kernel.dylib!_lstat64+0x8"
+          },
+          {
+            "kind": "lr",
+            "runtime": "0x1871d7a28",
+            "unslid": "0x181673a28",
+            "symbol": "0x181673a28 Foundation!__NSResolveSymlinksInPathUsingCache+0x298"
+          },
+          {
+            "kind": "frame0",
+            "runtime": "0x1871d773c",
+            "unslid": "0x18167373c",
+            "symbol": "0x18167373c Foundation!-[NSString(NSPathUtilities) _stringByResolvingSymlinksInPathUsingCache:]+0x7c"
+          },
+          {
+            "kind": "frame1",
+            "runtime": "0x1872107e8",
+            "unslid": "0x1816ac7e8",
+            "symbol": "0x1816ac7e8 Foundation!__NSFrameworkPathFromLibraryPath+0x30"
+          },
+          {
+            "kind": "frame2",
+            "runtime": "0x18719f680",
+            "unslid": "0x18163b680",
+            "symbol": "0x18163b680 Foundation!+[NSBundle bundleForClass:]+0xb4"
+          },
+          {
+            "kind": "frame3",
+            "runtime": "0x1d7e916c8",
+            "unslid": "0x1d232d6c8",
+            "symbol": "0x1d232d6c8 /System/Library/PrivateFrameworks/CoverSheet.framework/CoverSheet+0x9b6c8 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame4",
+            "runtime": "0x1d7e928a0",
+            "unslid": "0x1d232e8a0",
+            "symbol": "0x1d232e8a0 /System/Library/PrivateFrameworks/CoverSheet.framework/CoverSheet+0x9c8a0 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame5",
+            "runtime": "0x1d7e91b28",
+            "unslid": "0x1d232db28",
+            "symbol": "0x1d232db28 /System/Library/PrivateFrameworks/CoverSheet.framework/CoverSheet+0x9bb28 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame6",
+            "runtime": "0x18aba4418",
+            "unslid": "0x185040418",
+            "symbol": "0x185040418 UIKitCore!-[UIViewController _setViewAppearState:isAnimating:]+0x440"
+          },
+          {
+            "kind": "frame7",
+            "runtime": "0x18aba5090",
+            "unslid": "0x185041090",
+            "symbol": "0x185041090 UIKitCore!-[UIViewController __viewWillAppear:]+0x64"
+          },
+          {
+            "kind": "frame8",
+            "runtime": "0x1a760111c",
+            "unslid": "0x1a1a9d11c",
+            "symbol": "0x1a1a9d11c /System/Library/PrivateFrameworks/BaseBoardUI.framework/BaseBoardUI+0x211c [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame9",
+            "runtime": "0x1a76023b0",
+            "unslid": "0x1a1a9e3b0",
+            "symbol": "0x1a1a9e3b0 /System/Library/PrivateFrameworks/BaseBoardUI.framework/BaseBoardUI+0x33b0 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame10",
+            "runtime": "0x1d7e2c6ec",
+            "unslid": "0x1d22c86ec",
+            "symbol": "0x1d22c86ec /System/Library/PrivateFrameworks/CoverSheet.framework/CoverSheet+0x366ec [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame11",
+            "runtime": "0x18aba4418",
+            "unslid": "0x185040418",
+            "symbol": "0x185040418 UIKitCore!-[UIViewController _setViewAppearState:isAnimating:]+0x440"
+          },
+          {
+            "kind": "frame12",
+            "runtime": "0x18ac03600",
+            "unslid": "0x18509f600",
+            "symbol": "0x18509f600 UIKitCore!___52-[UIViewController _setViewAppearState:isAnimating:]_block_invoke_2+0x9c"
+          },
+          {
+            "kind": "frame13",
+            "runtime": "0x18abf6bf4",
+            "unslid": "0x185092bf4",
+            "symbol": "0x185092bf4 UIKitCore!___52-[UIViewController _setViewAppearState:isAnimating:]_block_invoke+0xa0"
+          },
+          {
+            "kind": "frame14",
+            "runtime": "0x188413b84",
+            "unslid": "0x1828afb84",
+            "symbol": "0x1828afb84 CoreFoundation!___NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__+0x10"
+          },
+          {
+            "kind": "frame15",
+            "runtime": "0x188454d20",
+            "unslid": "0x1828f0d20",
+            "symbol": "0x1828f0d20 CoreFoundation!-[__NSSingleObjectArrayI enumerateObjectsWithOptions:usingBlock:]+0x58"
+          },
+          {
+            "kind": "frame16",
+            "runtime": "0x18aba45bc",
+            "unslid": "0x1850405bc",
+            "symbol": "0x1850405bc UIKitCore!-[UIViewController _setViewAppearState:isAnimating:]+0x5e4"
+          },
+          {
+            "kind": "frame17",
+            "runtime": "0x18aba5090",
+            "unslid": "0x185041090",
+            "symbol": "0x185041090 UIKitCore!-[UIViewController __viewWillAppear:]+0x64"
+          },
+          {
+            "kind": "frame18",
+            "runtime": "0x18ac98a18",
+            "unslid": "0x185134a18",
+            "symbol": "0x185134a18 UIKitCore!-[UIViewController viewWillMoveToWindow:]+0x15c"
+          },
+          {
+            "kind": "frame19",
+            "runtime": "0x18aba48d4",
+            "unslid": "0x1850408d4",
+            "symbol": "0x1850408d4 UIKitCore!-[UIView(Hierarchy) _willMoveToWindow:withAncestorView:]+0x1a0"
+          },
+          {
+            "kind": "frame20",
+            "runtime": "0x18ab294a4",
+            "unslid": "0x184fc54a4",
+            "symbol": "0x184fc54a4 UIKitCore!-[UIView(Internal) _addSubview:positioned:relativeTo:]+0x174"
+          },
+          {
+            "kind": "frame21",
+            "runtime": "0x18abd331c",
+            "unslid": "0x18506f31c",
+            "symbol": "0x18506f31c UIKitCore!-[UIWindow addRootViewControllerViewIfPossible]+0x2fc"
+          },
+          {
+            "kind": "frame22",
+            "runtime": "0x18abc27b4",
+            "unslid": "0x18505e7b4",
+            "symbol": "0x18505e7b4 UIKitCore!-[UIWindow _updateLayerOrderingAndSetLayerHidden:actionBlock:]+0xa8"
+          },
+          {
+            "kind": "frame23",
+            "runtime": "0x18ab1ccdc",
+            "unslid": "0x184fb8cdc",
+            "symbol": "0x184fb8cdc UIKitCore!-[UIWindow _setHidden:forced:]+0xe4"
+          }
+        ]
+      },
+      "diagnostic_workers": []
+    },
+    "PongBoot-audiomxd.txt": {
+      "file": "extracted/files/mobile/Library/Logs/PongBoot-audiomxd.txt",
+      "last_tick": {
+        "line": 105,
+        "text": "Pong tick: audiomxd pid=529 seconds=60 threads=47"
+      },
+      "timeline": [
+        {
+          "begin": "Pong boot snapshot BEGIN: audiomxd pid=81 seconds=60 time=127 threads=28",
+          "begin_line": 2,
+          "thread_line": 4,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: audiomxd pid=81 seconds=120 time=187 threads=22",
+          "begin_line": 33,
+          "thread_line": 35,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: audiomxd pid=81 seconds=240 time=307 threads=18",
+          "begin_line": 59,
+          "thread_line": 61,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: audiomxd pid=81 seconds=603 time=671 threads=15",
+          "begin_line": 85,
+          "thread_line": 87,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: audiomxd pid=529 seconds=60 time=938 threads=47",
+          "begin_line": 106,
+          "thread_line": 108,
+          "run": 4,
+          "cpu": 162,
+          "pc_symbol": "0x1a76ff438 /usr/lib/dyld+0x3438 [not in loaded symbol tables]"
+        }
+      ],
+      "last_main": {
+        "line": 108,
+        "tid": 13306,
+        "run": 4,
+        "cpu": 162,
+        "raw": "thread=0 tid=13306 state_result=0 info_result=0 run=4 cpu=162 pc=1ad263438 lr=1ad266f2c fp=16f5e8570 sp=16f5e8020 frames: 1ad264f7c 1ad265aa0 1ad263ec4 1a8429ef8 1a85a63e8 1a85a62b4 1a8584284 1008176b4 1ad29596c 0",
+        "frames": [
+          {
+            "kind": "pc",
+            "runtime": "0x1ad263438",
+            "unslid": "0x1a76ff438",
+            "symbol": "0x1a76ff438 /usr/lib/dyld+0x3438 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "lr",
+            "runtime": "0x1ad266f2c",
+            "unslid": "0x1a7702f2c",
+            "symbol": "0x1a7702f2c /usr/lib/dyld+0x6f2c [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame0",
+            "runtime": "0x1ad264f7c",
+            "unslid": "0x1a7700f7c",
+            "symbol": "0x1a7700f7c /usr/lib/dyld+0x4f7c [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame1",
+            "runtime": "0x1ad265aa0",
+            "unslid": "0x1a7701aa0",
+            "symbol": "0x1a7701aa0 /usr/lib/dyld+0x5aa0 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame2",
+            "runtime": "0x1ad263ec4",
+            "unslid": "0x1a76ffec4",
+            "symbol": "0x1a76ffec4 /usr/lib/dyld+0x3ec4 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame3",
+            "runtime": "0x1a8429ef8",
+            "unslid": "0x1a28c5ef8",
+            "symbol": "0x1a28c5ef8 /System/Library/Frameworks/AudioToolbox.framework/AudioToolbox+0x2fef8 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame4",
+            "runtime": "0x1a85a63e8",
+            "unslid": "0x1a2a423e8",
+            "symbol": "0x1a2a423e8 /System/Library/Frameworks/AudioToolbox.framework/AudioToolbox+0x1ac3e8 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame5",
+            "runtime": "0x1a85a62b4",
+            "unslid": "0x1a2a422b4",
+            "symbol": "0x1a2a422b4 /System/Library/Frameworks/AudioToolbox.framework/AudioToolbox+0x1ac2b4 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame6",
+            "runtime": "0x1a8584284",
+            "unslid": "0x1a2a20284",
+            "symbol": "0x1a2a20284 /System/Library/Frameworks/AudioToolbox.framework/AudioToolbox+0x18a284 [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame7",
+            "runtime": "0x1008176b4",
+            "unslid": null,
+            "symbol": "outside logged cache range; no executable mapping established"
+          },
+          {
+            "kind": "frame8",
+            "runtime": "0x1ad29596c",
+            "unslid": "0x1a773196c",
+            "symbol": "0x1a773196c /usr/lib/dyld+0x3596c [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame9",
+            "runtime": "0x0",
+            "unslid": null,
+            "symbol": "outside logged cache range; no executable mapping established"
+          }
+        ]
+      },
+      "diagnostic_workers": [],
+      "last_end": "Pong boot snapshot END: audiomxd pid=529 seconds=60 sampled=31 of 47",
+      "selected_audio_workers": [
+        {
+          "line": 109,
+          "tid": 13355,
+          "run": 1,
+          "cpu": 9,
+          "raw": "thread=2 tid=13355 state_result=0 info_result=0 run=1 cpu=9 pc=1e92bed84 lr=1e92bec40 fp=16f7fe630 sp=16f7fe5e0 frames: 18fc6aa68 18fc3f26c 1e92beb80 1e900b584 1e92ea070 1e8f8e6d4 1e94c89c0 1e94c93b8 1e94c9b68 1e8e83f3c 1e8e83cb4 1e8f0dba4 1bd64111c 18fc69830 18fc6aa68 18fc756a4 18fc515e8 18fc51b34 1e6f2a9d4 1e6f2aab0",
+          "frames": [
+            {
+              "kind": "pc",
+              "runtime": "0x1e92bed84",
+              "unslid": "0x1e375ad84",
+              "symbol": "0x1e375ad84 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x61fd84 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "lr",
+              "runtime": "0x1e92bec40",
+              "unslid": "0x1e375ac40",
+              "symbol": "0x1e375ac40 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x61fc40 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame0",
+              "runtime": "0x18fc6aa68",
+              "unslid": "0x18a106a68",
+              "symbol": "0x18a106a68 libdispatch.dylib!__dispatch_client_callout+0xc"
+            },
+            {
+              "kind": "frame1",
+              "runtime": "0x18fc3f26c",
+              "unslid": "0x18a0db26c",
+              "symbol": "0x18a0db26c libdispatch.dylib!__dispatch_once_callout+0x1c"
+            },
+            {
+              "kind": "frame2",
+              "runtime": "0x1e92beb80",
+              "unslid": "0x1e375ab80",
+              "symbol": "0x1e375ab80 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x61fb80 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame3",
+              "runtime": "0x1e900b584",
+              "unslid": "0x1e34a7584",
+              "symbol": "0x1e34a7584 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x36c584 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame4",
+              "runtime": "0x1e92ea070",
+              "unslid": "0x1e3786070",
+              "symbol": "0x1e3786070 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x64b070 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame5",
+              "runtime": "0x1e8f8e6d4",
+              "unslid": "0x1e342a6d4",
+              "symbol": "0x1e342a6d4 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x2ef6d4 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame6",
+              "runtime": "0x1e94c89c0",
+              "unslid": "0x1e39649c0",
+              "symbol": "0x1e39649c0 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x8299c0 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame7",
+              "runtime": "0x1e94c93b8",
+              "unslid": "0x1e39653b8",
+              "symbol": "0x1e39653b8 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x82a3b8 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame8",
+              "runtime": "0x1e94c9b68",
+              "unslid": "0x1e3965b68",
+              "symbol": "0x1e3965b68 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x82ab68 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame9",
+              "runtime": "0x1e8e83f3c",
+              "unslid": "0x1e331ff3c",
+              "symbol": "0x1e331ff3c /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x1e4f3c [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame10",
+              "runtime": "0x1e8e83cb4",
+              "unslid": "0x1e331fcb4",
+              "symbol": "0x1e331fcb4 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x1e4cb4 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame11",
+              "runtime": "0x1e8f0dba4",
+              "unslid": "0x1e33a9ba4",
+              "symbol": "0x1e33a9ba4 /System/Library/Frameworks/Accelerate.framework/Frameworks/vecLib.framework/libBNNS.dylib+0x26eba4 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame12",
+              "runtime": "0x1bd64111c",
+              "unslid": "0x1b7add11c",
+              "symbol": "0x1b7add11c /System/Library/Frameworks/AudioToolbox.framework/libAudioDSP.dylib+0x22611c [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame13",
+              "runtime": "0x18fc69830",
+              "unslid": "0x18a105830",
+              "symbol": "0x18a105830 libdispatch.dylib!__dispatch_call_block_and_release+0x18"
+            },
+            {
+              "kind": "frame14",
+              "runtime": "0x18fc6aa68",
+              "unslid": "0x18a106a68",
+              "symbol": "0x18a106a68 libdispatch.dylib!__dispatch_client_callout+0xc"
+            },
+            {
+              "kind": "frame15",
+              "runtime": "0x18fc756a4",
+              "unslid": "0x18a1116a4",
+              "symbol": "0x18a1116a4 libdispatch.dylib!__dispatch_workloop_invoke$VARIANT$armv81.cold.4+0x1c"
+            },
+            {
+              "kind": "frame16",
+              "runtime": "0x18fc515e8",
+              "unslid": "0x18a0ed5e8",
+              "symbol": "0x18a0ed5e8 libdispatch.dylib!__dispatch_root_queue_drain+0x29c"
+            },
+            {
+              "kind": "frame17",
+              "runtime": "0x18fc51b34",
+              "unslid": "0x18a0edb34",
+              "symbol": "0x18a0edb34 libdispatch.dylib!__dispatch_worker_thread2+0x98"
+            },
+            {
+              "kind": "frame18",
+              "runtime": "0x1e6f2a9d4",
+              "unslid": "0x1e13c69d4",
+              "symbol": "0x1e13c69d4 libsystem_pthread.dylib!__pthread_wqthread+0xe4"
+            },
+            {
+              "kind": "frame19",
+              "runtime": "0x1e6f2aab0",
+              "unslid": "0x1e13c6ab0",
+              "symbol": "0x1e13c6ab0 libsystem_pthread.dylib!_start_wqthread+0x8"
+            }
+          ]
+        },
+        {
+          "line": 119,
+          "tid": 13629,
+          "run": 3,
+          "cpu": 0,
+          "raw": "thread=12 tid=13629 state_result=0 info_result=0 run=3 cpu=0 pc=1d3dfdfd8 lr=1e6f34884 fp=16fe47bf0 sp=16fe47b60 frames: 23f927bf0 1871e12b0 1e6f2c6b0 1e6f2aabc",
+          "frames": [
+            {
+              "kind": "pc",
+              "runtime": "0x1d3dfdfd8",
+              "unslid": "0x1ce299fd8",
+              "symbol": "0x1ce299fd8 libsystem_kernel.dylib!___psynch_cvwait+0x8"
+            },
+            {
+              "kind": "lr",
+              "runtime": "0x1e6f34884",
+              "unslid": "0x1e13d0884",
+              "symbol": "0x1e13d0884 libsystem_pthread.dylib!__pthread_cond_wait$VARIANT$armv81+0x3d0"
+            },
+            {
+              "kind": "frame0",
+              "runtime": "0x23f927bf0",
+              "unslid": "0x239dc3bf0",
+              "symbol": "0x239dc3bf0 /System/Library/PrivateFrameworks/AudioServerDriverTransports_Base.framework/AudioServerDriverTransports_Base+0x1dbf0 [not in loaded symbol tables]"
+            },
+            {
+              "kind": "frame1",
+              "runtime": "0x1871e12b0",
+              "unslid": "0x18167d2b0",
+              "symbol": "0x18167d2b0 Foundation!___NSThread__start__+0x2cc"
+            },
+            {
+              "kind": "frame2",
+              "runtime": "0x1e6f2c6b0",
+              "unslid": "0x1e13c86b0",
+              "symbol": "0x1e13c86b0 libsystem_pthread.dylib!__pthread_start+0x68"
+            },
+            {
+              "kind": "frame3",
+              "runtime": "0x1e6f2aabc",
+              "unslid": "0x1e13c6abc",
+              "symbol": "0x1e13c6abc libsystem_pthread.dylib!_thread_start+0x8"
+            }
+          ]
+        }
+      ]
+    },
+    "PongBoot-backboardd.txt": {
+      "file": "extracted/files/mobile/Library/Logs/PongBoot-backboardd.txt",
+      "last_tick": {
+        "line": 122,
+        "text": "Pong tick: backboardd pid=40 seconds=960 threads=16"
+      },
+      "timeline": [
+        {
+          "begin": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=60 time=106 threads=20",
+          "begin_line": 2,
+          "thread_line": 4,
+          "run": 4,
+          "cpu": 8,
+          "pc_symbol": "0x1a76ff588 /usr/lib/dyld+0x3588 [not in loaded symbol tables]"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=120 time=167 threads=19",
+          "begin_line": 25,
+          "thread_line": 27,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=240 time=287 threads=21",
+          "begin_line": 48,
+          "thread_line": 50,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=600 time=647 threads=20",
+          "begin_line": 77,
+          "thread_line": 79,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        },
+        {
+          "begin": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=900 time=947 threads=16",
+          "begin_line": 104,
+          "thread_line": 106,
+          "run": 3,
+          "cpu": 0,
+          "pc_symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+        }
+      ],
+      "last_main": {
+        "line": 106,
+        "tid": 324,
+        "run": 3,
+        "cpu": 0,
+        "raw": "thread=0 tid=324 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f7904b0 sp=16f790460 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 100691e78 1ad29596c 0",
+        "frames": [
+          {
+            "kind": "pc",
+            "runtime": "0x1d3df8bf4",
+            "unslid": "0x1ce294bf4",
+            "symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+          },
+          {
+            "kind": "lr",
+            "runtime": "0x1d3dfc17c",
+            "unslid": "0x1ce29817c",
+            "symbol": "0x1ce29817c libsystem_kernel.dylib!_mach_msg2_internal+0x48"
+          },
+          {
+            "kind": "frame0",
+            "runtime": "0x1d3dfc0d0",
+            "unslid": "0x1ce2980d0",
+            "symbol": "0x1ce2980d0 libsystem_kernel.dylib!_mach_msg_overwrite+0x1a8"
+          },
+          {
+            "kind": "frame1",
+            "runtime": "0x1d3dfbf1c",
+            "unslid": "0x1ce297f1c",
+            "symbol": "0x1ce297f1c libsystem_kernel.dylib!_mach_msg+0x14"
+          },
+          {
+            "kind": "frame2",
+            "runtime": "0x188407998",
+            "unslid": "0x1828a3998",
+            "symbol": "0x1828a3998 CoreFoundation!___CFRunLoopServiceMachPort+0x9c"
+          },
+          {
+            "kind": "frame3",
+            "runtime": "0x1884062d0",
+            "unslid": "0x1828a22d0",
+            "symbol": "0x1828a22d0 CoreFoundation!___CFRunLoopRun+0x4a8"
+          },
+          {
+            "kind": "frame4",
+            "runtime": "0x188407cb0",
+            "unslid": "0x1828a3cb0",
+            "symbol": "0x1828a3cb0 CoreFoundation!_CFRunLoopRunSpecific+0x218"
+          },
+          {
+            "kind": "frame5",
+            "runtime": "0x100691e78",
+            "unslid": null,
+            "symbol": "outside logged cache range; no executable mapping established"
+          },
+          {
+            "kind": "frame6",
+            "runtime": "0x1ad29596c",
+            "unslid": "0x1a773196c",
+            "symbol": "0x1a773196c /usr/lib/dyld+0x3596c [not in loaded symbol tables]"
+          },
+          {
+            "kind": "frame7",
+            "runtime": "0x0",
+            "unslid": null,
+            "symbol": "outside logged cache range; no executable mapping established"
+          }
+        ]
+      },
+      "diagnostic_workers": [],
+      "selected_workers": [
+        {
+          "line": 108,
+          "tid": 573,
+          "run": 3,
+          "cpu": 0,
+          "raw": "thread=3 tid=573 state_result=0 info_result=0 run=3 cpu=0 pc=1d3dfea08 lr=18fc3e6bc fp=16fab3850 sp=16fab3830 frames: 18fc3e9c0 10069f3e4 18fc69830 18fc6aa68 18fc48f64 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0",
+          "frames": [
+            {
+              "kind": "pc",
+              "runtime": "0x1d3dfea08",
+              "unslid": "0x1ce29aa08",
+              "symbol": "0x1ce29aa08 libsystem_kernel.dylib!___ulock_wait+0x8"
+            },
+            {
+              "kind": "lr",
+              "runtime": "0x18fc3e6bc",
+              "unslid": "0x18a0da6bc",
+              "symbol": "0x18a0da6bc libdispatch.dylib!__dlock_wait+0x34"
+            },
+            {
+              "kind": "frame0",
+              "runtime": "0x18fc3e9c0",
+              "unslid": "0x18a0da9c0",
+              "symbol": "0x18a0da9c0 libdispatch.dylib!__dispatch_group_wait_slow+0x34"
+            },
+            {
+              "kind": "frame1",
+              "runtime": "0x10069f3e4",
+              "unslid": null,
+              "symbol": "outside logged cache range; no executable mapping established"
+            },
+            {
+              "kind": "frame2",
+              "runtime": "0x18fc69830",
+              "unslid": "0x18a105830",
+              "symbol": "0x18a105830 libdispatch.dylib!__dispatch_call_block_and_release+0x18"
+            },
+            {
+              "kind": "frame3",
+              "runtime": "0x18fc6aa68",
+              "unslid": "0x18a106a68",
+              "symbol": "0x18a106a68 libdispatch.dylib!__dispatch_client_callout+0xc"
+            },
+            {
+              "kind": "frame4",
+              "runtime": "0x18fc48f64",
+              "unslid": "0x18a0e4f64",
+              "symbol": "0x18a0e4f64 libdispatch.dylib!__dispatch_lane_serial_drain$VARIANT$armv81+0x2a0"
+            },
+            {
+              "kind": "frame5",
+              "runtime": "0x18fc498f0",
+              "unslid": "0x18a0e58f0",
+              "symbol": "0x18a0e58f0 libdispatch.dylib!__dispatch_lane_invoke$VARIANT$armv81+0x184"
+            },
+            {
+              "kind": "frame6",
+              "runtime": "0x18fc52710",
+              "unslid": "0x18a0ee710",
+              "symbol": "0x18a0ee710 libdispatch.dylib!__dispatch_root_queue_drain_deferred_wlh+0x108"
+            },
+            {
+              "kind": "frame7",
+              "runtime": "0x18fc52018",
+              "unslid": "0x18a0ee018",
+              "symbol": "0x18a0ee018 libdispatch.dylib!__dispatch_workloop_worker_thread+0x200"
+            },
+            {
+              "kind": "frame8",
+              "runtime": "0x1e6f2aa10",
+              "unslid": "0x1e13c6a10",
+              "symbol": "0x1e13c6a10 libsystem_pthread.dylib!__pthread_wqthread+0x120"
+            },
+            {
+              "kind": "frame9",
+              "runtime": "0x1e6f2aab0",
+              "unslid": "0x1e13c6ab0",
+              "symbol": "0x1e13c6ab0 libsystem_pthread.dylib!_start_wqthread+0x8"
+            }
+          ]
+        },
+        {
+          "line": 109,
+          "tid": 767,
+          "run": 3,
+          "cpu": 0,
+          "raw": "thread=4 tid=767 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16fe539c0 sp=16fe53970 frames: 1d3dfc0d0 1d3dfbf1c 189ea093c 18a153cc8 1e6f2c6b0 1e6f2aabc",
+          "frames": [
+            {
+              "kind": "pc",
+              "runtime": "0x1d3df8bf4",
+              "unslid": "0x1ce294bf4",
+              "symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+            },
+            {
+              "kind": "lr",
+              "runtime": "0x1d3dfc17c",
+              "unslid": "0x1ce29817c",
+              "symbol": "0x1ce29817c libsystem_kernel.dylib!_mach_msg2_internal+0x48"
+            },
+            {
+              "kind": "frame0",
+              "runtime": "0x1d3dfc0d0",
+              "unslid": "0x1ce2980d0",
+              "symbol": "0x1ce2980d0 libsystem_kernel.dylib!_mach_msg_overwrite+0x1a8"
+            },
+            {
+              "kind": "frame1",
+              "runtime": "0x1d3dfbf1c",
+              "unslid": "0x1ce297f1c",
+              "symbol": "0x1ce297f1c libsystem_kernel.dylib!_mach_msg+0x14"
+            },
+            {
+              "kind": "frame2",
+              "runtime": "0x189ea093c",
+              "unslid": "0x18433c93c",
+              "symbol": "0x18433c93c QuartzCore!__ZN2CA6Render6Server13server_threadEPv+0x320"
+            },
+            {
+              "kind": "frame3",
+              "runtime": "0x18a153cc8",
+              "unslid": "0x1845efcc8",
+              "symbol": "0x1845efcc8 QuartzCore!__ZL10thread_funPv+0x1c"
+            },
+            {
+              "kind": "frame4",
+              "runtime": "0x1e6f2c6b0",
+              "unslid": "0x1e13c86b0",
+              "symbol": "0x1e13c86b0 libsystem_pthread.dylib!__pthread_start+0x68"
+            },
+            {
+              "kind": "frame5",
+              "runtime": "0x1e6f2aabc",
+              "unslid": "0x1e13c6abc",
+              "symbol": "0x1e13c6abc libsystem_pthread.dylib!_thread_start+0x8"
+            }
+          ]
+        },
+        {
+          "line": 110,
+          "tid": 776,
+          "run": 3,
+          "cpu": 0,
+          "raw": "thread=5 tid=776 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=170068e00 sp=170068db0 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18847d3c4 18a14982c 18a153cc8 1e6f2c6b0 1e6f2aabc",
+          "frames": [
+            {
+              "kind": "pc",
+              "runtime": "0x1d3df8bf4",
+              "unslid": "0x1ce294bf4",
+              "symbol": "0x1ce294bf4 libsystem_kernel.dylib!_mach_msg2_trap+0x8"
+            },
+            {
+              "kind": "lr",
+              "runtime": "0x1d3dfc17c",
+              "unslid": "0x1ce29817c",
+              "symbol": "0x1ce29817c libsystem_kernel.dylib!_mach_msg2_internal+0x48"
+            },
+            {
+              "kind": "frame0",
+              "runtime": "0x1d3dfc0d0",
+              "unslid": "0x1ce2980d0",
+              "symbol": "0x1ce2980d0 libsystem_kernel.dylib!_mach_msg_overwrite+0x1a8"
+            },
+            {
+              "kind": "frame1",
+              "runtime": "0x1d3dfbf1c",
+              "unslid": "0x1ce297f1c",
+              "symbol": "0x1ce297f1c libsystem_kernel.dylib!_mach_msg+0x14"
+            },
+            {
+              "kind": "frame2",
+              "runtime": "0x188407998",
+              "unslid": "0x1828a3998",
+              "symbol": "0x1828a3998 CoreFoundation!___CFRunLoopServiceMachPort+0x9c"
+            },
+            {
+              "kind": "frame3",
+              "runtime": "0x1884062d0",
+              "unslid": "0x1828a22d0",
+              "symbol": "0x1828a22d0 CoreFoundation!___CFRunLoopRun+0x4a8"
+            },
+            {
+              "kind": "frame4",
+              "runtime": "0x188407cb0",
+              "unslid": "0x1828a3cb0",
+              "symbol": "0x1828a3cb0 CoreFoundation!_CFRunLoopRunSpecific+0x218"
+            },
+            {
+              "kind": "frame5",
+              "runtime": "0x18847d3c4",
+              "unslid": "0x1829193c4",
+              "symbol": "0x1829193c4 CoreFoundation!_CFRunLoopRun+0x3c"
+            },
+            {
+              "kind": "frame6",
+              "runtime": "0x18a14982c",
+              "unslid": "0x1845e582c",
+              "symbol": "0x1845e582c QuartzCore!__ZN2CA12WindowServer11IOMFBServer11thread_bodyEPv+0x1a4"
+            },
+            {
+              "kind": "frame7",
+              "runtime": "0x18a153cc8",
+              "unslid": "0x1845efcc8",
+              "symbol": "0x1845efcc8 QuartzCore!__ZL10thread_funPv+0x1c"
+            },
+            {
+              "kind": "frame8",
+              "runtime": "0x1e6f2c6b0",
+              "unslid": "0x1e13c86b0",
+              "symbol": "0x1e13c86b0 libsystem_pthread.dylib!__pthread_start+0x68"
+            },
+            {
+              "kind": "frame9",
+              "runtime": "0x1e6f2aabc",
+              "unslid": "0x1e13c6abc",
+              "symbol": "0x1e13c6abc libsystem_pthread.dylib!_thread_start+0x8"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "v73_last_SpringBoard": {
+    "begin": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=901 time=970 threads=9",
+    "thread": {
+      "line": 49,
+      "tid": 248,
+      "run": 1,
+      "cpu": 299,
+      "raw": "thread=0 tid=248 state_result=0 info_result=0 run=1 cpu=299 pc=1e7dc2108 lr=1e77b801c fp=16f946d60 sp=16f946d30 frames: 1e7c6f5a0 1e7846940 1e7845ee8 1e7c6fe14 19a20b9a4 19a215720 19a207f9c 1ba105cac 1b11b9ec0 1ba105bd4 1b11ba500 1b11ba698 1b11ba314 1ba0d527c 1ba0c403c 19f3ae668 1ba0c35dc 1ba0c28f0 1ba0c21f8 1ba0ccae4 1ba0cad3c 1ba101644 1e798383c 1e79835c4",
+      "frames": [
+        {
+          "kind": "pc",
+          "runtime": "0x1e7dc2108",
+          "unslid": "0x1d2c7a108",
+          "symbol": "0x1d2c7a108 SpringBoard!-[SBMultiDisplayUserInteractionCoordinator addPointerInteractionObserver:]+0x0"
+        },
+        {
+          "kind": "lr",
+          "runtime": "0x1e77b801c",
+          "unslid": "0x1d267001c",
+          "symbol": "0x1d267001c SpringBoard!-[SBSystemPointerInteractionManager initWithMultiDisplayUserInteractionCoordinator:]+0x84"
+        },
+        {
+          "kind": "frame0",
+          "runtime": "0x1e7c6f5a0",
+          "unslid": "0x1d2b275a0",
+          "symbol": "0x1d2b275a0 SpringBoard!-[SBEmbeddedDisplayWindowSceneDelegate _configureForConnectingWindowScene:windowSceneContext:]+0x1d4"
+        },
+        {
+          "kind": "frame1",
+          "runtime": "0x1e7846940",
+          "unslid": "0x1d26fe940",
+          "symbol": "0x1d26fe940 SpringBoard!-[SBAbstractWindowSceneDelegate _commonSceneSetupForScene:]+0x5c"
+        },
+        {
+          "kind": "frame2",
+          "runtime": "0x1e7845ee8",
+          "unslid": "0x1d26fdee8",
+          "symbol": "0x1d26fdee8 SpringBoard!-[SBAbstractWindowSceneDelegate scene:willConnectToSession:options:]+0x138"
+        },
+        {
+          "kind": "frame3",
+          "runtime": "0x1e7c6fe14",
+          "unslid": "0x1d2b27e14",
+          "symbol": "0x1d2b27e14 SpringBoard!-[SBEmbeddedDisplayWindowSceneDelegate scene:willConnectToSession:options:]+0x8c"
+        },
+        {
+          "kind": "frame4",
+          "runtime": "0x19a20b9a4",
+          "unslid": "0x1850c39a4",
+          "symbol": "0x1850c39a4 UIKitCore!+[UIScene _sceneForFBSScene:create:withSession:connectionOptions:]+0x3ec"
+        },
+        {
+          "kind": "frame5",
+          "runtime": "0x19a215720",
+          "unslid": "0x1850cd720",
+          "symbol": "0x1850cd720 UIKitCore!-[UIApplication _connectUISceneFromFBSScene:transitionContext:]+0x324"
+        },
+        {
+          "kind": "frame6",
+          "runtime": "0x19a207f9c",
+          "unslid": "0x1850bff9c",
+          "symbol": "0x1850bff9c UIKitCore!-[UIApplication workspace:didCreateScene:withTransitionContext:completion:]+0x140"
+        },
+        {
+          "kind": "frame7",
+          "runtime": "0x1ba105cac",
+          "unslid": "0x1a4fbdcac",
+          "symbol": "0x1a4fbdcac FrontBoard!___90-[FBLocalSynchronousSceneClientProvider _sendSceneCreateFBSWorkspaceDelegateForSceneInfo:]_block_invoke+0x8c"
+        },
+        {
+          "kind": "frame8",
+          "runtime": "0x1b11b9ec0",
+          "unslid": "0x19c071ec0",
+          "symbol": "0x19c071ec0 FrontBoardServices!-[FBSWorkspace _calloutQueue_executeCalloutFromSource:withBlock:]+0xa0"
+        },
+        {
+          "kind": "frame9",
+          "runtime": "0x1ba105bd4",
+          "unslid": "0x1a4fbdbd4",
+          "symbol": "0x1a4fbdbd4 FrontBoard!-[FBLocalSynchronousSceneClientProvider _sendSceneCreateFBSWorkspaceDelegateForSceneInfo:]+0xb4"
+        },
+        {
+          "kind": "frame10",
+          "runtime": "0x1b11ba500",
+          "unslid": "0x19c072500",
+          "symbol": "0x19c072500 FrontBoardServices!___95-[FBSScene _callOutQueue_didCreateWithTransitionContext:alternativeCreationCallout:completion:]_block_invoke+0x134"
+        },
+        {
+          "kind": "frame11",
+          "runtime": "0x1b11ba698",
+          "unslid": "0x19c072698",
+          "symbol": "0x19c072698 FrontBoardServices!-[FBSScene _callOutQueue_coalesceClientSettingsUpdates:]+0x3c"
+        },
+        {
+          "kind": "frame12",
+          "runtime": "0x1b11ba314",
+          "unslid": "0x19c072314",
+          "symbol": "0x19c072314 FrontBoardServices!-[FBSScene _callOutQueue_didCreateWithTransitionContext:alternativeCreationCallout:completion:]+0x198"
+        },
+        {
+          "kind": "frame13",
+          "runtime": "0x1ba0d527c",
+          "unslid": "0x1a4f8d27c",
+          "symbol": "0x1a4f8d27c FrontBoard!-[FBLocalSynchronousSceneClientProvider host:didUpdateSettings:withDiff:transitionContext:completion:]+0x1c4"
+        },
+        {
+          "kind": "frame14",
+          "runtime": "0x1ba0c403c",
+          "unslid": "0x1a4f7c03c",
+          "symbol": "0x1a4f7c03c FrontBoard!___55-[FBScene _applyUpdate:postStateApplicator:completion:]_block_invoke+0xa0"
+        },
+        {
+          "kind": "frame15",
+          "runtime": "0x19f3ae668",
+          "unslid": "0x18a266668",
+          "symbol": "0x18a266668 BaseBoard!-[BSEventQueue flushAllEvents]+0x80"
+        },
+        {
+          "kind": "frame16",
+          "runtime": "0x1ba0c35dc",
+          "unslid": "0x1a4f7b5dc",
+          "symbol": "0x1a4f7b5dc FrontBoard!-[FBSceneWorkspace scene:handleUpdate:withCompletion:]+0x890"
+        },
+        {
+          "kind": "frame17",
+          "runtime": "0x1ba0c28f0",
+          "unslid": "0x1a4f7a8f0",
+          "symbol": "0x1a4f7a8f0 FrontBoard!-[FBScene _applySettingsUpdateWithCompletion:]+0x4a8"
+        },
+        {
+          "kind": "frame18",
+          "runtime": "0x1ba0c21f8",
+          "unslid": "0x1a4f7a1f8",
+          "symbol": "0x1a4f7a1f8 FrontBoard!-[FBScene _joinUpdate:block:completion:]+0x57c"
+        },
+        {
+          "kind": "frame19",
+          "runtime": "0x1ba0ccae4",
+          "unslid": "0x1a4f84ae4",
+          "symbol": "0x1a4f84ae4 FrontBoard!-[FBScene activateWithTransitionContext:completion:]+0x2b4"
+        },
+        {
+          "kind": "frame20",
+          "runtime": "0x1ba0cad3c",
+          "unslid": "0x1a4f82d3c",
+          "symbol": "0x1a4f82d3c FrontBoard!-[FBSceneWorkspace _createSceneWithDefinition:settings:initialClientSettings:transitionContext:fromRemnant:usingClientProvider:completion:]+0x458"
+        },
+        {
+          "kind": "frame21",
+          "runtime": "0x1ba101644",
+          "unslid": "0x1a4fb9644",
+          "symbol": "0x1a4fb9644 FrontBoard!-[FBSceneManager createSceneWithDefinition:initialParameters:]+0xd0"
+        },
+        {
+          "kind": "frame22",
+          "runtime": "0x1e798383c",
+          "unslid": "0x1d283b83c",
+          "symbol": "0x1d283b83c SpringBoard!-[SBSystemShellEmbeddedDisplayController _createSystemShellSceneWithOrientation:]+0x17c"
+        },
+        {
+          "kind": "frame23",
+          "runtime": "0x1e79835c4",
+          "unslid": "0x1d283b5c4",
+          "symbol": "0x1d283b5c4 SpringBoard!-[SBSystemShellEmbeddedDisplayController displayAssertionDidGainControlOfDisplay:]+0x38"
+        }
+      ]
+    }
+  },
+  "limits": [
+    "No complete owner/wait graph from .ips.",
+    "audiomxd529 captured31 of47 threads; sampler omits itself and indices>=32.",
+    "Dyld/AudioToolbox/AudioServerDriverTransports functions remain offsets.",
+    "Native reason says Apparently deadlocked; this analysis does not prove permanent deadlock.",
+    "SB CoverSheet/viewWillAppear/lstat is lifecycle progress, not pixel output.",
+    "No direct native stackshot call in audio injection sampling branch; indirect instrumentation timing effects not excluded."
+  ]
+}

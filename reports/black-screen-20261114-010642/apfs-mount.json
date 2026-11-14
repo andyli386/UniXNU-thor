@@ -1,0 +1,167 @@
+{
+  "at": "2026-11-14T01:13:53.703886+08:00",
+  "cmd": [
+    "/home/vincent/Projects/thor-unixnu/tools/apfs-fuse-logreader-20261114/build/apfs-fuse",
+    "-o",
+    "ro,uid=1000,gid=1000",
+    "-v",
+    "1",
+    "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/Data-runtime.img",
+    "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/apfs-ro"
+  ],
+  "pid": 728912,
+  "returncode": 0,
+  "mountinfo": [
+    "157 33 0:54 / /home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/apfs-ro ro,nosuid,nodev,relatime shared:426 - fuse /home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/Data-runtime.img ro,user_id=1000,group_id=1000"
+  ],
+  "log": "",
+  "entries": [
+    {
+      "name": "private-dir",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "root",
+      "is_dir": true,
+      "symlink": false
+    }
+  ],
+  "root_entries": [
+    {
+      "name": "preferences",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "hardware",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "MobileAsset",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "spool",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "Library",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "pong",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "logs",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "audit",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": ".fseventsd",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "MobileSoftwareUpdate",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "mobile",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "MobileDevice",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "keybags",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "root",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "db",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "log",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "ea",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "containers",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "Managed Preferences",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "run",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "attachments",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "backup",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "Keychains",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "Wireless",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "tmp",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "migration",
+      "is_dir": true,
+      "symlink": false
+    },
+    {
+      "name": "os_install",
+      "is_dir": true,
+      "symlink": false
+    }
+  ]
+}

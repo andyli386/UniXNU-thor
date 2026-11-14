@@ -1,0 +1,12 @@
+{
+  "recovery_physical_base": "0xa7000000",
+  "recovery_region_bytes": 4194304,
+  "recovery_console_bytes": 2097152,
+  "recovery_pmsg_bytes": 2097152,
+  "darwin_source_console_physical_base": "0x85200000",
+  "darwin_source_pmsg_physical_base": "0x85400000",
+  "address_mismatch": true,
+  "raw_memory_read_performed": false,
+  "unsupported_property_note": "record-size and ramoops_region/reg were unavailable; raw adb payload contains cat error text despite rc0. Only binary properties with exact lengths above were decoded.",
+  "persistence_conclusion": "Darwin write, warm-reboot retention and Recovery export are not established at matching reserved addresses; empty pstore proves neither non-execution nor specific-byte overwrite."
+}

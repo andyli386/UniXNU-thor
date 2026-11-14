@@ -1,0 +1,50 @@
+{
+  "v71": [
+    {
+      "line": 1125,
+      "text": "[   71.250665]: process audiomxd[77] caught waking the CPU 45129 times over ~7 seconds, averaging 6433 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    },
+    {
+      "line": 30703,
+      "text": "[  962.662202]: audiomxd[77] Corpse failure, too many 6"
+    },
+    {
+      "line": 30704,
+      "text": "[  962.662306]: Process[77] crashed: audiomxd. Too many corpses being created."
+    },
+    {
+      "line": 30796,
+      "text": "[  973.883445]: process audiomxd[625] caught waking the CPU 45081 times over ~7 seconds, averaging 5763 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    }
+  ],
+  "v72": [
+    {
+      "line": 1119,
+      "text": "[   73.895451]: process audiomxd[79] caught waking the CPU 45012 times over ~5 seconds, averaging 7843 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    },
+    {
+      "line": 20189,
+      "text": "[  631.563131]: audiomxd[79] Corpse failure, too many 6"
+    },
+    {
+      "line": 20190,
+      "text": "[  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created."
+    },
+    {
+      "line": 20226,
+      "text": "[  643.421388]: process audiomxd[479] caught waking the CPU 45065 times over ~10 seconds, averaging 4221 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    },
+    {
+      "line": 28081,
+      "text": "[  884.024679]: audiomxd[479] Corpse failure, too many 6"
+    },
+    {
+      "line": 28082,
+      "text": "[  884.024715]: Process[479] crashed: audiomxd. Too many corpses being created."
+    },
+    {
+      "line": 28943,
+      "text": "[  886.607685]: process audiomxd[598] caught waking the CPU 45051 times over ~2 seconds, averaging 21266 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+    }
+  ]
+}

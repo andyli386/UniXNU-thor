@@ -1,0 +1,3782 @@
+{
+  "root": "/workspace/scratch/8f895aed6545/THOR-20261114-180955",
+  "console_bytes": 4086189,
+  "physical_lines": 31607,
+  "nul_bytes": 33,
+  "unique_nonempty": 4751,
+  "duplicate_nonempty_lines": 26802,
+  "noncanonical_timestamp_types": 39,
+  "wrap_physical_lines": 32,
+  "method": "Exact bytes dedup; original indices retained; only six fractional digits converted; NUL bytes retained; no early truncation.",
+  "ram": [
+    {
+      "line": 4,
+      "physical_lines": [
+        4,
+        510,
+        1146,
+        1922
+      ],
+      "copies": 4,
+      "raw": "[   26.067760]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages",
+      "time_literal": "26.067760",
+      "us": 26067760
+    },
+    {
+      "line": 5,
+      "physical_lines": [
+        5,
+        511,
+        1147,
+        1923
+      ],
+      "copies": 4,
+      "raw": "[   26.067780]: Pong RAM: bank 0 0x800004000 + 0x10000000 (256 MiB)",
+      "time_literal": "26.067780",
+      "us": 26067780
+    },
+    {
+      "line": 6,
+      "physical_lines": [
+        6,
+        512,
+        1148,
+        1924
+      ],
+      "copies": 4,
+      "raw": "[   26.067789]: Pong RAM: bank 1 0x800000000 + 0x4000 (0 MiB)",
+      "time_literal": "26.067789",
+      "us": 26067789
+    },
+    {
+      "line": 7,
+      "physical_lines": [
+        7,
+        513,
+        1149,
+        1925
+      ],
+      "copies": 4,
+      "raw": "[   26.067798]: Pong RAM: bank 2 0x810004000 + 0x198fc000 (408 MiB)",
+      "time_literal": "26.067798",
+      "us": 26067798
+    }
+  ],
+  "first_visible": [
+    {
+      "line": 1814,
+      "physical_lines": [
+        1814,
+        2590,
+        3190,
+        4108,
+        5047
+      ],
+      "copies": 5,
+      "raw": "[   83.338947]: MiniIOMobileFramebuffer: first visible frame; releasing boot console",
+      "time_literal": "83.338947",
+      "us": 83338947
+    }
+  ],
+  "transitions": [
+    {
+      "line": 1816,
+      "physical_lines": [
+        1816,
+        2592,
+        3192,
+        4110,
+        5049
+      ],
+      "copies": 5,
+      "raw": "[   83.344863]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1",
+      "time_literal": "83.344863",
+      "us": 83344863,
+      "fields": {
+        "state": "RESTORED",
+        "submitter": "backboardd",
+        "pid": 40,
+        "set": "0x80000007",
+        "surfaces": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "gpu": 0,
+        "graphics": 1,
+        "swap": 1
+      }
+    },
+    {
+      "line": 21453,
+      "physical_lines": [
+        21453,
+        22340,
+        23220,
+        24106,
+        25005,
+        25915,
+        26822,
+        27642
+      ],
+      "copies": 8,
+      "raw": "[  683.958940]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47828",
+      "time_literal": "683.958940",
+      "us": 683958940,
+      "fields": {
+        "state": "EMPTIED",
+        "submitter": "backboardd",
+        "pid": 40,
+        "set": "0x1",
+        "surfaces": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpu": 0,
+        "graphics": 1,
+        "swap": 47828
+      }
+    }
+  ],
+  "maximum_canonical_time": {
+    "line": 31605,
+    "physical_lines": [
+      31605
+    ],
+    "copies": 1,
+    "raw": "[ 1005.876045]: process diagnosticextens[539] caught waking the CPU 45088 times over ~46 seconds, averaging 967 wakes / second and violating a limit of 45000 wakes over 300 seconds.",
+    "time_literal": "1005.876045",
+    "us": 1005876045
+  },
+  "post_clear": [
+    {
+      "clear_line": 21453,
+      "clear_us": 683958940,
+      "last_us": 1005876045,
+      "seconds_to_last": 321.917105,
+      "canonical_records_after": 1224,
+      "restored_after": []
+    }
+  ],
+  "exits": [
+    {
+      "line": 1782,
+      "physical_lines": [
+        1782,
+        2558,
+        3158,
+        4076
+      ],
+      "copies": 4,
+      "raw": "[   75.564307]: PONG EXIT fairplayd.A2 pid=60 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "75.564307",
+      "us": 75564307,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 60,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 1781,
+          "raw": "[   75.506580]: minisandbox: request 6 (first seen from fairplayd.A2[60]): allowed"
+        },
+        {
+          "line": 1782,
+          "raw": "[   75.564307]: PONG EXIT fairplayd.A2 pid=60 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 1783,
+          "raw": "[   75.917709]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1784,
+          "raw": "[   76.081234]: PONG EXIT fairplayd.A2 pid=96 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 1785,
+          "raw": "[   76.309912]: process biomed[21] caught waking the CPU 45013 times over ~33 seconds, averaging 1327 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 1786,
+          "raw": "[   76.412782]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1787,
+          "raw": "[   76.767453]: process audioaccessoryd[46] caught waking the CPU 45157 times over ~34 seconds, averaging 1315 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 1788,
+          "raw": "[   76.918139]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 1784,
+      "physical_lines": [
+        1784,
+        2560,
+        3160,
+        4078
+      ],
+      "copies": 4,
+      "raw": "[   76.081234]: PONG EXIT fairplayd.A2 pid=96 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "76.081234",
+      "us": 76081234,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 96,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 1783,
+          "raw": "[   75.917709]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1784,
+          "raw": "[   76.081234]: PONG EXIT fairplayd.A2 pid=96 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 1785,
+          "raw": "[   76.309912]: process biomed[21] caught waking the CPU 45013 times over ~33 seconds, averaging 1327 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 1786,
+          "raw": "[   76.412782]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1787,
+          "raw": "[   76.767453]: process audioaccessoryd[46] caught waking the CPU 45157 times over ~34 seconds, averaging 1315 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 1788,
+          "raw": "[   76.918139]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1789,
+          "raw": "[   77.413615]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1790,
+          "raw": "[   77.919947]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 1884,
+      "physical_lines": [
+        1884,
+        2660,
+        3260,
+        4178,
+        5117
+      ],
+      "copies": 5,
+      "raw": "[   95.662093]: PONG EXIT fairplayd.A2 pid=130 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "95.662093",
+      "us": 95662093,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 130,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 1883,
+          "raw": "[   95.428717]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1884,
+          "raw": "[   95.662093]: PONG EXIT fairplayd.A2 pid=130 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 1885,
+          "raw": "[   95.934758]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1886,
+          "raw": "[   96.127510]: process identityservices[30] caught waking the CPU 45152 times over ~53 seconds, averaging 839 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 1887,
+          "raw": "[   96.429674]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1888,
+          "raw": "[   96.936017]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1889,
+          "raw": "[   96.979387]: process healthd[14] caught waking the CPU 45069 times over ~54 seconds, averaging 826 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 1890,
+          "raw": "[   97.235878]: fairplayd.A2[167] triggered unnest of range 0x1fae00000->0x1fb000000 of DYLD shared region in VM map 0xc64c5c621ebc000f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        }
+      ]
+    },
+    {
+      "line": 1899,
+      "physical_lines": [
+        1899,
+        2675,
+        3275,
+        4193,
+        5132
+      ],
+      "copies": 5,
+      "raw": "[   99.710987]: PONG EXIT fairplayd.A2 pid=167 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "99.710987",
+      "us": 99710987,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 167,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 1898,
+          "raw": "[   99.432162]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1899,
+          "raw": "[   99.710987]: PONG EXIT fairplayd.A2 pid=167 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 1900,
+          "raw": "[   99.937649]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1901,
+          "raw": "[  100.081039]: memorystatus_perform_idle_demotion() timed out stuck process 82 [mobileassetd], moving to idle band"
+        },
+        {
+          "line": 1902,
+          "raw": "[  100.432442]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1903,
+          "raw": "[  100.785397]: process chronod[97] caught waking the CPU 45031 times over ~24 seconds, averaging 1806 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 1904,
+          "raw": "[  100.937894]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 1905,
+          "raw": "[  101.433057]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 2729,
+      "physical_lines": [
+        2729,
+        3329,
+        4247,
+        5186,
+        6139
+      ],
+      "copies": 5,
+      "raw": "[  113.719544]: PONG EXIT fairplayd.A2 pid=175 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "113.719544",
+      "us": 113719544,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 175,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 2728,
+          "raw": "[  113.570361]: process sharingd[41] caught waking the CPU 45068 times over ~71 seconds, averaging 633 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 2729,
+          "raw": "[  113.719544]: PONG EXIT fairplayd.A2 pid=175 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 2730,
+          "raw": "[  113.950386]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 2731,
+          "raw": "[  113.985698]: process corespeechd[136] caught waking the CPU 45022 times over ~25 seconds, averaging 1796 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 2732,
+          "raw": "[  113.1008555]: process profiled[98] caught waking the CPU 45124 times over ~38 seconds, averaging 1187 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 2733,
+          "raw": "[  114.446196]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 2734,
+          "raw": "[  114.951972]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 2735,
+          "raw": "[  114.960783]: minisandbox: privilege 1015 refused to lsd[86] (first time)"
+        }
+      ]
+    },
+    {
+      "line": 2756,
+      "physical_lines": [
+        2756,
+        3356,
+        4274,
+        5213,
+        6166
+      ],
+      "copies": 5,
+      "raw": "[  118.484188]: PONG EXIT fairplayd.A2 pid=185 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "118.484188",
+      "us": 118484188,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 185,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 2755,
+          "raw": "[  118.450002]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 2756,
+          "raw": "[  118.484188]: PONG EXIT fairplayd.A2 pid=185 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 2757,
+          "raw": "[  118.955569]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 2758,
+          "raw": "[  119.450540]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 2759,
+          "raw": "[  119.955859]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 2760,
+          "raw": "[  120.451672]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 2761,
+          "raw": "[  120.786742]: process sleepd[50] caught waking the CPU 45026 times over ~78 seconds, averaging 574 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 2762,
+          "raw": "[  120.957075]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 3446,
+      "physical_lines": [
+        3446,
+        4364,
+        5303,
+        6256,
+        7202
+      ],
+      "copies": 5,
+      "raw": "[  135.629561]: PONG EXIT fairplayd.A2 pid=191 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "135.629561",
+      "us": 135629561,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 191,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 3445,
+          "raw": "[  135.460657]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 3446,
+          "raw": "[  135.629561]: PONG EXIT fairplayd.A2 pid=191 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 3447,
+          "raw": "[  135.966003]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 3448,
+          "raw": "[  136.291931]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        },
+        {
+          "line": 3449,
+          "raw": "[  136.460818]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 3450,
+          "raw": "[  136.953979]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        },
+        {
+          "line": 3451,
+          "raw": "[  136.967153]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 3452,
+          "raw": "[  136.982591]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        }
+      ]
+    },
+    {
+      "line": 3619,
+      "physical_lines": [
+        3619,
+        4537,
+        5476,
+        6429,
+        7375,
+        8303
+      ],
+      "copies": 6,
+      "raw": "[  141.119526]: PONG EXIT fairplayd.A2 pid=201 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "141.119526",
+      "us": 141119526,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 201,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 3618,
+          "raw": "[  141.081391]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        },
+        {
+          "line": 3619,
+          "raw": "[  141.119526]: PONG EXIT fairplayd.A2 pid=201 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 3620,
+          "raw": "[  141.143288]: process CMFSyncAgent[188] caught waking the CPU 45385 times over ~19 seconds, averaging 2288 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 3621,
+          "raw": "[  141.154169]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        },
+        {
+          "line": 3622,
+          "raw": "[  141.205195]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        },
+        {
+          "line": 3623,
+          "raw": "[  141.235287]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        },
+        {
+          "line": 3624,
+          "raw": "[  141.269437]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        },
+        {
+          "line": 3625,
+          "raw": "[  141.295577]: process lsd[86] denied attempt to escape CPU monitor (missing required entitlement)."
+        }
+      ]
+    },
+    {
+      "line": 3862,
+      "physical_lines": [
+        3862,
+        4780,
+        5719,
+        6672,
+        7618,
+        8546,
+        9445,
+        10291
+      ],
+      "copies": 8,
+      "raw": "[  151.607412]: PONG EXIT fairplayd.A2 pid=206 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "151.607412",
+      "us": 151607412,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 206,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 3861,
+          "raw": "[  151.478382]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 3862,
+          "raw": "[  151.607412]: PONG EXIT fairplayd.A2 pid=206 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 3863,
+          "raw": "[  151.984458]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 3864,
+          "raw": "[  152.215564]: apfs_is_valid_class:2452: disk5s2 rejecting class open (class 1) because we're not content protected"
+        },
+        {
+          "line": 3865,
+          "raw": "[  152.220106]: apfs_is_valid_class:2452: disk5s2 rejecting class open (class 1) because we're not content protected"
+        },
+        {
+          "line": 3866,
+          "raw": "[  152.254143]: process contactsd[182] caught waking the CPU 45119 times over ~35 seconds, averaging 1271 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 3867,
+          "raw": "[  152.282454]: apfs_is_valid_class:2452: disk5s2 rejecting class open (class 1) because we're not content protected"
+        },
+        {
+          "line": 3868,
+          "raw": "[  152.287017]: apfs_is_valid_class:2452: disk5s2 rejecting class open (class 1) because we're not content protected"
+        }
+      ]
+    },
+    {
+      "line": 3924,
+      "physical_lines": [
+        3924,
+        4842,
+        5781,
+        6734,
+        7680,
+        8608,
+        9507,
+        10353,
+        11191
+      ],
+      "copies": 9,
+      "raw": "[  155.268706]: PONG EXIT com.apple.migrat pid=149 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "155.268706",
+      "us": 155268706,
+      "fields": {
+        "process": "com.apple.migrat",
+        "pid": 149,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 3923,
+          "raw": "[  155.092583]: memorystatus: System is healthy. memorystatus_available_pages: 33710 compressor_size:11772"
+        },
+        {
+          "line": 3924,
+          "raw": "[  155.268706]: PONG EXIT com.apple.migrat pid=149 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 3925,
+          "raw": "[  155.325566]: memorystatus_perform_idle_demotion() timed out stuck process 188 [CMFSyncAgent], moving to idle band"
+        },
+        {
+          "line": 3926,
+          "raw": "[  155.481195]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 3927,
+          "raw": "[  155.950870]: com.apple.migrat[218] triggered unnest of range 0x1fae00000->0x1fb000000 of DYLD shared region in VM map 0xc64c5c621f0dec4f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 3928,
+          "raw": "[  155.950895]: com.apple.migrat[218] triggered unnest of range 0x1fb000000->0x205a00000 of DYLD shared region in VM map 0xc64c5c621f0dec4f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 3929,
+          "raw": "[  155.987427]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 3930,
+          "raw": "[  156.232148]: apfs_is_valid_class:2452: disk5s2 rejecting class open (class 2) because we're not content protected"
+        }
+      ]
+    },
+    {
+      "line": 4899,
+      "physical_lines": [
+        4899,
+        5838,
+        6791,
+        7737,
+        8665,
+        9564,
+        10410,
+        11248
+      ],
+      "copies": 8,
+      "raw": "[  171.143040]: PONG EXIT fairplayd.A2 pid=223 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "171.143040",
+      "us": 171143040,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 223,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 4898,
+          "raw": "[  170.998794]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 4899,
+          "raw": "[  171.143040]: PONG EXIT fairplayd.A2 pid=223 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 4900,
+          "raw": "[  171.494599]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 4901,
+          "raw": "[  171.639052]: process deviceaccessd[209] caught waking the CPU 45020 times over ~20 seconds, averaging 2243 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 4902,
+          "raw": "[  171.999952]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 4903,
+          "raw": "[  172.495760]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 4904,
+          "raw": "[  172.683711]: process cloudd[119] caught waking the CPU 45042 times over ~88 seconds, averaging 508 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 4905,
+          "raw": "[  172.738742]: process findmylocated[197] caught waking the CPU 45064 times over ~40 seconds, averaging 1100 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        }
+      ]
+    },
+    {
+      "line": 5008,
+      "physical_lines": [
+        5008,
+        5947,
+        6900,
+        7846,
+        8774,
+        9673,
+        10519,
+        11357,
+        12134
+      ],
+      "copies": 9,
+      "raw": "[  188.860061]: PONG EXIT fairplayd.A2 pid=230 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "188.860061",
+      "us": 188860061,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 230,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 5007,
+          "raw": "[  188.512516]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 5008,
+          "raw": "[  188.860061]: PONG EXIT fairplayd.A2 pid=230 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 5009,
+          "raw": "[  189.005005]: tx_flush:1192: disk5 tx xid 279 took -5298 us to flush"
+        },
+        {
+          "line": 5010,
+          "raw": "[  189.007525]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 5011,
+          "raw": "[  189.036994]: tx_flush:1362: disk5 xid 283 tx stats: # 200 owait 33 4314us finish 218 bar2 200 f 10 enter 17 fq 15 70 94us close 137438953472us prep 87us flush 5519us"
+        },
+        {
+          "line": 5012,
+          "raw": "[  189.245159]: process contextstored[37] crossed thread count high watermark (32), EXC_RESOURCE suppressed, internal diagnostics disabled."
+        },
+        {
+          "line": 5013,
+          "raw": "[  189.512879]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 5014,
+          "raw": "[  189.547863]: netagent_get_agent_domain_and_type: Type requested for invalid netagent"
+        }
+      ]
+    },
+    {
+      "line": 5982,
+      "physical_lines": [
+        5982,
+        6935,
+        7881,
+        8809,
+        9708,
+        10554,
+        11392,
+        12169
+      ],
+      "copies": 8,
+      "raw": "[  196.386826]: PONG EXIT fairplayd.A2 pid=237 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "196.386826",
+      "us": 196386826,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 237,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 5981,
+          "raw": "[  196.014132]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 5982,
+          "raw": "[  196.386826]: PONG EXIT fairplayd.A2 pid=237 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 5983,
+          "raw": "[  196.519459]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 5984,
+          "raw": "[  197.014393]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 5985,
+          "raw": "[  197.520760]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 5986,
+          "raw": "[  198.015706]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 5987,
+          "raw": "[  198.493543]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+        },
+        {
+          "line": 5988,
+          "raw": "[  198.493587]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 14 ms; 0 pauses"
+        }
+      ]
+    },
+    {
+      "line": 6002,
+      "physical_lines": [
+        6002,
+        6955,
+        7901,
+        8829,
+        9728,
+        10574,
+        11412,
+        12189
+      ],
+      "copies": 8,
+      "raw": "[  202.589521]: PONG EXIT fairplayd.A2 pid=241 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "202.589521",
+      "us": 202589521,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 241,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 6001,
+          "raw": "[  202.527144]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6002,
+          "raw": "[  202.589521]: PONG EXIT fairplayd.A2 pid=241 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 6003,
+          "raw": "[  203.022870]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6004,
+          "raw": "[  203.392851]: MiniAppleKeyStore: sharingd[41] selector 0x39 unsupported"
+        },
+        {
+          "line": 6005,
+          "raw": "[  203.501149]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+        },
+        {
+          "line": 6006,
+          "raw": "[  203.501190]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 13 ms; 0 pauses"
+        },
+        {
+          "line": 6007,
+          "raw": "[  203.529237]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6008,
+          "raw": "[  204.024039]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 6039,
+      "physical_lines": [
+        6039,
+        6992,
+        7938,
+        8866,
+        9765,
+        10611,
+        11449,
+        12226,
+        13035
+      ],
+      "copies": 9,
+      "raw": "[  209.831897]: PONG EXIT com.apple.migrat pid=218 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "209.831897",
+      "us": 209831897,
+      "fields": {
+        "process": "com.apple.migrat",
+        "pid": 218,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 6038,
+          "raw": "[  209.533723]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6039,
+          "raw": "[  209.831897]: PONG EXIT com.apple.migrat pid=218 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 6040,
+          "raw": "[  209.949132]: com.apple.migrat[245] triggered unnest of range 0x1fae00000->0x1fb000000 of DYLD shared region in VM map 0xc64c5c621ec9a6af. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 6041,
+          "raw": "[  209.949158]: com.apple.migrat[245] triggered unnest of range 0x1fb000000->0x205a00000 of DYLD shared region in VM map 0xc64c5c621ec9a6af. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 6042,
+          "raw": "[  209.991600]: fairplayd.A2[244] triggered unnest of range 0x1fae00000->0x1fb000000 of DYLD shared region in VM map 0xc64c5c621ebbdf1f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 6043,
+          "raw": "[  209.991629]: fairplayd.A2[244] triggered unnest of range 0x1fb000000->0x205a00000 of DYLD shared region in VM map 0xc64c5c621ebbdf1f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 6044,
+          "raw": "[  210.028595]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6045,
+          "raw": "[  210.102377]: PONG EXIT fairplayd.A2 pid=244 signal=0 status=0 namespace=0 code=0x0 description=none"
+        }
+      ]
+    },
+    {
+      "line": 6045,
+      "physical_lines": [
+        6045,
+        6998,
+        7944,
+        8872,
+        9771,
+        10617,
+        11455,
+        12232,
+        13041
+      ],
+      "copies": 9,
+      "raw": "[  210.102377]: PONG EXIT fairplayd.A2 pid=244 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "210.102377",
+      "us": 210102377,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 244,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 6044,
+          "raw": "[  210.028595]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6045,
+          "raw": "[  210.102377]: PONG EXIT fairplayd.A2 pid=244 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 6046,
+          "raw": "[  210.533917]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6047,
+          "raw": "[  211.029739]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6048,
+          "raw": "[  211.387754]: process com.apple.migrat[245] caught waking the CPU 45026 times over ~1 seconds, averaging 30853 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 6049,
+          "raw": "[  211.535106]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6050,
+          "raw": "[  212.029898]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6051,
+          "raw": "[  212.535503]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 6083,
+      "physical_lines": [
+        6083,
+        7036,
+        7982,
+        8910,
+        9809,
+        10655,
+        11493,
+        12270,
+        13079
+      ],
+      "copies": 9,
+      "raw": "[  222.129378]: PONG EXIT fairplayd.A2 pid=250 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "222.129378",
+      "us": 222129378,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 250,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 6082,
+          "raw": "[  222.034970]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6083,
+          "raw": "[  222.129378]: PONG EXIT fairplayd.A2 pid=250 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 6084,
+          "raw": "[  222.540292]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6085,
+          "raw": "[  223.035149]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6086,
+          "raw": "[  223.533431]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12935 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+        },
+        {
+          "line": 6087,
+          "raw": "[  223.533474]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 14 ms; 0 pauses"
+        },
+        {
+          "line": 6088,
+          "raw": "[  223.540537]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 6089,
+          "raw": "[  224.035958]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 7131,
+      "physical_lines": [
+        7131,
+        8077,
+        9005,
+        9904,
+        10750,
+        11588,
+        12365,
+        13174
+      ],
+      "copies": 8,
+      "raw": "[  251.075541]: PONG EXIT fairplayd.A2 pid=255 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "251.075541",
+      "us": 251075541,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 255,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 7130,
+          "raw": "[  251.056515]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 7131,
+          "raw": "[  251.075541]: PONG EXIT fairplayd.A2 pid=255 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 7132,
+          "raw": "[  251.363036]: process gamed[252] caught waking the CPU 45023 times over ~24 seconds, averaging 1818 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 7133,
+          "raw": "[  251.562174]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 7134,
+          "raw": "[  252.056969]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 7135,
+          "raw": "[  252.562564]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 7136,
+          "raw": "[  252.892274]: process promotedcontentd[258] caught waking the CPU 45034 times over ~18 seconds, averaging 2406 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 7137,
+          "raw": "[  253.057370]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 8140,
+      "physical_lines": [
+        8140,
+        9068,
+        9967,
+        10813,
+        11651,
+        12428,
+        13237,
+        13972
+      ],
+      "copies": 8,
+      "raw": "[  268.201534]: PONG EXIT fairplayd.A2 pid=266 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "268.201534",
+      "us": 268201534,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 266,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 8139,
+          "raw": "[  268.070488]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 8140,
+          "raw": "[  268.201534]: PONG EXIT fairplayd.A2 pid=266 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 8141,
+          "raw": "[  268.576195]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 8142,
+          "raw": "[  268.598150]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+        },
+        {
+          "line": 8143,
+          "raw": "[  268.598190]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 13 ms; 0 pauses"
+        },
+        {
+          "line": 8144,
+          "raw": "[  269.071141]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 8145,
+          "raw": "[  269.356357]: MiniIOSurface: live 71 MB in 4 surfaces, kept pool 0 MB (release crossed 1 x 64MB)"
+        },
+        {
+          "line": 8146,
+          "raw": "[  269.484771]: rtrequest_common_locked: route already exists: 224.0.0.251->link#0->lo0void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 9187,
+      "physical_lines": [
+        9187,
+        10086,
+        10932,
+        11770,
+        12547,
+        13356,
+        14091,
+        14893
+      ],
+      "copies": 8,
+      "raw": "[  305.156152]: PONG EXIT fairplayd.A2 pid=274 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "305.156152",
+      "us": 305156152,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 274,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 9186,
+          "raw": "[  305.104441]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 9187,
+          "raw": "[  305.156152]: PONG EXIT fairplayd.A2 pid=274 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 9188,
+          "raw": "[  305.610772]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 9189,
+          "raw": "[  306.105614]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 9190,
+          "raw": "[  306.436679]: apfs_is_valid_class:2452: disk5s2 rejecting class open (class 2) because we're not content protected"
+        },
+        {
+          "line": 9191,
+          "raw": "[  306.508001]: apfs_is_valid_class:2452: disk5s2 rejecting class open (class 2) because we're not content protected"
+        },
+        {
+          "line": 9192,
+          "raw": "[  306.610983]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 9193,
+          "raw": "[  307.106035]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 10147,
+      "physical_lines": [
+        10147,
+        10993,
+        11831,
+        12608,
+        13417,
+        14152,
+        14954
+      ],
+      "copies": 7,
+      "raw": "[  322.491443]: PONG EXIT fairplayd.A2 pid=288 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "322.491443",
+      "us": 322491443,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 288,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 10146,
+          "raw": "[  322.119309]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 10147,
+          "raw": "[  322.491443]: PONG EXIT fairplayd.A2 pid=288 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 10148,
+          "raw": "[  322.625011]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 10149,
+          "raw": "[  323.119844]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 10150,
+          "raw": "[  323.625255]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 10151,
+          "raw": "[  323.684249]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12928 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+        },
+        {
+          "line": 10152,
+          "raw": "[  323.684294]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 14 ms; 0 pauses"
+        },
+        {
+          "line": 10153,
+          "raw": "[  324.120122]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 11097,
+      "physical_lines": [
+        11097,
+        11935,
+        12712,
+        13521,
+        14256,
+        15058,
+        15898
+      ],
+      "copies": 7,
+      "raw": "[  351.015059]: PONG EXIT fairplayd.A2 pid=293 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "351.015059",
+      "us": 351015059,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 293,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 11096,
+          "raw": "[  350.684693]: memorystatus: failed to kill a process and no memory was reclaimed"
+        },
+        {
+          "line": 11097,
+          "raw": "[  351.015059]: PONG EXIT fairplayd.A2 pid=293 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 11098,
+          "raw": "[  351.146451]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 11099,
+          "raw": "[  351.651938]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 11100,
+          "raw": "[  352.131838]: memorystatus: System will begin enforcing soft memory limits. memorystatus_available_pages: 16978 compressor_size: 24616"
+        },
+        {
+          "line": 11101,
+          "raw": "[  352.131901]: memorystatus: failed to kill a process and no memory was reclaimed"
+        },
+        {
+          "line": 11102,
+          "raw": "[  352.131910]: memorystatus_update_jetsam_snapshot_entry_locked: failed to update pid 75, priority 0, count 0"
+        },
+        {
+          "line": 11103,
+          "raw": "[  352.139072]: memorystatus: killing_idle_process pid 75 [pfd] (idle-exit 0 283s rf:-) 711KB - memorystatus_available_pages: 17191 compressor_size:24505"
+        }
+      ]
+    },
+    {
+      "line": 11162,
+      "physical_lines": [
+        11162,
+        12000,
+        12777,
+        13586,
+        14321,
+        15123,
+        15963,
+        16800
+      ],
+      "copies": 8,
+      "raw": "[  369.708139]: PONG EXIT fairplayd.A2 pid=302 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "369.708139",
+      "us": 369708139,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 302,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 11161,
+          "raw": "[  369.667228]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 11162,
+          "raw": "[  369.708139]: PONG EXIT fairplayd.A2 pid=302 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 11163,
+          "raw": "[  370.162447]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 11164,
+          "raw": "[  370.668778]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 11165,
+          "raw": "[  371.163673]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 11166,
+          "raw": "[  371.670008]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 11167,
+          "raw": "[  372.165049]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 11168,
+          "raw": "[  372.670436]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 12069,
+      "physical_lines": [
+        12069,
+        12846,
+        13655,
+        14390,
+        15192,
+        16032,
+        16869,
+        17724
+      ],
+      "copies": 8,
+      "raw": "[  392.952959]: PONG EXIT fairplayd.A2 pid=306 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "392.952959",
+      "us": 392952959,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 306,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 12068,
+          "raw": "[  392.690891]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 12069,
+          "raw": "[  392.952959]: PONG EXIT fairplayd.A2 pid=306 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 12070,
+          "raw": "[  393.186272]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 12071,
+          "raw": "[  393.692618]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 12072,
+          "raw": "[  394.188423]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 12073,
+          "raw": "[  394.300877]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+        },
+        {
+          "line": 12074,
+          "raw": "[  394.300923]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 14 ms; 0 pauses"
+        },
+        {
+          "line": 12075,
+          "raw": "[  394.693749]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 12968,
+      "physical_lines": [
+        12968,
+        13777,
+        14512,
+        15314,
+        16154,
+        16991,
+        17846,
+        18652
+      ],
+      "copies": 8,
+      "raw": "[  416.127522]: PONG EXIT fairplayd.A2 pid=314 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "416.127522",
+      "us": 416127522,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 314,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 12967,
+          "raw": "[  415.712072]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 12968,
+          "raw": "[  416.127522]: PONG EXIT fairplayd.A2 pid=314 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 12969,
+          "raw": "[  416.206872]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 12970,
+          "raw": "[  416.712214]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 12971,
+          "raw": "[  417.207165]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 12972,
+          "raw": "[  417.334705]: process com.apple.CallKi[313] caught waking the CPU 45002 times over ~24 seconds, averaging 1851 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 12973,
+          "raw": "[  417.712490]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 12974,
+          "raw": "[  418.207359]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 13009,
+      "physical_lines": [
+        13009,
+        13818,
+        14553,
+        15355,
+        16195,
+        17032,
+        17887,
+        18693
+      ],
+      "copies": 8,
+      "raw": "[  430.522692]: PONG EXIT fairplayd.A2 pid=324 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "430.522692",
+      "us": 430522692,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 324,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 13008,
+          "raw": "[  430.217718]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13009,
+          "raw": "[  430.522692]: PONG EXIT fairplayd.A2 pid=324 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 13010,
+          "raw": "[  430.723224]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13011,
+          "raw": "[  431.218266]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13012,
+          "raw": "[  431.724623]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13013,
+          "raw": "[  432.133300]: process mobileassetd[321] caught waking the CPU 45169 times over ~19 seconds, averaging 2325 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 13014,
+          "raw": "[  432.219434]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13015,
+          "raw": "[  432.724783]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 13864,
+      "physical_lines": [
+        13864,
+        14599,
+        15401,
+        16241,
+        17078,
+        17933,
+        18739,
+        19596
+      ],
+      "copies": 8,
+      "raw": "[  437.884741]: PONG EXIT fairplayd.A2 pid=330 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "437.884741",
+      "us": 437884741,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 330,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 13863,
+          "raw": "[  437.727804]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13864,
+          "raw": "[  437.884741]: PONG EXIT fairplayd.A2 pid=330 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 13865,
+          "raw": "[  438.222601]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13866,
+          "raw": "[  438.727951]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13867,
+          "raw": "[  439.222847]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13868,
+          "raw": "[  439.387868]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12936 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+        },
+        {
+          "line": 13869,
+          "raw": "[  439.387911]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 14 ms; 0 pauses"
+        },
+        {
+          "line": 13870,
+          "raw": "[  439.728220]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 13924,
+      "physical_lines": [
+        13924,
+        14659,
+        15461,
+        16301,
+        17138,
+        17993,
+        18799,
+        19656
+      ],
+      "copies": 8,
+      "raw": "[  459.781732]: PONG EXIT fairplayd.A2 pid=337 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "459.781732",
+      "us": 459781732,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 337,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 13923,
+          "raw": "[  459.742082]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13924,
+          "raw": "[  459.781732]: PONG EXIT fairplayd.A2 pid=337 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 13925,
+          "raw": "[  460.236983]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13926,
+          "raw": "[  460.742357]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13927,
+          "raw": "[  460.858331]: fairplayd.A2[343] triggered unnest of range 0x1fae00000->0x1fb000000 of DYLD shared region in VM map 0xc64c5c621f0def1f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 13928,
+          "raw": "[  460.858360]: fairplayd.A2[343] triggered unnest of range 0x1fb000000->0x205a00000 of DYLD shared region in VM map 0xc64c5c621f0def1f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 13929,
+          "raw": "[  461.237195]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 13930,
+          "raw": "[  461.742613]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 14695,
+      "physical_lines": [
+        14695,
+        15497,
+        16337,
+        17174,
+        18029,
+        18835,
+        19692,
+        20560
+      ],
+      "copies": 8,
+      "raw": "[  467.806480]: PONG EXIT fairplayd.A2 pid=343 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "467.806480",
+      "us": 467806480,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 343,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 14694,
+          "raw": "[  467.745269]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 14695,
+          "raw": "[  467.806480]: PONG EXIT fairplayd.A2 pid=343 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 14696,
+          "raw": "[  468.241073]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 14697,
+          "raw": "[  468.746401]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 14698,
+          "raw": "[  469.241855]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 14699,
+          "raw": "[  469.442469]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12924 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+        },
+        {
+          "line": 14700,
+          "raw": "[  469.442514]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 13 ms; 0 pauses"
+        },
+        {
+          "line": 14701,
+          "raw": "[  469.748190]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 14860,
+      "physical_lines": [
+        14860,
+        15662,
+        16502,
+        17339,
+        18194,
+        19000,
+        19857,
+        20725,
+        21612,
+        22492
+      ],
+      "copies": 10,
+      "raw": "[  489.114810]: PONG EXIT fairplayd.A2 pid=348 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "489.114810",
+      "us": 489114810,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 348,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 14859,
+          "raw": "[  488.863007]: memorystatus_perform_idle_demotion() timed out stuck process 332 [audioanalyticsd], moving to idle band"
+        },
+        {
+          "line": 14860,
+          "raw": "[  489.114810]: PONG EXIT fairplayd.A2 pid=348 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 14861,
+          "raw": "[  489.261272]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 14862,
+          "raw": "[  489.476019]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+        },
+        {
+          "line": 14863,
+          "raw": "[  489.476063]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 14 ms; 0 pauses"
+        },
+        {
+          "line": 14864,
+          "raw": "[  489.766703]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 14865,
+          "raw": "[  489.969798]: fairplayd.A2[371] triggered unnest of range 0x1fae00000->0x1fb000000 of DYLD shared region in VM map 0xc64c5c621ef4fc4f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 14866,
+          "raw": "[  489.969827]: fairplayd.A2[371] triggered unnest of range 0x1fb000000->0x205a00000 of DYLD shared region in VM map 0xc64c5c621ef4fc4f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        }
+      ]
+    },
+    {
+      "line": 15685,
+      "physical_lines": [
+        15685,
+        16525,
+        17362,
+        18217,
+        19023,
+        19880,
+        20748,
+        21635,
+        22515
+      ],
+      "copies": 9,
+      "raw": "[  495.936362]: PONG EXIT fairplayd.A2 pid=371 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "495.936362",
+      "us": 495936362,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 371,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 15684,
+          "raw": "[  495.772235]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15685,
+          "raw": "[  495.936362]: PONG EXIT fairplayd.A2 pid=371 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 15686,
+          "raw": "[  496.267042]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15687,
+          "raw": "[  496.772363]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15688,
+          "raw": "[  497.119327]: memorystatus: _memstat_reaper_start_sweep: reaper sweep starting"
+        },
+        {
+          "line": 15689,
+          "raw": "[  497.119345]: memorystatus: System will begin reaping long-idle processes. memorystatus_available_pages: 27208 compressor_size: 24566"
+        },
+        {
+          "line": 15690,
+          "raw": "[  497.121803]: memorystatus: _memstat_reaper_end_sweep: reaper sweep ended, 0 processes killed, 0MB freed, 2ms elapsed, 0us/process"
+        },
+        {
+          "line": 15691,
+          "raw": "[  497.121816]: memorystatus: _memstat_reaper_end_sweep: reaper totals: 12 sweeps, 21 processes killed, 25MB freed"
+        }
+      ]
+    },
+    {
+      "line": 15752,
+      "physical_lines": [
+        15752,
+        16592,
+        17429,
+        18284,
+        19090,
+        19947,
+        20815,
+        21702,
+        22582,
+        23468
+      ],
+      "copies": 10,
+      "raw": "[  517.421702]: PONG EXIT fairplayd.A2 pid=378 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "517.421702",
+      "us": 517421702,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 378,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 15751,
+          "raw": "[  517.282381]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15752,
+          "raw": "[  517.421702]: PONG EXIT fairplayd.A2 pid=378 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 15753,
+          "raw": "[  517.787803]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15754,
+          "raw": "[  518.251181]: fairplayd.A2[386] triggered unnest of range 0x1fae00000->0x1fb000000 of DYLD shared region in VM map 0xc64c5c621ebbde2f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 15755,
+          "raw": "[  518.251212]: fairplayd.A2[386] triggered unnest of range 0x1fb000000->0x205a00000 of DYLD shared region in VM map 0xc64c5c621ebbde2f. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 15756,
+          "raw": "[  518.282943]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15757,
+          "raw": "[  518.668956]: PONG EXIT fairplayd.A2 pid=386 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 15758,
+          "raw": "[  518.789275]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 15757,
+      "physical_lines": [
+        15757,
+        16597,
+        17434,
+        18289,
+        19095,
+        19952,
+        20820,
+        21707,
+        22587,
+        23473
+      ],
+      "copies": 10,
+      "raw": "[  518.668956]: PONG EXIT fairplayd.A2 pid=386 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "518.668956",
+      "us": 518668956,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 386,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 15756,
+          "raw": "[  518.282943]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15757,
+          "raw": "[  518.668956]: PONG EXIT fairplayd.A2 pid=386 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 15758,
+          "raw": "[  518.789275]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15759,
+          "raw": "[  519.285105]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15760,
+          "raw": "[  519.515314]: MiniIOMobileFramebuffer: 387 frames in 5002 ms (77 a second), 12913 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+        },
+        {
+          "line": 15761,
+          "raw": "[  519.515363]: MiniIOMobileFramebuffer: from one frame to the next: 0 times under 10 ms, 387 under 18, 0 under 26, 0 under 35, 0 longer (the longest 13 ms); half under 13 ms, 95 in 100 under 13 ms; 0 pauses"
+        },
+        {
+          "line": 15762,
+          "raw": "[  519.791441]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 15763,
+          "raw": "[  520.287257]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 16748,
+      "physical_lines": [
+        16748,
+        17585,
+        18440,
+        19246,
+        20103,
+        20971,
+        21858,
+        22738,
+        23624,
+        24523,
+        25433
+      ],
+      "copies": 11,
+      "raw": "[  549.898035]: PONG EXIT fairplayd.A2 pid=394 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "549.898035",
+      "us": 549898035,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 394,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 16747,
+          "raw": "[  549.817754]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 16748,
+          "raw": "[  549.898035]: PONG EXIT fairplayd.A2 pid=394 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 16749,
+          "raw": "[  550.313562]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 16750,
+          "raw": "[  550.696469]: process passd[400] caught waking the CPU 45017 times over ~3 seconds, averaging 11822 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 16751,
+          "raw": "[  550.696969]: process remindd[364] caught waking the CPU 45041 times over ~63 seconds, averaging 710 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 16752,
+          "raw": "[  550.819000]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 16753,
+          "raw": "[  551.314821]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 16754,
+          "raw": "[  551.655328]: process backupd[353] caught waking the CPU 45012 times over ~64 seconds, averaging 699 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        }
+      ]
+    },
+    {
+      "line": 17622,
+      "physical_lines": [
+        17622,
+        18477,
+        19283,
+        20140,
+        21008,
+        21895,
+        22775,
+        23661,
+        24560,
+        25470
+      ],
+      "copies": 10,
+      "raw": "[  557.937261]: PONG EXIT fairplayd.A2 pid=402 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "557.937261",
+      "us": 557937261,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 402,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 17621,
+          "raw": "[  557.825468]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 17622,
+          "raw": "[  557.937261]: PONG EXIT fairplayd.A2 pid=402 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 17623,
+          "raw": "[  558.320353]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 17624,
+          "raw": "[  558.825913]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 17625,
+          "raw": "[  559.320726]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 17626,
+          "raw": "[  559.579053]: MiniIOMobileFramebuffer: 432 frames in 5003 ms (86 a second), 10049 us each in the driver, after 1 us waiting for the GPU and, 126 of them, 3455 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 170 swaps came a refresh late themselves"
+        },
+        {
+          "line": 17627,
+          "raw": "[  559.579072]: MiniIOMobileFramebuffer: from one frame to the next: 125 times under 10 ms, 307 under 18, 0 under 26, 0 under 35, 0 longer (the longest 16 ms); half under 13 ms, 95 in 100 under 13 ms; 0 pauses"
+        },
+        {
+          "line": 17628,
+          "raw": "[  559.826941]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 17660,
+      "physical_lines": [
+        17660,
+        18515,
+        19321,
+        20178,
+        21046,
+        21933,
+        22813,
+        23699,
+        24598,
+        25508,
+        26415
+      ],
+      "copies": 11,
+      "raw": "[  570.837040]: PONG EXIT fairplayd.A2 pid=407 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "570.837040",
+      "us": 570837040,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 407,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 17659,
+          "raw": "[  570.331497]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 17660,
+          "raw": "[  570.837040]: PONG EXIT fairplayd.A2 pid=407 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 17661,
+          "raw": "[  570.837846]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 17662,
+          "raw": "[  571.332794]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 17663,
+          "raw": "[  571.838227]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 17664,
+          "raw": "[  572.258650]: process corespeechd[396] caught waking the CPU 45118 times over ~37 seconds, averaging 1213 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 17665,
+          "raw": "[  572.333346]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 17666,
+          "raw": "[  572.838743]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 18596,
+      "physical_lines": [
+        18596,
+        19402,
+        20259,
+        21127,
+        22014,
+        22894,
+        23780,
+        24679,
+        25589,
+        26496
+      ],
+      "copies": 10,
+      "raw": "[  595.084820]: PONG EXIT fairplayd.A2 pid=414 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "595.084820",
+      "us": 595084820,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 414,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 18595,
+          "raw": "[  594.857097]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 18596,
+          "raw": "[  595.084820]: PONG EXIT fairplayd.A2 pid=414 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 18597,
+          "raw": "[  595.351959]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 18598,
+          "raw": "[  595.857733]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 18599,
+          "raw": "[  596.353539]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 18600,
+          "raw": "[  596.859209]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 18601,
+          "raw": "[  597.354112]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 18602,
+          "raw": "[  597.859471]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 20487,
+      "physical_lines": [
+        20487,
+        21355,
+        22242,
+        23122,
+        24008,
+        24907,
+        25817,
+        26724,
+        27544
+      ],
+      "copies": 9,
+      "raw": "[  657.805930]: PONG EXIT fairplayd.A2 pid=422 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "657.805930",
+      "us": 657805930,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 422,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 20486,
+          "raw": "[  657.405256]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 20487,
+          "raw": "[  657.805930]: PONG EXIT fairplayd.A2 pid=422 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 20488,
+          "raw": "[  657.911590]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 20489,
+          "raw": "[  657.940615]: process biomesyncd[431] caught waking the CPU 45078 times over ~19 seconds, averaging 2319 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 20490,
+          "raw": "[  658.407397]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 20491,
+          "raw": "[  658.912718]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 20492,
+          "raw": "[  659.407681]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 20493,
+          "raw": "[  659.763103]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12937 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+        }
+      ]
+    },
+    {
+      "line": 21432,
+      "physical_lines": [
+        21432,
+        22319,
+        23199,
+        24085,
+        24984,
+        25894,
+        26801,
+        27621
+      ],
+      "copies": 8,
+      "raw": "[  682.094057]: PONG EXIT com.apple.migrat pid=245 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "682.094057",
+      "us": 682094057,
+      "fields": {
+        "process": "com.apple.migrat",
+        "pid": 245,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 21431,
+          "raw": "[  681.931440]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 21432,
+          "raw": "[  682.094057]: PONG EXIT com.apple.migrat pid=245 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 21433,
+          "raw": "[  682.426240]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 21434,
+          "raw": "[  682.446748]: PONG EXIT PosterBoard pid=405 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:405 exhausted real (wall clock) time allowance of 30.00 seconds"
+        },
+        {
+          "line": 21435,
+          "raw": ""
+        },
+        {
+          "line": 21436,
+          "raw": "ProcessVisibility: Background"
+        },
+        {
+          "line": 21437,
+          "raw": "ProcessState: Running"
+        },
+        {
+          "line": 21438,
+          "raw": "WatchdogEvent: process-launch"
+        }
+      ]
+    },
+    {
+      "line": 21434,
+      "physical_lines": [
+        21434,
+        22321,
+        23201,
+        24087,
+        24986,
+        25896,
+        26803,
+        27623
+      ],
+      "copies": 8,
+      "raw": "[  682.446748]: PONG EXIT PosterBoard pid=405 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:405 exhausted real (wall clock) time allowance of 30.00 seconds",
+      "time_literal": "682.446748",
+      "us": 682446748,
+      "fields": {
+        "process": "PosterBoard",
+        "pid": 405,
+        "signal_field": 9,
+        "status_field": 0,
+        "namespace": 10,
+        "code": "0x8badf00d",
+        "description": "<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:405 exhausted real (wall clock) time allowance of 30.00 seconds"
+      },
+      "context": [
+        {
+          "line": 21433,
+          "raw": "[  682.426240]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 21434,
+          "raw": "[  682.446748]: PONG EXIT PosterBoard pid=405 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:405 exhausted real (wall clock) time allowance of 30.00 seconds"
+        },
+        {
+          "line": 21435,
+          "raw": ""
+        },
+        {
+          "line": 21436,
+          "raw": "ProcessVisibility: Background"
+        },
+        {
+          "line": 21437,
+          "raw": "ProcessState: Running"
+        },
+        {
+          "line": 21438,
+          "raw": "WatchdogEvent: process-launch"
+        },
+        {
+          "line": 21439,
+          "raw": "WatchdogVisibility: Background"
+        },
+        {
+          "line": 21440,
+          "raw": "WatchdogCPUStatistics: ("
+        }
+      ]
+    },
+    {
+      "line": 22395,
+      "physical_lines": [
+        22395,
+        23275,
+        24161,
+        25060,
+        25970,
+        26877,
+        27697,
+        28500
+      ],
+      "copies": 8,
+      "raw": "[  705.864868]: PONG EXIT fairplayd.A2 pid=439 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "705.864868",
+      "us": 705864868,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 439,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 22394,
+          "raw": "[  705.445387]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 22395,
+          "raw": "[  705.864868]: PONG EXIT fairplayd.A2 pid=439 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 22396,
+          "raw": "[  705.951080]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 22397,
+          "raw": "[  706.446525]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 22398,
+          "raw": "[  706.951987]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 22399,
+          "raw": "[  707.164619]: memorystatus: _memstat_reaper_start_sweep: reaper sweep starting"
+        },
+        {
+          "line": 22400,
+          "raw": "[  707.164636]: memorystatus: System will begin enforcing soft memory limits. memorystatus_available_pages: 22439 compressor_size: 33511"
+        },
+        {
+          "line": 22401,
+          "raw": "[  707.164699]: memorystatus: failed to kill a process and no memory was reclaimed"
+        }
+      ]
+    },
+    {
+      "line": 23357,
+      "physical_lines": [
+        23357,
+        24243,
+        25142,
+        26052,
+        26959,
+        27779,
+        28582,
+        29506
+      ],
+      "copies": 8,
+      "raw": "[  734.996125]: PONG EXIT fairplayd.A2 pid=454 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "734.996125",
+      "us": 734996125,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 454,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 23356,
+          "raw": "[  734.979129]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 23357,
+          "raw": "[  734.996125]: PONG EXIT fairplayd.A2 pid=454 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 23358,
+          "raw": "[  735.306601]: process mediaparserd[462] caught waking the CPU 45091 times over ~12 seconds, averaging 3573 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 23359,
+          "raw": "[  735.474715]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 23360,
+          "raw": "[  735.840257]: process lockdownd[447] caught waking the CPU 45017 times over ~33 seconds, averaging 1327 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 23361,
+          "raw": "[  735.981048]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 23362,
+          "raw": "[  736.475887]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 23363,
+          "raw": "[  736.981349]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 23403,
+      "physical_lines": [
+        23403,
+        24289,
+        25188,
+        26098,
+        27005,
+        27825,
+        28628,
+        29552
+      ],
+      "copies": 8,
+      "raw": "[  749.490095]: PONG EXIT fairplayd.A2 pid=467 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "749.490095",
+      "us": 749490095,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 467,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 23402,
+          "raw": "[  749.487017]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 23403,
+          "raw": "[  749.490095]: PONG EXIT fairplayd.A2 pid=467 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 23404,
+          "raw": "[  749.992560]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 23405,
+          "raw": "[  750.484638]: memorystatus_perform_idle_demotion() timed out stuck process 453 [SetStoreUpdateService], moving to idle band"
+        },
+        {
+          "line": 23406,
+          "raw": "[  750.487423]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 23407,
+          "raw": "[  750.992930]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 23408,
+          "raw": "[  751.487775]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 23409,
+          "raw": "[  751.994106]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 24388,
+      "physical_lines": [
+        24388,
+        25287,
+        26197,
+        27104,
+        27924,
+        28727,
+        29651,
+        30628
+      ],
+      "copies": 8,
+      "raw": "[  784.215646]: PONG EXIT fairplayd.A2 pid=472 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "784.215646",
+      "us": 784215646,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 472,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 24387,
+          "raw": "[  784.008356]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 24388,
+          "raw": "[  784.215646]: PONG EXIT fairplayd.A2 pid=472 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 24389,
+          "raw": "[  784.513828]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 24390,
+          "raw": "[  785.008754]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 24391,
+          "raw": "[  785.514137]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 24392,
+          "raw": "[  786.009949]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 24393,
+          "raw": "[  786.515324]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 24394,
+          "raw": "[  787.010139]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 25376,
+      "physical_lines": [
+        25376,
+        26286,
+        27193,
+        28013,
+        28816,
+        29740,
+        30717
+      ],
+      "copies": 7,
+      "raw": "[  818.146394]: PONG EXIT PosterBoard pid=446 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:446 exhausted real (wall clock) time allowance of 30.00 seconds",
+      "time_literal": "818.146394",
+      "us": 818146394,
+      "fields": {
+        "process": "PosterBoard",
+        "pid": 446,
+        "signal_field": 9,
+        "status_field": 0,
+        "namespace": 10,
+        "code": "0x8badf00d",
+        "description": "<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:446 exhausted real (wall clock) time allowance of 30.00 seconds"
+      },
+      "context": [
+        {
+          "line": 25375,
+          "raw": "[  818.039990]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 25376,
+          "raw": "[  818.146394]: PONG EXIT PosterBoard pid=446 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:446 exhausted real (wall clock) time allowance of 30.00 seconds"
+        },
+        {
+          "line": 25377,
+          "raw": ""
+        },
+        {
+          "line": 25378,
+          "raw": "ProcessVisibility: Background"
+        },
+        {
+          "line": 25379,
+          "raw": "ProcessState: Running"
+        },
+        {
+          "line": 25380,
+          "raw": "WatchdogEvent: process-launch"
+        },
+        {
+          "line": 25381,
+          "raw": "WatchdogVisibility: Background"
+        },
+        {
+          "line": 25382,
+          "raw": "WatchdogCPUStatistics: ("
+        }
+      ]
+    },
+    {
+      "line": 26373,
+      "physical_lines": [
+        26373,
+        27280,
+        28100,
+        28903,
+        29827,
+        30804
+      ],
+      "copies": 6,
+      "raw": "[  842.845508]: PONG EXIT fairplayd.A2 pid=481 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "842.845508",
+      "us": 842845508,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 481,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 26372,
+          "raw": "[  842.568462]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 26373,
+          "raw": "[  842.845508]: PONG EXIT fairplayd.A2 pid=481 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 26374,
+          "raw": "[  843.064265]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 26375,
+          "raw": "[  843.569591]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 26376,
+          "raw": "[  844.065392]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 26377,
+          "raw": "[  844.571722]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 26378,
+          "raw": "[  845.066609]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 26379,
+          "raw": "[  845.571928]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    },
+    {
+      "line": 28303,
+      "physical_lines": [
+        28303,
+        29106,
+        30030,
+        31007
+      ],
+      "copies": 4,
+      "raw": "[  909.318050]: PONG EXIT fairplayd.A2 pid=503 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "909.318050",
+      "us": 909318050,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 503,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 28302,
+          "raw": "[  909.125084]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 28303,
+          "raw": "[  909.318050]: PONG EXIT fairplayd.A2 pid=503 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 28304,
+          "raw": "[  909.580803]: memorystatus: System is unhealthy! memorystatus_available_pages: 17370 compressor_size:38085"
+        },
+        {
+          "line": 28305,
+          "raw": "[  909.580816]: memorystatus: {\"available_pages_below_critical\": 0, \"available_pages_below_idle\": 0, \"available_pages_below_soft\": 1, \"available_pages_below_reaper\": 0, \"compressor_needs_to_swap\": 0, \"compressor_exhausted\": 0, \"compressor_is_thrashing\": 1, \"filecache_is_thrashing\": 0, \"zone_map_is_exhausted\": 0, \"phantom_cache_pressure\": 0, \"swappable_compressor_segments_over_limit\": 0, \"swapin_queue_over_limit\": 0, \"swap_low\": 0, \"swap_exhausted\": 0}"
+        },
+        {
+          "line": 28306,
+          "raw": "[  909.580890]: memorystatus: failed to kill a process and no memory was reclaimed"
+        },
+        {
+          "line": 28307,
+          "raw": "[  909.580894]: memorystatus: killing due to \"vm-compressor-thrashing\" - compression_ratio=3"
+        },
+        {
+          "line": 28308,
+          "raw": "[  909.580905]: memorystatus_update_jetsam_snapshot_entry_locked: failed to update pid 313, priority 0, count 0"
+        },
+        {
+          "line": 28309,
+          "raw": "[  909.582715]: memorystatus: killing_idle_process pid 313 [com.apple.CallKit.CallDirectoryM] (vm-compressor-thrashing 0 304s rf:-) 1900KB - memorystatus_available_pages: 17062 compressor_size:38003"
+        }
+      ]
+    },
+    {
+      "line": 30459,
+      "physical_lines": [
+        30459,
+        31436
+      ],
+      "copies": 2,
+      "raw": "[  949.613220]: PONG EXIT PosterBoard pid=496 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:496 exhausted real (wall clock) time allowance of 30.00 seconds",
+      "time_literal": "949.613220",
+      "us": 949613220,
+      "fields": {
+        "process": "PosterBoard",
+        "pid": 496,
+        "signal_field": 9,
+        "status_field": 0,
+        "namespace": 10,
+        "code": "0x8badf00d",
+        "description": "<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:496 exhausted real (wall clock) time allowance of 30.00 seconds"
+      },
+      "context": [
+        {
+          "line": 30458,
+          "raw": "[  949.157193]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 30459,
+          "raw": "[  949.613220]: PONG EXIT PosterBoard pid=496 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:496 exhausted real (wall clock) time allowance of 30.00 seconds"
+        },
+        {
+          "line": 30460,
+          "raw": ""
+        },
+        {
+          "line": 30461,
+          "raw": "ProcessVisibility: Background"
+        },
+        {
+          "line": 30462,
+          "raw": "ProcessState: Running"
+        },
+        {
+          "line": 30463,
+          "raw": "WatchdogEvent: process-launch"
+        },
+        {
+          "line": 30464,
+          "raw": "WatchdogVisibility: Background"
+        },
+        {
+          "line": 30465,
+          "raw": "WatchdogCPUStatistics: ("
+        }
+      ]
+    },
+    {
+      "line": 30514,
+      "physical_lines": [
+        30514,
+        31491
+      ],
+      "copies": 2,
+      "raw": "[  964.638680]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting",
+      "time_literal": "964.638680",
+      "us": 964638680,
+      "fields": {
+        "process": "audiomxd",
+        "pid": 81,
+        "signal_field": 6,
+        "status_field": 0,
+        "namespace": 39,
+        "code": "0x0",
+        "description": "writing stackshot failed, aborting"
+      },
+      "context": [
+        {
+          "line": 30513,
+          "raw": "[  964.458218]: process fairplayd.A2[528] caught waking the CPU 45017 times over ~51 seconds, averaging 874 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 30514,
+          "raw": "[  964.638680]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+        },
+        {
+          "line": 30515,
+          "raw": "[  964.638917]: audiomxd[81] Corpse failure, too many 6"
+        },
+        {
+          "line": 30516,
+          "raw": "[  964.639012]: Process[81] crashed: audiomxd. Too many corpses being created."
+        },
+        {
+          "line": 30517,
+          "raw": "[  964.675190]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 30518,
+          "raw": "[  965.155689]: process fileproviderd[529] caught waking the CPU 45014 times over ~52 seconds, averaging 862 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 30519,
+          "raw": "[  965.170160]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 30520,
+          "raw": "[  965.187034]: PONG EXIT fairplayd.A2 pid=528 signal=0 status=0 namespace=0 code=0x0 description=none"
+        }
+      ]
+    },
+    {
+      "line": 30520,
+      "physical_lines": [
+        30520,
+        31497
+      ],
+      "copies": 2,
+      "raw": "[  965.187034]: PONG EXIT fairplayd.A2 pid=528 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "965.187034",
+      "us": 965187034,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 528,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 30519,
+          "raw": "[  965.170160]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 30520,
+          "raw": "[  965.187034]: PONG EXIT fairplayd.A2 pid=528 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 30521,
+          "raw": "[  965.676495]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 30522,
+          "raw": "[  965.885115]: containermanager[551] triggered unnest of range 0x1fae00000->0x1fb000000 of DYLD shared region in VM map 0xc64c5c621f0e03cf. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 30523,
+          "raw": "[  965.885140]: containermanager[551] triggered unnest of range 0x1fb000000->0x205a00000 of DYLD shared region in VM map 0xc64c5c621f0e03cf. While not abnormal for debuggers, this increases system memory footprint until the target exits."
+        },
+        {
+          "line": 30524,
+          "raw": "[  966.172306]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 30525,
+          "raw": "[  966.677684]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 30526,
+          "raw": "[  966.678460]: process ndoagent[527] caught waking the CPU 45119 times over ~53 seconds, averaging 839 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        }
+      ]
+    },
+    {
+      "line": 31564,
+      "physical_lines": [
+        31564
+      ],
+      "copies": 1,
+      "raw": "[  990.538854]: PONG EXIT fairplayd.A2 pid=556 signal=0 status=0 namespace=0 code=0x0 description=none",
+      "time_literal": "990.538854",
+      "us": 990538854,
+      "fields": {
+        "process": "fairplayd.A2",
+        "pid": 556,
+        "signal_field": 0,
+        "status_field": 0,
+        "namespace": 0,
+        "code": "0x0",
+        "description": "none"
+      },
+      "context": [
+        {
+          "line": 31563,
+          "raw": "[  990.196999]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 31564,
+          "raw": "[  990.538854]: PONG EXIT fairplayd.A2 pid=556 signal=0 status=0 namespace=0 code=0x0 description=none"
+        },
+        {
+          "line": 31565,
+          "raw": "[  990.627770]: process mobiletimerd[557] caught waking the CPU 45096 times over ~22 seconds, averaging 1966 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 31566,
+          "raw": "[  990.702589]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 31567,
+          "raw": "[  990.856741]: process audiomxd[555] caught waking the CPU 45180 times over ~23 seconds, averaging 1951 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 31568,
+          "raw": "[  991.197493]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 31569,
+          "raw": "[  991.702877]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        },
+        {
+          "line": 31570,
+          "raw": "[  992.198467]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+        }
+      ]
+    }
+  ],
+  "mounts": [
+    {
+      "line": 350,
+      "physical_lines": [
+        350,
+        856,
+        1492,
+        2268,
+        2868
+      ],
+      "copies": 5,
+      "raw": "[   27.296558]: THOR INJECT: armed from boot args (246 chars) /private/var/pong/libpong-ui18.dylib SpringBoard backboardd containermanagerd runningboardd user",
+      "time_literal": "27.296558",
+      "us": 27296558
+    },
+    {
+      "line": 351,
+      "physical_lines": [
+        351,
+        857,
+        1493,
+        2269,
+        2869
+      ],
+      "copies": 5,
+      "raw": "[   27.296564]: PONG APFS: init owner mount hook entered",
+      "time_literal": "27.296564",
+      "us": 27296564
+    },
+    {
+      "line": 352,
+      "physical_lines": [
+        352,
+        858,
+        1494,
+        2270,
+        2870
+      ],
+      "copies": 5,
+      "raw": "[   27.296567]: PONG APFS: owner handoff enter root=0xfffffff43c41d600",
+      "time_literal": "27.296567",
+      "us": 27296567
+    },
+    {
+      "line": 353,
+      "physical_lines": [
+        353,
+        859,
+        1495,
+        2271,
+        2871
+      ],
+      "copies": 5,
+      "raw": "[   27.296645]: PONG APFS: root media identity published on /dev/disk3s1",
+      "time_literal": "27.296645",
+      "us": 27296645
+    },
+    {
+      "line": 354,
+      "physical_lines": [
+        354,
+        860,
+        1496,
+        2272,
+        2872
+      ],
+      "copies": 5,
+      "raw": "[   27.296649]: PONG APFS: UUID B07DF049-7AD9-47B5-9F8F-9EE728056398 bound to OS UFS window /dev/disk3s1",
+      "time_literal": "27.296649",
+      "us": 27296649
+    },
+    {
+      "line": 355,
+      "physical_lines": [
+        355,
+        861,
+        1497,
+        2273,
+        2873
+      ],
+      "copies": 5,
+      "raw": "[   27.296654]: PONG APFS: OS root binding PASS dev=d000005",
+      "time_literal": "27.296654",
+      "us": 27296654
+    },
+    {
+      "line": 356,
+      "physical_lines": [
+        356,
+        862,
+        1498,
+        2274,
+        2874
+      ],
+      "copies": 5,
+      "raw": "[   27.296659]: PONG APFS: wait for SystemOS UUID 4A77BA00-2826-44C4-B883-1FA92AC36880, timeout=5s",
+      "time_literal": "27.296659",
+      "us": 27296659
+    },
+    {
+      "line": 357,
+      "physical_lines": [
+        357,
+        863,
+        1499,
+        2275,
+        2875
+      ],
+      "copies": 5,
+      "raw": "[   27.296689]: PONG APFS: SystemOS UUID appeared; rechecking IOMedia",
+      "time_literal": "27.296689",
+      "us": 27296689
+    },
+    {
+      "line": 358,
+      "physical_lines": [
+        358,
+        864,
+        1500,
+        2276,
+        2876
+      ],
+      "copies": 5,
+      "raw": "[   27.296720]: PONG APFS: UUID 4A77BA00-2826-44C4-B883-1FA92AC36880 bound to SystemOS UFS window /dev/disk4s1",
+      "time_literal": "27.296720",
+      "us": 27296720
+    },
+    {
+      "line": 359,
+      "physical_lines": [
+        359,
+        865,
+        1501,
+        2277,
+        2877
+      ],
+      "copies": 5,
+      "raw": "[   27.296724]: PONG APFS: SystemOS selected dev=d000007 path=/dev/disk4s1",
+      "time_literal": "27.296724",
+      "us": 27296724
+    },
+    {
+      "line": 360,
+      "physical_lines": [
+        360,
+        866,
+        1502,
+        2278,
+        2878
+      ],
+      "copies": 5,
+      "raw": "[   27.296727]: PONG APFS: SystemOS mount request prepare mountpoint=/ flags=21",
+      "time_literal": "27.296727",
+      "us": 27296727
+    },
+    {
+      "line": 361,
+      "physical_lines": [
+        361,
+        867,
+        1503,
+        2279,
+        2879
+      ],
+      "copies": 5,
+      "raw": "[   27.296730]: PONG APFS: SystemOS copyout type begin",
+      "time_literal": "27.296730",
+      "us": 27296730
+    },
+    {
+      "line": 362,
+      "physical_lines": [
+        362,
+        868,
+        1504,
+        2280,
+        2880
+      ],
+      "copies": 5,
+      "raw": "[   27.296757]: PONG APFS: SystemOS copyout path begin",
+      "time_literal": "27.296757",
+      "us": 27296757
+    },
+    {
+      "line": 363,
+      "physical_lines": [
+        363,
+        869,
+        1505,
+        2281,
+        2881
+      ],
+      "copies": 5,
+      "raw": "[   27.296760]: PONG APFS: SystemOS copyout device begin",
+      "time_literal": "27.296760",
+      "us": 27296760
+    },
+    {
+      "line": 364,
+      "physical_lines": [
+        364,
+        870,
+        1506,
+        2282,
+        2882
+      ],
+      "copies": 5,
+      "raw": "[   27.296762]: PONG APFS: SystemOS copyout mount-data begin",
+      "time_literal": "27.296762",
+      "us": 27296762
+    },
+    {
+      "line": 365,
+      "physical_lines": [
+        365,
+        871,
+        1507,
+        2283,
+        2883
+      ],
+      "copies": 5,
+      "raw": "[   27.296764]: PONG APFS: SystemOS mount payload ready",
+      "time_literal": "27.296764",
+      "us": 27296764
+    },
+    {
+      "line": 366,
+      "physical_lines": [
+        366,
+        872,
+        1508,
+        2284,
+        2884
+      ],
+      "copies": 5,
+      "raw": "[   27.296766]: PONG APFS: SystemOS mount enter path=/ dev=d000007 flags=21",
+      "time_literal": "27.296766",
+      "us": 27296766
+    },
+    {
+      "line": 378,
+      "physical_lines": [
+        378,
+        884,
+        1520,
+        2296,
+        2896
+      ],
+      "copies": 5,
+      "raw": "[   27.304923]: PONG APFS: SystemOS mount return error=0 result=0",
+      "time_literal": "27.304923",
+      "us": 27304923
+    },
+    {
+      "line": 379,
+      "physical_lines": [
+        379,
+        885,
+        1521,
+        2297,
+        2897
+      ],
+      "copies": 5,
+      "raw": "[   27.304929]: PONG APFS: SystemOS root lookup error=0 vnode=0xfffffff43c41d900",
+      "time_literal": "27.304929",
+      "us": 27304929
+    },
+    {
+      "line": 380,
+      "physical_lines": [
+        380,
+        886,
+        1522,
+        2298,
+        2898
+      ],
+      "copies": 5,
+      "raw": "[   27.304933]: PONG APFS: SystemOS mounted dev=d000007 ro=1 union=1 flags=14809021",
+      "time_literal": "27.304933",
+      "us": 27304933
+    },
+    {
+      "line": 381,
+      "physical_lines": [
+        381,
+        887,
+        1523,
+        2299,
+        2899
+      ],
+      "copies": 5,
+      "raw": "[   27.304939]: PONG APFS: wait for SystemOS UUID 4A77BA00-2826-44C4-B883-1FA92AC36880, timeout=5s",
+      "time_literal": "27.304939",
+      "us": 27304939
+    },
+    {
+      "line": 382,
+      "physical_lines": [
+        382,
+        888,
+        1524,
+        2300,
+        2900
+      ],
+      "copies": 5,
+      "raw": "[   27.304965]: PONG APFS: SystemOS UUID appeared; rechecking IOMedia",
+      "time_literal": "27.304965",
+      "us": 27304965
+    },
+    {
+      "line": 383,
+      "physical_lines": [
+        383,
+        889,
+        1525,
+        2301,
+        2901
+      ],
+      "copies": 5,
+      "raw": "[   27.304998]: PONG APFS: UUID 4A77BA00-2826-44C4-B883-1FA92AC36880 bound to SystemOS UFS window /dev/disk4s1",
+      "time_literal": "27.304998",
+      "us": 27304998
+    },
+    {
+      "line": 384,
+      "physical_lines": [
+        384,
+        890,
+        1526,
+        2302,
+        2902
+      ],
+      "copies": 5,
+      "raw": "[   27.305032]: PONG APFS: root media identity published on /dev/disk3s1",
+      "time_literal": "27.305032",
+      "us": 27305032
+    },
+    {
+      "line": 385,
+      "physical_lines": [
+        385,
+        891,
+        1527,
+        2303,
+        2903
+      ],
+      "copies": 5,
+      "raw": "[   27.305034]: PONG APFS: UUID B07DF049-7AD9-47B5-9F8F-9EE728056398 bound to OS UFS window /dev/disk3s1",
+      "time_literal": "27.305034",
+      "us": 27305034
+    },
+    {
+      "line": 386,
+      "physical_lines": [
+        386,
+        892,
+        1528,
+        2304,
+        2904
+      ],
+      "copies": 5,
+      "raw": "[   27.305038]: PONG APFS: init owner mount hook returned error=0 stage=6",
+      "time_literal": "27.305038",
+      "us": 27305038
+    },
+    {
+      "line": 388,
+      "physical_lines": [
+        388,
+        894,
+        1530,
+        2306,
+        2906
+      ],
+      "copies": 5,
+      "raw": "[   27.305043]: PONG APFS: Data prepare enter uuid=26FD8349-9B9A-4F22-89EB-C81E070D2AB2",
+      "time_literal": "27.305043",
+      "us": 27305043
+    },
+    {
+      "line": 389,
+      "physical_lines": [
+        389,
+        895,
+        1531,
+        2307,
+        2907
+      ],
+      "copies": 5,
+      "raw": "[   27.305048]: PONG APFS: wait for Data UUID 26FD8349-9B9A-4F22-89EB-C81E070D2AB2, timeout=5s",
+      "time_literal": "27.305048",
+      "us": 27305048
+    },
+    {
+      "line": 390,
+      "physical_lines": [
+        390,
+        896,
+        1532,
+        2308,
+        2908
+      ],
+      "copies": 5,
+      "raw": "[   27.305073]: PONG APFS: Data UUID appeared; rechecking IOMedia",
+      "time_literal": "27.305073",
+      "us": 27305073
+    },
+    {
+      "line": 391,
+      "physical_lines": [
+        391,
+        897,
+        1533,
+        2309,
+        2909
+      ],
+      "copies": 5,
+      "raw": "[   27.305103]: PONG APFS: UUID 26FD8349-9B9A-4F22-89EB-C81E070D2AB2 bound to Data UFS window /dev/disk5s2",
+      "time_literal": "27.305103",
+      "us": 27305103
+    },
+    {
+      "line": 412,
+      "physical_lines": [
+        412,
+        918,
+        1554,
+        2330,
+        2930
+      ],
+      "copies": 5,
+      "raw": "[   27.378019]: PONG APFS: Data mount PASS path=/private/var device=/dev/disk5s2 rw=1 bytes=8591003648",
+      "time_literal": "27.378019",
+      "us": 27378019
+    }
+  ],
+  "iosurface": [
+    {
+      "line": 1823,
+      "physical_lines": [
+        1823,
+        2599,
+        3199,
+        4117,
+        5056
+      ],
+      "copies": 5,
+      "raw": "[   83.486430]: MiniIOSurface: live 71 MB in 4 surfaces, kept pool 0 MB (crossed 1 x 64MB)",
+      "time_literal": "83.486430",
+      "us": 83486430
+    },
+    {
+      "line": 8145,
+      "physical_lines": [
+        8145,
+        9073,
+        9972,
+        10818,
+        11656,
+        12433,
+        13242,
+        13977
+      ],
+      "copies": 8,
+      "raw": "[  269.356357]: MiniIOSurface: live 71 MB in 4 surfaces, kept pool 0 MB (release crossed 1 x 64MB)",
+      "time_literal": "269.356357",
+      "us": 269356357
+    },
+    {
+      "line": 26364,
+      "physical_lines": [
+        26364,
+        27271,
+        28091,
+        28894,
+        29818,
+        30795
+      ],
+      "copies": 6,
+      "raw": "[  838.757881]: MiniIOSurface: selector 44 not implemented (scalars 4 in, 0 out; structure 0 in, 0 out)",
+      "time_literal": "838.757881",
+      "us": 838757881
+    }
+  ],
+  "ui_console": [],
+  "receipts": [
+    {
+      "file": "extracted/files/mobile/Library/Logs/PongBBD-40.txt",
+      "bytes": 88,
+      "lines": [
+        {
+          "line": 1,
+          "text": "[79] Pong BBD: group_wait 0x13bd54ac0 begin tmo=18446744073709551615 caller=0x10091a3e4"
+        }
+      ]
+    },
+    {
+      "file": "extracted/files/mobile/Library/Logs/PongDM-84.txt",
+      "bytes": 312,
+      "lines": [
+        {
+          "line": 1,
+          "text": "[68] pid=84 Pong DM: diagnostics swizzled to the native async path"
+        },
+        {
+          "line": 2,
+          "text": "[80] pid=84 Pong DM: diagnostics incident=0x10040a9a0 async=1 -> forcing async=1"
+        },
+        {
+          "line": 3,
+          "text": "[333] pid=84 Pong DM: diagnostics incident=0x10212ca50 async=1 -> forcing async=1"
+        },
+        {
+          "line": 4,
+          "text": "[627] pid=84 Pong DM: diagnostics incident=0x102133b10 async=0 -> forcing async=1"
+        }
+      ]
+    },
+    {
+      "file": "extracted/files/mobile/Library/Logs/PongSB-5.txt",
+      "bytes": 135,
+      "lines": [
+        {
+          "line": 1,
+          "text": "[67] Pong UI18: SpringBoard adapter ctor (v73)"
+        },
+        {
+          "line": 2,
+          "text": "[67] Pong UI18: wake scheduled on main queue +10s"
+        },
+        {
+          "line": 3,
+          "text": "[67] Pong UI18: wake enqueue returned"
+        }
+      ]
+    }
+  ],
+  "last_frame_stats": [
+    {
+      "line": 20521,
+      "physical_lines": [
+        20521,
+        21389,
+        22276,
+        23156,
+        24042,
+        24941,
+        25851,
+        26758,
+        27578
+      ],
+      "copies": 9,
+      "raw": "[  669.783165]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves",
+      "time_literal": "669.783165",
+      "us": 669783165
+    },
+    {
+      "line": 20535,
+      "physical_lines": [
+        20535,
+        21403,
+        22290,
+        23170,
+        24056,
+        24955,
+        25865,
+        26772,
+        27592
+      ],
+      "copies": 9,
+      "raw": "[  674.795810]: MiniIOMobileFramebuffer: 387 frames in 5012 ms (77 a second), 12939 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves",
+      "time_literal": "674.795810",
+      "us": 674795810
+    },
+    {
+      "line": 21424,
+      "physical_lines": [
+        21424,
+        22311,
+        23191,
+        24077,
+        24976,
+        25886,
+        26793,
+        27613
+      ],
+      "copies": 8,
+      "raw": "[  679.806742]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12935 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves",
+      "time_literal": "679.806742",
+      "us": 679806742
+    }
+  ]
+}

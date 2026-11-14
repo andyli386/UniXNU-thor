@@ -1,0 +1,25 @@
+{
+  "parsed": 2,
+  "snapshots": 0,
+  "a2_crashes": 0,
+  "rows": [
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001208.0002.ips",
+      "date": null,
+      "proc": null,
+      "reason": null,
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3157 (char 27607)\")",
+      "boot": null,
+      "chain": []
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000116.000.ips",
+      "date": null,
+      "proc": null,
+      "reason": null,
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 276 column 2 (char 30002)\")",
+      "boot": null,
+      "chain": []
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+THOR v76 启动服务与显示交接复核
+采集 2026-11-14 18:09:55 | v76 cd95023 | 实际注入库 UUID 07D7E424-02CE-3BFF-9852-04AEF2401677
+
+1. SpringBoard、BackBoard 及首帧
+SpringBoard PID 5 tid 249 的进程采样：time130 等 LaunchServices 重新播种，time192/315/674 在 FBSystemShellInitialize 内等 BoardServices/BackBoardServices 同步 XPC，time972 已进本地主场景创建回调及 SBCoverSheetSlidingViewController loadView。后者证明走过先前请求并在构建锁屏视图。没有首次有效 UI surface 被显示的回执。
+PongConsole 原始内核时钟：83.344863 backboardd PID40 层由空恢复，swap=1；683.958940 由同一 PID 提交 set=0x1 surfaces=0,0,0,0 clear，swap=47828。此后保留日志没有再次 RESTORED。开机采样 time(NULL) 与 Console 时间基准不直接用于精确时差。
+BackBoard PID40 tid708 在 time108/168/288/648 均在 DMPerformMigration 原生同步回复等待。time949 已不见该线程的这条栈。另一待线程 tid684 在全部五个快照仍有相同 group 等待。
+新原生符号化：本次 BackBoard 同一映射中的原始 frame 0x10090c648，对应 stock 22H374 backboardd 0x100023648（BKMigrator migrateIfNecessary 调用返回 PC），独立求出 slide=0x8e9000。pending group 回执 caller 0x10091a3e4 减该 slide 得 0x1000313e4，精确匹配 BKButtonHapticsController 块 0x1000313c4 中 FOREVER wait 的下一条指令。self+0x38 是 controllerReadyGroup。0x10002f00c enter，0x10002f06c 向 BRController 调用 scheduleReadyNotificationOnDispatchQueue:withBlock:，回调 0x1000313fc 的 0x100031428 leave 后读取 maxAssetSlots 并打印 _BRController ready。结论依赖 stock 可执行文本与设备映射一致，同一次采样的迁移返回地址独立支持 slide。该 group 是按钮触觉就绪链，现场没有把它接到 SpringBoard BBS 询问或真实首帧。不要强制 dispatch_group_leave 或伪造 haptics readiness。
+
+2. PosterBoard、audiomxd 及报告
+PosterBoard PIDs 405、446、496 分别在 raw682.446748/818.146394/949.613220 被 30s process-launch watchdog SIGKILL，0x8badf00d；第一起在 clear 前 1.512192s。两份原生部分 IPS 可读 termination：各应用 CPU 0.650s、0.369s，无法用现存不完整进程表确定阻塞调用。现有 PosterBoard 自采样最早 60s，且 SIGKILL 不进入 fatal handler。下一候选采样器单独提前到 5/15/25s，现有 boot 选项已开启。
+audiomxd PID81 time128 后台 tid646 采到 LaunchServices reseed 等待；后续主线程采样在 RunLoop。唯一可确认退出 raw964.638680，signal=6/namespace39，writing stackshot failed, aborting。未采到本轮该实例内部 AQ RPC 请求、目标或具体 stackshot 阶段 errno。
+两份 PosterBoard 部分 watchdog IPS 内完整 kernel_task 对象显示 daemon.thread-exception tid106 turnstile blocked on task pid253；Console 的确辨识 ReportCrash[253]。RunningBoard PID6 的 time949 tid10680 在 __WriteCrashReportWithStackshot 等待。此为诊断链证据，不能指认具体 .ips 截断在捕获、序列化或持久化哪阶段，也未把其与 AQ RPC 或 UI 建立直接因果。
+
+3. LaunchServices、迁移及 ProgressUI
+Data inventory 确认专用 LaunchServices 的 base/User/Shared 路径和子目录 uid/gid 501、0700，实际用户 .csstore 4905824/4943872 字节、uid/gid 501、0660。PID86 time128 在 performJournalRecovery 与 LS database seeding，time188/310 回 RunLoop。后续 PID365 多次 RunLoop，time737 有 FBSOpenApplicationService 调用。无 16MiB 同类高水位退出回执，仍缺请求完成和实际限额，有 pid 变化也不能证明恢复失败。无需根据现存证据改属主、清库或强制就绪。
+DataMigrator PID84 time128–671 等多个 wrapper 的 runPluginAtPath 回复，time970 样本仅 4 线程，lockdownd 收到 migrationDidFinish。真实持久 DMLastMigrationResults buildVersion=22H374 success=false。wrapper PID149 time123 执行 LS reseed，PID245 time240 在 CoreLocation _CLInternalPerformMigration，time333 另有插件装载；不能套用前轮 CoreLocation 长时间卡死作为本轮结论。
+bug_type 288 的早期 stackshot reason：unsupported screen class, no apple logo found。22H374 ProgressUI cache 的两个分立文字位于 0x20e8dfaa2/0x20e8dfabb，PUIProgressWindow 错误方法位于 0x20e8dc3e8/0x20e8dc3f4。原生 DMMigrator _createProgressWindow 调用 PUIProgressWindow initWithOptions:contextLevel:appearance:；DataMigrator PID84 在告警后仍继续并通知结果。该报告说明进度窗口有兼容问题，尚无真实业务迁移失败插件证据。匹配固件的 ProgressUI.framework 资源含 iPad 2x 通用及 J317/J320 logo。实际选图参数、渲染路径与屏幕类仍待对应，不调整全局机型或显示类。
+
+4. 本轮代码
+userland/ui_compat18.c 新增以现有 pong_boot_snapshot=1 启用的原生 DMMigrationState 三个窄范围回执。方法 ABI 读取自实际 22H374 Mach-O：pluginWillRun:migrationPhaseDescription: v32@0:8@16@24（0x100008128），pluginDidFinish:withSuccess:duration:incident:migrationPhaseDescription: v52@0:8@16B24d28@36@44（0x100008604），sendMigrationResultsToClientInvocationsWithSuccess:buildVersion: v28@0:8B16@20（0x100007e94）。保留实参、调用和结果，记录名称/标识/依赖、真实成功和耗时、失败 incident、客户端全局结果。限 512 条，串行 writer 落盘，不在迁移线程同步 fsync。记录含 PID/TID 和单调时钟，复用已有 PongDM 文件导出范围。已通过 iOS arm64 SDK Clang -Wall -Wextra -Werror 语法验证，实际加载和输出待下一次设备启动。
+
+原始文件：extracted/files/logs/PongConsole.txt、PongDiag.txt、lockdownd.log；extracted/files/mobile/Library/Logs/PongBoot-*.txt、PongBBD-40.txt、PongSB-5.txt、PongDM-84.txt、CrashReporter/*.ips；extracted/inventory.jsonl、extracted/files/mobile/Library/Preferences/com.apple.migration.plist；分析地址在 analysis/native-pongboot-late.json。Apple 可执行文件及反汇编留在主机。

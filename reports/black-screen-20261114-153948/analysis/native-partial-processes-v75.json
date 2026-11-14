@@ -1,0 +1,379 @@
+[
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001320.0002.ips",
+    "whole_document_complete": false,
+    "partial_processes": [
+      {
+        "pid_key": "0",
+        "procname": "kernel_task",
+        "pid": 0,
+        "field_start": 1166,
+        "field_end": 24103,
+        "line": 22,
+        "complete_value": true,
+        "waitInfo": [
+          "thread 106: mach_msg receive on port 0xf802c73088f72c15 name 0x1"
+        ],
+        "turnstileInfo": [
+          "thread 106: turnstile blocked on task pid 266, hops: 1, priority: 80"
+        ],
+        "thread106": {
+          "id": 106,
+          "system_usec": 65,
+          "schedPriority": 80,
+          "kernelFrames": [
+            [
+              0,
+              68841833424
+            ],
+            [
+              0,
+              68840162156
+            ],
+            [
+              0,
+              68840157208
+            ],
+            [
+              0,
+              68839789044
+            ],
+            [
+              0,
+              68839964556
+            ],
+            [
+              0,
+              68840512704
+            ],
+            [
+              0,
+              68839940232
+            ],
+            [
+              0,
+              68839942452
+            ],
+            [
+              0,
+              68840244700
+            ],
+            [
+              0,
+              68840084568
+            ],
+            [
+              0,
+              68840085936
+            ],
+            [
+              0,
+              68841800908
+            ]
+          ],
+          "snapshotFlags": [
+            "kKernel64_p"
+          ],
+          "user_usec": 0,
+          "state": [
+            "TH_WAIT",
+            "TH_UNINT"
+          ],
+          "basePriority": 80,
+          "userTime": 0,
+          "lastRunTime": 543.367645989,
+          "systemTime": 6.4531e-05,
+          "name": "daemon.thread-exception"
+        }
+      },
+      {
+        "pid_key": "1",
+        "procname": "launchd",
+        "pid": 1,
+        "field_start": 24115,
+        "field_end": 26744,
+        "line": 23,
+        "complete_value": true,
+        "waitInfo": [
+          "thread 11257: unknown type 22 (owner 0, context 0xf802c72c90f84275)"
+        ],
+        "turnstileInfo": null,
+        "thread106": null
+      }
+    ],
+    "binaryImages_present": false
+  },
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000124.000.ips",
+    "whole_document_complete": false,
+    "partial_processes": [
+      {
+        "pid_key": "0",
+        "procname": "kernel_task",
+        "pid": 0,
+        "field_start": 1109,
+        "field_end": 20957,
+        "line": 22,
+        "complete_value": true,
+        "waitInfo": null,
+        "turnstileInfo": null,
+        "thread106": {
+          "id": 106,
+          "schedPriority": 80,
+          "state": [
+            "TH_WAIT",
+            "TH_UNINT"
+          ],
+          "system_usec": 0,
+          "snapshotFlags": [
+            "kKernel64_p"
+          ],
+          "user_usec": 0,
+          "kernelFrames": [
+            [
+              0,
+              68840163164
+            ]
+          ],
+          "basePriority": 80,
+          "userTime": 0,
+          "waitEvent": [
+            0,
+            68849633024
+          ],
+          "continuation": [
+            0,
+            68840085872
+          ],
+          "lastRunTime": 83.26635177,
+          "systemTime": 0,
+          "name": "daemon.thread-exception"
+        }
+      },
+      {
+        "pid_key": "1",
+        "procname": "launchd",
+        "pid": 1,
+        "field_start": 20969,
+        "field_end": 27679,
+        "line": 23,
+        "complete_value": true,
+        "waitInfo": [
+          "thread 807: semaphore port 0xf802c730893f2275 owned by pid 1"
+        ],
+        "turnstileInfo": null,
+        "thread106": null
+      }
+    ],
+    "binaryImages_present": false
+  },
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001939.0002.ips",
+    "whole_document_complete": false,
+    "partial_processes": [
+      {
+        "pid_key": "0",
+        "procname": "kernel_task",
+        "pid": 0,
+        "field_start": 1905,
+        "field_end": 25177,
+        "line": 27,
+        "complete_value": true,
+        "waitInfo": [
+          "thread 106: mach_msg receive on port 0xf802c73088f72c15 name 0x1"
+        ],
+        "turnstileInfo": [
+          "thread 106: turnstile blocked on task pid 266, hops: 1, priority: 80"
+        ],
+        "thread106": {
+          "id": 106,
+          "system_usec": 65,
+          "schedPriority": 80,
+          "kernelFrames": [
+            [
+              0,
+              68841833424
+            ],
+            [
+              0,
+              68840162156
+            ],
+            [
+              0,
+              68840157208
+            ],
+            [
+              0,
+              68839789044
+            ],
+            [
+              0,
+              68839964556
+            ],
+            [
+              0,
+              68840512704
+            ],
+            [
+              0,
+              68839940232
+            ],
+            [
+              0,
+              68839942452
+            ],
+            [
+              0,
+              68840244700
+            ],
+            [
+              0,
+              68840084568
+            ],
+            [
+              0,
+              68840085936
+            ],
+            [
+              0,
+              68841800908
+            ]
+          ],
+          "snapshotFlags": [
+            "kKernel64_p"
+          ],
+          "user_usec": 0,
+          "state": [
+            "TH_WAIT",
+            "TH_UNINT"
+          ],
+          "basePriority": 80,
+          "userTime": 0,
+          "lastRunTime": 921.768707031,
+          "systemTime": 6.4531e-05,
+          "name": "daemon.thread-exception"
+        }
+      },
+      {
+        "pid_key": "1",
+        "procname": "launchd",
+        "pid": 1,
+        "field_start": 25191,
+        "field_end": 28885,
+        "line": 28,
+        "complete_value": true,
+        "waitInfo": [
+          "thread 16240: semaphore port 0xf802c73089168b35 owned by pid 1",
+          "thread 16241: semaphore port 0xf802c730893b5855 owned by pid 1"
+        ],
+        "turnstileInfo": null,
+        "thread106": null
+      }
+    ],
+    "binaryImages_present": false
+  },
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001218.000.ips",
+    "whole_document_complete": false,
+    "partial_processes": [
+      {
+        "pid_key": "0",
+        "procname": "kernel_task",
+        "pid": 0,
+        "field_start": 1894,
+        "field_end": 24797,
+        "line": 27,
+        "complete_value": true,
+        "waitInfo": [
+          "thread 106: mach_msg receive on port 0xf802c73088f72c15 name 0x1"
+        ],
+        "turnstileInfo": [
+          "thread 106: turnstile blocked on task pid 266, hops: 1, priority: 80"
+        ],
+        "thread106": {
+          "id": 106,
+          "system_usec": 65,
+          "schedPriority": 80,
+          "kernelFrames": [
+            [
+              0,
+              68841833424
+            ],
+            [
+              0,
+              68840162156
+            ],
+            [
+              0,
+              68840157208
+            ],
+            [
+              0,
+              68839789044
+            ],
+            [
+              0,
+              68839964556
+            ],
+            [
+              0,
+              68840512704
+            ],
+            [
+              0,
+              68839940232
+            ],
+            [
+              0,
+              68839942452
+            ],
+            [
+              0,
+              68840244700
+            ],
+            [
+              0,
+              68840084568
+            ],
+            [
+              0,
+              68840085936
+            ],
+            [
+              0,
+              68841800908
+            ]
+          ],
+          "snapshotFlags": [
+            "kKernel64_p"
+          ],
+          "user_usec": 0,
+          "state": [
+            "TH_WAIT",
+            "TH_UNINT"
+          ],
+          "basePriority": 80,
+          "userTime": 0,
+          "lastRunTime": 478.915590989,
+          "systemTime": 6.4531e-05,
+          "name": "daemon.thread-exception"
+        }
+      },
+      {
+        "pid_key": "1",
+        "procname": "launchd",
+        "pid": 1,
+        "field_start": 24811,
+        "field_end": 28253,
+        "line": 28,
+        "complete_value": true,
+        "waitInfo": [
+          "thread 10695: semaphore port 0xf802c730892ae815 owned by pid 1"
+        ],
+        "turnstileInfo": null,
+        "thread106": null
+      }
+    ],
+    "binaryImages_present": false
+  }
+]

@@ -1,0 +1,5 @@
+Same standalone binary read the existing v72 regular host image into an independent directory. No source changes or filesystem mount. No image hashes.
+logs/PongConsole.txt: IDENTICAL (4259446 bytes)
+pong/libpong-ui18.dylib: IDENTICAL (194528 bytes)
+mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001059.000.ips: IDENTICAL (27768 bytes)
+See collector-validation-v72.json for exact paths and scope.

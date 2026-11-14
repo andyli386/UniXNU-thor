@@ -1,0 +1,51 @@
+Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=149 seconds=30 time=122 threads=4
+Pong boot snapshot: com.apple.migrationpluginwrapper pid=149 seconds=30 image0=/private/var/pong/libpong-ui18.dylib image_slide=1006a9000 cache=0x185b64000 size=f37c8000
+thread=0 tid=1238 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f7ad460 sp=16f7ad410 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18717fbac 187184108 1e6f92094 1e6f94484 1e6f94638 1006542c8 1ad29596c 0
+thread=2 tid=1390 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f8b2bf0 sp=16f8b2ba0 frames: 1d3dfc0d0 1d3dfbf1c 18fc405e8 18fc40984 1e6f87828 1871c8994 187186630 187187f18 187187e54 1882c701c 1881ef748 1881c9ca4 1881c99d0 1881f3934 1881f35b4 100778b04 1007790a8 100654058 18fc6aa68 18fc4f0f8 100653d88 1daf1fed8 1e6f888c4 1e6f8a2dc
+thread=3 tid=1391 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f93eb60 sp=16f93eb40 frames: 1e6f2aab0
+Pong boot snapshot END: com.apple.migrationpluginwrapper pid=149 seconds=30 sampled=3 of 4
+Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=215 seconds=30 time=177 threads=4
+Pong boot snapshot: com.apple.migrationpluginwrapper pid=215 seconds=30 image0=/private/var/pong/libpong-ui18.dylib image_slide=100766000 cache=0x185b64000 size=f37c8000
+thread=0 tid=2392 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f6f0460 sp=16f6f0410 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18717fbac 187184108 1e6f92094 1e6f94484 1e6f94638 1007112c8 1ad29596c 0
+thread=2 tid=2400 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8b88 lr=18fc6de6c fp=16f7fab10 sp=16f7faaf0 frames: 18fc3e880 1008cc010 1008ccf74 100711058 18fc6aa68 18fc4f0f8 100710d88 1daf1fed8 1e6f888c4 1e6f8a2dc 18fc6aaa4 18fc416dc 18fc48dcc 18fc42250 18fc48dcc 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=3 tid=2708 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f907b50 sp=16f907b30 frames: 1e6f2aab0
+Pong boot snapshot END: com.apple.migrationpluginwrapper pid=215 seconds=30 sampled=3 of 4
+Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=240 seconds=30 time=226 threads=7
+Pong boot snapshot: com.apple.migrationpluginwrapper pid=240 seconds=30 image0=/private/var/pong/libpong-ui18.dylib image_slide=100dd1000 cache=0x185b64000 size=f37c8000
+thread=0 tid=3241 state_result=0 info_result=0 run=3 cpu=5 pc=18adfe260 lr=2203026e4 fp=16f0854d0 sp=16f0854b0 frames: 18fc69830 18fc6aa68 18fc75c74 18fc4e7e0 18fc4e71c 18845ee6c 188406604 188407cb0 18717fbac 187184108 1e6f92094 1e6f94484 1e6f94638 100d7c2c8 1ad29596c 0
+thread=2 tid=3255 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f18abd0 sp=16f18ab80 frames: 1d3dfc0d0 1d3dfbf1c 18fc405e8 18fc40984 1e6f87828 1871c8994 187186630 187187f18 187187e54 1954280ac 19542f4d4 1011ca95c 100d7c058 18fc6aa68 18fc4f0f8 100d7bd88 1daf1fed8 1e6f888c4 1e6f8a2dc 18fc6aaa4 18fc416dc 18fc48dcc 18fc42250 18fc48dcc
+thread=3 tid=3346 state_result=0 info_result=0 run=4 cpu=147 pc=18c8d7728 lr=18ab3c990 fp=16f29bec0 sp=16f29bea0 frames: 220300da4 100f943f8 100f8fc0c 1daf211ec 100d7bf48 18fc6aa68 18fc4f0f8 100d7bd88 1daf1fed8 1e6f888c4 1e6f8a2dc 18fc6aaa4 18fc416dc 18fc48dcc 18fc42250 18fc48dcc 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=4 tid=3347 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f322b50 sp=16f322b30 frames: 1e6f2aab0
+thread=5 tid=3523 state_result=0 info_result=0 run=3 cpu=41 pc=1d3df8bf4 lr=1d3dfc17c fp=16f210e10 sp=16f210dc0 frames: 1d3dfc0d0 1d3dfbf1c 18fc405e8 18fc40984 1e6f87828 1871c8994 187186630 188423730 1884239dc 1a1332f88 103a6ac8c 100d7c058 18fc6aa68 18fc4f0f8 100d7bd88 1daf1fed8 1e6f888c4 1e6f8a2dc 18fc6aaa4 18fc416dc 18fc48dcc 18fc42250 18fc48dcc 18fc498f0
+thread=6 tid=3579 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: com.apple.migrationpluginwrapper pid=240 seconds=30 sampled=6 of 7
+Pong tick: com.apple.migrationpluginwrapper pid=240 seconds=60 threads=7
+Pong tick: com.apple.migrationpluginwrapper pid=240 seconds=120 threads=9
+Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=240 seconds=120 time=317 threads=9
+Pong boot snapshot: com.apple.migrationpluginwrapper pid=240 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=100dd1000 cache=0x185b64000 size=f37c8000
+thread=0 tid=3241 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f085460 sp=16f085410 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18717fbac 187184108 1e6f92094 1e6f94484 1e6f94638 100d7c2c8 1ad29596c 0
+thread=2 tid=3346 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8b88 lr=18fc6de6c fp=16f29c010 sp=16f29bff0 frames: 18fc3e880 100f94624 100f904c0 100f8fdf4 100d7c058 18fc6aa68 18fc4f0f8 100d7bd88 1daf1fed8 1e6f888c4 1e6f8a2dc 18fc6aaa4 18fc416dc 18fc48dcc 18fc42250 18fc48dcc 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=3 tid=4159 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f2120c0 sp=16f212070 frames: 1d3dfc0d0 1d3dfbf1c 18fc405e8 18fc40984 1e6f87828 18fe1116c 18fe0d828 2203153a0 220313154 18fc69830 18fc6aa68 18fc48f64 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=4 tid=4606 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f5bbe60 sp=16f5bbe10 frames: 1d3dfc0d0 1d3dfbf1c 18fc405e8 18fc40984 1e6f87828 1b564c6f4 18fc6aa68 18fc4f0f8 1b564c4dc 1b564e358 1dbb2dd48 1aae846d0 1aaeb5d40 1aaeb613c 18fc69830 18fc6aa68 18fc48f64 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=5 tid=4683 state_result=0 info_result=0 run=3 cpu=18 pc=1ad26356c lr=1ad26353c fp=16f7d7840 sp=16f7d7820 frames: 1ad2635f4 1ad2632e8 185c90404 185c71ae8 185c71478 1871a2cf8 18719c6d4 18718c938 18719a5a0 18719d180 1aae881ac 1aae85054 1aae89004 1aaeb56ec 19490b808 1aaeb5444 1aaeb7f00 1aaeb7e58 1aaf14b98 1aaf0b55c 18fc4eccc 18fc6aa68 18fc45a08 18fc554e4
+thread=6 tid=4684 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f858e50 sp=16f858e00 frames: 1d3dfc0d0 1d3dfbf1c 18fc405e8 18fc40984 1e6f87828 1871c8994 187186630 188423730 1884239dc 1dc765a98 103c59b9c 100d7c058 18fc6aa68 18fc4f0f8 100d7bd88 1daf1fed8 1e6f888c4 1e6f8a2dc 18fc6aaa4 18fc416dc 18fc48dcc 18fc42250 18fc48dcc 18fc498f0
+thread=7 tid=5123 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f190b50 sp=16f190b30 frames: 1e6f2aab0
+thread=8 tid=5191 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f322b50 sp=16f322b30 frames: 1e6f2aab0
+Pong boot snapshot END: com.apple.migrationpluginwrapper pid=240 seconds=120 sampled=8 of 9
+Pong tick: com.apple.migrationpluginwrapper pid=240 seconds=180 threads=9
+Pong tick: com.apple.migrationpluginwrapper pid=240 seconds=240 threads=9
+Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=240 seconds=240 time=437 threads=9
+Pong boot snapshot: com.apple.migrationpluginwrapper pid=240 seconds=240 image0=/private/var/pong/libpong-ui18.dylib image_slide=100dd1000 cache=0x185b64000 size=f37c8000
+thread=0 tid=3241 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f085460 sp=16f085410 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18717fbac 187184108 1e6f92094 1e6f94484 1e6f94638 100d7c2c8 1ad29596c 0
+thread=2 tid=3346 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8b88 lr=18fc6de6c fp=16f29c010 sp=16f29bff0 frames: 18fc3e880 100f94624 100f904c0 100f8fdf4 100d7c058 18fc6aa68 18fc4f0f8 100d7bd88 1daf1fed8 1e6f888c4 1e6f8a2dc 18fc6aaa4 18fc416dc 18fc48dcc 18fc42250 18fc48dcc 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=3 tid=4159 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f2120c0 sp=16f212070 frames: 1d3dfc0d0 1d3dfbf1c 18fc405e8 18fc40984 1e6f87828 18fe1116c 18fe0d828 2203153a0 220313154 18fc69830 18fc6aa68 18fc48f64 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=4 tid=4606 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f5bbe60 sp=16f5bbe10 frames: 1d3dfc0d0 1d3dfbf1c 18fc405e8 18fc40984 1e6f87828 1b564c6f4 18fc6aa68 18fc4f0f8 1b564c4dc 1b564e358 1dbb2dd48 1aae846d0 1aaeb5d40 1aaeb613c 18fc69830 18fc6aa68 18fc48f64 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=5 tid=4684 state_result=0 info_result=0 run=3 cpu=2 pc=1d3df89a8 lr=1e6f2aa5c fp=16f85eb50 sp=16f85eb30 frames: 1e6f2aab0
+thread=6 tid=5191 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8980 lr=18fc58520 fp=16f322030 sp=16f321fd0 frames: 18fc58cfc 18fc4f37c 18fc4efa4 1b564c4dc 1b564e358 1dbb2dd48 1aae846d0 1aaeb5d40 1aaeb613c 18fc69830 18fc6aa68 18fc48f64 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=7 tid=6539 state_result=0 info_result=0 run=1 cpu=45 pc=1ad268ed8 lr=1ad268358 fp=16f18e490 sp=16f18e3c0 frames: 1ad26806c 1ad267c28 1ad267778 1ad266ff8 1ad264f7c 1ad265aa0 1ad263ec4 23651b538 1ac3fc50c 1ac3fa0c8 1ac3f9eb0 1054b9f90 1054bbeb4 100d7c058 18fc6aa68 18fc4f0f8 100d7bd88 1daf1fed8 1e6f888c4 1e6f8a2dc 18fc6aaa4 18fc416dc 18fc48dcc 18fc42250
+thread=8 tid=6850 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f53ab60 sp=16f53ab40 frames: 1e6f2aab0
+Pong boot snapshot END: com.apple.migrationpluginwrapper pid=240 seconds=240 sampled=8 of 9
+Pong tick: com.apple.migrationpluginwrapper pid=240 seconds=301 threads=10
+Pong tick: com.apple.migrationpluginwrapper pid=240 seconds=361 threads=10
+Pong tick: com.apple.migrationpluginwrapper pid=240 seconds=421 threads=8
+Pong tick: com.apple.migrationpluginwrapper pid=240 seconds=481 threads=8

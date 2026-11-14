@@ -1,0 +1,33 @@
+{
+  "scope": {
+    "runtime_library_uuid": "1e1a9c7e-932c-3a62-aaca-edab65ca7a9f",
+    "uuid_command": "UUID: 1E1A9C7E-932C-3A62-AACA-EDAB65CA7A9F (arm64) /Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-010642/extracted/files/pong/libpong-ui18.dylib\n",
+    "all_pongboot_cache_bases": [
+      "0x18db48000"
+    ],
+    "ips_total": 4,
+    "full_snapshots": 0,
+    "current_lib_snapshot_count": 0,
+    "previous_v71_lib_snapshot_count": 0,
+    "boot_ids": [],
+    "parse_errors": [
+      {
+        "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001059.000.ips",
+        "bytes": 27768,
+        "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3189 (char 27486)\")"
+      },
+      {
+        "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000123.000.ips",
+        "bytes": 27508,
+        "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 22 column 6574 (char 27313)\")"
+      },
+      {
+        "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-001203.0002.ips",
+        "bytes": 30192,
+        "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 22 column 6409 (char 29997)\")"
+      }
+    ]
+  },
+  "rows": [],
+  "A2_samples": 0
+}

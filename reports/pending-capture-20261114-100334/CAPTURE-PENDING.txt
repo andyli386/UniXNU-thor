@@ -1,0 +1,42 @@
+本轮黑屏日志采集状态：PENDING / 未取得新设备日志
+记录时间：2026-11-14 10:03:34 Asia/Shanghai
+用户报告：手机连接 i386；黑屏后已手动进入 Recovery。
+指定原始采集目录：/home/vincent/Projects/thor-unixnu
+结论保存目录：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/pending-capture-20261114-100334
+
+一、实际阻塞
+Desktop Commander 的 i386 设备 iAf-E75KXzCEYnCV 显示 online=false。
+本轮已实际尝试读取主机 hostname，返回 Device is offline; start its agent first。
+随后再次 list_devices，i386 仍离线；Mac mini 可访问。
+这是主机远程连接阻塞，不能据此判断手机 USB、Recovery 或日志是否正常。
+本轮没有创建新的手机日志采集，没有读取手机 Data，也没有新运行版本证明。
+
+二、当前宿主源码
+Mac 仓库：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong
+HEAD：d562bc1419e7ae5fd7ffdf0d89951736b69e8ae5（v74）
+已只读核实 submitter 显式传递、PONG EXIT Console 镜像、wake enqueue returned。
+这三项改善诊断；本轮不能确认已部署到设备或解决黑屏。
+源码细节见 v74-source-review.txt，带行号摘录见 v74-source-evidence.json。
+
+三、连接恢复后的采集重点
+保留手机 Recovery，恢复 i386 的 Desktop Commander agent 连接即可继续读取。
+先确认实际运行版本，再提取本轮 Console、PongSB、PongBoot 及 crash/退出记录。
+重点对齐 EMPTIED/RESTORED 的 submitter、PONG EXIT、scheduled/returned/begin 的最后正证据。
+与上一轮 v73 PongBoot-pull-20261114-025335 比较；旧记录不充当本轮新证据。
+本轮未修改源码、未构建或刷机、未让手机重启。
+
+续查：2026-11-14 10:12 Asia/Shanghai
+用户要求继续后，重新认证并查询设备；i386 仍 online=false，Mac mini online=true。
+再次实际执行 i386 hostname，仍返回 Device is offline; start its agent first（INVALID_ARGUMENT）。
+本次续查仍未获得新的手机日志，未对手机执行重启、挂载或写入。
+待 i386 Desktop Commander agent 恢复在线后继续当前采集任务。
+
+续查：2026-11-14 10:16 Asia/Shanghai
+重新查询设备，i386 仍 online=false；随后 hostname 和 read_file 两种实际读取均返回 Device is offline; start its agent first（INVALID_ARGUMENT）。
+设备列表的 lastSeenAt 为 2026-11-14 06:06:44.153 Asia/Shanghai，仅作为连接服务元数据记录，不推断手机状态。
+本轮仍未取得新设备日志；继续等待 i386 agent 连接恢复。
+
+已解决：i386恢复在线，手机USB/ADB会话恢复后已完成本轮正式采集。
+正式批次：PongBoot-pull-20261114-103139；完整读取8,591,003,648字节，导出75个文件。
+最新完整结论及日志：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-103139/THOR-v74-103139-REPORT.txt
+本文件以上PENDING/离线条目仅为历史过程，当前任务已完成采集与分析。

@@ -1,0 +1,11 @@
+{
+  "pid": 796438,
+  "started": "2026-11-14T03:08:46.102730+08:00",
+  "command": [
+    "/home/vincent/Projects/thor-unixnu/tools/apfs-fuse-logreader-20261114/standalone/apfs-direct-export",
+    "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-025335/Data-runtime.img",
+    "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-025335/extracted"
+  ],
+  "source_regular_file_only": true,
+  "mount_used": false
+}

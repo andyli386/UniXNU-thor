@@ -1,0 +1,1589 @@
+{
+  "started_local": "2026-11-14T01:14:02.896029+08:00",
+  "files": [
+    {
+      "path": "logs/PongBoot-containermanagerd.txt",
+      "bytes": 4798,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1002.394016718,
+      "saved_as": "files/logs/PongBoot-containermanagerd.txt"
+    },
+    {
+      "path": "logs/PongBoot-filecoordinationd.txt",
+      "bytes": 2127,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 597.81523401,
+      "saved_as": "files/logs/PongBoot-filecoordinationd.txt"
+    },
+    {
+      "path": "logs/PongBoot-locationd.txt",
+      "bytes": 16215,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1010.853500364,
+      "saved_as": "files/logs/PongBoot-locationd.txt"
+    },
+    {
+      "path": "logs/PongBoot-runningboardd.txt",
+      "bytes": 9499,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1005.854665416,
+      "saved_as": "files/logs/PongBoot-runningboardd.txt"
+    },
+    {
+      "path": "logs/PongConsole.txt",
+      "bytes": 4259446,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1034.858865312,
+      "saved_as": "files/logs/PongConsole.txt"
+    },
+    {
+      "path": "logs/PongDiag.txt",
+      "bytes": 11387,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1045.232273645,
+      "saved_as": "files/logs/PongDiag.txt"
+    },
+    {
+      "path": "logs/keybagd.log.0",
+      "bytes": 2450,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 850.806550937,
+      "saved_as": "files/logs/keybagd.log.0"
+    },
+    {
+      "path": "logs/lockdownd.log",
+      "bytes": 13848,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 925.826633697,
+      "saved_as": "files/logs/lockdownd.log"
+    },
+    {
+      "path": "logs/usermanagerd.log.0",
+      "bytes": 20535,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 1020.165001822,
+      "saved_as": "files/logs/usermanagerd.log.0"
+    },
+    {
+      "path": "mobile/Library/Logs/Pong-audio-volume18.log",
+      "bytes": 181,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 110.244377656,
+      "saved_as": "files/mobile/Library/Logs/Pong-audio-volume18.log"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-129.txt",
+      "bytes": 1237,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 90.712731874,
+      "saved_as": "files/mobile/Library/Logs/PongA2-129.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-157.txt",
+      "bytes": 1237,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 99.202440781,
+      "saved_as": "files/mobile/Library/Logs/PongA2-157.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-175.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 114.126441666,
+      "saved_as": "files/mobile/Library/Logs/PongA2-175.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-186.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 126.471917187,
+      "saved_as": "files/mobile/Library/Logs/PongA2-186.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-196.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 146.735459583,
+      "saved_as": "files/mobile/Library/Logs/PongA2-196.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-210.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 149.671388333,
+      "saved_as": "files/mobile/Library/Logs/PongA2-210.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-217.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 163.658996249,
+      "saved_as": "files/mobile/Library/Logs/PongA2-217.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-227.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 179.451610833,
+      "saved_as": "files/mobile/Library/Logs/PongA2-227.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-230.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 192.741034322,
+      "saved_as": "files/mobile/Library/Logs/PongA2-230.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-234.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 194.813692031,
+      "saved_as": "files/mobile/Library/Logs/PongA2-234.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-240.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 209.207988645,
+      "saved_as": "files/mobile/Library/Logs/PongA2-240.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-246.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 217.370244791,
+      "saved_as": "files/mobile/Library/Logs/PongA2-246.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-250.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 224.747144635,
+      "saved_as": "files/mobile/Library/Logs/PongA2-250.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-259.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 264.978408906,
+      "saved_as": "files/mobile/Library/Logs/PongA2-259.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-275.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 269.186125677,
+      "saved_as": "files/mobile/Library/Logs/PongA2-275.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-280.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 292.063712864,
+      "saved_as": "files/mobile/Library/Logs/PongA2-280.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-288.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 322.944262239,
+      "saved_as": "files/mobile/Library/Logs/PongA2-288.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-292.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 359.683129895,
+      "saved_as": "files/mobile/Library/Logs/PongA2-292.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-305.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 380.125762656,
+      "saved_as": "files/mobile/Library/Logs/PongA2-305.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-310.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 388.09509776,
+      "saved_as": "files/mobile/Library/Logs/PongA2-310.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-313.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 444.205230781,
+      "saved_as": "files/mobile/Library/Logs/PongA2-313.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-350.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 451.37416901,
+      "saved_as": "files/mobile/Library/Logs/PongA2-350.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-359.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 465.711219374,
+      "saved_as": "files/mobile/Library/Logs/PongA2-359.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-367.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 466.556197968,
+      "saved_as": "files/mobile/Library/Logs/PongA2-367.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-373.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 496.319262239,
+      "saved_as": "files/mobile/Library/Logs/PongA2-373.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-380.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 508.47517151,
+      "saved_as": "files/mobile/Library/Logs/PongA2-380.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-388.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 511.650140729,
+      "saved_as": "files/mobile/Library/Logs/PongA2-388.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-405.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 541.24220026,
+      "saved_as": "files/mobile/Library/Logs/PongA2-405.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-414.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 558.784007187,
+      "saved_as": "files/mobile/Library/Logs/PongA2-414.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-420.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 572.357778853,
+      "saved_as": "files/mobile/Library/Logs/PongA2-420.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-425.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 579.874333541,
+      "saved_as": "files/mobile/Library/Logs/PongA2-425.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-431.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 587.085004062,
+      "saved_as": "files/mobile/Library/Logs/PongA2-431.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-436.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 599.472876197,
+      "saved_as": "files/mobile/Library/Logs/PongA2-436.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-440.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 637.953018541,
+      "saved_as": "files/mobile/Library/Logs/PongA2-440.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-484.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 638.817485624,
+      "saved_as": "files/mobile/Library/Logs/PongA2-484.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-496.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 726.281010676,
+      "saved_as": "files/mobile/Library/Logs/PongA2-496.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-519.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 734.990752291,
+      "saved_as": "files/mobile/Library/Logs/PongA2-519.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-522.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 753.623263854,
+      "saved_as": "files/mobile/Library/Logs/PongA2-522.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-530.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 760.398827083,
+      "saved_as": "files/mobile/Library/Logs/PongA2-530.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-535.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 780.147135989,
+      "saved_as": "files/mobile/Library/Logs/PongA2-535.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-539.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 780.799732551,
+      "saved_as": "files/mobile/Library/Logs/PongA2-539.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-543.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 800.535821354,
+      "saved_as": "files/mobile/Library/Logs/PongA2-543.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-549.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 817.289706458,
+      "saved_as": "files/mobile/Library/Logs/PongA2-549.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-552.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 832.28244552,
+      "saved_as": "files/mobile/Library/Logs/PongA2-552.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-559.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 834.639721041,
+      "saved_as": "files/mobile/Library/Logs/PongA2-559.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-566.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 850.603141302,
+      "saved_as": "files/mobile/Library/Logs/PongA2-566.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-581.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 862.455185416,
+      "saved_as": "files/mobile/Library/Logs/PongA2-581.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-588.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 885.469069843,
+      "saved_as": "files/mobile/Library/Logs/PongA2-588.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-599.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 889.031764374,
+      "saved_as": "files/mobile/Library/Logs/PongA2-599.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-60.txt",
+      "bytes": 1222,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 76.365186718,
+      "saved_as": "files/mobile/Library/Logs/PongA2-60.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-615.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 916.261337135,
+      "saved_as": "files/mobile/Library/Logs/PongA2-615.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-624.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 941.934839479,
+      "saved_as": "files/mobile/Library/Logs/PongA2-624.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-633.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 972.277992551,
+      "saved_as": "files/mobile/Library/Logs/PongA2-633.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-648.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 998.278502552,
+      "saved_as": "files/mobile/Library/Logs/PongA2-648.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-657.txt",
+      "bytes": 1267,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1040.753043228,
+      "saved_as": "files/mobile/Library/Logs/PongA2-657.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-680.txt",
+      "bytes": 508,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1063.469841562,
+      "saved_as": "files/mobile/Library/Logs/PongA2-680.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-93.txt",
+      "bytes": 1222,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 77.453702291,
+      "saved_as": "files/mobile/Library/Logs/PongA2-93.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-SpringBoard.txt",
+      "bytes": 8195,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1033.987460781,
+      "saved_as": "files/mobile/Library/Logs/PongBoot-SpringBoard.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-audiomxd.txt",
+      "bytes": 25285,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1012.944823072,
+      "saved_as": "files/mobile/Library/Logs/PongBoot-audiomxd.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-backboardd.txt",
+      "bytes": 18618,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1010.858876978,
+      "saved_as": "files/mobile/Library/Logs/PongBoot-backboardd.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-com.apple.datamigrator.txt",
+      "bytes": 19038,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1039.228024531,
+      "saved_as": "files/mobile/Library/Logs/PongBoot-com.apple.datamigrator.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-com.apple.migrationpluginwrapper.txt",
+      "bytes": 7581,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 692.171969427,
+      "saved_as": "files/mobile/Library/Logs/PongBoot-com.apple.migrationpluginwrapper.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-lsd.txt",
+      "bytes": 7212,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1055.420714114,
+      "saved_as": "files/mobile/Library/Logs/PongBoot-lsd.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-mediaremoted.txt",
+      "bytes": 5695,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1013.835496979,
+      "saved_as": "files/mobile/Library/Logs/PongBoot-mediaremoted.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/PongDM-85.txt",
+      "bytes": 968,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 823.248754791,
+      "saved_as": "files/mobile/Library/Logs/PongDM-85.txt"
+    },
+    {
+      "path": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001059.000.ips",
+      "bytes": 27768,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o660",
+      "mtime": 668.172616666,
+      "saved_as": "files/mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001059.000.ips"
+    },
+    {
+      "path": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000123.000.ips",
+      "bytes": 27508,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o660",
+      "mtime": 83.695760572,
+      "saved_as": "files/mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000123.000.ips"
+    },
+    {
+      "path": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-001203.0002.ips",
+      "bytes": 30192,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o660",
+      "mtime": 790.764866353,
+      "saved_as": "files/mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-001203.0002.ips"
+    },
+    {
+      "path": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000832.0002.ips",
+      "bytes": 102316,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o660",
+      "mtime": 536.369423124,
+      "saved_as": "files/mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000832.0002.ips"
+    },
+    {
+      "path": "pong/libpong-ui18.dylib",
+      "bytes": 194528,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o755",
+      "mtime": 1794581896.4652076,
+      "saved_as": "files/pong/libpong-ui18.dylib"
+    },
+    {
+      "path": "pong/libpong-ui.dylib",
+      "bytes": 112720,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o755",
+      "mtime": 1794439168.7527874,
+      "saved_as": "files/pong/libpong-ui.dylib"
+    },
+    {
+      "path": "mobile/Library/Preferences/com.apple.migration.plist",
+      "bytes": 281,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 844.917543697,
+      "saved_as": "files/mobile/Library/Preferences/com.apple.migration.plist"
+    },
+    {
+      "path": "mobile/Library/Preferences/com.apple.migrationpluginwrapper.plist",
+      "bytes": 2354,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 264.929742812,
+      "saved_as": "files/mobile/Library/Preferences/com.apple.migrationpluginwrapper.plist"
+    },
+    {
+      "path": "mobile/Library/Preferences/com.apple.springboard.datamigrator.plist",
+      "bytes": 72,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 722.923885364,
+      "saved_as": "files/mobile/Library/Preferences/com.apple.springboard.datamigrator.plist"
+    }
+  ],
+  "inventory": [
+    {
+      "path": "logs/PongBoot-containermanagerd.txt",
+      "bytes": 4798,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1002.394016718
+    },
+    {
+      "path": "logs/PongBoot-filecoordinationd.txt",
+      "bytes": 2127,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 597.81523401
+    },
+    {
+      "path": "logs/PongBoot-locationd.txt",
+      "bytes": 16215,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1010.853500364
+    },
+    {
+      "path": "logs/PongBoot-runningboardd.txt",
+      "bytes": 9499,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1005.854665416
+    },
+    {
+      "path": "logs/PongConsole.txt",
+      "bytes": 4259446,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1034.858865312
+    },
+    {
+      "path": "logs/PongDiag.txt",
+      "bytes": 11387,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1045.232273645
+    },
+    {
+      "path": "logs/keybagd.log.0",
+      "bytes": 2450,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 850.806550937
+    },
+    {
+      "path": "logs/lockdownd.log",
+      "bytes": 13848,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 925.826633697
+    },
+    {
+      "path": "logs/usermanagerd.log.0",
+      "bytes": 20535,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 1020.165001822
+    },
+    {
+      "path": "mobile/Library/Logs/Pong-audio-volume18.log",
+      "bytes": 181,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 110.244377656
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-129.txt",
+      "bytes": 1237,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 90.712731874
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-157.txt",
+      "bytes": 1237,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 99.202440781
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-175.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 114.126441666
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-186.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 126.471917187
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-196.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 146.735459583
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-210.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 149.671388333
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-217.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 163.658996249
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-227.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 179.451610833
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-230.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 192.741034322
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-234.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 194.813692031
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-240.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 209.207988645
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-246.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 217.370244791
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-250.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 224.747144635
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-259.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 264.978408906
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-275.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 269.186125677
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-280.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 292.063712864
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-288.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 322.944262239
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-292.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 359.683129895
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-305.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 380.125762656
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-310.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 388.09509776
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-313.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 444.205230781
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-350.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 451.37416901
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-359.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 465.711219374
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-367.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 466.556197968
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-373.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 496.319262239
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-380.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 508.47517151
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-388.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 511.650140729
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-405.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 541.24220026
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-414.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 558.784007187
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-420.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 572.357778853
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-425.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 579.874333541
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-431.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 587.085004062
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-436.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 599.472876197
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-440.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 637.953018541
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-484.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 638.817485624
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-496.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 726.281010676
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-519.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 734.990752291
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-522.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 753.623263854
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-530.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 760.398827083
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-535.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 780.147135989
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-539.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 780.799732551
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-543.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 800.535821354
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-549.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 817.289706458
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-552.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 832.28244552
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-559.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 834.639721041
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-566.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 850.603141302
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-581.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 862.455185416
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-588.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 885.469069843
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-599.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 889.031764374
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-60.txt",
+      "bytes": 1222,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 76.365186718
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-615.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 916.261337135
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-624.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 941.934839479
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-633.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 972.277992551
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-648.txt",
+      "bytes": 1252,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 998.278502552
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-657.txt",
+      "bytes": 1267,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1040.753043228
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-680.txt",
+      "bytes": 508,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1063.469841562
+    },
+    {
+      "path": "mobile/Library/Logs/PongA2-93.txt",
+      "bytes": 1222,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 77.453702291
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-SpringBoard.txt",
+      "bytes": 8195,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1033.987460781
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-audiomxd.txt",
+      "bytes": 25285,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1012.944823072
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-backboardd.txt",
+      "bytes": 18618,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1010.858876978
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-com.apple.datamigrator.txt",
+      "bytes": 19038,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1039.228024531
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-com.apple.migrationpluginwrapper.txt",
+      "bytes": 7581,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 692.171969427
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-lsd.txt",
+      "bytes": 7212,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1055.420714114
+    },
+    {
+      "path": "mobile/Library/Logs/PongBoot-mediaremoted.txt",
+      "bytes": 5695,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 1013.835496979
+    },
+    {
+      "path": "mobile/Library/Logs/PongDM-85.txt",
+      "bytes": 968,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 823.248754791
+    },
+    {
+      "path": "mobile/Library/Logs/AppleSupport/general.log",
+      "bytes": 299,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 536.488349687
+    },
+    {
+      "path": "mobile/Library/Logs/com.apple.CloudTelemetry/XPCService/com.apple.cloudd/CloudTelemetry_messageLog_1970-01-01-00-04-48.txt",
+      "bytes": 0,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 294.897512551
+    },
+    {
+      "path": "mobile/Library/Logs/mobileactivationd/mobileactivationd.log.0",
+      "bytes": 7092,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 913.455201041
+    },
+    {
+      "path": "mobile/Library/Logs/RTCReporting/RTCReporting_messageLog_1970-01-01-00-04-06.txt",
+      "bytes": 0,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 246.979363593
+    },
+    {
+      "path": "mobile/Library/Logs/com.apple.itunesstored/itunesstored.log",
+      "bytes": 0,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 114.019230364
+    },
+    {
+      "path": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001059.000.ips",
+      "bytes": 27768,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o660",
+      "mtime": 668.172616666
+    },
+    {
+      "path": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000123.000.ips",
+      "bytes": 27508,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o660",
+      "mtime": 83.695760572
+    },
+    {
+      "path": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-001203.0002.ips",
+      "bytes": 30192,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o660",
+      "mtime": 790.764866353
+    },
+    {
+      "path": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000832.0002.ips",
+      "bytes": 102316,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o660",
+      "mtime": 536.369423124
+    },
+    {
+      "path": "mobile/Library/Logs/com.apple.assetsd/PhotosSearch.aapbz",
+      "bytes": 302,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime": 327.116558697
+    }
+  ],
+  "errors": [],
+  "skipped": [],
+  "state": {
+    "Library/Preferences/com.apple.migration.plist": {
+      "exists": false
+    },
+    "mobile/Library/Preferences/com.apple.migration.plist": {
+      "exists": true,
+      "path": "mobile/Library/Preferences/com.apple.migration.plist",
+      "bytes": 281,
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o600",
+      "mtime": 844.917543697,
+      "plist": {
+        "LastSystemVersion": "22H374",
+        "DMUserDataDisposition": {
+          "EraseIsRapidReturnToService": false,
+          "SyntheticDidUpgrade": false,
+          "buildVersion": "22H374"
+        },
+        "MultilingualSetsMigrationVersion": 1,
+        "DMLastMigrationResults": {
+          "success": false,
+          "buildVersion": "22H374"
+        }
+      }
+    },
+    "Library/Preferences/com.apple.datamigrator.plist": {
+      "exists": false
+    },
+    "mobile/Library/Preferences/com.apple.datamigrator.plist": {
+      "exists": false
+    },
+    "db/.AppleSetupDone": {
+      "exists": false
+    },
+    "keybags": {
+      "exists": true,
+      "entries": [
+        {
+          "name": "persona.kb",
+          "bytes": 136,
+          "directory": false,
+          "symlink": false,
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0o600"
+        }
+      ]
+    },
+    "mobile/Library/Pong/LaunchServices": {
+      "exists": true,
+      "entries": [
+        {
+          "name": "Library",
+          "bytes": 1,
+          "directory": true,
+          "symlink": false,
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0o700"
+        },
+        {
+          "name": "Shared",
+          "bytes": 1,
+          "directory": true,
+          "symlink": false,
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0o700"
+        },
+        {
+          "name": "User",
+          "bytes": 1,
+          "directory": true,
+          "symlink": false,
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0o700"
+        }
+      ]
+    },
+    "Library/Preferences": {
+      "exists": true,
+      "entries": []
+    },
+    "mobile/Library/Preferences": {
+      "exists": true,
+      "entries": [
+        {
+          "name": "com.apple.migration.plist",
+          "bytes": 281,
+          "directory": false,
+          "symlink": false,
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0o600"
+        },
+        {
+          "name": "com.apple.migrationpluginwrapper.plist",
+          "bytes": 2354,
+          "directory": false,
+          "symlink": false,
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0o600"
+        },
+        {
+          "name": "com.apple.springboard.datamigrator.plist",
+          "bytes": 72,
+          "directory": false,
+          "symlink": false,
+          "uid": 1000,
+          "gid": 1000,
+          "mode": "0o600"
+        }
+      ]
+    }
+  },
+  "mountinfo": [
+    "157 33 0:54 / /home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/apfs-ro ro,nosuid,nodev,relatime shared:426 - fuse /home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/Data-runtime.img ro,user_id=1000,group_id=1000"
+  ],
+  "mountpoint": "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/apfs-ro",
+  "volume_root": "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/apfs-ro/root",
+  "host_readonly": true,
+  "ownership_note": "APFS-FUSE mapped host stat; do not infer original owner if uid/gid mount mapping is enabled",
+  "detached": true,
+  "macho_uuids": {
+    "pong/libpong-ui18.dylib": "1E1A9C7E-932C-3A62-AACA-EDAB65CA7A9F",
+    "pong/libpong-ui.dylib": "9C222EED-9C05-3486-90ED-E93837FB6AA7"
+  },
+  "finished_local": "2026-11-14T01:14:02.936186+08:00",
+  "unmount": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "reader": {
+    "tool": "sgan81/apfs-fuse",
+    "commit": "66b86bd525e8cb90f9012543be89b1f092b75cf3",
+    "volume_index": 1,
+    "volume_uuid": "26FD8349-9B9A-4F22-89EB-C81E070D2AB2",
+    "volume_name": "Data",
+    "mode": "strict, readonly, no lax mode; uid/gid mapped to 1000"
+  }
+}

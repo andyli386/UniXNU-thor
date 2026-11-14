@@ -1,0 +1,62 @@
+Pong tick: SpringBoard pid=4 seconds=60 threads=7
+Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=60 time=130 threads=7
+Pong boot snapshot: SpringBoard pid=4 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=1010ce000 cache=0x18db48000 size=f37c8000
+thread=0 tid=247 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ed7c510 sp=16ed7c4c0 frames: 1dbde00d0 1dbddff1c 197c245e8 197c24984 1eef6b828 1a9c6d6ec 1a9c78e78 1a9c71254 197d36aec 1b2b0f660 1e011900c 1b527996c 0
+thread=1 tid=421 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ee00a70 sp=16ee00a20 frames: 1dbde00d0 1dbddff1c 197c245e8 197c24984 1eef6b828 1a9c6d6ec 1a9c78e78 1a9c71254 19d872e70 197c4ea68 197c330f8 19d872d64 19d88a91c 19d88a88c 19d88a0f4 19d889cb0
+thread=3 tid=650 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde2a08 lr=197c226bc fp=16f0a3690 sp=16f0a3670 frames: 197c22568 197c33398 197c32fa4 1aaf8de10 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=4 tid=651 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f129b50 sp=16f129b30 frames: 1eef0eab0
+thread=5 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=6 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: SpringBoard pid=4 seconds=60 sampled=6 of 7
+Pong tick: SpringBoard pid=4 seconds=122 threads=5
+Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=122 time=192 threads=5
+Pong boot snapshot: SpringBoard pid=4 seconds=122 image0=/private/var/pong/libpong-ui18.dylib image_slide=1010ce000 cache=0x18db48000 size=f37c8000
+thread=0 tid=247 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ed7c510 sp=16ed7c4c0 frames: 1dbde00d0 1dbddff1c 197c245e8 197c24984 1eef6b828 1a9c6d6ec 1a9c78e78 1a9c71254 197d36aec 1b2b0f660 1e011900c 1b527996c 0
+thread=1 tid=421 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ee00a70 sp=16ee00a20 frames: 1dbde00d0 1dbddff1c 197c245e8 197c24984 1eef6b828 1a9c6d6ec 1a9c78e78 1a9c71254 19d872e70 197c4ea68 197c330f8 19d872d64 19d88a91c 19d88a88c 19d88a0f4 19d889cb0
+thread=3 tid=650 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde2a08 lr=197c226bc fp=16f0a3690 sp=16f0a3670 frames: 197c22568 197c33398 197c32fa4 1aaf8de10 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=4 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: SpringBoard pid=4 seconds=122 sampled=4 of 5
+Pong tick: SpringBoard pid=4 seconds=181 threads=4
+Pong tick: SpringBoard pid=4 seconds=241 threads=6
+Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=241 time=311 threads=6
+Pong boot snapshot: SpringBoard pid=4 seconds=241 image0=/private/var/pong/libpong-ui18.dylib image_slide=1010ce000 cache=0x18db48000 size=f37c8000
+thread=0 tid=247 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ed7c510 sp=16ed7c4c0 frames: 1dbde00d0 1dbddff1c 197c245e8 197c24984 1eef6b828 1a9c6d6ec 1a9c78e78 1a9c71254 197d36aec 1b2b0f660 1e011900c 1b527996c 0
+thread=2 tid=650 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde2a08 lr=197c226bc fp=16f0a3690 sp=16f0a3670 frames: 197c22568 197c33398 197c32fa4 1aaf8de10 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=3 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=4 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=5 tid=4997 state_result=0 info_result=0 run=3 cpu=3 pc=1dbddc9a8 lr=1eef0ea5c fp=16ef97b50 sp=16ef97b30 frames: 1eef0eab0
+Pong boot snapshot END: SpringBoard pid=4 seconds=241 sampled=5 of 6
+Pong tick: SpringBoard pid=4 seconds=304 threads=5
+Pong tick: SpringBoard pid=4 seconds=364 threads=12
+Pong tick: SpringBoard pid=4 seconds=424 threads=4
+Pong tick: SpringBoard pid=4 seconds=484 threads=5
+Pong tick: SpringBoard pid=4 seconds=544 threads=8
+Pong tick: SpringBoard pid=4 seconds=604 threads=4
+Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=604 time=674 threads=4
+Pong boot snapshot: SpringBoard pid=4 seconds=604 image0=/private/var/pong/libpong-ui18.dylib image_slide=1010ce000 cache=0x18db48000 size=f37c8000
+thread=0 tid=247 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ed7c510 sp=16ed7c4c0 frames: 1dbde00d0 1dbddff1c 197c245e8 197c24984 1eef6b828 1a9c6d6ec 1a9c78e78 1a9c71254 197d36aec 1b2b0f660 1e011900c 1b527996c 0
+thread=2 tid=650 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde2a08 lr=197c226bc fp=16f0a3690 sp=16f0a3670 frames: 197c22568 197c33398 197c32fa4 1aaf8de10 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=3 tid=10676 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f129fe0 sp=16f129fc0 frames: 1eef0eab0
+Pong boot snapshot END: SpringBoard pid=4 seconds=604 sampled=3 of 4
+Pong tick: SpringBoard pid=4 seconds=662 threads=4
+Pong tick: SpringBoard pid=4 seconds=722 threads=6
+Pong tick: SpringBoard pid=4 seconds=782 threads=11
+Pong tick: SpringBoard pid=4 seconds=842 threads=10
+Pong tick: SpringBoard pid=4 seconds=902 threads=14
+Pong boot snapshot BEGIN: SpringBoard pid=4 seconds=902 time=972 threads=14
+Pong boot snapshot: SpringBoard pid=4 seconds=902 image0=/private/var/pong/libpong-ui18.dylib image_slide=1010ce000 cache=0x18db48000 size=f37c8000
+thread=0 tid=247 state_result=0 info_result=0 run=1 cpu=9 pc=18fcf6608 lr=18f177bec fp=16ed7b190 sp=16ed7b140 frames: 18f1f48dc 18f183680 18f253840 197c4ea68 197c2326c 18f256b38 18f255854 18f2083f0 18f2567e8 18f2050f8 1904625ac 1904360dc 190435ce8 190436058 18f3a9c4c 18f167e78
+thread=2 tid=650 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde2a08 lr=197c226bc fp=16f0a3690 sp=16f0a3670 frames: 197c22568 197c33398 197c32fa4 1aaf8de10 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=3 tid=13454 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f2bace0 sp=16f2bac90 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 18f163bac 18f168f7c 192bed354 18f1c52b0 1eef106b0 1eef0eabc
+thread=4 tid=13626 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ee8a880 sp=16ee8a830 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 1904613c4 19cedca6c 1eef106b0 1eef0eabc
+thread=5 tid=13720 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde2a08 lr=197c226bc fp=16f2359e0 sp=16f2359c0 frames: 197c22568 197c33398 197c32fa4 22a05b458 22a05b2e8 22a05285c 197c4ea68 197c330f8 22a052168 22a05b198 197c4ea68 197c2326c 22a05b148 1e0820494 197c4d830 197c4ea68
+thread=6 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=7 tid=13848 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde1fd8 lr=1eef18884 fp=16f1af800 sp=16f1af770 frames: 223a85c4c 22999bd98 197c4d830 197c4ea68 197c2cf64 197c2d8f0 197c36710 197c36018 1eef0ea10 1eef0eab0
+thread=8 tid=14445 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16ef96c00 sp=16ef96bb0 frames: 1dbde00d0 1dbddff1c 19c89e320 19c8979c8 197c4ea68 197c330f8 19c897954 19c897c6c 223a8487c 223a8475c 197c4ea68 197c2326c 223a82e5c 223a8638c 197c4ea68 197c29a08
+thread=9 tid=14627 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f129b50 sp=16f129b30 frames: 1eef0eab0
+thread=10 tid=14679 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddcbf4 lr=1dbde017c fp=16f664cf0 sp=16f664ca0 frames: 1dbde00d0 1dbddff1c 1903eb998 1903ea2d0 1903ebcb0 18f163bac 18f168108 1e0231f44 18f1c52b0 1eef106b0 1eef0eabc
+thread=11 tid=14868 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f01db60 sp=16f01db40 frames: 1eef0eab0
+thread=12 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=13 tid=15030 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f341b50 sp=16f341b30 frames: 1eef0eab0
+Pong boot snapshot END: SpringBoard pid=4 seconds=902 sampled=13 of 14
+Pong tick: SpringBoard pid=4 seconds=963 threads=23

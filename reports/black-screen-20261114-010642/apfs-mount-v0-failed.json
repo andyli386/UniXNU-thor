@@ -1,0 +1,16 @@
+{
+  "at": "2026-11-14T01:13:25.407197+08:00",
+  "cmd": [
+    "/home/vincent/Projects/thor-unixnu/tools/apfs-fuse-logreader-20261114/build/apfs-fuse",
+    "-o",
+    "ro,uid=1000,gid=1000",
+    "-v",
+    "0",
+    "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/Data-runtime.img",
+    "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-010642/apfs-ro"
+  ],
+  "pid": 728692,
+  "returncode": 1,
+  "mountinfo": [],
+  "log": "Unable to get volume!\n"
+}

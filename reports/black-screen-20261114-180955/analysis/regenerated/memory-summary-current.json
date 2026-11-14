@@ -1,0 +1,1590 @@
+{
+  "console_bytes": 4086189,
+  "console_lines": 31607,
+  "unique_nonempty": 4751,
+  "ram": {
+    "line": 4,
+    "text": "[   26.067760]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages",
+    "raw_literal": "26.067760",
+    "raw_second": 26,
+    "timestamp_standard": true,
+    "raw": 26.06776,
+    "since_ram": 0.0
+  },
+  "raw_bounds": [
+    26.067179,
+    1005.876045
+  ],
+  "raw_duration_since_ram": 979.808285,
+  "kill_counts": {
+    "highwater": 1,
+    "long-idle-exit": 42,
+    "idle-exit": 99,
+    "vm-compressor-thrashing": 2
+  },
+  "equal_window": {
+    "duration_since_ram": 979.808285,
+    "current": {
+      "ram_anchor_raw": 26.06776,
+      "cutoff_raw": 1005.876045,
+      "kills": 144,
+      "reason_counts": {
+        "highwater": 1,
+        "long-idle-exit": 42,
+        "idle-exit": 99,
+        "vm-compressor-thrashing": 2
+      },
+      "nonstandard_inside": 1,
+      "nonstandard_outside": 0,
+      "boundary_ambiguous": [],
+      "key_process_kills": []
+    },
+    "v75_baseline": {
+      "ram_anchor_raw": 26.137305,
+      "cutoff_raw": 1005.9455899999999,
+      "kills": 169,
+      "reason_counts": {
+        "idle-exit": 145,
+        "vm-compressor-thrashing": 6,
+        "long-idle-exit": 17,
+        "highwater": 1
+      },
+      "nonstandard_inside": 1,
+      "nonstandard_outside": 1,
+      "boundary_ambiguous": [],
+      "key_process_kills": [
+        {
+          "line": 26142,
+          "text": "[  814.376461]: memorystatus: killing_idle_process pid 500 [PosterBoard] (idle-exit 0 74s rf:-) 591KB - memorystatus_available_pages: 17701 compressor_size:31197",
+          "raw_literal": "814.376461",
+          "raw_second": 814,
+          "timestamp_standard": true,
+          "raw": 814.376461,
+          "since_ram": 788.239156,
+          "function": "killing_idle_process",
+          "pid": 500,
+          "name": "PosterBoard",
+          "reason": "idle-exit"
+        }
+      ]
+    },
+    "causal_ab_test": false
+  },
+  "audio_memory_kills": [],
+  "first_softlimit": {
+    "line": 8119,
+    "text": "[  262.907997]: memorystatus: System will begin enforcing soft memory limits. memorystatus_available_pages: 25322 compressor_size: 22346",
+    "raw_literal": "262.907997",
+    "raw_second": 262,
+    "timestamp_standard": true,
+    "raw": 262.907997,
+    "since_ram": 236.84023700000003,
+    "available_pages": 25322,
+    "compressor_pages": 22346,
+    "available_mib": 98.9140625,
+    "compressor_mib": 87.2890625
+  },
+  "malformed_timestamp_count": 39,
+  "prefetch": {
+    "count": 13,
+    "mib": 318.515625,
+    "read_ms_total": 35063,
+    "epoch_bounds": [
+      117,
+      139
+    ],
+    "deferred_lines": [],
+    "clamped_complete_lines": [
+      "[139] Pong cache pre-read: .31 [82+10MiB] read=1589248 of 1589248 bytes ms=96 clamped to EOF complete gate-ok"
+    ]
+  },
+  "console_quality": {
+    "nul_bytes": 33,
+    "first_nul_byte": 44959,
+    "exact_duplicate_lines": 26802,
+    "empty_nul_lines": 54,
+    "wrap_distinct_count": 1,
+    "wrap_physical_count": 32
+  },
+  "native_memory": [
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001119.0003.ips",
+      "bytes": 28500,
+      "header": {
+        "name": "PosterBoard",
+        "roots_installed": 0,
+        "timestamp": "1970-01-01 00:11:19.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "incident_id": "E78A1A3E-EB17-4951-B431-6621688F8263",
+        "share_with_app_devs": 0,
+        "bug_type": "509",
+        "app_name": "PosterBoard",
+        "bundleID": "com.apple.PosterBoard"
+      },
+      "memoryStatus": {
+        "compressorSize": 34543,
+        "compressions": 1749530,
+        "decompressions": 1541751,
+        "busyBufferCount": 102,
+        "memoryPressureDetails": {
+          "pagesWanted": 590,
+          "pagesReclaimed": 43133
+        },
+        "pageSize": 4096,
+        "memoryPressure": true,
+        "memoryPages": {
+          "active": 15142,
+          "throttled": 0,
+          "fileBacked": 19884,
+          "wired": 102209,
+          "purgeable": 0,
+          "inactive": 13748,
+          "free": 912,
+          "speculative": 1393
+        }
+      },
+      "mib": {
+        "active": 59.1484375,
+        "throttled": 0.0,
+        "fileBacked": 77.671875,
+        "wired": 399.25390625,
+        "purgeable": 0.0,
+        "inactive": 53.703125,
+        "free": 3.5625,
+        "speculative": 5.44140625
+      },
+      "compressor_mib": 134.93359375,
+      "active_plus_inactive_mib": 112.8515625
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000125.000.ips",
+      "bytes": 27520,
+      "header": {
+        "bug_type": "288",
+        "timestamp": "1970-01-01 00:01:25.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "roots_installed": 0,
+        "incident_id": "A8B1C312-7A3D-406D-80A4-F6F59A7AAEC6"
+      },
+      "memoryStatus": {
+        "compressorSize": 5052,
+        "compressions": 39652,
+        "decompressions": 23974,
+        "busyBufferCount": 105,
+        "memoryPressureDetails": {
+          "pagesWanted": 463,
+          "pagesReclaimed": 78457
+        },
+        "pageSize": 4096,
+        "memoryPressure": false,
+        "memoryPages": {
+          "active": 41307,
+          "throttled": 0,
+          "fileBacked": 55041,
+          "wired": 79359,
+          "purgeable": 215,
+          "inactive": 37597,
+          "free": 1039,
+          "speculative": 3950
+        }
+      },
+      "mib": {
+        "active": 161.35546875,
+        "throttled": 0.0,
+        "fileBacked": 215.00390625,
+        "wired": 309.99609375,
+        "purgeable": 0.83984375,
+        "inactive": 146.86328125,
+        "free": 4.05859375,
+        "speculative": 15.4296875
+      },
+      "compressor_mib": 19.734375,
+      "active_plus_inactive_mib": 308.21875
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001633.000.ips",
+      "bytes": 27051,
+      "header": {
+        "timestamp": "1970-01-01 00:16:33.00 +0000",
+        "roots_installed": 0,
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "incident_id": "8166D8C7-A0EF-4983-A0C0-BC9F0EE79962",
+        "share_with_app_devs": 0,
+        "bug_type": "509",
+        "app_name": "Unknown",
+        "name": "Unknown"
+      },
+      "memoryStatus": {
+        "compressorSize": 35362,
+        "compressions": 3194953,
+        "decompressions": 2924101,
+        "busyBufferCount": 100,
+        "memoryPressureDetails": {
+          "pagesWanted": 766,
+          "pagesReclaimed": 38515
+        },
+        "pageSize": 4096,
+        "memoryPressure": true,
+        "memoryPages": {
+          "active": 15808,
+          "throttled": 0,
+          "fileBacked": 18821,
+          "wired": 100895,
+          "purgeable": 0,
+          "inactive": 14801,
+          "free": 736,
+          "speculative": 1056
+        }
+      },
+      "mib": {
+        "active": 61.75,
+        "throttled": 0.0,
+        "fileBacked": 73.51953125,
+        "wired": 394.12109375,
+        "purgeable": 0.0,
+        "inactive": 57.81640625,
+        "free": 2.875,
+        "speculative": 4.125
+      },
+      "compressor_mib": 138.1328125,
+      "active_plus_inactive_mib": 119.56640625
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000508.0002.ips",
+      "bytes": 113060,
+      "header": {
+        "bug_type": "298",
+        "timestamp": "1970-01-01 00:05:08.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "roots_installed": 0,
+        "incident_id": "509DC02F-1B6A-4337-B32D-F232AD5D34C7"
+      },
+      "memoryStatus": {
+        "compressorSize": 22346,
+        "compressions": 394302,
+        "decompressions": 294685,
+        "zoneMapCap": 218951680,
+        "largestZone": "APFS_4K_OBJS",
+        "largestZoneSize": 10403840,
+        "pageSize": 4096,
+        "uncompressed": 80565,
+        "zoneMapSize": 65703936,
+        "memoryPages": {
+          "active": 25679,
+          "throttled": 0,
+          "fileBacked": 24305,
+          "wired": 95701,
+          "anonymous": 25712,
+          "purgeable": 228,
+          "inactive": 23104,
+          "free": 2251,
+          "speculative": 1234
+        }
+      },
+      "mib": {
+        "active": 100.30859375,
+        "throttled": 0.0,
+        "fileBacked": 94.94140625,
+        "wired": 373.83203125,
+        "anonymous": 100.4375,
+        "purgeable": 0.890625,
+        "inactive": 90.25,
+        "free": 8.79296875,
+        "speculative": 4.8203125
+      },
+      "compressor_mib": 87.2890625,
+      "active_plus_inactive_mib": 190.55859375
+    }
+  ],
+  "process_snapshots": {
+    "logs/PongBoot-containermanagerd.txt": {
+      "observed_pids": [
+        45
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "containermanagerd",
+          "pid": 45,
+          "seconds": 60,
+          "epoch": 103,
+          "threads": 4,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=60 time=103 threads=4"
+        },
+        {
+          "line": 9,
+          "name": "containermanagerd",
+          "pid": 45,
+          "seconds": 121,
+          "epoch": 164,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=121 time=164 threads=3"
+        },
+        {
+          "line": 16,
+          "name": "containermanagerd",
+          "pid": 45,
+          "seconds": 241,
+          "epoch": 284,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=241 time=284 threads=3"
+        },
+        {
+          "line": 27,
+          "name": "containermanagerd",
+          "pid": 45,
+          "seconds": 602,
+          "epoch": 645,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=602 time=645 threads=3"
+        }
+      ]
+    },
+    "logs/PongBoot-filecoordinationd.txt": {
+      "observed_pids": [
+        309
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "filecoordinationd",
+          "pid": 309,
+          "seconds": 60,
+          "epoch": 474,
+          "threads": 5,
+          "text": "Pong boot snapshot BEGIN: filecoordinationd pid=309 seconds=60 time=474 threads=5"
+        },
+        {
+          "line": 10,
+          "name": "filecoordinationd",
+          "pid": 309,
+          "seconds": 120,
+          "epoch": 535,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: filecoordinationd pid=309 seconds=120 time=535 threads=3"
+        },
+        {
+          "line": 17,
+          "name": "filecoordinationd",
+          "pid": 309,
+          "seconds": 242,
+          "epoch": 656,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: filecoordinationd pid=309 seconds=242 time=656 threads=3"
+        }
+      ]
+    },
+    "logs/PongBoot-locationd.txt": {
+      "observed_pids": [
+        44
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "locationd",
+          "pid": 44,
+          "seconds": 60,
+          "epoch": 108,
+          "threads": 18,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=60 time=108 threads=18"
+        },
+        {
+          "line": 23,
+          "name": "locationd",
+          "pid": 44,
+          "seconds": 120,
+          "epoch": 168,
+          "threads": 16,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=120 time=168 threads=16"
+        },
+        {
+          "line": 43,
+          "name": "locationd",
+          "pid": 44,
+          "seconds": 240,
+          "epoch": 288,
+          "threads": 11,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=240 time=288 threads=11"
+        },
+        {
+          "line": 62,
+          "name": "locationd",
+          "pid": 44,
+          "seconds": 600,
+          "epoch": 648,
+          "threads": 9,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=600 time=648 threads=9"
+        },
+        {
+          "line": 78,
+          "name": "locationd",
+          "pid": 44,
+          "seconds": 900,
+          "epoch": 949,
+          "threads": 11,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=900 time=949 threads=11"
+        }
+      ]
+    },
+    "logs/PongBoot-runningboardd.txt": {
+      "observed_pids": [
+        6
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "runningboardd",
+          "pid": 6,
+          "seconds": 60,
+          "epoch": 104,
+          "threads": 12,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=60 time=104 threads=12"
+        },
+        {
+          "line": 17,
+          "name": "runningboardd",
+          "pid": 6,
+          "seconds": 122,
+          "epoch": 166,
+          "threads": 10,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=122 time=166 threads=10"
+        },
+        {
+          "line": 31,
+          "name": "runningboardd",
+          "pid": 6,
+          "seconds": 242,
+          "epoch": 286,
+          "threads": 8,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=242 time=286 threads=8"
+        },
+        {
+          "line": 47,
+          "name": "runningboardd",
+          "pid": 6,
+          "seconds": 602,
+          "epoch": 646,
+          "threads": 10,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=602 time=646 threads=10"
+        },
+        {
+          "line": 64,
+          "name": "runningboardd",
+          "pid": 6,
+          "seconds": 904,
+          "epoch": 949,
+          "threads": 14,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=904 time=949 threads=14"
+        }
+      ]
+    },
+    "mobile/Library/Logs/PongBoot-SpringBoard.txt": {
+      "observed_pids": [
+        5
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "SpringBoard",
+          "pid": 5,
+          "seconds": 60,
+          "epoch": 130,
+          "threads": 6,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=60 time=130 threads=6"
+        },
+        {
+          "line": 11,
+          "name": "SpringBoard",
+          "pid": 5,
+          "seconds": 122,
+          "epoch": 192,
+          "threads": 7,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=122 time=192 threads=7"
+        },
+        {
+          "line": 22,
+          "name": "SpringBoard",
+          "pid": 5,
+          "seconds": 244,
+          "epoch": 315,
+          "threads": 4,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=244 time=315 threads=4"
+        },
+        {
+          "line": 34,
+          "name": "SpringBoard",
+          "pid": 5,
+          "seconds": 603,
+          "epoch": 674,
+          "threads": 6,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=603 time=674 threads=6"
+        },
+        {
+          "line": 47,
+          "name": "SpringBoard",
+          "pid": 5,
+          "seconds": 902,
+          "epoch": 972,
+          "threads": 19,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=902 time=972 threads=19"
+        }
+      ]
+    },
+    "mobile/Library/Logs/PongBoot-audiomxd.txt": {
+      "observed_pids": [
+        81
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "audiomxd",
+          "pid": 81,
+          "seconds": 60,
+          "epoch": 128,
+          "threads": 24,
+          "text": "Pong boot snapshot BEGIN: audiomxd pid=81 seconds=60 time=128 threads=24"
+        },
+        {
+          "line": 29,
+          "name": "audiomxd",
+          "pid": 81,
+          "seconds": 122,
+          "epoch": 190,
+          "threads": 21,
+          "text": "Pong boot snapshot BEGIN: audiomxd pid=81 seconds=122 time=190 threads=21"
+        },
+        {
+          "line": 54,
+          "name": "audiomxd",
+          "pid": 81,
+          "seconds": 243,
+          "epoch": 311,
+          "threads": 15,
+          "text": "Pong boot snapshot BEGIN: audiomxd pid=81 seconds=243 time=311 threads=15"
+        },
+        {
+          "line": 77,
+          "name": "audiomxd",
+          "pid": 81,
+          "seconds": 603,
+          "epoch": 671,
+          "threads": 16,
+          "text": "Pong boot snapshot BEGIN: audiomxd pid=81 seconds=603 time=671 threads=16"
+        }
+      ]
+    },
+    "mobile/Library/Logs/PongBoot-backboardd.txt": {
+      "observed_pids": [
+        40
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "backboardd",
+          "pid": 40,
+          "seconds": 60,
+          "epoch": 108,
+          "threads": 18,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=60 time=108 threads=18"
+        },
+        {
+          "line": 23,
+          "name": "backboardd",
+          "pid": 40,
+          "seconds": 120,
+          "epoch": 168,
+          "threads": 18,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=120 time=168 threads=18"
+        },
+        {
+          "line": 45,
+          "name": "backboardd",
+          "pid": 40,
+          "seconds": 240,
+          "epoch": 288,
+          "threads": 18,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=240 time=288 threads=18"
+        },
+        {
+          "line": 71,
+          "name": "backboardd",
+          "pid": 40,
+          "seconds": 600,
+          "epoch": 648,
+          "threads": 18,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=600 time=648 threads=18"
+        },
+        {
+          "line": 96,
+          "name": "backboardd",
+          "pid": 40,
+          "seconds": 901,
+          "epoch": 949,
+          "threads": 16,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=901 time=949 threads=16"
+        }
+      ]
+    },
+    "mobile/Library/Logs/PongBoot-com.apple.datamigrator.txt": {
+      "observed_pids": [
+        84
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "com.apple.datamigrator",
+          "pid": 84,
+          "seconds": 60,
+          "epoch": 128,
+          "threads": 11,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=84 seconds=60 time=128 threads=11"
+        },
+        {
+          "line": 16,
+          "name": "com.apple.datamigrator",
+          "pid": 84,
+          "seconds": 121,
+          "epoch": 190,
+          "threads": 13,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=84 seconds=121 time=190 threads=13"
+        },
+        {
+          "line": 33,
+          "name": "com.apple.datamigrator",
+          "pid": 84,
+          "seconds": 242,
+          "epoch": 310,
+          "threads": 17,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=84 seconds=242 time=310 threads=17"
+        },
+        {
+          "line": 58,
+          "name": "com.apple.datamigrator",
+          "pid": 84,
+          "seconds": 602,
+          "epoch": 671,
+          "threads": 21,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=84 seconds=602 time=671 threads=21"
+        },
+        {
+          "line": 86,
+          "name": "com.apple.datamigrator",
+          "pid": 84,
+          "seconds": 901,
+          "epoch": 970,
+          "threads": 4,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=84 seconds=901 time=970 threads=4"
+        }
+      ]
+    },
+    "mobile/Library/Logs/PongBoot-com.apple.migrationpluginwrapper.txt": {
+      "observed_pids": [
+        149,
+        218,
+        245
+      ],
+      "snapshots": [
+        {
+          "line": 1,
+          "name": "com.apple.migrationpluginwrapper",
+          "pid": 149,
+          "seconds": 30,
+          "epoch": 123,
+          "threads": 4,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=149 seconds=30 time=123 threads=4"
+        },
+        {
+          "line": 8,
+          "name": "com.apple.migrationpluginwrapper",
+          "pid": 218,
+          "seconds": 30,
+          "epoch": 188,
+          "threads": 5,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=218 seconds=30 time=188 threads=5"
+        },
+        {
+          "line": 15,
+          "name": "com.apple.migrationpluginwrapper",
+          "pid": 245,
+          "seconds": 30,
+          "epoch": 240,
+          "threads": 6,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=245 seconds=30 time=240 threads=6"
+        },
+        {
+          "line": 25,
+          "name": "com.apple.migrationpluginwrapper",
+          "pid": 245,
+          "seconds": 123,
+          "epoch": 333,
+          "threads": 6,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=245 seconds=123 time=333 threads=6"
+        },
+        {
+          "line": 35,
+          "name": "com.apple.migrationpluginwrapper",
+          "pid": 245,
+          "seconds": 244,
+          "epoch": 455,
+          "threads": 9,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=245 seconds=244 time=455 threads=9"
+        }
+      ]
+    },
+    "mobile/Library/Logs/PongBoot-lsd.txt": {
+      "observed_pids": [
+        86,
+        365
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "lsd",
+          "pid": 86,
+          "seconds": 60,
+          "epoch": 128,
+          "threads": 9,
+          "text": "Pong boot snapshot BEGIN: lsd pid=86 seconds=60 time=128 threads=9"
+        },
+        {
+          "line": 14,
+          "name": "lsd",
+          "pid": 86,
+          "seconds": 120,
+          "epoch": 188,
+          "threads": 5,
+          "text": "Pong boot snapshot BEGIN: lsd pid=86 seconds=120 time=188 threads=5"
+        },
+        {
+          "line": 23,
+          "name": "lsd",
+          "pid": 86,
+          "seconds": 241,
+          "epoch": 310,
+          "threads": 4,
+          "text": "Pong boot snapshot BEGIN: lsd pid=86 seconds=241 time=310 threads=4"
+        },
+        {
+          "line": 32,
+          "name": "lsd",
+          "pid": 365,
+          "seconds": 60,
+          "epoch": 554,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: lsd pid=365 seconds=60 time=554 threads=3"
+        },
+        {
+          "line": 38,
+          "name": "lsd",
+          "pid": 365,
+          "seconds": 121,
+          "epoch": 616,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: lsd pid=365 seconds=121 time=616 threads=3"
+        },
+        {
+          "line": 45,
+          "name": "lsd",
+          "pid": 365,
+          "seconds": 242,
+          "epoch": 737,
+          "threads": 6,
+          "text": "Pong boot snapshot BEGIN: lsd pid=365 seconds=242 time=737 threads=6"
+        }
+      ]
+    },
+    "mobile/Library/Logs/PongBoot-mediaremoted.txt": {
+      "observed_pids": [
+        10
+      ],
+      "snapshots": [
+        {
+          "line": 2,
+          "name": "mediaremoted",
+          "pid": 10,
+          "seconds": 60,
+          "epoch": 108,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=60 time=108 threads=3"
+        },
+        {
+          "line": 8,
+          "name": "mediaremoted",
+          "pid": 10,
+          "seconds": 121,
+          "epoch": 169,
+          "threads": 13,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=121 time=169 threads=13"
+        },
+        {
+          "line": 25,
+          "name": "mediaremoted",
+          "pid": 10,
+          "seconds": 242,
+          "epoch": 290,
+          "threads": 4,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=242 time=290 threads=4"
+        },
+        {
+          "line": 37,
+          "name": "mediaremoted",
+          "pid": 10,
+          "seconds": 603,
+          "epoch": 651,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=603 time=651 threads=3"
+        },
+        {
+          "line": 47,
+          "name": "mediaremoted",
+          "pid": 10,
+          "seconds": 903,
+          "epoch": 951,
+          "threads": 3,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=903 time=951 threads=3"
+        }
+      ]
+    }
+  },
+  "watch_summary": {
+    "fairplayd.A2": {
+      "count": 65,
+      "observed_pids": [
+        60,
+        130,
+        175,
+        191,
+        201,
+        206,
+        223,
+        230,
+        237,
+        241,
+        244,
+        255,
+        266,
+        274,
+        288,
+        293,
+        302,
+        306,
+        314,
+        324,
+        330,
+        337,
+        343,
+        348,
+        371,
+        378,
+        394,
+        402,
+        407,
+        414,
+        422,
+        439,
+        454,
+        467,
+        472,
+        481,
+        503,
+        528,
+        556,
+        562
+      ],
+      "first": {
+        "line": 3,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          60
+        ],
+        "text": "[49] Pong watch: fairplayd.A2 (none) -> [60]"
+      },
+      "last": {
+        "line": 185,
+        "epoch": 1006,
+        "before": "[]",
+        "pids": [
+          562
+        ],
+        "text": "[1006] Pong watch: fairplayd.A2 [] -> [562]"
+      }
+    },
+    "fairplaydeviceidentityd": {
+      "count": 3,
+      "observed_pids": [
+        262
+      ],
+      "first": {
+        "line": 4,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: fairplaydeviceidentityd (none) -> []"
+      },
+      "last": {
+        "line": 136,
+        "epoch": 525,
+        "before": "[262]",
+        "pids": [],
+        "text": "[525] Pong watch: fairplaydeviceidentityd [262] -> []"
+      }
+    },
+    "locationd": {
+      "count": 1,
+      "observed_pids": [
+        44
+      ],
+      "first": {
+        "line": 5,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          44
+        ],
+        "text": "[49] Pong watch: locationd (none) -> [44]"
+      },
+      "last": {
+        "line": 5,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          44
+        ],
+        "text": "[49] Pong watch: locationd (none) -> [44]"
+      }
+    },
+    "timed": {
+      "count": 1,
+      "observed_pids": [
+        43
+      ],
+      "first": {
+        "line": 6,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          43
+        ],
+        "text": "[49] Pong watch: timed (none) -> [43]"
+      },
+      "last": {
+        "line": 6,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          43
+        ],
+        "text": "[49] Pong watch: timed (none) -> [43]"
+      }
+    },
+    "lockdownd": {
+      "count": 4,
+      "observed_pids": [
+        54,
+        447
+      ],
+      "first": {
+        "line": 7,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          54
+        ],
+        "text": "[49] Pong watch: lockdownd (none) -> [54]"
+      },
+      "last": {
+        "line": 175,
+        "epoch": 945,
+        "before": "[447]",
+        "pids": [],
+        "text": "[945] Pong watch: lockdownd [447] -> []"
+      }
+    },
+    "usermanagerd": {
+      "count": 1,
+      "observed_pids": [
+        69
+      ],
+      "first": {
+        "line": 8,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          69
+        ],
+        "text": "[49] Pong watch: usermanagerd (none) -> [69]"
+      },
+      "last": {
+        "line": 8,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          69
+        ],
+        "text": "[49] Pong watch: usermanagerd (none) -> [69]"
+      }
+    },
+    "containermanagerd": {
+      "count": 4,
+      "observed_pids": [
+        45,
+        72,
+        551
+      ],
+      "first": {
+        "line": 9,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          45
+        ],
+        "text": "[49] Pong watch: containermanagerd (none) -> [45]"
+      },
+      "last": {
+        "line": 179,
+        "epoch": 960,
+        "before": "[72]",
+        "pids": [
+          551,
+          72
+        ],
+        "text": "[960] Pong watch: containermanagerd [72] -> [551,72]"
+      }
+    },
+    "PosterBoard": {
+      "count": 5,
+      "observed_pids": [
+        405,
+        446,
+        496,
+        545
+      ],
+      "first": {
+        "line": 10,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: PosterBoard (none) -> []"
+      },
+      "last": {
+        "line": 177,
+        "epoch": 950,
+        "before": "[496]",
+        "pids": [
+          545
+        ],
+        "text": "[950] Pong watch: PosterBoard [496] -> [545]"
+      }
+    },
+    "SpringBoard": {
+      "count": 1,
+      "observed_pids": [
+        5
+      ],
+      "first": {
+        "line": 11,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          5
+        ],
+        "text": "[49] Pong watch: SpringBoard (none) -> [5]"
+      },
+      "last": {
+        "line": 11,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          5
+        ],
+        "text": "[49] Pong watch: SpringBoard (none) -> [5]"
+      }
+    },
+    "backboardd": {
+      "count": 1,
+      "observed_pids": [
+        40
+      ],
+      "first": {
+        "line": 12,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          40
+        ],
+        "text": "[49] Pong watch: backboardd (none) -> [40]"
+      },
+      "last": {
+        "line": 12,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          40
+        ],
+        "text": "[49] Pong watch: backboardd (none) -> [40]"
+      }
+    },
+    "runningboardd": {
+      "count": 1,
+      "observed_pids": [
+        6
+      ],
+      "first": {
+        "line": 13,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          6
+        ],
+        "text": "[49] Pong watch: runningboardd (none) -> [6]"
+      },
+      "last": {
+        "line": 13,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          6
+        ],
+        "text": "[49] Pong watch: runningboardd (none) -> [6]"
+      }
+    },
+    "lsd": {
+      "count": 4,
+      "observed_pids": [
+        86,
+        365
+      ],
+      "first": {
+        "line": 14,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: lsd (none) -> []"
+      },
+      "last": {
+        "line": 129,
+        "epoch": 490,
+        "before": "[]",
+        "pids": [
+          365
+        ],
+        "text": "[490] Pong watch: lsd [] -> [365]"
+      }
+    },
+    "com.apple.datamig": {
+      "count": 2,
+      "observed_pids": [
+        84
+      ],
+      "first": {
+        "line": 15,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: com.apple.datamig (none) -> []"
+      },
+      "last": {
+        "line": 23,
+        "epoch": 69,
+        "before": "[]",
+        "pids": [
+          84
+        ],
+        "text": "[69] Pong watch: com.apple.datamig [] -> [84]"
+      }
+    },
+    "com.apple.migrationplug": {
+      "count": 5,
+      "observed_pids": [
+        149,
+        218,
+        245
+      ],
+      "first": {
+        "line": 16,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: com.apple.migrationplug (none) -> []"
+      },
+      "last": {
+        "line": 153,
+        "epoch": 685,
+        "before": "[245]",
+        "pids": [],
+        "text": "[685] Pong watch: com.apple.migrationplug [245] -> []"
+      }
+    },
+    "datamigratorhelper": {
+      "count": 1,
+      "observed_pids": [],
+      "first": {
+        "line": 17,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: datamigratorhelper (none) -> []"
+      },
+      "last": {
+        "line": 17,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: datamigratorhelper (none) -> []"
+      }
+    },
+    "securityd": {
+      "count": 2,
+      "observed_pids": [
+        78
+      ],
+      "first": {
+        "line": 18,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: securityd (none) -> []"
+      },
+      "last": {
+        "line": 21,
+        "epoch": 64,
+        "before": "[]",
+        "pids": [
+          78
+        ],
+        "text": "[64] Pong watch: securityd [] -> [78]"
+      }
+    },
+    "mobileassetd": {
+      "count": 4,
+      "observed_pids": [
+        82,
+        321
+      ],
+      "first": {
+        "line": 19,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: mobileassetd (none) -> []"
+      },
+      "last": {
+        "line": 113,
+        "epoch": 415,
+        "before": "[]",
+        "pids": [
+          321
+        ],
+        "text": "[415] Pong watch: mobileassetd [] -> [321]"
+      }
+    }
+  },
+  "migration_plists": [
+    {
+      "file": "mobile/Library/Preferences/com.apple.migration.plist",
+      "data": {
+        "LastSystemVersion": "22H374",
+        "DMUserDataDisposition": {
+          "EraseIsRapidReturnToService": false,
+          "SyntheticDidUpgrade": false,
+          "buildVersion": "22H374"
+        },
+        "MultilingualSetsMigrationVersion": 1,
+        "DMLastMigrationResults": {
+          "success": false,
+          "buildVersion": "22H374"
+        }
+      }
+    },
+    {
+      "file": "mobile/Library/Preferences/com.apple.springboard.datamigrator.plist",
+      "data": {
+        "lastBuildVersion": "22H374"
+      }
+    }
+  ],
+  "migration_receipts": [],
+  "pong_exit_receipts": [
+    {
+      "line": 1782,
+      "text": "[   75.564307]: PONG EXIT fairplayd.A2 pid=60 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 1784,
+      "text": "[   76.081234]: PONG EXIT fairplayd.A2 pid=96 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 1884,
+      "text": "[   95.662093]: PONG EXIT fairplayd.A2 pid=130 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 1899,
+      "text": "[   99.710987]: PONG EXIT fairplayd.A2 pid=167 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 2729,
+      "text": "[  113.719544]: PONG EXIT fairplayd.A2 pid=175 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 2756,
+      "text": "[  118.484188]: PONG EXIT fairplayd.A2 pid=185 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 3446,
+      "text": "[  135.629561]: PONG EXIT fairplayd.A2 pid=191 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 3619,
+      "text": "[  141.119526]: PONG EXIT fairplayd.A2 pid=201 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 3862,
+      "text": "[  151.607412]: PONG EXIT fairplayd.A2 pid=206 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 3924,
+      "text": "[  155.268706]: PONG EXIT com.apple.migrat pid=149 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 4899,
+      "text": "[  171.143040]: PONG EXIT fairplayd.A2 pid=223 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 5008,
+      "text": "[  188.860061]: PONG EXIT fairplayd.A2 pid=230 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 5982,
+      "text": "[  196.386826]: PONG EXIT fairplayd.A2 pid=237 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 6002,
+      "text": "[  202.589521]: PONG EXIT fairplayd.A2 pid=241 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 6039,
+      "text": "[  209.831897]: PONG EXIT com.apple.migrat pid=218 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 6045,
+      "text": "[  210.102377]: PONG EXIT fairplayd.A2 pid=244 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 6083,
+      "text": "[  222.129378]: PONG EXIT fairplayd.A2 pid=250 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 7131,
+      "text": "[  251.075541]: PONG EXIT fairplayd.A2 pid=255 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 8140,
+      "text": "[  268.201534]: PONG EXIT fairplayd.A2 pid=266 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 9187,
+      "text": "[  305.156152]: PONG EXIT fairplayd.A2 pid=274 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 10147,
+      "text": "[  322.491443]: PONG EXIT fairplayd.A2 pid=288 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 11097,
+      "text": "[  351.015059]: PONG EXIT fairplayd.A2 pid=293 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 11162,
+      "text": "[  369.708139]: PONG EXIT fairplayd.A2 pid=302 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 12069,
+      "text": "[  392.952959]: PONG EXIT fairplayd.A2 pid=306 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 12968,
+      "text": "[  416.127522]: PONG EXIT fairplayd.A2 pid=314 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 13009,
+      "text": "[  430.522692]: PONG EXIT fairplayd.A2 pid=324 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 13864,
+      "text": "[  437.884741]: PONG EXIT fairplayd.A2 pid=330 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 13924,
+      "text": "[  459.781732]: PONG EXIT fairplayd.A2 pid=337 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 14695,
+      "text": "[  467.806480]: PONG EXIT fairplayd.A2 pid=343 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 14860,
+      "text": "[  489.114810]: PONG EXIT fairplayd.A2 pid=348 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 15685,
+      "text": "[  495.936362]: PONG EXIT fairplayd.A2 pid=371 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 15752,
+      "text": "[  517.421702]: PONG EXIT fairplayd.A2 pid=378 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 15757,
+      "text": "[  518.668956]: PONG EXIT fairplayd.A2 pid=386 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 16748,
+      "text": "[  549.898035]: PONG EXIT fairplayd.A2 pid=394 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 17622,
+      "text": "[  557.937261]: PONG EXIT fairplayd.A2 pid=402 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 17660,
+      "text": "[  570.837040]: PONG EXIT fairplayd.A2 pid=407 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 18596,
+      "text": "[  595.084820]: PONG EXIT fairplayd.A2 pid=414 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 20487,
+      "text": "[  657.805930]: PONG EXIT fairplayd.A2 pid=422 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 21432,
+      "text": "[  682.094057]: PONG EXIT com.apple.migrat pid=245 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 21434,
+      "text": "[  682.446748]: PONG EXIT PosterBoard pid=405 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:405 exhausted real (wall clock) time allowance of 30.00 seconds"
+    },
+    {
+      "line": 22395,
+      "text": "[  705.864868]: PONG EXIT fairplayd.A2 pid=439 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 23357,
+      "text": "[  734.996125]: PONG EXIT fairplayd.A2 pid=454 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 23403,
+      "text": "[  749.490095]: PONG EXIT fairplayd.A2 pid=467 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 24388,
+      "text": "[  784.215646]: PONG EXIT fairplayd.A2 pid=472 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 25376,
+      "text": "[  818.146394]: PONG EXIT PosterBoard pid=446 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:446 exhausted real (wall clock) time allowance of 30.00 seconds"
+    },
+    {
+      "line": 26373,
+      "text": "[  842.845508]: PONG EXIT fairplayd.A2 pid=481 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 28303,
+      "text": "[  909.318050]: PONG EXIT fairplayd.A2 pid=503 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 30459,
+      "text": "[  949.613220]: PONG EXIT PosterBoard pid=496 signal=9 status=0 namespace=10 code=0x8badf00d description=<RBSTerminateContext| domain:10 code:0x8BADF00D explanation:process-launch watchdog transgression: osservice<com.apple.PosterBoard>:496 exhausted real (wall clock) time allowance of 30.00 seconds"
+    },
+    {
+      "line": 30514,
+      "text": "[  964.638680]: PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting"
+    },
+    {
+      "line": 30520,
+      "text": "[  965.187034]: PONG EXIT fairplayd.A2 pid=528 signal=0 status=0 namespace=0 code=0x0 description=none"
+    },
+    {
+      "line": 31564,
+      "text": "[  990.538854]: PONG EXIT fairplayd.A2 pid=556 signal=0 status=0 namespace=0 code=0x0 description=none"
+    }
+  ],
+  "lockdown_migration_receipts": [
+    {
+      "file": "logs/lockdownd.log",
+      "line": 23,
+      "text": "01/01/70 00:01:50.043912 pid=54 lockstart_local: Data Migration Completed: false"
+    },
+    {
+      "file": "logs/lockdownd.log",
+      "line": 103,
+      "text": "01/01/70 00:11:56.443533 pid=447 main_block_invoke: Received notification: com.apple.datamigrator.migrationDidFinish"
+    },
+    {
+      "file": "logs/lockdownd.log",
+      "line": 105,
+      "text": "01/01/70 00:12:03.302286 pid=447 lockstart_local: Data Migration Completed: true"
+    }
+  ],
+  "setup_sentinel": {
+    "exists": false
+  },
+  "exit_receipt_counts": [
+    {
+      "name": "fairplayd.A2",
+      "signal_literal": "0",
+      "status_literal": "0",
+      "namespace_literal": "0",
+      "count": 44
+    },
+    {
+      "name": "com.apple.migrat",
+      "signal_literal": "0",
+      "status_literal": "0",
+      "namespace_literal": "0",
+      "count": 3
+    },
+    {
+      "name": "PosterBoard",
+      "signal_literal": "9",
+      "status_literal": "0",
+      "namespace_literal": "10",
+      "count": 3
+    },
+    {
+      "name": "audiomxd",
+      "signal_literal": "6",
+      "status_literal": "0",
+      "namespace_literal": "39",
+      "count": 1
+    }
+  ],
+  "native_body_validity": [
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001119.0003.ips",
+      "header_complete": true,
+      "body_complete": false,
+      "body_error": "Expecting ',' delimiter: line 31 column 3267 (char 28500)"
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000125.000.ips",
+      "header_complete": true,
+      "body_complete": false,
+      "body_error": "Expecting ',' delimiter: line 23 column 6460 (char 27502)"
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001633.000.ips",
+      "header_complete": true,
+      "body_complete": false,
+      "body_error": "Expecting ',' delimiter: line 28 column 1916 (char 27051)"
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000508.0002.ips",
+      "header_complete": true,
+      "body_complete": true,
+      "body_end": 113041
+    }
+  ]
+}

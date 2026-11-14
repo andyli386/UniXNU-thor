@@ -1,0 +1,123 @@
+THOR v75 / 2026-11-14 15:39:48 采集：内存、进程与迁移对照审阅
+对照：同日 10:31:39 的 v74 采集
+
+一、结论
+
+这轮仍有持续的内存压力，而且抓到了上一轮没有保留下来的两份完整 Jetsam 报告。确定的新事件是 lsd PID 352 在 raw 553.734670 因 highwater 被杀；原生报告也标记 reason=highwater。当时报告的 rpages=4152，按该报告 pageSize=4096 换算为16.21875 MiB。这能证明 LaunchServices 服务遭到单进程内存上限处置；仅靠这个数还不能证明恰好命中哪一份运行时配置或它就是黑屏唯一根因。后续源文件核对已找到原装J171/J172两份策略的lsd ActiveSoftMemoryLimit=16，与运行时阈值吻合；但本轮没有独立记录launchd实际加载的完整jetsam策略。
+
+IOSurface 新计数确实出现在设备日志里：raw 101.804774 和284.340634两次不同事件都是 live 71 MB in 4 surfaces。这里 MB 实为 gSurfaceBytes>>20，即整数 MiB。它只统计 surface 表中的 alloc 总量，并不等于整个显示驱动的 wired。现有复用池最多可保留4项、单项4–32MiB，总容量上限128MiB；表中surface减计数后 backing descriptor仍可能留在池里。此次没有 pool occupancy/owner 对照，因此不能用“live71MiB”排除显示侧内存，也不能宣布128MiB已全部被占用。
+
+SpringBoard PID5、backboardd PID40、runningboardd PID6保持同一PID并有后期tick；这是进程存活证据，不是UI完成证据。usermanagerd出现5个PID，但5次退出均有明确 idle-exit，不能将其描述为persona崩溃循环。audio仍反复SIGABRT，PosterBoard与AccessibilityUIServer仍有启动watchdog。Data Migration Completed通知变晚，落盘success仍为false。
+
+二、采样窗口与日志质量
+
+v75 Console：6,220,563 bytes，47,429物理行；按完整原始文本行去重后7,770条非空行。包含49个NUL字节、39,589份重复非空行、48个物理WRAP标记。未在第一个NUL处截断，原始文件保留。
+v75 RAM标记 raw26.137305，最后标准六位小数时间戳raw1484.356745；RAM之后覆盖1458.219440秒。v74 RAM之后覆盖977.793086秒。二者整轮长度差约8分钟，不能直接把395与129次memorystatus处置当做同长窗口对比。
+共同窗口按各自RAM标记对齐为977.793086秒。7位等非标准小数时间戳保留原文，仅当整数秒远离窗口边界时用于计数；边界不明事件0。
+
+共同窗口计数：
+  原因                         v74     v75
+  idle-exit                     86     145
+  long-idle-exit                 36      17
+  vm-compressor-thrashing         7       6
+  highwater                      0       1
+  总计                         129     169
+
+v75整轮：idle-exit352、long-idle-exit17、vm-compressor-thrashing7、highwater1、sustained-memory-pressure18，总计395。后18次sustained-memory-pressure发生在raw1166.097569–1174.705230，位于v74保存窗口之外。不能把它们直接叫做v75相对v74的回归。
+未发现SpringBoard、backboardd、runningboardd、audiomxd或mediaremoted被memorystatus杀死的记录。
+
+证据：memory-current.json / memory-summary-current.json，原始logs/PongConsole.txt。
+
+三、内存压力已经有原生快照支持
+
+以下时间使用IPS自己的日期字段，不能直接与Console raw时间相减。
+  报告时间与类型          wired MiB  compressor MiB  active+inactive MiB  pressure
+  00:01:24 datamigrator      231.30       18.60              389.10        false
+  00:09:21 Jetsam            393.62      115.92              140.78        未给布尔值
+  00:12:18 PosterBoard       406.58      114.54              129.82        true
+  00:13:20 audiomxd          411.74      134.84              101.59        true
+  00:19:35 Jetsam            405.94      130.11              114.59        未给布尔值
+  00:19:39 AccessibilityUI   405.50      125.29              115.20        true
+
+两份完整Jetsam的largestProcess均为backboardd PID40；其rpages按4KiB换算77.52→95.11MiB，lifetimeMax95.47→95.54MiB。SpringBoard相应为5.43→7.23MiB。该rpages量是报告中的进程计量，不能与系统wired简单相加。backboardd较大也不能单独证明它泄漏。
+两份Jetsam zoneMapSize分别65.39/65.19MiB，largestZone=APFS_4K_OBJS，largestZoneSize约8.41/8.74MiB。这两点不支持把约400MiB wired全部归于APFS zone，也不排除其他内核/驱动占用。
+00:19:39报告累计compressions=4,316,015，decompressions=4,000,360；这些是压缩/解压计数，不能直接当UFS读字节数。Console末尾soft-limit记录按准确字段换算：available_pages=17559，即68.58984375MiB；compressor_size=36746，即143.5390625MiB。
+首次soft-limit从raw284.442228开始，available约99.73MiB、compressor约100.29MiB；665MiB managed-before-kernel-reservations、VM swap disabled的配置本轮仍在。
+
+证据：memory-jetsam-processes-v75.json、memory-supplement-v75.json中完整memoryStatus字段；原始6份IPS。4份非Jetsam的body截断，memoryStatus字段自身完整；不曾补括号伪造完整body。
+
+四、IOSurface计数的证据与限制
+
+Console物理行1925（重复位置2690/3699/4613/5579/6529）：
+  [101.804774] MiniIOSurface: live 71 MB in 4 surfaces (crossed 1 x 64MB)
+Console物理行9437（重复位置10282/11105/11916/12598/13447/14274）：
+  [284.340634] MiniIOSurface: live 71 MB in 4 surfaces (release crossed 1 x 64MB)
+两者各为一次日志事件；相同内容多次存盘不是持续分配71MiB多次。
+
+源码核对依据：当前xnu-work/iokit/Kernel/MiniIOSurface.cpp表插入后约838行加alloc，847–848打印创建侧跨桶；882行减info.allocSize，889–890打印释放侧跨桶。创建与释放各有自己的static lastMark，不能把两条“crossed1”误读为全局先上穿后下穿64MiB；释放条仍为71MiB。源文件189–192的复用池上限4项/每项4–32MiB。日志没有实时pool占用、state页、映射与对象开销，也没有分配归属PID。wrapped client的alloc同样计入，多个映射可能归因重叠。不能把live总和直接等同独立物理页。
+
+还出现新接口缺口：物理行20700（重复21258/22129），raw661.443863：
+  MiniIOSurface: selector 44 not implemented (scalars 4 in, 0 out; structure 0 in, 0 out)
+这提供了具体的接口编号/入参形状，应和真实框架调用点核对；缺实现本身不证明它决定黑屏。
+
+下一步内存会计建议：同一时刻分别记录table live bytes/count、retained pool bytes/count、state页、分配/释放总数与失败数，注明归属PID。压力回收复用池是候选措施，先补实际占用与回收前后记录，不能以理论128MiB当已验证可释放量。不要只把当前live计数改名为wired便宣告闭环。
+
+五、lsd与进程退出
+
+lsd：
+  Console物理17051/raw553.734670：killing_highwater_process pid352 [lsd]，highwater，16610KB。
+  原生Jetsam 00:09:21：PID352、reason=highwater、rpages4152、lifetimeMax4152、priority140。
+  之后观察到lsd PID386，完整PongBoot覆盖epoch621/682/802/1163/1466。
+  原装22H374 J171/J172 jetsamproperties两份plist：Version4/Daemon/Override/com.apple.lsd及com.apple.lsd.system均ActiveSoftMemoryLimit=16、JetsamPriority=140、InactiveHardMemoryLimit=12，job本身未设MemoryLimit。原装策略值与此次priority140、16.21875MiB highwater相符；不应再笼统解释为新补丁凭空设了16MiB，也不能未经运行时加载回执把具体策略来源完全定死。证据见v75-selector44-binary.json内的jetsamproperties摘录。
+  这增加了LS重启/数据库请求重试的现实可能，但仅凭这两条还不能证明SB当前等待此PID，需结合SB调用栈与请求关联。
+
+audio独立退出：
+  raw718.339580  PID82   SIGABRT namespace39：writing stackshot failed, aborting
+  raw804.458538  PID492  SIGABRT namespace39：writing stackshot took over 5s, aborting
+  raw912.753477  PID531  SIGABRT namespace39：writing stackshot failed, aborting
+  raw1171.338033 PID566  SIGABRT namespace39：writing stackshot failed, aborting
+  最后PID694有elapsed302秒tick。
+  原生13:20报告只明确绑定PID492，reason是AQ::Server: RPC timeout within audiomxd. Apparently deadlocked. Writing a stackshot and exiting. 不把这个原始RPC原因未经证明覆盖到另外三个PID。
+  前三次位于共同窗口；v74在共同窗口里为2次audio退出。这两次运行并非严格控制变量试验。
+
+PosterBoard：
+  PID401 raw732.688477，PID721 raw1333.246107，PID779 raw1429.480542：namespace10、0x8badf00d，process-launch watchdog30秒。
+  PID500 raw814.369341：namespace1/code9；后接raw814.376461 idle-exit处置，不算同类watchdog崩溃。
+  额外原生00:19:39报告确定AccessibilityUIServer PID583同样process-launch watchdog30秒；其文件名是unknown但termination写出了实际服务名。
+
+usermanagerd：
+  PID69/457/615/675/774分别于raw687.082934/1019.848072/1148.053652/1306.614510/1429.710150因idle-exit退出。
+  日志均能加载persona manifest version1，仍有nextsession.kb缺失/UserSessionID错误。此次没有证据把这5次明确idle退出改说成persona SIGABRT。
+
+fairplayd.A2：55条独立PONG EXIT均signal0/status0/namespace0；不是55次崩溃。
+com.apple.migrationpluginwrapper：10条signal0/status0/namespace0，另3条SIGKILL namespace2（PID551/565/575）；不能将全部13条都算正常退出或都算崩溃。
+
+证据：memory-summary-current.json的exit_receipt_counts和pong_exit_receipts；memory-current.json的kill_events；memory-jetsam-processes-v75.json；usermanagerd.log.0。
+
+六、Data Migration与慢启动
+
+lockdownd自己的用户态时钟：
+  v74 migrationDidFinish 00:11:55.274934；Completed=true 00:12:06.794046。
+  v75 migrationDidFinish 00:19:19.049694；Completed=true 00:19:40.691340。
+同类回执分别晚443.774760秒和453.897294秒。该通知表示迁移阶段发出完成通知，不能替代所有迁移插件成功。
+
+落盘状态两轮仍相同：
+  mobile/Library/Preferences/com.apple.migration.plist
+    DMLastMigrationResults.success=false，buildVersion=22H374；LastSystemVersion=22H374。
+  com.apple.springboard.datamigrator.plist：lastBuildVersion=22H374。
+  db/.AppleSetupDone未出现。
+本轮migrationpluginwrapper.plist包含一批Accessibility迁移完成标记与XBRecentScreenSize={480,1066.6666666666667}；这些局部标记也不能覆盖全局success=false。
+
+PongDM-80记录13次diagnostics调用（3次原async1、10次async0被强制走async1）；v74是5次（3次async1、2次async0）。当前仍持续触发诊断和重复工作，不能仅因Completed=true把迁移从故障树删除。
+
+预读的13个窗口、318.515625MiB与v74相同。所记录各read_ms合计v75为47.773秒，v74为30.610秒，增加17.163秒；本轮epoch103开始、151完成。该指标是特定窗口运行中的读耗时，不是整机UFS基准，混有页缓存/并发任务/调度影响。它支持“这一轮的预读阶段更慢”，不足以解释迁移回执晚7分多的全部时间。
+
+慢启动的已观测组成包括：持续压缩/回收压力、一次lsd高水位杀进程、多个audio/watchdog失败、迁移诊断反复以及比上轮更长的部分读取耗时。实际最主要的UI等待拥有者仍需本轮线程/显示关联证据，不应将所有停顿笼统归为UFS。
+
+七、来源一致性与剩余边界
+
+本轮6份IPS都不是v74同路径字节相同的遗留文件；两份unknown原生报告的bootSessionUUID相同，为C0211509-C99D-4EEE-BA1C-EEB9C6252DEA。两份完整Jetsam的关键PID与本轮Console一致。选取的新Probe回执也实际出现。
+迁移plist内容与上轮一致可能反映相同失败结果或持久状态；报告仅把它当本轮提取时的落盘状态，不把内容一致本身当“再次执行”的证明。
+Console raw、PongBoot/PongDiag的time(NULL)、IPS日历时间彼此不同，不做未经校准的跨钟精确先后运算。所有源字节保留；原生body截断的报告只能引用完整字段，不能构造完整线程等待图。
+
+分析由只读日志与现有代码完成。本文件没有实施代码更改、内存扩容、禁用watchdog、强行写迁移成功、刷机或重启。

@@ -1,0 +1,80 @@
+Pong tick: runningboardd pid=6 seconds=60 threads=12
+Pong boot snapshot BEGIN: runningboardd pid=6 seconds=60 time=104 threads=12
+Pong boot snapshot: runningboardd pid=6 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=100e28000 cache=0x195284000 size=f37c8000
+thread=0 tid=360 state_result=0 info_result=0 run=3 cpu=0 pc=1e3518bf4 lr=1e351c17c fp=16f01a660 sp=16f01a610 frames: 1e351c0d0 1e351bf1c 197b27998 197b262d0 197b27cb0 197b9d3c4 100de47d4 1bc9b596c 0
+thread=2 tid=400 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f125e70 sp=16f125e40 frames: 19f3d45d4 100e382dc 1f664c6b0 1f664aabc
+thread=3 tid=401 state_result=0 info_result=0 run=4 cpu=49 pc=1e351d928 lr=100e386a0 fp=16f1abfc0 sp=16f1ab2b0 frames: 1f664c6b0 1f664aabc
+thread=4 tid=402 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f231620 sp=16f2315f0 frames: 19f3d45d4 100e388d8 1f664c6b0 1f664aabc
+thread=5 tid=489 state_result=0 info_result=0 run=3 cpu=0 pc=1e3518bf4 lr=1e351c17c fp=16f338b40 sp=16f338af0 frames: 1e351c0d0 1e351bf1c 19f3605e8 19f360984 1f66a7828 1968e8994 1968a6630 1968a7f18 1968a7e54 19790f5ac 1978e9ca4 1978f5d74 1978f5a44 232aee0e4 19f389830 19f38aa68 19f3956a4 19f3715e8 19f371b34 1f664a9d4 1f664aab0
+thread=6 tid=490 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f3c3b50 sp=16f3c3b30 frames: 1f664aab0
+thread=7 tid=491 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f449a50 sp=16f449a30 frames: 1f664aab0
+thread=8 tid=688 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f555b50 sp=16f555b30 frames: 1f664aab0
+thread=9 tid=689 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f5db900 sp=16f5db8e0 frames: 1f664aab0
+thread=10 tid=806 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f2b7b50 sp=16f2b7b30 frames: 1f664aab0
+thread=11 tid=1632 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: runningboardd pid=6 seconds=60 sampled=11 of 12
+Pong tick: runningboardd pid=6 seconds=122 threads=10
+Pong boot snapshot BEGIN: runningboardd pid=6 seconds=122 time=166 threads=10
+Pong boot snapshot: runningboardd pid=6 seconds=122 image0=/private/var/pong/libpong-ui18.dylib image_slide=100e28000 cache=0x195284000 size=f37c8000
+thread=0 tid=360 state_result=0 info_result=0 run=3 cpu=0 pc=1e3518bf4 lr=1e351c17c fp=16f01a660 sp=16f01a610 frames: 1e351c0d0 1e351bf1c 197b27998 197b262d0 197b27cb0 197b9d3c4 100de47d4 1bc9b596c 0
+thread=2 tid=400 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f125e70 sp=16f125e40 frames: 19f3d45d4 100e382dc 1f664c6b0 1f664aabc
+thread=3 tid=402 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f231620 sp=16f2315f0 frames: 19f3d45d4 100e388d8 1f664c6b0 1f664aabc
+thread=4 tid=489 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f33db50 sp=16f33db30 frames: 1f664aab0
+thread=5 tid=491 state_result=0 info_result=0 run=3 cpu=1 pc=1e35189a8 lr=1f664aa5c fp=16f449a70 sp=16f449a50 frames: 1f664aab0
+thread=6 tid=2076 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f2b7b50 sp=16f2b7b30 frames: 1f664aab0
+thread=7 tid=2123 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f555b60 sp=16f555b40 frames: 1f664aab0
+thread=8 tid=2218 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f1abb50 sp=16f1abb30 frames: 1f664aab0
+thread=9 tid=2250 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: runningboardd pid=6 seconds=122 sampled=9 of 10
+Pong tick: runningboardd pid=6 seconds=182 threads=11
+Pong tick: runningboardd pid=6 seconds=242 threads=8
+Pong boot snapshot BEGIN: runningboardd pid=6 seconds=242 time=286 threads=8
+Pong boot snapshot: runningboardd pid=6 seconds=242 image0=/private/var/pong/libpong-ui18.dylib image_slide=100e28000 cache=0x195284000 size=f37c8000
+thread=0 tid=360 state_result=0 info_result=0 run=3 cpu=0 pc=1e3518bf4 lr=1e351c17c fp=16f01a660 sp=16f01a610 frames: 1e351c0d0 1e351bf1c 197b27998 197b262d0 197b27cb0 197b9d3c4 100de47d4 1bc9b596c 0
+thread=2 tid=400 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f125e70 sp=16f125e40 frames: 19f3d45d4 100e382dc 1f664c6b0 1f664aabc
+thread=3 tid=402 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f231620 sp=16f2315f0 frames: 19f3d45d4 100e388d8 1f664c6b0 1f664aabc
+thread=4 tid=4362 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f33db50 sp=16f33db30 frames: 1f664aab0
+thread=5 tid=4599 state_result=0 info_result=0 run=4 cpu=0 pc=1f65a0884 lr=197b1bac8 fp=16f1a9270 sp=16f1a7d40 frames: 197b191d4 197b3c3f8 197b3c438 197ba7d8c 22b4cbc1c 1968a3ea8 1b26c3cc4 1b26c24ec 1b26bfce8 1b26c219c 1b26c2434 22b4cd144 232ac5c84 232ac0bec 232ad3264 19f38aa68 19f36f988 19f367440 232aaed18 232ac6d60 232ac89b8 232ac86e8 1b26c75b8 232ac8578
+thread=6 tid=4692 state_result=0 info_result=0 run=4 cpu=0 pc=1bc98356c lr=1bc98353c fp=16f2b5eb0 sp=16f2b5e90 frames: 1bc9835f4 1bc9832e8 1953b0404 195391ae8 195391478 1968c2cf8 1a61230b8 1a6123a2c 1a6127de4 1a61234f4 1a6123a2c 1a61221dc 232ae4fa8 1b26c75b8 232a9e634 232aeb2fc 1f66a88c4 1f66aa2dc 19f38aaa4 19f3616dc 19f368dcc 19f362250 19f36a710 19f372710
+thread=7 tid=4693 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f3c3b50 sp=16f3c3b30 frames: 1f664aab0
+Pong boot snapshot END: runningboardd pid=6 seconds=242 sampled=7 of 8
+Pong tick: runningboardd pid=6 seconds=302 threads=5
+Pong tick: runningboardd pid=6 seconds=362 threads=7
+Pong tick: runningboardd pid=6 seconds=422 threads=9
+Pong tick: runningboardd pid=6 seconds=482 threads=10
+Pong tick: runningboardd pid=6 seconds=542 threads=9
+Pong tick: runningboardd pid=6 seconds=602 threads=10
+Pong boot snapshot BEGIN: runningboardd pid=6 seconds=602 time=646 threads=10
+Pong boot snapshot: runningboardd pid=6 seconds=602 image0=/private/var/pong/libpong-ui18.dylib image_slide=100e28000 cache=0x195284000 size=f37c8000
+thread=0 tid=360 state_result=0 info_result=0 run=3 cpu=0 pc=1e3518bf4 lr=1e351c17c fp=16f01a660 sp=16f01a610 frames: 1e351c0d0 1e351bf1c 197b27998 197b262d0 197b27cb0 197b9d3c4 100de47d4 1bc9b596c 0
+thread=2 tid=400 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f125e70 sp=16f125e40 frames: 19f3d45d4 100e382dc 1f664c6b0 1f664aabc
+thread=3 tid=402 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f231620 sp=16f2315f0 frames: 19f3d45d4 100e388d8 1f664c6b0 1f664aabc
+thread=4 tid=9745 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f33db50 sp=16f33db30 frames: 1f664aab0
+thread=5 tid=10199 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f1abb50 sp=16f1abb30 frames: 1f664aab0
+thread=6 tid=10200 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f3c3b50 sp=16f3c3b30 frames: 1f664aab0
+thread=7 tid=10284 state_result=0 info_result=0 run=3 cpu=4 pc=1e35189a8 lr=1f664aa5c fp=16f2b7b50 sp=16f2b7b30 frames: 1f664aab0
+thread=8 tid=10285 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+thread=9 tid=10286 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: runningboardd pid=6 seconds=602 sampled=9 of 10
+Pong tick: runningboardd pid=6 seconds=664 threads=11
+Pong tick: runningboardd pid=6 seconds=724 threads=11
+Pong tick: runningboardd pid=6 seconds=784 threads=11
+Pong tick: runningboardd pid=6 seconds=844 threads=6
+Pong tick: runningboardd pid=6 seconds=904 threads=14
+Pong boot snapshot BEGIN: runningboardd pid=6 seconds=904 time=949 threads=14
+Pong boot snapshot: runningboardd pid=6 seconds=904 image0=/private/var/pong/libpong-ui18.dylib image_slide=100e28000 cache=0x195284000 size=f37c8000
+thread=0 tid=360 state_result=0 info_result=0 run=3 cpu=0 pc=1e3518bf4 lr=1e351c17c fp=16f01a660 sp=16f01a610 frames: 1e351c0d0 1e351bf1c 197b27998 197b262d0 197b27cb0 197b9d3c4 100de47d4 1bc9b596c 0
+thread=2 tid=400 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f125e70 sp=16f125e40 frames: 19f3d45d4 100e382dc 1f664c6b0 1f664aabc
+thread=3 tid=402 state_result=0 info_result=0 run=3 cpu=0 pc=1e351e1c8 lr=19f3bfe94 fp=16f231620 sp=16f2315f0 frames: 19f3d45d4 100e388d8 1f664c6b0 1f664aabc
+thread=4 tid=10680 state_result=0 info_result=0 run=3 cpu=0 pc=1e3518bf4 lr=1e351c17c fp=16f3bf2f0 sp=16f3bf2a0 frames: 1e351c0d0 1e351bf1c 19f3605e8 19f360984 1f66a7828 1bb9a164c 232b014f8 232ae355c 1a6123d38 19f389830 19f38aa68 19f361478 19f368dcc 19f3698f0 19f372710 19f372018 1f664aa10 1f664aab0
+thread=5 tid=13365 state_result=0 info_result=0 run=3 cpu=8 pc=1e35189a8 lr=1f664aa5c fp=16f449ae0 sp=16f449ac0 frames: 1f664aab0
+thread=6 tid=13366 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f4cfb60 sp=16f4cfb40 frames: 1f664aab0
+thread=7 tid=13604 state_result=0 info_result=0 run=3 cpu=8 pc=1e35189a8 lr=1f664aa5c fp=16f2b7b50 sp=16f2b7b30 frames: 1f664aab0
+thread=8 tid=13755 state_result=0 info_result=0 run=3 cpu=25 pc=1e35189a8 lr=1f664aa5c fp=16f1ab7b0 sp=16f1ab790 frames: 1f664aab0
+thread=9 tid=13758 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f5dbb50 sp=16f5dbb30 frames: 1f664aab0
+thread=10 tid=13767 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f661b50 sp=16f661b30 frames: 1f664aab0
+thread=11 tid=13769 state_result=0 info_result=0 run=3 cpu=0 pc=1e35189a8 lr=1f664aa5c fp=16f6e7b50 sp=16f6e7b30 frames: 1f664aab0
+thread=12 tid=13770 state_result=0 info_result=0 run=3 cpu=3 pc=1e35189a8 lr=1f664aa5c fp=16f76db50 sp=16f76db30 frames: 1f664aab0
+thread=13 tid=13772 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: runningboardd pid=6 seconds=904 sampled=13 of 14
+Pong tick: runningboardd pid=6 seconds=960 threads=10

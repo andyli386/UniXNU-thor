@@ -1,0 +1,55 @@
+Pong tick: lsd pid=95 seconds=60 threads=6
+Pong boot snapshot BEGIN: lsd pid=95 seconds=60 time=138 threads=6
+Pong boot snapshot: lsd pid=95 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=100c27000 cache=0x185b64000 size=f37c8000
+thread=0 tid=832 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8980 lr=18fc58520 fp=16f218190 sp=16f218130 frames: 18fc58cfc 18fc4f37c 18fc4efa4 188330a04 188329ec4 18fc6aa68 18fc3f26c 188329e94 18830b0ec 1ad29596c 0
+thread=2 tid=853 state_result=0 info_result=0 run=4 cpu=0 pc=1d3df90d0 lr=1905bed20 fp=16f3205a0 sp=16f320570 frames: 1905be828 1905beb74 1905be590 1905b6c00 1905be200 1905bdfbc 1905bfae4 1906dbc7c 1906df9fc 1906decb4 1906d1108 1e7305fa8 1e7307440 1becf8788 1becf9084 1bece40c8 1bece2fc0 1becfb564 1becfc950 1becc555c 1becf2ccc 1becb1bd4 1becb111c 1becf2c08
+thread=3 tid=1233 state_result=0 info_result=0 run=3 cpu=0 pc=1d3dfea08 lr=18fc3e6bc fp=16f645ff0 sp=16f645fd0 frames: 18fc3e9c0 1882df184 1882df0a4 18718d920 18718a24c 187189c10 187189ad8 1e6f888c4 1e6f8a2dc 18fc6aaa4 18fc416dc 18fc48dcc 18fc42250 18fc48dcc 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+thread=4 tid=1234 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f6ccae0 sp=16f6ccac0 frames: 1e6f2aab0
+thread=5 tid=1236 state_result=0 info_result=0 run=3 cpu=0 pc=1d3dfea08 lr=18fc3e6bc fp=16f752670 sp=16f752650 frames: 18fc3e9c0 18832a468 18fc69830 18fc6aa68 18fc48f64 18fc498f0 18fc52710 18fc52018 1e6f2aa10 1e6f2aab0
+Pong boot snapshot END: lsd pid=95 seconds=60 sampled=5 of 6
+Pong tick: lsd pid=95 seconds=120 threads=4
+Pong boot snapshot BEGIN: lsd pid=95 seconds=120 time=198 threads=4
+Pong boot snapshot: lsd pid=95 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=100c27000 cache=0x185b64000 size=f37c8000
+thread=0 tid=832 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f217450 sp=16f217400 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18847d3c4 18830b230 18830b1a4 1ad29596c 0
+thread=2 tid=1233 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f6469e0 sp=16f6469c0 frames: 1e6f2aab0
+thread=3 tid=3192 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f322ae0 sp=16f322ac0 frames: 1e6f2aab0
+Pong boot snapshot END: lsd pid=95 seconds=120 sampled=3 of 4
+Pong tick: lsd pid=95 seconds=180 threads=4
+Pong tick: lsd pid=95 seconds=240 threads=5
+Pong boot snapshot BEGIN: lsd pid=95 seconds=240 time=318 threads=5
+Pong boot snapshot: lsd pid=95 seconds=240 image0=/private/var/pong/libpong-ui18.dylib image_slide=100c27000 cache=0x185b64000 size=f37c8000
+thread=0 tid=832 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f217450 sp=16f217400 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18847d3c4 18830b230 18830b1a4 1ad29596c 0
+thread=2 tid=5091 state_result=0 info_result=0 run=3 cpu=2 pc=1d3df89a8 lr=1e6f2aa5c fp=16f3a89e0 sp=16f3a89c0 frames: 1e6f2aab0
+thread=3 tid=5216 state_result=0 info_result=0 run=3 cpu=3 pc=1d3df89a8 lr=1e6f2aa5c fp=16f322a50 sp=16f322a30 frames: 1e6f2aab0
+thread=4 tid=5223 state_result=0 info_result=0 run=3 cpu=6 pc=1d3df89a8 lr=1e6f2aa5c fp=16f42eb50 sp=16f42eb30 frames: 1e6f2aab0
+Pong boot snapshot END: lsd pid=95 seconds=240 sampled=4 of 5
+Pong tick: lsd pid=95 seconds=300 threads=4
+Pong tick: lsd pid=95 seconds=360 threads=3
+Pong tick: lsd pid=367 seconds=60 threads=4
+Pong boot snapshot BEGIN: lsd pid=367 seconds=60 time=519 threads=4
+Pong boot snapshot: lsd pid=367 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=100ab9000 cache=0x185b64000 size=f37c8000
+thread=0 tid=7887 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f385450 sp=16f385400 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18847d3c4 18830b230 18830b1a4 1ad29596c 0
+thread=2 tid=8511 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f59c9e0 sp=16f59c9c0 frames: 1e6f2aab0
+thread=3 tid=8822 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f4909e0 sp=16f4909c0 frames: 1e6f2aab0
+Pong boot snapshot END: lsd pid=367 seconds=60 sampled=3 of 4
+Pong tick: lsd pid=367 seconds=122 threads=4
+Pong boot snapshot BEGIN: lsd pid=367 seconds=122 time=581 threads=4
+Pong boot snapshot: lsd pid=367 seconds=122 image0=/private/var/pong/libpong-ui18.dylib image_slide=100ab9000 cache=0x185b64000 size=f37c8000
+thread=0 tid=7887 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f385450 sp=16f385400 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18847d3c4 18830b230 18830b1a4 1ad29596c 0
+thread=2 tid=9210 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f59cb50 sp=16f59cb30 frames: 1e6f2aab0
+thread=3 tid=9527 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f490a80 sp=16f490a60 frames: 1e6f2aab0
+Pong boot snapshot END: lsd pid=367 seconds=122 sampled=3 of 4
+Pong tick: lsd pid=367 seconds=183 threads=5
+Pong tick: lsd pid=367 seconds=243 threads=5
+Pong boot snapshot BEGIN: lsd pid=367 seconds=243 time=702 threads=5
+Pong boot snapshot: lsd pid=367 seconds=243 image0=/private/var/pong/libpong-ui18.dylib image_slide=100ab9000 cache=0x185b64000 size=f37c8000
+thread=0 tid=7887 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df8bf4 lr=1d3dfc17c fp=16f385450 sp=16f385400 frames: 1d3dfc0d0 1d3dfbf1c 188407998 1884062d0 188407cb0 18847d3c4 18830b230 18830b1a4 1ad29596c 0
+thread=2 tid=10678 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f5169e0 sp=16f5169c0 frames: 1e6f2aab0
+thread=3 tid=10812 state_result=0 info_result=0 run=3 cpu=0 pc=1d3df89a8 lr=1e6f2aa5c fp=16f490ae0 sp=16f490ac0 frames: 1e6f2aab0
+thread=4 tid=10932 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: lsd pid=367 seconds=243 sampled=4 of 5
+Pong tick: lsd pid=367 seconds=300 threads=5
+Pong tick: lsd pid=367 seconds=360 threads=3
+Pong tick: lsd pid=367 seconds=421 threads=3
+Pong tick: lsd pid=367 seconds=481 threads=3
+Pong tick: lsd pid=367 seconds=541 threads=4

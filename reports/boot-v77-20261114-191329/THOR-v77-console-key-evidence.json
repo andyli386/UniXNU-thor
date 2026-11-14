@@ -1,0 +1,187 @@
+{
+  "previous_console_exact_prefix_bytes": 4086189,
+  "current_first_complete_physical_line": 31608,
+  "partial_boundary_bytes_ignored": 44,
+  "current_complete_bytes": 7860089,
+  "previous_diag_exact_prefix": false,
+  "boot_kernel_last": {
+    "line": 88533,
+    "raw": "[ 1905.340930]: MiniIOSurface: 5 active, owned=75046912 wrapped=0 state=20480 kept=0 bytes"
+  },
+  "counts": {
+    "memory": 4,
+    "runtime": 1,
+    "display": 10,
+    "touch": 3,
+    "ownership": 12,
+    "surface": 7,
+    "watchdog": 0,
+    "audio": 0
+  },
+  "key_events": {
+    "memory": [
+      {
+        "line": 31610,
+        "raw": "[   25.728335]: Pong RAM: 3 owned banks, 768 MiB managed before kernel reservations, 4 KiB pages"
+      },
+      {
+        "line": 31611,
+        "raw": "[   25.728355]: Pong RAM: bank 0 0x800004000 + 0x10000000 (256 MiB)"
+      },
+      {
+        "line": 31612,
+        "raw": "[   25.728365]: Pong RAM: bank 1 0x800000000 + 0x4000 (0 MiB)"
+      },
+      {
+        "line": 31613,
+        "raw": "[   25.728373]: Pong RAM: bank 2 0x810004000 + 0x1fffc000 (511 MiB)"
+      }
+    ],
+    "runtime": [
+      {
+        "line": 32021,
+        "raw": "[   26.874954]: THOR UI runtime: FAIL error=22; using existing adapter"
+      }
+    ],
+    "display": [
+      {
+        "line": 35324,
+        "raw": "[  164.982383]: MiniIOMobileFramebuffer: first visible frame; releasing boot console"
+      },
+      {
+        "line": 35326,
+        "raw": "[  164.988758]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=2,0,0,0 gpu=0 graphics=1 swap=1"
+      },
+      {
+        "line": 55367,
+        "raw": "[  742.230992]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=122"
+      },
+      {
+        "line": 55502,
+        "raw": "[  747.772205]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=4,0,0,0 gpu=0 graphics=1 swap=124"
+      },
+      {
+        "line": 56377,
+        "raw": "[  781.011200]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=2264"
+      },
+      {
+        "line": 56418,
+        "raw": "[  784.047655]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=3,0,0,0 gpu=0 graphics=1 swap=2266"
+      },
+      {
+        "line": 59946,
+        "raw": "[  907.043593]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=13353"
+      },
+      {
+        "line": 88484,
+        "raw": "[ 1897.904065]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=2,0,0,0 gpu=0 graphics=1 swap=13355"
+      },
+      {
+        "line": 88488,
+        "raw": "[ 1899.076330]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=13358"
+      },
+      {
+        "line": 88529,
+        "raw": "[ 1904.929812]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=4,0,0,0 gpu=0 graphics=1 swap=13360"
+      }
+    ],
+    "touch": [
+      {
+        "line": 31966,
+        "raw": "[   26.798572]: goodix: clocks stay off: 0 0x80000002 0x4220"
+      },
+      {
+        "line": 32026,
+        "raw": "[   26.923924]: goodix: no valid firmware version: 00 00 00 00 00 00 00 00 ... 00 00"
+      },
+      {
+        "line": 32027,
+        "raw": "[   26.925374]: Pong touch: Goodix initialization failed; normal UI boot continues"
+      }
+    ],
+    "ownership": [
+      {
+        "line": 39352,
+        "raw": "[  284.420919]: MiniIOSurface: ownership sid=6 caller=AudioConverterService[164] tid=1471 tag=3 options=0 result=0"
+      },
+      {
+        "line": 39353,
+        "raw": "[  284.706254]: MiniIOSurface: ownership sid=7 caller=AudioConverterService[164] tid=5108 tag=3 options=0 result=0"
+      },
+      {
+        "line": 40401,
+        "raw": "[  285.197886]: MiniIOSurface: ownership sid=8 caller=AudioConverterService[164] tid=1471 tag=3 options=0 result=0"
+      },
+      {
+        "line": 40410,
+        "raw": "[  291.709134]: MiniIOSurface: ownership sid=9 caller=AudioConverterService[164] tid=5108 tag=3 options=0 result=0"
+      },
+      {
+        "line": 40411,
+        "raw": "[  291.715535]: MiniIOSurface: ownership sid=10 caller=AudioConverterService[164] tid=1471 tag=3 options=0 result=0"
+      },
+      {
+        "line": 40412,
+        "raw": "[  291.737264]: MiniIOSurface: ownership sid=11 caller=AudioConverterService[164] tid=1471 tag=3 options=0 result=0"
+      },
+      {
+        "line": 41554,
+        "raw": "[  326.025703]: MiniIOSurface: ownership sid=12 caller=AudioConverterService[164] tid=5108 tag=3 options=0 result=0"
+      },
+      {
+        "line": 41555,
+        "raw": "[  326.308783]: MiniIOSurface: ownership sid=13 caller=AudioConverterService[164] tid=5710 tag=3 options=0 result=0"
+      },
+      {
+        "line": 41556,
+        "raw": "[  326.830054]: MiniIOSurface: ownership sid=14 caller=AudioConverterService[164] tid=5108 tag=3 options=0 result=0"
+      },
+      {
+        "line": 41559,
+        "raw": "[  331.1007103]: MiniIOSurface: ownership sid=15 caller=AudioConverterService[164] tid=5108 tag=3 options=0 result=0"
+      },
+      {
+        "line": 41560,
+        "raw": "[  332.003040]: MiniIOSurface: ownership sid=16 caller=AudioConverterService[164] tid=5710 tag=3 options=0 result=0"
+      },
+      {
+        "line": 41561,
+        "raw": "[  332.024457]: MiniIOSurface: ownership sid=17 caller=AudioConverterService[164] tid=5108 tag=3 options=0 result=0"
+      }
+    ],
+    "surface": [
+      {
+        "line": 36254,
+        "raw": "[  165.124315]: MiniIOSurface: 5 active, owned=75046912 wrapped=0 state=20480 kept=0 bytes"
+      },
+      {
+        "line": 55368,
+        "raw": "[  742.245730]: MiniIOSurface: 4 active, owned=56205312 wrapped=0 state=16384 kept=0 bytes"
+      },
+      {
+        "line": 55505,
+        "raw": "[  748.991357]: MiniIOSurface: 5 active, owned=75046912 wrapped=0 state=20480 kept=0 bytes"
+      },
+      {
+        "line": 56378,
+        "raw": "[  781.024307]: MiniIOSurface: 4 active, owned=56205312 wrapped=0 state=16384 kept=0 bytes"
+      },
+      {
+        "line": 56421,
+        "raw": "[  784.291886]: MiniIOSurface: 5 active, owned=75046912 wrapped=0 state=20480 kept=0 bytes"
+      },
+      {
+        "line": 59947,
+        "raw": "[  907.052811]: MiniIOSurface: 4 active, owned=56205312 wrapped=0 state=16384 kept=0 bytes"
+      },
+      {
+        "line": 88533,
+        "raw": "[ 1905.340930]: MiniIOSurface: 5 active, owned=75046912 wrapped=0 state=20480 kept=0 bytes"
+      }
+    ],
+    "watchdog": [],
+    "audio": []
+  },
+  "prefetch": [],
+  "lsd_limit": []
+}

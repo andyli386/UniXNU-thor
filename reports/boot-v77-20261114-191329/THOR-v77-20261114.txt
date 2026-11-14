@@ -1,0 +1,59 @@
+THOR v77 整合构建与真机验收
+日期：2026-11-14（北京时间）
+
+v76 现场复盘
+
+i386 的 Data 只读副本为 8,591,003,648 字节，共导出 73 个日志和状态文件。原分析包在 262,140 个解码字节处截断，报告完整条目及原始导出均独立校验通过。Mac mini 重建了证据包，并使用同一批原始日志再生成资源和原生诊断证据。原包后半段的若干分析文件仍未找回，证据包含恢复说明。
+
+v76 在内核时间 683.958940 秒由 backboardd 提交全空图层后清黑。后续仍有 321.917 秒系统日志，没有 RESTORED。SpringBoard 后期样本已进入主 scene 连接后的 CoverSheet 锁屏视图加载。backboardd 的长期后台 group 经过匹配二进制的调用和回调核对，指向 BRController 触觉控制器就绪，缺少它与黑屏的运行时关联。PosterBoard 三次 30 秒启动 watchdog。迁移结束通知已发出，持久化结果仍为 success=false。logo 字符串来自 ProgressUI。具体失败插件和真实可见画面均待确认。
+
+v77 构建和变更
+
+1. UEFI：v76 接管 665 MiB，由 Thor 启动器可用的首段 921 MiB 减去显式 256 MiB 固件池。根据原厂 HYP 和设备树保留区，有依据回收的上限是 103 MiB。候选只能从成功退出 Boot Services 对应的最终 UEFI 内存图接管其中的 write-back conventional 页。验收区间 [0x829900000, 0x830000000)，预期总量大于 665 MiB 且至多 768 MiB。可通过 pong_ram_reclaim=0 回退。
+2. IOSurface：修复满池替换后的容量漏加，引入 32 MiB 总预算、压力回收和闲置清理。selector 44 校验可授权的 surface 引用与 task identity token，调用真实 VM 归属更新并返回真实错误。不可转移的 backing 明确返回 unsupported，有归属更新尝试的 backing 不进入跨 surface 复用。内存账本和真实回收页数需要运行证据。
+3. LaunchServices 和 UFS：固化 J171/J172 两项 LS job 的 active soft limit 32 MiB，并在真机记录 active/inactive 实际值。inactive 保持 12 MiB，原 priority 保持 140。预读每 boot 一次，最多 327 MiB，读请求发起限于 120 秒，以 256 KiB 分块和 VM headroom 门控运行。单次已发出的同步 read 可以跨过该时间边界。
+4. UI 和迁移诊断：新一代原生采样以 boot UUID、PID/TID 和单调时钟关联。诊断调用记录在途及返回结果，业务线程避免文件写入。清黑消息触发追加栈采样，PosterBoard 在 30 秒 watchdog 前采样。记录迁移插件实际开始、结束、返回和客户端通知。不伪造 UI 层、服务就绪或迁移成功。
+5. 日志：根权限控制台读取使用内核真实字节游标，保存原始字节、丢失边界及上次轮转日志。快照、轮转和旧日志继续按 boot 身份归属。
+
+Mac mini 源码仓库 UniXNU-pong 提交 2c3c25f、0e8889e、c2772e1。UEFI 单独提交 7f57b3a。内核、用户态库、UEFI 模块/FV 和 22H374 prelink 均成功构建。固定 XNU 提交上重放 128 个源码文件，内容与构建树一致，生成头文件也一致。源码已保存，镜像验证按既有要求跳过。
+
+整合候选和原地更新策略
+
+Mac mini：
+/Users/<user>/projects/thor-unixnu1030/thor-out/v77/boot-thor-unixnu-v77-integrated.img
+i386：
+/home/vincent/Projects/thor-unixnu/v77-staging/boot-thor-unixnu-v77-integrated.img
+
+镜像 168,034,304 字节。用户态库 UUID 9FCCBB70-F843-3FF8-AB78-DAF5B4582068。为了保留设备上现有 APFS Data 的状态，整合内核在 Data 正常挂载后通过原生文件系统写入版本专用 /private/var/pong/libpong-ui-v77.dylib；仅在写入完成后切换本次注入路径，失败回退现有适配库。留存 v76 原文件。未重铺整个 Data/OS 分区。
+
+线上验收前的补充核对
+
+v24 的主机端 OS 窗口只读检查返回 J171/J172 × com.apple.lsd/com.apple.lsd.system 四项 active=32 MiB、inactive=12 MiB、priority=140。候选没有重装 OS。设备实际采用值看 v77 PongDiag 的按 PID 回执。
+
+v75、v76 共七份部分 stackshot 的原始大小与 Data APFS inode 一致。每份只完整写到 PID 0、PID 1。v76 较早的两份报告在设备继续运行后仍未补全。主机导出长度与文件格式对照排除了主机截断。osanalyticshelper 独立负责 stackshot 请求路径，ReportCrash 负责异常服务。截断阶段尚无法精确到进程序列化、写入还是临时报告终结，仍缺原生 errno 或回执。
+
+v77 临时启动
+
+2026-11-14 19:13:25.455 提交临时 fastboot boot，19:13:29.399 完成。i386 原始回执确认 serial <device-serial>、product thor、slot a、bootloader Fastboot、unlocked。Sending 和 Booting 返回 OKAY。手机随后从 Fastboot USB 总线断开，观察窗口持续至约 19:43:29。本次未刷写启动分区。USB 枚举变化只能说明主机传输阶段，不能验证 XNU 已经接管、UI 库已经成功写入、真实画面或触摸可用。
+
+后续采集与自动验收
+
+通过 i386 Recovery 只读采集本轮 Data 后，分析器 scripts/analyze-thor-boot-evidence.py（提交 1ab031f、dc2abdc）从指定采集目录读取原始日志，不修改提取文件。可用 --boot-id 明确指定 XNU UUID，再用 --output 写入独立 JSON。分析器已对真实 v76 和合成 v77 样本验证，输出固件接管区间、库 UUID、日志丢失、实际限额、图层、进程退出和迁移回执。真实界面、触摸和连续至少 5 分钟的稳定运行由现场观察验证。带有转储缺口的部分和缺少 boot 身份的旧日志不计为通过。
+
+独立构建复核
+
+19:28，独立的全新 XNU 构建树完成编译和链接。固定 XNU 43a90889846e00bfb5cf1d255cdc0a701a1e05a4；内核 17,965,120 字节，与整合构建大小及 ARM64 Mach-O ABI 一致。实际运行候选仍是 19:13 临时启动的整合镜像。
+
+候选配置核对
+
+19:13 启动的镜像编入 PosterBoard 5/15/25 秒采样，但它继承的启动命令未把 PosterBoard 加入该库的选定注入进程，也缺 pong_poster_snapshot=1。因此本轮不能用缺少 PosterBoard 早期栈判断采样故障或进程状态。已将这两个参数加入单独的候选配置，命令长度 994/1023 字节。新候选保留相同固件、内核和库，等待下一次有明确测试需要时使用。
+
+音频离线对照
+
+v75 的匹配 22H374 反汇编把 AQ::Server 原因定位到 AudioToolbox AudioQueue V2 XPC 连接配置的超时回调（0x1a2a8117c），原生服务名为 audiomxd 提供的 com.apple.audio.AudioQueueServer。共享的 _ReportRPCTimeout 会先触发诊断并等待最多 5 秒，随后才记录 stackshot 写入错误并 abort。v75 部分报告没有完整 audiomxd 线程，暂时缺少具体的消息操作和等待所在的服务端请求。v76 仅有诊断写入失败文字，无法将该次归为同一 AQ 操作。没有通过关闭失败回报掩盖它。
+
+仅增加 PosterBoard 启动参数的镜像已同时存放在 Mac mini thor-out/v77 与 i386 v77-staging，名为 boot-thor-unixnu-v77-poster-capture.img。设备仍是 19:13 那次整合镜像启动。
+
+30 分钟主机观察结果
+
+19:43:29.720，i386 完成 Fastboot 返回后 1800.322 秒的 USB 观察。最后一轮与之前采样都没有 ADB、Fastboot、CDC 串口或该物理 USB 路径重新枚举。此项仅确认主机观察时长。缺少手机显示、触摸及本轮 Data 证据时，真实 UI、RAM、动态库、图层及迁移均为待验收。i386 已准备新 Recovery 一出现即执行只读拉取；Mac mini 保留本轮构建和 Fastboot 原始回执。

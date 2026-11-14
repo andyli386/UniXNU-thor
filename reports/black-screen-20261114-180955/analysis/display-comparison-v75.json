@@ -1,0 +1,276 @@
+{
+  "baseline": {
+    "console_bytes": 6220563,
+    "ram": [
+      {
+        "line": 4,
+        "physical_lines": [
+          4,
+          506,
+          1137
+        ],
+        "copies": 3,
+        "raw": "[   26.137305]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages",
+        "time_literal": "26.137305",
+        "us": 26137305
+      }
+    ],
+    "first_visible": [
+      {
+        "line": 1877,
+        "physical_lines": [
+          1877,
+          2642,
+          3651,
+          4565,
+          5531
+        ],
+        "copies": 5,
+        "raw": "[   97.414900]: MiniIOMobileFramebuffer: first visible frame; releasing boot console",
+        "time_literal": "97.414900",
+        "us": 97414900
+      }
+    ],
+    "transitions": [
+      {
+        "line": 1879,
+        "physical_lines": [
+          1879,
+          2644,
+          3653,
+          4567,
+          5533
+        ],
+        "copies": 5,
+        "raw": "[   97.421223]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1",
+        "time_literal": "97.421223",
+        "us": 97421223,
+        "fields": {
+          "state": "RESTORED",
+          "submitter": "backboardd",
+          "pid": 40,
+          "set": "0x80000007",
+          "surfaces": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "gpu": 0,
+          "graphics": 1,
+          "swap": 1
+        }
+      },
+      {
+        "line": 37378,
+        "physical_lines": [
+          37378,
+          38224,
+          39084,
+          39946,
+          40813,
+          41562,
+          42445,
+          43253
+        ],
+        "copies": 8,
+        "raw": "[ 1156.380611]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=83377",
+        "time_literal": "1156.380611",
+        "us": 1156380611,
+        "fields": {
+          "state": "EMPTIED",
+          "submitter": "backboardd",
+          "pid": 40,
+          "set": "0x1",
+          "surfaces": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gpu": 0,
+          "graphics": 1,
+          "swap": 83377
+        }
+      }
+    ],
+    "maximum_canonical_time": {
+      "line": 47428,
+      "physical_lines": [
+        47428
+      ],
+      "copies": 1,
+      "raw": "[ 1484.356745]: memorystatus: failed to kill a process and no memory was reclaimed",
+      "time_literal": "1484.356745",
+      "us": 1484356745
+    },
+    "post_clear": [
+      {
+        "clear_line": 37378,
+        "clear_us": 1156380611,
+        "last_us": 1484356745,
+        "seconds_to_last": 327.976134,
+        "canonical_records_after": 1589,
+        "restored_after": []
+      }
+    ]
+  },
+  "new": "v76 capture 20261114-180955",
+  "caveat": "Two distinct boots, not a controlled A/B experiment.",
+  "current": {
+    "console_bytes": 4086189,
+    "ram": [
+      {
+        "line": 4,
+        "physical_lines": [
+          4,
+          510,
+          1146,
+          1922
+        ],
+        "copies": 4,
+        "raw": "[   26.067760]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages",
+        "time_literal": "26.067760",
+        "us": 26067760
+      },
+      {
+        "line": 5,
+        "physical_lines": [
+          5,
+          511,
+          1147,
+          1923
+        ],
+        "copies": 4,
+        "raw": "[   26.067780]: Pong RAM: bank 0 0x800004000 + 0x10000000 (256 MiB)",
+        "time_literal": "26.067780",
+        "us": 26067780
+      },
+      {
+        "line": 6,
+        "physical_lines": [
+          6,
+          512,
+          1148,
+          1924
+        ],
+        "copies": 4,
+        "raw": "[   26.067789]: Pong RAM: bank 1 0x800000000 + 0x4000 (0 MiB)",
+        "time_literal": "26.067789",
+        "us": 26067789
+      },
+      {
+        "line": 7,
+        "physical_lines": [
+          7,
+          513,
+          1149,
+          1925
+        ],
+        "copies": 4,
+        "raw": "[   26.067798]: Pong RAM: bank 2 0x810004000 + 0x198fc000 (408 MiB)",
+        "time_literal": "26.067798",
+        "us": 26067798
+      }
+    ],
+    "first_visible": [
+      {
+        "line": 1814,
+        "physical_lines": [
+          1814,
+          2590,
+          3190,
+          4108,
+          5047
+        ],
+        "copies": 5,
+        "raw": "[   83.338947]: MiniIOMobileFramebuffer: first visible frame; releasing boot console",
+        "time_literal": "83.338947",
+        "us": 83338947
+      }
+    ],
+    "transitions": [
+      {
+        "line": 1816,
+        "physical_lines": [
+          1816,
+          2592,
+          3192,
+          4110,
+          5049
+        ],
+        "copies": 5,
+        "raw": "[   83.344863]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1",
+        "time_literal": "83.344863",
+        "us": 83344863,
+        "fields": {
+          "state": "RESTORED",
+          "submitter": "backboardd",
+          "pid": 40,
+          "set": "0x80000007",
+          "surfaces": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "gpu": 0,
+          "graphics": 1,
+          "swap": 1
+        }
+      },
+      {
+        "line": 21453,
+        "physical_lines": [
+          21453,
+          22340,
+          23220,
+          24106,
+          25005,
+          25915,
+          26822,
+          27642
+        ],
+        "copies": 8,
+        "raw": "[  683.958940]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47828",
+        "time_literal": "683.958940",
+        "us": 683958940,
+        "fields": {
+          "state": "EMPTIED",
+          "submitter": "backboardd",
+          "pid": 40,
+          "set": "0x1",
+          "surfaces": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gpu": 0,
+          "graphics": 1,
+          "swap": 47828
+        }
+      }
+    ],
+    "maximum_canonical_time": {
+      "line": 31605,
+      "physical_lines": [
+        31605
+      ],
+      "copies": 1,
+      "raw": "[ 1005.876045]: process diagnosticextens[539] caught waking the CPU 45088 times over ~46 seconds, averaging 967 wakes / second and violating a limit of 45000 wakes over 300 seconds.",
+      "time_literal": "1005.876045",
+      "us": 1005876045
+    },
+    "post_clear": [
+      {
+        "clear_line": 21453,
+        "clear_us": 683958940,
+        "last_us": 1005876045,
+        "seconds_to_last": 321.917105,
+        "canonical_records_after": 1224,
+        "restored_after": []
+      }
+    ]
+  }
+}

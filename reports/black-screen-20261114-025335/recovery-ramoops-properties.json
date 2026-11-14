@@ -1,0 +1,66 @@
+{
+  "at": "2026-11-14T02:59:59.495161+08:00",
+  "properties": [
+    {
+      "path": "/sys/firmware/devicetree/base/reserved-memory/ramoops@0xa7000000/reg",
+      "rc": 0,
+      "bytes": 16,
+      "hex": "00000000a70000000000000000400000",
+      "error": "",
+      "be_u32": [
+        "0x0",
+        "0xa7000000",
+        "0x0",
+        "0x400000"
+      ]
+    },
+    {
+      "path": "/sys/firmware/devicetree/base/reserved-memory/ramoops@0xa7000000/console-size",
+      "rc": 0,
+      "bytes": 4,
+      "hex": "00200000",
+      "error": "",
+      "be_u32": [
+        "0x200000"
+      ]
+    },
+    {
+      "path": "/sys/firmware/devicetree/base/reserved-memory/ramoops@0xa7000000/pmsg-size",
+      "rc": 0,
+      "bytes": 4,
+      "hex": "00200000",
+      "error": "",
+      "be_u32": [
+        "0x200000"
+      ]
+    },
+    {
+      "path": "/sys/firmware/devicetree/base/reserved-memory/ramoops@0xa7000000/record-size",
+      "rc": 0,
+      "bytes": 109,
+      "hex": "6361743a202f7379732f6669726d776172652f646576696365747265652f626173652f72657365727665642d6d656d6f72792f72616d6f6f707340307861373030303030302f7265636f72642d73697a653a204e6f20737563682066696c65206f72206469726563746f72790a",
+      "error": ""
+    },
+    {
+      "path": "/sys/firmware/devicetree/base/reserved-memory/ramoops@0xa7000000/compatible",
+      "rc": 0,
+      "bytes": 8,
+      "hex": "72616d6f6f707300",
+      "error": "",
+      "be_u32": [
+        "0x72616d6f",
+        "0x6f707300"
+      ]
+    },
+    {
+      "path": "/sys/firmware/devicetree/base/reserved-memory/ramoops_region/reg",
+      "rc": 0,
+      "bytes": 97,
+      "hex": "6361743a202f7379732f6669726d776172652f646576696365747265652f626173652f72657365727665642d6d656d6f72792f72616d6f6f70735f726567696f6e2f7265673a204e6f20737563682066696c65206f72206469726563746f72790a",
+      "error": ""
+    }
+  ],
+  "darwin_code_console_phys": "0x85200000",
+  "darwin_code_pmsg_phys": "0x85400000",
+  "decision": "No physical-memory read: Recovery iomem marks 0x85200000-0x856fffff as ordinary System RAM; Recovery ramoops is at 0xa7000000; /dev/mem absent."
+}

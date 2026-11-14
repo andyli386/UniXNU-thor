@@ -1,0 +1,125 @@
+{
+  "ui18_frames": 16,
+  "examples": [
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 104,
+      "pid": 6,
+      "tid": 398,
+      "line": 5,
+      "kind": "frame1",
+      "runtime": "0x1002b0f00",
+      "symbol": "libpong-ui18!_console_worker+0x1d0 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 104,
+      "pid": 6,
+      "tid": 399,
+      "line": 6,
+      "kind": "lr",
+      "runtime": "0x1002b12c4",
+      "symbol": "libpong-ui18!_cache_worker+0x374 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 104,
+      "pid": 6,
+      "tid": 400,
+      "line": 7,
+      "kind": "frame1",
+      "runtime": "0x1002b14fc",
+      "symbol": "libpong-ui18!_watch_worker+0x88 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 164,
+      "pid": 6,
+      "tid": 398,
+      "line": 20,
+      "kind": "frame1",
+      "runtime": "0x1002b0f00",
+      "symbol": "libpong-ui18!_console_worker+0x1d0 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 164,
+      "pid": 6,
+      "tid": 400,
+      "line": 21,
+      "kind": "frame1",
+      "runtime": "0x1002b14fc",
+      "symbol": "libpong-ui18!_watch_worker+0x88 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 284,
+      "pid": 6,
+      "tid": 398,
+      "line": 33,
+      "kind": "frame1",
+      "runtime": "0x1002b0f00",
+      "symbol": "libpong-ui18!_console_worker+0x1d0 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 284,
+      "pid": 6,
+      "tid": 400,
+      "line": 34,
+      "kind": "frame1",
+      "runtime": "0x1002b14fc",
+      "symbol": "libpong-ui18!_watch_worker+0x88 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 646,
+      "pid": 6,
+      "tid": 398,
+      "line": 48,
+      "kind": "frame1",
+      "runtime": "0x1002b0f00",
+      "symbol": "libpong-ui18!_console_worker+0x1d0 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 646,
+      "pid": 6,
+      "tid": 400,
+      "line": 49,
+      "kind": "frame1",
+      "runtime": "0x1002b14fc",
+      "symbol": "libpong-ui18!_watch_worker+0x88 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 947,
+      "pid": 6,
+      "tid": 398,
+      "line": 62,
+      "kind": "frame1",
+      "runtime": "0x1002b0f00",
+      "symbol": "libpong-ui18!_console_worker+0x1d0 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "time": 947,
+      "pid": 6,
+      "tid": 400,
+      "line": 63,
+      "kind": "frame1",
+      "runtime": "0x1002b14fc",
+      "symbol": "libpong-ui18!_watch_worker+0x88 [actual extracted library, image0 slide]"
+    },
+    {
+      "file": "mobile/Library/Logs/PongBoot-backboardd.txt",
+      "time": 107,
+      "pid": 40,
+      "tid": 405,
+      "line": 5,
+      "kind": "lr",
+      "runtime": "0x1007612b4",
+      "symbol": "libpong-ui18!_buttons_thread+0x2bc [actual extracted library, image0 slide]"
+    }
+  ]
+}

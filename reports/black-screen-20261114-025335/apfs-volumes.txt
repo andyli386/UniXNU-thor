@@ -1,0 +1,12 @@
+Found partitions:
+7C3457EF-0000-11AA-11AA-00306543ECAC A56E70A7-3D65-4F4C-34B2-DA25DC4A50AD 0000000000000800 00000000010007FF 0000000000000000 
+First APFS partition is 0
+
+Volume 1 26FD8349-9B9A-4F22-89EB-C81E070D2AB2
+---------------------------------------------
+Role:               No specific role
+Name:               Data (Case-sensitive)
+Capacity Consumed:  353714176 Bytes
+FileVault:          No
+Snapshots:
+

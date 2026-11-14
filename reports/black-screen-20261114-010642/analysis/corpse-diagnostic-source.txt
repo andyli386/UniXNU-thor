@@ -1,0 +1,115 @@
+# Corpse diagnostic source review — v72 / 2026-11-14
+
+Scope: narrow read-only lookup of the two audiomxd corpse messages in the current local XNU work tree. No phone commands, source edits, limit changes, builds or hashes were performed. This report does not determine audiomxd's original exception.
+
+SOURCE ROOT
+/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work
+
+1. What the two strings mean
+
+A. osfmk/corpses/corpse.c:220–254, task_crashinfo_get_ref()
+The exact "Corpse failure, too many %d" message is at lines 239–240. The tested count is the corpses field of the global inflight_corpses gate (declarations at 151–162).
+The test is: if (newgate.corpses++ >= total_corpses_allowed).
+Thus "6" is the attempted local post-increment value. The rejection returns KERN_RESOURCE_SHORTAGE at line 241 before the compare/exchange at 245–247 commits the new gate.
+It is NOT a per-audiomxd crash count and NOT evidence of six successfully allocated corpse reports. Repetition with the same PID is not, by itself, proof of distinct process crashes.
+osfmk/corpses/task_corpse.h:59–63 defines the default as 4 for WATCH and 5 otherwise. The runtime limit is a variable; the failure message itself does not print its current value.
+This gate is used by corpse generation more generally, so this first message alone does not establish a fatal terminal exit.
+
+B. bsd/kern/kern_exit.c:1913, proc_prepareexit()
+The exact "Process[%d] crashed: %s. Too many corpses being created." is at line 2087.
+It occurs only after create_corpse was selected, task_mark_corpse(task) was called (2077–2078), and the return was non-success.
+It is a generic final else: KERN_NO_SPACE, KERN_NOT_SUPPORTED and KERN_TERMINATED have separate messages, but all remaining errors use the same "Too many corpses" wording. Therefore the second string alone does not uniquely identify the return code.
+
+2. Verified failure propagation and ordering
+
+proc_prepareexit (kern_exit.c:1950–1964) first evaluates an already-selected fatal signal / code-signing kill / exit reason requesting a crash report.
+It packs original exception information (1979–1983), attempts EXC_CRASH notification (2006), and selects corpse creation (2008–2014).
+Later:
+- kern_exit.c:2078 -> task_mark_corpse(task).
+- osfmk/kern/task.c:2571–2577 -> task_collect_crash_info(..., FALSE); failure exits without marking the task corpse.
+- task.c:2406–2408 -> task_crashinfo_alloc_init(..., CORPSE_CRASHINFO_HAS_REF, ...).
+- corpse.c:294–296 -> task_crashinfo_get_ref(); failed ref acquisition returns NULL.
+- task.c:2417–2420 -> frees its newly allocated crash-data buffer and returns KERN_FAILURE.
+- kern_exit.c:2079–2089 -> generic corpse failure message and create_corpse = FALSE.
+
+Therefore a paired gate message and proc_prepareexit message are consistent with a failure to preserve/report an already crashing process. The corpse rejection is downstream of the original termination decision, not evidence that the limit caused the original exception. Increasing/disabling the corpse limit would not establish or repair the cause of audiomxd's failure.
+
+3. Smallest useful diagnostic change (suggestion only; not implemented)
+
+The original termination facts are already available locally in proc_prepareexit:
+- raw rv; decode signal versus ordinary exit status using the applicable wait-status predicates;
+- p->p_exit_reason, with a null/presence marker; namespace, code, flags and a bounded description;
+- ut->uu_exception, ut->uu_code and ut->uu_subcode (ut initialized at 1918–1920);
+- PID and exact process name, plus a monotonic timestamp matching the kernel Console clock.
+
+Record the original ut fields rather than only packed code: the existing crash-reporter encoding at 1979–1981 deliberately keeps only four exception bits and twenty code bits. Do not use local etype outside its initialized branch.
+
+A directly adjacent PONG precedent already exists at kern_exit.c:1928–1938: exact-name Preferences filter, 768-byte stack buffer, snprintf with description capped at 512 characters, and bounded pong_ramoops_diagnostic_write. It currently does NOT include audiomxd.
+A minimal implementation can use an exact audiomxd filter in this early section, preserve raw exit data before corpse allocation, and separately log task_mark_corpse's actual kr with a different marker after failure. Keep bounded output and a small rate cap; introduce no allocations or synchronous file I/O on the exit path, no fake success, and no change to corpse or termination behavior.
+Because current pstore did not produce usable captured records, any proposal to use ramoops alone must first verify that its receipts reach the existing extraction path. Also emitting the same bounded kernel diagnostic to the already captured Console is the practical observation route.
+
+The DEVELOPMENT/DEBUG process-event logging at 1990–2004 is conditional on exception_log_max_pid and its delivery path. Its presence in source is not evidence that this runtime captured audiomxd's namespace/code.
+
+4. Runtime boundary
+
+The current capture lacks the original audiomxd exit namespace/code in the observed messages. These two strings cannot determine SIGABRT vs another fatal signal, assertion text, missing service, malformed payload, or a driver fault.
+Do not infer from the number 6 that audiomxd itself crashed six times, do not count repeated diagnostic lines as independent crashes without PID/exec evidence, and do not describe raising the limit as a root-cause fix.
+The related framebuffer source excerpts are saved separately as source-excerpts-v72.txt. This report makes no new inference about hardware sleep or about the asynchronous data migration operation having completed.
+
+CURRENT CAPTURE MESSAGE LOCATIONS (physical text lines)
+/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-010642/extracted/files/logs/PongConsole.txt
+L16948: [  530.937456]: MessagesBlastDoorService[382] Corpse failure, too many 6
+L17794: [  530.937456]: MessagesBlastDoorService[382] Corpse failure, too many 6
+L18150: [  530.937456]: MessagesBlastDoorService[382] Corpse failure, too many 6
+L20189: [  631.563131]: audiomxd[79] Corpse failure, too many 6
+L20190: [  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created.
+L21146: [  631.563131]: audiomxd[79] Corpse failure, too many 6
+L21147: [  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created.
+L21196: [  648.743715]: PosterBoard[426] Corpse failure, too many 6
+L22108: [  631.563131]: audiomxd[79] Corpse failure, too many 6
+L22109: [  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created.
+L22158: [  648.743715]: PosterBoard[426] Corpse failure, too many 6
+L23037: [  631.563131]: audiomxd[79] Corpse failure, too many 6
+L23038: [  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created.
+L23087: [  648.743715]: PosterBoard[426] Corpse failure, too many 6
+L23930: [  631.563131]: audiomxd[79] Corpse failure, too many 6
+L23931: [  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created.
+L23980: [  648.743715]: PosterBoard[426] Corpse failure, too many 6
+L24771: [  631.563131]: audiomxd[79] Corpse failure, too many 6
+L24772: [  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created.
+L24821: [  648.743715]: PosterBoard[426] Corpse failure, too many 6
+L25257: [  777.551181]: MessagesBlastDoorService[527] Corpse failure, too many 6
+L25612: [  631.563131]: audiomxd[79] Corpse failure, too many 6
+L25613: [  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created.
+L25662: [  648.743715]: PosterBoard[426] Corpse failure, too many 6
+L26098: [  777.551181]: MessagesBlastDoorService[527] Corpse failure, too many 6
+L26268: [  631.563131]: audiomxd[79] Corpse failure, too many 6
+L26269: [  631.563168]: Process[79] crashed: audiomxd. Too many corpses being created.
+L26318: [  648.743715]: PosterBoard[426] Corpse failure, too many 6
+L26754: [  777.551181]: MessagesBlastDoorService[527] Corpse failure, too many 6
+L26911: [  828.142566]: MessagesBlastDoorService[542] Corpse failure, too many 6
+L27595: [  777.551181]: MessagesBlastDoorService[527] Corpse failure, too many 6
+L27752: [  828.142566]: MessagesBlastDoorService[542] Corpse failure, too many 6
+L28081: [  884.024679]: audiomxd[479] Corpse failure, too many 6
+L28082: [  884.024715]: Process[479] crashed: audiomxd. Too many corpses being created.
+L28444: [  777.551181]: MessagesBlastDoorService[527] Corpse failure, too many 6
+L28601: [  828.142566]: MessagesBlastDoorService[542] Corpse failure, too many 6
+L28930: [  884.024679]: audiomxd[479] Corpse failure, too many 6
+L28931: [  884.024715]: Process[479] crashed: audiomxd. Too many corpses being created.
+L29297: [  777.551181]: MessagesBlastDoorService[527] Corpse failure, too many 6
+L29454: [  828.142566]: MessagesBlastDoorService[542] Corpse failure, too many 6
+L29783: [  884.024679]: audiomxd[479] Corpse failure, too many 6
+L29784: [  884.024715]: Process[479] crashed: audiomxd. Too many corpses being created.
+L30125: [  777.551181]: MessagesBlastDoorService[527] Corpse failure, too many 6
+L30282: [  828.142566]: MessagesBlastDoorService[542] Corpse failure, too many 6
+L30611: [  884.024679]: audiomxd[479] Corpse failure, too many 6
+L30612: [  884.024715]: Process[479] crashed: audiomxd. Too many corpses being created.
+L31018: [  777.551181]: MessagesBlastDoorService[527] Corpse failure, too many 6
+L31175: [  828.142566]: MessagesBlastDoorService[542] Corpse failure, too many 6
+L31504: [  884.024679]: audiomxd[479] Corpse failure, too many 6
+L31505: [  884.024715]: Process[479] crashed: audiomxd. Too many corpses being created.
+L31859: [  989.1006174]: PosterBoard[621] Corpse failure, too many 6
+L31943: [  828.142566]: MessagesBlastDoorService[542] Corpse failure, too many 6
+L32272: [  884.024679]: audiomxd[479] Corpse failure, too many 6
+L32273: [  884.024715]: Process[479] crashed: audiomxd. Too many corpses being created.
+L32627: [  989.1006174]: PosterBoard[621] Corpse failure, too many 6

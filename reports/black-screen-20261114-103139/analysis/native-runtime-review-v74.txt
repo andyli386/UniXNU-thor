@@ -1,0 +1,111 @@
+v74 本轮 native 栈、wake 与 audio 退出复核
+正式采集：PongBoot-pull-20261114-103139
+Mac 报告根目录：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-103139
+对照：black-screen-20261114-025335（v73）
+范围：日志与现有源码/符号索引分析；未触设备、未构建、未改产品源码或固件。
+
+结论
+本轮黑屏之后 SpringBoard 并非始终停在同一调用点：它从早期的 LaunchServices、FrontBoard/BackBoardServices 同步等待，推进到 UIWindow 加入 root view、UIViewController viewWillAppear、CoverSheet 资源路径解析。最后样本停在 lstat64 的不可中断等待。这是 UI 生命周期推进的证据，不是显示出了 UI 的证据。
+
+audiomxd 新提供了更深一层原因：PID529 的原生报告明确写 AQ::Server 内部 RPC 超时，继而尝试写 stackshot 并退出。PONG EXIT 中“writing stackshot ... aborting”是这条失败链上的后续诊断/退出信息。现在仍没有完整锁持有者或 AudioQueue/HAL 回应链，不能把“Apparently deadlocked”升级成已证明的永久死锁。
+
+1. 证据身份和可用性
+- 本轮 Data 的 libpong-ui18.dylib LC_UUID 为 FFEC574F-B64E-351D-AD62-3077876C92B5，和 Mac v74 候选匹配；native sampler header 同时记录注入库 image0 和各进程 slide。
+- 共解析 11 个 PongBoot 文件、54 个快照块。
+- 4 份 .ips 均无法完整 JSON 解码。能够独立完整解码的 reason、termination、pid 等字段单独留档，没有补造缺失闭合符后当作完整崩溃报告。
+- PongBoot 记录的 shared-cache base 为 0x185b64000；现有符号索引为 22H374。此次没有可从完整 .ips 核对的 cache UUID，因此共享缓存符号化保留“22H374 缓存未变”的前提。原始地址一并保留。
+- sampler header 的 time 来自 time(NULL)，seconds 为进程内采样 elapsed；Console 是另一套时间输出。下述精确时差仅在同一 Console 时钟内计算。
+
+2. SpringBoard PID4：早期等待与后期变化
+原始文件：extracted/files/mobile/Library/Logs/PongBoot-SpringBoard.txt
+- time124 / elapsed60：主线程 tid249 在 ulock_wait2，栈内是 LaunchServices Database Context、LSApplicationRecord、ControlCenterServices。
+- time188、304、666：同一 tid249 在 mach_msg 等待同步回复；链条为 SBSystemAppMain → FBSystemShellInitialize → BackBoardServices/BoardServices → dispatch_mach_send_and_wait_for_reply。
+- time965 / elapsed901：第48行 BEGIN，第50行主线程样本。调用链为：
+  UIWindow _setHidden:forced:
+  → _updateLayerOrderingAndSetLayerHidden:
+  → addRootViewControllerViewIfPossible
+  → UIView _addSubview / _willMoveToWindow
+  → UIViewController viewWillMoveToWindow / __viewWillAppear
+  → CoverSheet +0x366ec、+0x9bb28、+0x9c8a0、+0x9b6c8
+  → NSBundle bundleForClass
+  → NSFrameworkPathFromLibraryPath
+  → NSString resolvingSymlinks
+  → lstat64
+- 该样本 run=4、cpu=308。源码 boot_snapshot18.c:165–177 明确来自 thread_basic_info.run_state / cpu_usage；thread_info.h:132–138 中 4 是 TH_STATE_UNINTERRUPTIBLE，1 才是 RUNNING。TH_USAGE_SCALE=1000，cpu308 是该字段的308/1000刻度，不是308%。
+- 最新 tick 仍为 PID4、elapsed962、26线程；没有由这些快照得出“SpringBoard重启”或“主线程一直不前进”的依据。
+- v73 最后相近 elapsed901/time970 的 PID5 栈为 addPointerInteractionObserver → scene:willConnect → FBScene create/activate → system shell embedded-display。v74已处于不同的 root view/CoverSheet appearance 入口；两次单点样本不能证明所有启动阶段的严格速度排序。
+
+3. wake 回执
+原始文件：extracted/files/mobile/Library/Logs/PongSB-4.txt，135 bytes，仅3行：
+[63] Pong UI18: SpringBoard adapter ctor (v73)
+[63] Pong UI18: wake scheduled on main queue +10s
+[63] Pong UI18: wake enqueue returned
+
+源码 ui_compat18.c:2568–2570 的 enqueue returned 在 dispatch_after_f 返回后，因此此前“是否卡在提交调用”已有正证据。
+wake_home begin 位于 :1657，早于 UIScreen 查询；本轮文件中没有它。
+现有多次主线程启动等待、最后仍在窗口初始化，和“尚未服务该主队列回调”一致，但缺行不能单独证明回调永远未执行：pong_sb_note 的 dprintf/fsync 返回值没有校验。
+陈旧 ctor 标签(v73)不否定本轮v74 UUID。
+
+4. BackBoard PID40
+原始文件：extracted/files/mobile/Library/Logs/PongBoot-backboardd.txt
+- time167、287、647、947 的 tid324 在 CFRunLoop/mach_msg 常规等待。
+- time947 的 tid767 在 CA::Render::Server::server_thread，多个线程在 CA::WindowServer::IOMFBServer::thread_body / CFRunLoop 等待。
+- buttons_thread tid404 停在 read，是等待按键输入，不是已执行唤屏动作。
+- tid573 在 dispatch_group_wait_slow，下面的返回地址0x10069f3e4属于尚未建立可执行映射的地址范围；现有数据不能给出这个 group 的 owner 或完成条件。因此不把 BackBoard 的所有线程概括为“完全健康”。
+- Console 691.477906 的 EMPTIED 明确 submitter=backboardd pid=40、surfaces全0、gpu=0、graphics=1、set=1。它比第一次 audiomxd 退出早177.688702秒，不能把后来的audio退出倒置成这次清屏的直接前因。
+- v73留存源码1108–1115与v74当前源码1116–1123逐行相同：空底层满足 !gpuFrame、set&1、fGraphics 时每像素写0xff000000。v74修的是提交者身份诊断，未改变这段空层填黑行为。
+
+5. RunningBoard PID6
+原始文件：extracted/files/logs/PongBoot-runningboardd.txt
+- 各轮主线程 tid349 都是 CFRunLoop/mach_msg 等待。
+- time945 的 tid10726 在 OSAnalytics __WriteCrashReportWithStackshot+0x238，通过 libxpc / dispatch_mach_send_and_wait_for_reply 等待同步回复；调用者为 RunningBoard framework offsets +0x654f8、+0x4755c，继而 RBSXPCMessageContext handoffToQueue。
+- 这表明另一个真实原生诊断线程在等待，但不证明整个 runningboardd 主队列被堵住，也不证明它就是 audio RPC 的持锁者。
+- v73 time947 也存在同类 OSAnalytics WriteCrashReportWithStackshot 等待线程tid10529，这不是v74新增的调用类型。
+
+6. audiomxd PID81 → PID529：确定项和未确定项
+确定的 Console 退出（原文件重复镜像，按timestamp+正文去重）：
+- 869.166608，PID81，signal=6，namespace=39，code=0，description=writing stackshot failed, aborting
+- 955.520118，PID529，signal=6，namespace=39，code=0，description=writing stackshot took over 5s, aborting
+reason.h:153 将 namespace39 定义为 OS_REASON_AUDIO。status=0 是宏解码字段，不能同时解读成“正常退出0”。
+
+更早一层的原生原因：
+文件 extracted/files/mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001551.0002.ips
+第11行 reason：
+“AQ::Server: RPC timeout within audiomxd. Apparently deadlocked. Writing a stackshot and exiting.”
+reason 字段名起点：字符偏移510，UTF-8字节偏移528；值范围字符[521,619)。
+同文件第19行为 pid529、第15行为 exception 0xbe18d1ee，头时间00:15:51。
+这是PID529原生AQ内部RPC超时的直接证据；没有对应完整reason字段可把同一原始触发点无条件推广到PID81。
+
+PongBoot样本：
+- PID81 time127、187、307、671 主线程在 NSRunLoop/CFRunLoop，最后一个样本不是退出瞬间。不能因主线程当时等待消息而排除其工作队列晚些时候发生RPC超时。
+- PID529 time938 / elapsed60，tid13306 run4，在 dyld offsets +0x3438/+0x6f2c/...，调用链来自 AudioToolbox +0x2fef8/+0x1ac3e8/+0x1ac2b4/+0x18a284。
+- 同样本 tid13355 run1，位于 libBNNS / libAudioDSP 初始化链，出现 dispatch_once_callout。
+- tid13629 在 AudioServerDriverTransports_Base+0x1dbf0 → pthread_cond_wait。这是音频驱动传输相关等待的线索，但条件变量等待本身可以正常，不能从其存在断言HAL缺实现、等待持有者或确定死锁。
+- 缺AudioToolbox、dyld、AudioServerDriverTransports具体函数符号时保留offset，不凭名字猜测成某个HAL/AudioQueue API。
+- 这次有47线程，采样只覆盖31个；源码限定i<32且跳过自身。因此无法借这些样本排除未采到的RPC接收者、timeout线程或锁持有者。
+- 已采样audio帧没有落入实际libpong-ui18的__text；这只能描述采到的帧，不能当作“库从未执行”的证明。
+
+7. 是本库触发原生stackshot吗
+当前ui_compat18.c:2499–2502中audiomxd被明确分入观察分支：只按boot-arg启动pong_boot_snapshot_start，随后return。
+boot_snapshot18.c:130–214的snapshot使用task_threads、thread_get_state、thread_info、vm_read_overwrite采本进程状态/帧链，并写PongBoot文本；它不调用stackshot_capture_with_config或OSAnalytics原生stackshot API。
+:677–703只给audio创建本地worker；console/cache/watch三个辅助worker只在runningboardd创建。
+DMDiagnostics captureDiagnosticsForIncident:async: hook 在ui_compat18.c:192–221；安装只发生于:2514–2517的datamigrator分支，不作用于audio。
+因此已核实代码中，不能把AQ原生stackshot请求直接归因于PongBoot采样器。采样造成的额外线程/内存读取/日志I/O成本仍可能改变时序；这一间接影响未通过对照实验排除。
+root另存的stackshot-source-evidence.json保留内核/包装层多种错误返回路径。退出文本没有记录实际stackshot errno/阶段，不能只靠“failed”把原因定成权限、ENOMEM或某个内核gate。
+
+8. 下一步应收敛到的证据
+A. 保留现在的wake/退出/submitter回执，定位SB965时lstat的具体路径和对应内核等待原因；不要由lstat样本直接下结论为磁盘故障。
+B. 对audiomxd的AQ超时获取RPC请求名/序号、接收或owner线程，以及原生stackshot返回码/耗时阶段。这能区分初始化/换页拖延、丢回复和真实循环等待。
+C. 明确BB tid573 dispatch_group的完成者；当前不足以确认它阻断新画面提交。
+D. 不建议先把AudioQueue/HAL或stackshot错误整体吞掉；那会掩盖缺失回应，并不能恢复真正的音频/显示契约。
+
+主要分析输出
+analysis/native-runtime-key-evidence-v74.json：本报告轻量证据索引与关键原始帧。
+analysis/native-v74-v73-focus.json：四个进程两轮主线程/诊断线程完整选择集。
+analysis/native-pongboot-late.json：54个快照块、保留全部采到的原始地址。
+analysis/native-reason-fields-v74.json：原生reason的精确字段位置。
+analysis/native-partial-fields-v74.json：.ips中能独立解码的字段。
+analysis/native-sampler-trigger-source.json：process-local sampler、run状态与进程分支源码。
+analysis/stackshot-source-evidence.json：root采集的系统stackshot返回路径。
+analysis/framebuffer-cpu-empty-current.txt 与 framebuffer-cpu-empty-compare-v73.json：黑填充分支与8行逐字一致结果。
+

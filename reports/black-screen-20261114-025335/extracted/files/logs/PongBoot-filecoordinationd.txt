@@ -1,0 +1,12 @@
+Pong tick: filecoordinationd pid=361 seconds=60 threads=3
+Pong boot snapshot BEGIN: filecoordinationd pid=361 seconds=60 time=525 threads=3
+Pong boot snapshot: filecoordinationd pid=361 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=1007b3000 cache=0x195148000 size=f37c8000
+thread=1 tid=7370 state_result=0 info_result=0 run=4 cpu=41 pc=19524d03c lr=19524dc20 fp=16f799280 sp=16f799220 frames: 19524dc20 1977ca288 19f24ea68 19f22326c 1977c963c 1977c97d8 1977cb208 1977e48a4 1977d3550 1977adca4 1977ad9d0 1977dfbe4 1977e0ba0 196940290 196940fb4 196940108 196948540 19693b198 19693d820 196771920 19676e324 19676dc10 19676dad8 1f656c8c4
+thread=2 tid=7453 state_result=0 info_result=0 run=3 cpu=0 pc=1e33e0f60 lr=19f236990 fp=16f820fa0 sp=16f820f90 frames: 19f236964 0
+Pong boot snapshot END: filecoordinationd pid=361 seconds=60 sampled=2 of 3
+Pong tick: filecoordinationd pid=361 seconds=120 threads=3
+Pong boot snapshot BEGIN: filecoordinationd pid=361 seconds=120 time=585 threads=3
+Pong boot snapshot: filecoordinationd pid=361 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=1007b3000 cache=0x195148000 size=f37c8000
+thread=1 tid=7453 state_result=0 info_result=0 run=3 cpu=0 pc=1e33e0f60 lr=19f236990 fp=16f820fa0 sp=16f820f90 frames: 19f236964 0
+thread=2 tid=8161 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16f9b2ae0 sp=16f9b2ac0 frames: 1f650eab0
+Pong boot snapshot END: filecoordinationd pid=361 seconds=120 sampled=2 of 3

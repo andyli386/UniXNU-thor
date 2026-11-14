@@ -1,0 +1,87 @@
+v73 本轮原生栈、迁移和显示阶段复核
+capture: black-screen-20261114-025335
+对照: black-screen-20261114-010642 (v72)
+范围: 仅完成提取后的 files；未操作手机、挂载、编译、刷机或改源。
+
+1. 本轮确实已到新的 UI 阶段，但尚未证明稳定桌面
+本轮磁盘 libpong-ui18 UUID DCBDA011-9CA3-3BA9-AF5F-CFAF07A981DF，与 v73 候选对应。PongSB-5.txt 的 v73 constructor 回执证明 SpringBoard 进入了这版路径。
+SpringBoard PID5/T248 在 time190、312、674 的主线程仍为 FBSystemShellInitialize 同步回复链；time970 的 24 帧已变成 displayAssertionDidGainControlOfDisplay -> _createSystemShellSceneWithOrientation -> FrontBoard scene create -> UIApplication scene connect -> SBEmbeddedDisplayWindowSceneDelegate -> pointer interaction manager。
+最后一次是 run=1、cpu=299（原始字段，不换算为299%），PC 是 addPointerInteractionObserver: 的方法入口；这证明取样点在本机 system-shell window-scene 连接流程内，不能把它当作死锁函数或据此移除指针观察器。
+它与 v71 的 MediaRemote dispatch_once 等待、v72 的 NSError 描述格式化取样形态均不同。本轮不能继续表述为“始终卡在旧媒体 once”。
+证据: mobile/Library/Logs/PongBoot-SpringBoard.txt 第49行；analysis/native-pongboot-late.json 中该文件最后一组。
+
+2. 最新主线程原始地址及 22H374 条件符号
+time=970 seconds=901 pid=5 tid=248
+pc=0x1e7dc2108 -> unslid 0x1d2c7a108 -[SBMultiDisplayUserInteractionCoordinator addPointerInteractionObserver:]+0
+lr=0x1e77b801c -> unslid 0x1d267001c -[SBSystemPointerInteractionManager initWithMultiDisplayUserInteractionCoordinator:]+0x84
+frame0=0x1e7c6f5a0 -> -[SBEmbeddedDisplayWindowSceneDelegate _configureForConnectingWindowScene:windowSceneContext:]+0x1d4
+frame1=0x1e7846940 -> -[SBAbstractWindowSceneDelegate _commonSceneSetupForScene:]+0x5c
+frame2=0x1e7845ee8 -> -[SBAbstractWindowSceneDelegate scene:willConnectToSession:options:]+0x138
+frame3=0x1e7c6fe14 -> -[SBEmbeddedDisplayWindowSceneDelegate scene:willConnectToSession:options:]+0x8c
+frame4=0x19a20b9a4 -> +[UIScene _sceneForFBSScene:create:withSession:connectionOptions:]+0x3ec
+frame5=0x19a215720 -> -[UIApplication _connectUISceneFromFBSScene:transitionContext:]+0x324
+frame6=0x19a207f9c -> -[UIApplication workspace:didCreateScene:withTransitionContext:completion:]+0x140
+frame22=0x1e798383c -> -[SBSystemShellEmbeddedDisplayController _createSystemShellSceneWithOrientation:]+0x17c
+frame23=0x1e79835c4 -> -[SBSystemShellEmbeddedDisplayController displayAssertionDidGainControlOfDisplay:]+0x38
+其余 FrontBoard/FBSScene/BSEventQueue 完整中间帧已保留 JSON。cache base=0x195148000，slide=0x15148000。IPS 明文 build=22H374，但没有完整 cache UUID；符号以未更改的同版参考 cache 为条件，原始地址全部保留。
+注入库帧另按实际提取的库、image0 路径与对应 image slide 符号化；共16个命中主要为 RB 日志/缓存/watch worker 和 BB buttons_thread。最新 SB 主链中没有 wake_home / volume_restore / ringer_restore / tone_restore 帧；这不是这些函数从未运行的证明。
+
+3. wake 的断点目前收窄在 constructor 之后、入口之前，尚缺调度闭环
+PongSB-5.txt 只有:
+[63] Pong UI18: SpringBoard adapter ctor (v73)
+[67] Pong UI18: wake scheduled on main queue +10s
+没有 wake_home begin、screen、accepted、completed。
+ui_compat18.c:2562–2569 的 scheduled 回执在 dispatch_after_f 调用前，故不能仅靠该行宣称 enqueue 已返回。wake_home 的 begin 位于任何 UIScreen 查询之前（:1657），所以已不像 v72 那样必须等屏幕查询成功才有第一条入口回执。
+结合最新主线程仍在同步 scene startup，主队列回调尚未得到执行是值得优先验证的解释，但目前没有运行时 queue owner 绑定或 after-enqueue 收据，不能称已证明死锁。PongSB 文件本轮成功写了前两行，也不能彻底排除后续 I/O 失败。
+建议补 after-enqueue 回执、真实单调时间、独立轻量 heartbeat 和 wake_home 的分步返回/errno；不要为了出现画面而伪造 scene 完成或在错误线程硬调 UIKit。
+
+4. 显示清层是实际事件；来源 PID 仍未知
+Console 存在重复片段。按完整原始行去重后只有两条状态事件:
+[79.347480] layers RESTORED submitter=? pid=-1 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1
+[906.227133] layers EMPTIED submitter=? pid=-1 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=64839
+前者重复出现4次，后者3次，不能统计为4次恢复/3次清屏。
+后者 set&1、layer0 sid0、gpu0、graphics1 与 MiniIOMobileFramebuffer.cpp 的 CPU framebuffer 填黑分支条件对应。可以说该次空层提交进入软件填黑条件，不能把它改说成面板断电、背光关闭或某一真实用户进程主动关屏。
+来源仍是已核实的探针缺陷: present 把名字/PID 写到队列槽；presenter 把 payload memcpy 到 static swap 后调用 show；show 按传入指针是否落在 fSwap[] 反找槽，得到-1。因此 ?/-1 是来源丢失，绝非有效 PID。
+应把 provenance 与 payload 同锁复制、显式传递到 show，不能用 static 指针倒推槽位。Console清层记录为raw906.227133；最后SB快照time970仍在原生scene connect。这两个字段的时钟域不同，不由数值相近推定精确先后间隔；目前没有scene完成或新的非空层呈现回执。
+
+5. Data Migration 流程已结束，插件总体结果仍有失败
+PongDM-81.txt 有1条安装记录和9次 captureDiagnostics 调用：原 async0 六次（432/595/706/739/774/830），原 async1 三次（72/347/374），全部送入原生 async1 分支。这只证明 hook 接收并改派参数，不是诊断已返回或文件写完的回执。
+lockdownd.log 明文:
+00:01:59.816774 pid54 Data Migration Completed: false
+00:15:22.638325 pid570 Received notification: com.apple.datamigrator.migrationDidFinish
+00:15:37.750881 pid570 Data Migration Completed: true
+migration.plist 的 DMLastMigrationResults.success 仍为 false，buildVersion / LastSystemVersion 为22H374。
+这两种状态并不矛盾：迁移流程结束通知与每个插件成功是不同判断。不能把 completed:true 写成全部插件成功，也不能把 success:false 单独写成仍卡在迁移等待。
+DM最后time968剩5线程；主线程在常规 XPC/NSRunLoop。两条线程读取失败（state/info=268435459，tid0），另一个线程虽成功读状态但PC/LR为0，因此不能把最后快照所有线程都归为健康闲置。旧 v70 的同步诊断与 callback 双栈没有在这份可用末组中出现，但不完整线程状态限制了全否定结论。
+BB最后time951主线程为runloop；另有一个原生 dispatch_group_wait，调用端地址0x10061d3e4未在本轮建立 executable 映射，不能擅自标为旧 DM owner 或宣布 BB 所有工作完成。
+
+6. 音频对照：本窗口没有复现上轮重启，但尚非功能健康证明
+audiomxd 的五组快照 time125/185/308/668/968 均为PID83；mediaremoted 的 time107/167/288/651/948 均为PID10。本轮保留 Console exact-dedup 后没有 audiomxd/mediaremoted crash 行，与 v72 保留到多个 audiomxd PID、两次 crash 的形态不同。
+audiomxd 末组主线程在 CFStringHash / notification registrar / NSNotificationCenter / SpringBoardServices callback 路径，其余可见线程多为 CoreMedia/CoreAudio/caulk 等等待；mediaremoted 末组是runloop/workq。当前没有获得 SB 到具体音频请求的端口/queue/owner 关联。
+同一PID和未见崩溃不能证明声音输出可用，不能证明所有时段无崩溃，更不能证明稳定桌面。v71 已有音频崩溃，故也不应说是 v72 新引入而 v73 彻底修复。
+
+7. PosterBoard 仍有确定的30秒启动 watchdog；系统内存压力仍重
+.PosterBoard-1970-01-01-001208.0002.ips 的顶层 termination 完整: PID470, code0x8badf00d, namespace<0xA>, process-launch watchdog, allowance30.00s, Background/Running。
+同PID的 Console 行732.800177 Process crashed，以及732.800078 Corpse failure too many6，完整行各重复9次。它们表示一组保留的 crash 事件；corpse额度是报告无法再留存的原因，不是进程原始失败原因。
+报告 appCPU0.405秒，系统CPU58.130秒/总61.200秒（保留原报告口径）；不足以定具体等待对象。
+该部分 IPS 中 memoryStatus 是完整子对象: memoryPressure=true, pageSize4096, wired101853页, compressorSize34395页, free783页, compressions2145969, decompressions1923502。
+早期 DM IPS 则 memoryPressure=false，wired57638页, compressor3581页, compressions27853, decompressions17082。同轮压力和压缩/解压累计活动显著增加，有助解释系统推进慢，但不是 UI 黑屏或 Poster watchdog 单一因果证明，累计计数不能直接当瞬时速率。
+PosterBoard 的 displayState=ON、uptime720 是其较早取样时状态，不能拿来证明906秒清层后面板状态。
+无完整 PosterBoard 线程图；不能把一次 run=1 的 SB 方法入口与 Poster watchdog 拼成已证同一死锁。
+
+8. 诊断完整性与留存边界
+本轮仅2份 native IPS，27889B 和30197B，均截断。保留完整顶层字段/完整子对象，不补括号伪造完整报告。早期 DM IPS 的完整 processByPid 前缀仅 kernel_task0、launchd1、SpringBoard5，且缺后续 images；无法构成后期系统 owner 图。
+PONG EXIT 新探针只进 Darwin pmsg，不进 Console。已核地址与 Recovery ramoops 不一致，pstore为空，没有安全可读的 /dev/mem 路径。因此本轮 Console 无 PONG EXIT 不能用于证明没有退出、没有原因或探针从未执行。
+Audio init policy 的正向文本在本轮 Console 未见；两个策略文件和 HAL 目录在采集的 Data 范围未找到。Data覆盖范围不包括所有 OS/SystemOS 路径，用户态 Console 正向留存也不完备，故不能直接宣布 init helper 未执行或全部策略缺失。
+采样使用用户态 time、相对 seconds、Console kernel 时间、IPS capture/uptime 等不同字段。这里只报告原字段和可靠顺序，不把相近整数自动认定同一事件或精确堵塞时长。
+
+9. 下一步最有价值的定点改动
+A. 先修显示来源探针，按提交实例携带 payload+provenance，保留其实际 errno/字段；不要用 ?/-1 推断用户进程。
+B. 为 SB scene connect 完成、首个非空帧、wake enqueue返回及 wake入口/返回建立真实单调时间的少量持久回执；当前最新单次RUN1采样不能确定停止在哪个方法。
+C. 为 PONG EXIT 提供与当前 Data/Recovery一致的可持久读取通路或已验证持久 fallback，保留原 namespace/code/description，不能只写失配的pmsg区域。
+D. 继续保留诊断异步与真实失败结果，不恢复 v70 同步诊断，不跳过迁移返回假成功，不依据一次栈顶去替换 addPointerInteractionObserver。
+E. 把内存压缩/换页与 UI阶段的单调时间采样关联，缩减无关高频观察开销前先明确成本；当前证据显示内存压力与用户界面尚未完成并存，而非一个已经定位的唯一软件等待环。
+
+机器可读证据见 native-runtime-transition.json、native-pongboot-late.json、native-ui18-frames.json、native-partial-documents.json、native-console-focus.json。完整 Apple 符号表留在 /tmp，未并入报告。
+
+主报告补充：上游对照后来找到load_init_program普通/sbin/launchd分支的正向回执，足以确认未走显式pong_init_path分支；OS卷/sbin/launchd身份仍未核实。参见upstream-v73-policy-runtime-evidence.json。

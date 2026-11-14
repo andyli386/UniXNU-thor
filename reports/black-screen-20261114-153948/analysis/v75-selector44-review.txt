@@ -1,0 +1,103 @@
+THOR v75 selector 44 与 lsd highwater 定向评审
+2026-11-14 Asia/Shanghai；只读检查，未修改、构建或刷写。
+本轮日志：THOR-20261114-153948。代码与二进制证据见 v75-selector44-evidence.json / v75-selector44-binary.json。
+
+一、selector 44 的名字和返回行为已经确定
+
+本轮 Console raw661.443863：
+MiniIOSurface: selector 44 not implemented (scalars 4 in, 0 out; structure 0 in, 0 out)
+
+当前 xnu-work/iokit/Kernel/MiniIOSurface.cpp:103 明确枚举：
+kSurfaceMethodSetOwnershipIdentity = 44。
+externalMethod:1968–2115 没有该 case，最终2115返回 kIOReturnUnsupported（不是成功）。
+2110–2113 用全局gSurfaceLogged按selector仅报告第一次，且没有PID/线程/入参数值。所以这条日志不能给出总调用次数，也不能认定请求来自SpringBoard或backboardd。
+
+22H374真实缓存：
+/Volumes/CrystalUpdate22H374.J171J172SystemCryptex/System/Library/Caches/com.apple.dyld/dyld_shared_cache_arm64
+_IOSurfaceClientSetOwnershipIdentity @ 0x1a66d09c0
+_IOSurfaceSetOwnershipIdentity @ 0x1a66d0548
+同库符号还包含旧 IOSurfaceClientSetOwnership / IOSurfaceSetOwnership，但它们不是selector44的这条新入口。
+
+真实反汇编证据：
+0x1a66d09dc 从client+0x88读surface ID；
+0x1a66d09e0 将参数w1零扩展为第二scalar；
+0x1a66d09e8 将参数w2有符号扩展为第三scalar；
+0x1a66d09ec 将参数w3零扩展为第四scalar；
+0x1a66d0a04 w1=0x2c（44）；
+0x1a66d0a08 w3=4（scalar count）；
+0x1a66d0a0c–0x1a66d0a18无结构输入/标量输出指针；
+0x1a66d0a1c执行IOKit调用，之后只有stack-canary检查和返回，不改该调用的返回码。
+外层SetOwnershipIdentity提取对象内client后，0x1a66d055c尾调用Client版本；NULL对象返回BadArgument。
+
+本地SDK的IOSurfaceRef.h:466给出：
+kern_return_t IOSurfaceSetOwnershipIdentity(IOSurfaceRef buffer, task_id_token_t task_id_token, int newLedgerTag, uint32_t newLedgerOptions)
+API_AVAILABLE ios(17.4)。
+SDK为27.0，故这里不以它单独证明18.x ABI；18.x本体反汇编已独立验证参数布局，SDK仅补名字/类型文档。参数依次应解释为：
+0 surface ID；
+1 task identity token端口名（不是PID）；
+2 signed ledger tag；
+3 uint32 ledger options。
+SDK的tag 1/2/3/4/5分别default/network/media/graphics/neural，与当前XNU vm_statistics.h:596–603吻合；选项含NoFootprint。不能把所有flags任意接受。
+
+二、这条缺口能解释什么，不能解释什么
+
+确定：当前MiniIOSurface拒绝一个原生用户库实际发出的内存所有权/ledger归因接口，错误码向上层传播。它是实在的兼容性缺口，值得修。
+还不能确定：是谁调用、调用的surface是什么、上层收到Unsupported以后采取什么分支、它是否导致当前UI停止、它与EMPTIED有没有因果关系。
+此接口的已知语义是归属/内存记账，不是提交帧、清空surface或填黑。不能把selector44直接改名为“缺少渲染提交”或“黑屏根因”。
+
+下一条最有价值的证据：
+在selector44入口有界记录 current proc PID/name、tid、surface ID、identity-token端口名、tag/options、surface是否存在/归当前client持有、返回码；用户态同时记录该API caller+返回码及随后的失败/退化分支。不要通过打印token值去推断其代表哪个PID；用合法内核token解析得出的目标task身份另记。
+把入口/返回与EMPTIED同一时间域关联；没有调用者与失败分支，只能列接口缺口。
+现有一次性全局日志若没有再次出现，也不代表它之后从未被调用。
+
+三、真正实现的轮廓（已有基础设施；不是可直接合入的补丁）
+
+1. 严格校验scalarInputCount=4、无意外结构/输出，校验tag/flags及边界。
+2. 用该user client的surface引用表查surface ID并保留对象引用，禁止只凭全局ID替他人改归属。
+3. 在正确调用者IPC空间解析task identity token。当前XNU已有：
+osfmk/kern/task_ident.c:291–295 task_id_token_port_name_to_task(name,&task)
+内部使用TASK_GRP_KERNEL并正确取task引用；失败要原样处理，不把无效token当current_task/PID。
+对kernel proper与kext使用不同ref-group接口，不能混用；结束时对应task_deallocate。保留原有授权检查，并核对苹果目标接口对token、特殊值和flags的规则。
+4. 对实际backing descriptor做真实ledger归属更新。现有：
+iokit/IOKit/IOMemoryDescriptor.h:372–382
+setOwnership(task_t newOwner,int newLedgerTag,IOOptionBits newLedgerOptions)。
+iokit/Kernel/IOMemoryDescriptor.cpp:3778–3809处理_memRef及sub/multi descriptor；
+1670–1690 memoryReferenceSetOwnership逐entry调用mach_memory_entry_ownership并传播错误。
+现有开关iokit_iomd_setownership_enabled、_memRef/backing类型都可能使它真实返回Unsupported/NotReady；不能绕过或在失败后无条件报成功。
+5. 必须区分驱动自有pixels与wrapped client memory。后者的descriptor/pinned页与状态页不同，不要把所有内容一律转给目标task；具体Apple允许范围还需目标实现或调用证据。
+6. 处理保留池的所有权生命周期：surface卸载并进池时backing仍存在，随后给别的surface复用；所有权/ledger不能永远留在旧task。补偿/重置/重新归属应有清晰策略并保留真实结果。
+7. 不持gSurfaceLock执行可能阻塞的VM归属更新；锁内查找并retain，锁外操作，正确放引用。若多个memory entry部分成功，不能凭一个总体结果假装原子事务，需要核对可恢复语义。
+8. 最后通过真实owner ledger变化、旧owner移除/新owner增加和重复调用/无效token/释放复用行为验证；表面不再打印Unsupported不足以证明修复。
+
+禁止用return kIOReturnSuccess的空stub，不把NoFootprint作为避开jetsam的通用开关；二者会掩盖实际状态，且违反仓库probe/真实资源约束。
+
+四、上游对照的边界
+
+本次只查已在Mac的 /Users/<user>/projects/thor-unixnu1030/UniXNU 克隆：
+HEAD c67e8016f4b3f9b8fbad081cb85a0bd540db07f7（2026-11-10 19:27:16 +08）。
+其patches中未找到SetOwnershipIdentity/selector44补丁，未发现可直接套用的同接口修复。
+这不是“互联网最新上游绝对没有”；本次没有刷新该克隆或对所有远端分支作穷举。
+可复用的确定基础是当前XNU已经存在的token解析与IOMemoryDescriptor真实ledger更新API，尚需落实MiniIOSurface接口和生命周期适配。
+
+五、lsd 16MiB限额来源
+
+本轮队友从完整Jetsam/Console确认：
+raw553.734670 lsd PID352 highwater kill；
+00:09:21 native Jetsam reason=highwater、priority140、rpages4152（4KiB页共16.21875MiB），随后PID386重启。
+resident页数本身不是读取active memlimit的接口，但运行结果与下述固件原始策略吻合。
+
+22H374原装两个板型策略：
+/Volumes/CrystalUpdate22H374.J171J172OS/System/Library/LaunchDaemons/com.apple.jetsamproperties.J171.plist
+/Volumes/CrystalUpdate22H374.J171J172OS/System/Library/LaunchDaemons/com.apple.jetsamproperties.J172.plist
+两份的 Version4/Daemon/Override/com.apple.lsd 和 com.apple.lsd.system 都是：
+ActiveSoftMemoryLimit=16
+JetsamPriority=140
+InactiveHardMemoryLimit=12
+
+原装com.apple.lsd.plist与com.apple.lsd.system.plist本身没有MemoryLimit字段。自家userland/build-ipados18.py:531–537针对lsd只增加LS_DATABASE_DIR=/private/var/mobile/Library/Pong/LaunchServices，没有人为设置16MiB。
+因此16MiB有明确的原装jetsamproperties来源，不必猜测是port人为限额或665MiB总RAM缩放。当前设备实际加载的完整策略未在Data提取中读出，严格表述应是“原装策略、优先级与运行阈值高度吻合”，而不是已经读回p_memstat_memlimit。
+
+建议：
+- 下轮记录lsd当前active/inactive memlimit、属性、phys_footprint、优先级及死亡前等待的请求，确认真实生效项。
+- 可设计只对lsd临时合理放宽上限的单变量试验，观察重启是否消失、LaunchServices等待是否结束；665MiB系统上不要全局关jetsam或无限放开所有服务。
+- lsd被杀确实可中断服务/重建数据库，但尚未证明它是本轮最早黑屏的直接原因；须和UI/scene等待时间线对应。

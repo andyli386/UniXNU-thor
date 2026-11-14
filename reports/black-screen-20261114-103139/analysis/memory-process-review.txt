@@ -1,0 +1,121 @@
+THOR 最新 Recovery 采集：内存、进程稳定性与迁移对照
+采集批次：PongBoot-pull-20261114-103139
+基线：v73 / PongBoot-pull-20261114-025335
+分析日期：2026-11-14（Asia/Shanghai）
+
+结论
+
+本轮仍有明确内存压力，且重新出现 vm-compressor-thrashing 回收。audiomxd 也不再保持上一轮的单 PID：本轮明确记录两次 SIGABRT，原因分别为写 stackshot 失败、写 stackshot 超过 5 秒。不能把这两次退出归成 OOM；现有 memorystatus 记录没有杀 audiomxd，而且第一次 audio 退出发生在首次清屏之后约 177.69 秒。
+
+迁移比上一轮更早产生完成通知，但最终 Data 中 DMLastMigrationResults.success 仍是 false。Completed=true 只证明完成标志已被设置，不能作为全部迁移成功或桌面已可用的证据。
+
+一、日志覆盖与方法
+
+PongConsole.txt：4,102,813 字节、31,551 物理文本行。完整相同行去重后保留 4,623 个非空不同记录；26,875 行为重复回放，53 行为空白/NUL。
+文件内有 33 个 NUL 字节，不能把第一个 NUL 后面的内容都裁掉。原文件出现 32 条“Pong console capture WRAP lost text”标记；这类固定文本虽然去重后只有一个不同字符串，仍应保留 32 个物理出现位置作为采集质量记录。
+59 个非六位小数时间戳原样保留，不擅自修正。4 份 IPS 的 header 均可解码，主 JSON 本体均不完整；各自 memoryStatus 子对象可独立完整解码。
+本轮内核 RAM marker 为 raw=25.318074，最后规范 timestamp 为 raw=1003.111160，RAM 后覆盖 977.793086 秒。
+与 v73 比较使用双方共同覆盖的 RAM 后 948.038986 秒。内核 raw、用户态 epoch 和 native header 时间各自保留；不假设固定时差。
+来源：extracted/files/logs/PongConsole.txt；analysis/memory-current.json；analysis/native-memory-body-validity.json。
+
+二、内存回收：总数减少，但出现了更重的压力原因
+
+共同观察窗口（RAM 后 948.038986 秒）：
+  v73：170 次，164 idle-exit、6 long-idle-exit、0 vm-compressor-thrashing。
+  本轮：128 次，86 idle-exit、36 long-idle-exit、6 vm-compressor-thrashing。
+本轮完整窗口：129 次，86 idle-exit、36 long-idle-exit、7 vm-compressor-thrashing。
+本轮第 7 次 thrashing 发生于 raw=996.686939，已超出共同窗口，所以不计入同窗比较。
+3 个非规范时间戳的本轮回收事件，其整数秒安全落在窗口内部；没有卡在比较边界的模糊事件。
+本轮没有记录 highwater 回收，也没有 audiomxd、mediaremoted、SpringBoard 或 backboardd 的 memorystatus 回收。
+
+7 次 thrashing 回收对象：
+  raw676.273176：ScreenshotService PID307。
+  raw679.315081：eyereliefd PID327。
+  raw774.123447：CommCenterMobileHelper PID318。
+  raw782.746521：atc PID315。
+  raw857.982844：corespeechd PID404。
+  raw894.556898：MTLAssetUpgraderD PID477。
+  raw996.686939：mmaintenanced PID481。
+
+不能用“总回收数更少”来证明本轮更稳定。idle-exit 与 compressor-thrashing 是不同原因；本轮确实记录了压缩器抖动回收，而 v73 同窗没有。两轮工作负载和时序不同，这也不是控制变量实验。
+来源：PongConsole 首次出现行 21471、21491、24367、24393、27376、28418、31523；memory-current.json 中 equal_window/kill_events。
+
+三、内存压力的独立数字
+
+内核仍报告 665 MiB managed before kernel reservations、4 KiB pages、vm_compressor_mode=2，且 VM swap disabled。
+首次开始执行 soft memory limits：raw282.779381，可用页折算 98.25 MiB，compressor 95.56 MiB。
+末尾 raw1003.111129 的同类记录：可用页折算 75.74 MiB，compressor 144.16 MiB。
+
+native memoryStatus（按各报告自身 header 排序，不与 kernel raw 混算）：
+  datamigrator 00:01:20：wired 230.01 MiB；active+inactive 390.02 MiB；compressor 16.24 MiB；pressure=false；compressions 33,274 / decompressions 19,441。
+  PosterBoard 00:11:17：wired 399.97 MiB；active+inactive 122.00 MiB；compressor 128.28 MiB；pressure=true；compressions 1,804,175 / decompressions 1,602,148。
+  Unknown 00:14:44：wired 392.93 MiB；active+inactive 119.28 MiB；compressor 134.48 MiB；pressure=true；compressions 2,706,812 / decompressions 2,454,777。
+  stacks+audiomxd 00:15:51：wired 395.93 MiB；active+inactive 108.43 MiB；compressor 142.66 MiB；pressure=true；compressions 3,028,400 / decompressions 2,761,906。
+
+这些记录支持“后期内存压力显著、工作集反复压缩/解压”的判断。它们没有指出 wired 分配归属，不能单独证明某个驱动泄漏；压缩/解压累计次数也不是 UFS 读写字节。
+本轮较 v73 又出现了 thrashing 回收，但不能据此直接把写 stackshot 失败解释成磁盘满、RAM 不足或任一特定 errno。
+来源：extracted/files/mobile/Library/Logs/CrashReporter/ 的四份隐藏 IPS；memory-summary-current.json 中 native_memory。
+
+四、关键进程：audio 本轮有真实退出，核心 UI PID 仍在
+
+PongBoot 的采样事实：
+  SpringBoard：PID4，5 组快照，epoch124/188/304/666/965；末组 20 线程。
+  backboardd：PID40，5 组快照，epoch106/167/287/647/947。
+  runningboardd：PID6，5 组快照，epoch103/163/285/645/945。
+  mediaremoted：PID10，5 组快照，epoch107/167/287/649/951。
+  datamigrator：PID80，5 组快照，epoch127/187/307/671/972；末组 3 线程。
+  audiomxd：前 4 组为 PID81（epoch127/187/307/671）；末组变为 PID529（epoch938，47 线程，实际抽到 31/47 个线程）。
+
+v73 的 audiomxd 5 组快照均为 PID83；本轮已出现进程更换。Console 保留的直接退出证据：
+  L27403 raw869.166608：PONG EXIT audiomxd pid=81 signal=6 namespace=39 description=writing stackshot failed, aborting。
+  L30469 raw955.520118：PONG EXIT audiomxd pid=529 signal=6 namespace=39 description=writing stackshot took over 5s, aborting。
+两次紧接着都有“Too many corpses being created”记录。新增 PONG EXIT 因此确实补上了原生报告失败时的原因文本。
+signal/status 字段按原样保存；不能把 status=0 与 signal=6 同时解读成“正常成功退出”。
+
+PosterBoard 至少有两次明确启动 watchdog：PID413 raw680.980514、PID446 raw816.208782，均 signal9、namespace10、code0x8badf00d、30秒 process-launch wall-clock allowance。
+fairplayd.A2 的 PID 变化很多，但本轮保留的 46 条 PONG EXIT 均为 signal0/status0/namespace0；不能把 PID 增长都计为崩溃。3 条 migration wrapper 退出回执也为 signal0/status0/namespace0。
+
+usermanagerd 的 PongDiag 仅观察到 PID69，日志有“Loaded persona manifest version: 1”和“Loaded persona manifest”；同时仍有 nextsession.kb 不存在、缺 UserSessionID 等错误。当前没有本轮 persona 11连崩证据，也不能由 manifest 加载成功推导整条用户会话功能正常。
+上述固定 PID 只证明采样时仍存活，不等于消息处理、UI、音频或迁移功能全部正常。
+来源：extracted/files/mobile/Library/Logs/PongBoot-*.txt、logs/PongBoot-runningboardd.txt、logs/PongDiag.txt、logs/usermanagerd.log.0；memory-current.json 中 process_state。
+
+五、迁移确实更早结束，但成功标志仍未建立
+
+lockdownd.log 的原始用户态时钟：
+  v73：00:15:22.638325 收到 migrationDidFinish；00:15:37.750881 打印 Data Migration Completed: true。
+  本轮：00:11:55.274934 收到 migrationDidFinish；00:12:06.794046 打印 Data Migration Completed: true。
+本轮 lockdownd 对应 PID450，回执首次出现在日志 L100/L105。
+
+Data plist 仍保存：
+  mobile/Library/Preferences/com.apple.migration.plist：DMLastMigrationResults.success=false，buildVersion=22H374。
+  mobile/Library/Preferences/com.apple.springboard.datamigrator.plist：lastBuildVersion=22H374。
+  manifest 的 db/.AppleSetupDone：exists=false。
+PongDM-80.txt 共有 5 次诊断调用回执，其中 2 次原 async=0 被改为 async=1；这只是调用路径证据，不能解释为迁移业务成功。
+
+因此本轮变化是更早出现完成通知，迁移仍带失败结果；桌面是否可用必须由后续 scene/window/frame 证据判断。
+
+六、与首次黑屏的时序关系
+
+本轮首次 EMPTIED：raw691.477906，提交者 backboardd PID40，四个 surface 均为0。
+它发生在前两次 compressor-thrashing 回收之后约 15.20 秒/12.16 秒，发生在首个 PosterBoard watchdog 后约 10.50 秒；这只能说明时间上邻近，不能建立因果。
+首个 audiomxd abort 为 raw869.166608，比 EMPTIED 晚 177.688702 秒；第二个更晚。它们不能直接解释本轮第一次清屏的触发。
+清屏后到最后规范 Console 时间仍有 311.633254 秒记录，即约5分12秒。黑屏并不等于内核立刻停止，但这些记录也不证明图形界面健康。
+
+七、耗时解释与建议优先级
+
+共享缓存预读仍为13个窗口、318.515625 MiB、read_ms 合计30,610ms；PongDiag opened 回执 epoch103，worker finished epoch133。v73 read_ms 合计31,869ms。没有 defer，.31 的 EOF clamp 正常完成。
+这一预读用时仍是几十秒量级，不能独自解释后面十几分钟的场景建立或黑屏。不要把它宣传为新的 UFS 吞吐基准。
+
+建议按已知证据分开处理：
+1. 首次清屏：追 backboardd 的全空帧提交与 SpringBoard/PosterBoard 场景状态，不先把 audio 后续 abort 当成清屏原因。
+2. audiomxd：定位谁触发了 stackshot、失败的具体返回值/写入阶段、是否为诊断路径引发 abort。当前只确定了失败文本与超5秒阈值，尚未确定失败底层原因。
+3. 内存：补 wired/IOSurface/驱动分配归属与释放计数，用有界记录判断压力来源。现有证据不支持直接禁用回收或随意扩大未核验 RAM 区间。
+4. 迁移：分别追失败项目和完成标志，不用 Completed=true 覆盖 DMLastMigrationResults.success=false。
+
+机器可读结果
+analysis/memory-current.json：完整去重事件、同窗比较、快照、native memoryStatus、原行号。
+analysis/memory-summary-current.json：较小摘要。
+analysis/native-memory-body-validity.json：IPS 主体不完整的明确检查结果。
+analysis/analyze-memory-current.py：读取导出文件的复现脚本，参数为新 capture root、v73 root、输出目录。
+
+本分析只处理已导出日志，没有访问手机、写设备、构建、修改源码或进行镜像审计。

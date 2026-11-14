@@ -1,0 +1,1502 @@
+{
+  "capture": "20261114-010642",
+  "scope": "Display and wake evidence only; no device operations. Exact duplicate lines deduplicated; arithmetic uses strict 6-digit fractional timestamps.",
+  "versions": {
+    "v72": {
+      "source_path": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-010642/extracted/files/logs/PongConsole.txt",
+      "bytes": 4259446,
+      "nul_bytes": 34,
+      "physical_lines": 32898,
+      "events": {
+        "ram": [
+          {
+            "line": 4,
+            "raw_time": 26.018808,
+            "text": "[   26.018808]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages"
+          }
+        ],
+        "first_visible": [
+          {
+            "line": 1818,
+            "raw_time": 90.322578,
+            "text": "[   90.322578]: MiniIOMobileFramebuffer: first visible frame; releasing boot console"
+          }
+        ],
+        "transitions": [
+          {
+            "line": 1819,
+            "raw_time": 90.331057,
+            "text": "[   90.331057]: MiniIOMobileFramebuffer: swap #1: surfaces in layers 0x1 now (0x0 before): 1 0 0 0"
+          },
+          {
+            "line": 1820,
+            "raw_time": 90.331065,
+            "text": "[   90.331065]: MiniIOMFB layers RESTORED: task=kernel_task pid=0 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1"
+          },
+          {
+            "line": 26983,
+            "raw_time": 843.811817,
+            "text": "[  843.811817]: MiniIOMobileFramebuffer: swap #59068: surfaces in layers 0x0 now (0x1 before): 0 0 0 0"
+          },
+          {
+            "line": 26985,
+            "raw_time": 843.811828,
+            "text": "[  843.811828]: MiniIOMFB layers EMPTIED: task=kernel_task pid=0 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=59068"
+          }
+        ],
+        "frame_stats": [
+          {
+            "line": 1909,
+            "raw_time": 97.913632,
+            "text": "[   97.913632]: MiniIOMobileFramebuffer: 4 frames in 7584 ms (0 a second), 4319 us each in the driver, after 0 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 1 swaps came a refresh late themselves"
+          },
+          {
+            "line": 1960,
+            "raw_time": 102.950178,
+            "text": "[  102.950178]: MiniIOMobileFramebuffer: 397 frames in 5006 ms (79 a second), 12243 us each in the driver, after 1 us waiting for the GPU and, 27 of them, 4975 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 205 swaps came a refresh late themselves"
+          },
+          {
+            "line": 2925,
+            "raw_time": 107.96071,
+            "text": "[  107.960710]: MiniIOMobileFramebuffer: 428 frames in 5010 ms (85 a second), 10199 us each in the driver, after 1 us waiting for the GPU and, 116 of them, 3886 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 172 swaps came a refresh late themselves"
+          },
+          {
+            "line": 3130,
+            "raw_time": 112.971804,
+            "text": "[  112.971804]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12936 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 3156,
+            "raw_time": 117.974912,
+            "text": "[  117.974912]: MiniIOMobileFramebuffer: 388 frames in 5003 ms (77 a second), 12840 us each in the driver, after 1 us waiting for the GPU and, 4 of them, 4115 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 3193,
+            "raw_time": 122.983675,
+            "text": "[  122.983675]: MiniIOMobileFramebuffer: 480 frames in 5008 ms (95 a second), 7447 us each in the driver, after 0 us waiting for the GPU and, 259 of them, 3278 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 122 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4244,
+            "raw_time": 138.006794,
+            "text": "[  138.006794]: MiniIOMobileFramebuffer: 398 frames in 5008 ms (79 a second), 11268 us each in the driver, after 1 us waiting for the GPU and, 96 of them, 3519 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 191 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4263,
+            "raw_time": 143.011623,
+            "text": "[  143.011623]: MiniIOMobileFramebuffer: 340 frames in 5004 ms (67 a second), 14708 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 239 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4280,
+            "raw_time": 148.018486,
+            "text": "[  148.018486]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12925 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4327,
+            "raw_time": 153.023809,
+            "text": "[  153.023809]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12921 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4346,
+            "raw_time": 158.033413,
+            "text": "[  158.033413]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4366,
+            "raw_time": 163.042235,
+            "text": "[  163.042235]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5305,
+            "raw_time": 168.052354,
+            "text": "[  168.052354]: MiniIOMobileFramebuffer: 432 frames in 5009 ms (86 a second), 10005 us each in the driver, after 1 us waiting for the GPU and, 127 of them, 4087 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 169 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5334,
+            "raw_time": 173.06341,
+            "text": "[  173.063410]: MiniIOMobileFramebuffer: 419 frames in 5010 ms (83 a second), 10764 us each in the driver, after 1 us waiting for the GPU and, 91 of them, 3879 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 182 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5400,
+            "raw_time": 178.06531,
+            "text": "[  178.065310]: MiniIOMobileFramebuffer: 394 frames in 5001 ms (78 a second), 12394 us each in the driver, after 1 us waiting for the GPU and, 22 of them, 3628 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 207 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5417,
+            "raw_time": 183.071538,
+            "text": "[  183.071538]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12924 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5429,
+            "raw_time": 188.080971,
+            "text": "[  188.080971]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12932 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5444,
+            "raw_time": 193.088626,
+            "text": "[  193.088626]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12927 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6436,
+            "raw_time": 198.0968,
+            "text": "[  198.096800]: MiniIOMobileFramebuffer: 426 frames in 5008 ms (85 a second), 10339 us each in the driver, after 1 us waiting for the GPU and, 110 of them, 3234 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 175 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6451,
+            "raw_time": 203.105042,
+            "text": "[  203.105042]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6469,
+            "raw_time": 208.111384,
+            "text": "[  208.111384]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12924 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6486,
+            "raw_time": 213.115939,
+            "text": "[  213.115939]: MiniIOMobileFramebuffer: 552 frames in 5004 ms (110 a second), 4476 us each in the driver, after 0 us waiting for the GPU and, 461 of them, 3367 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 50 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6507,
+            "raw_time": 218.127005,
+            "text": "[  218.127005]: MiniIOMobileFramebuffer: 484 frames in 5005 ms (96 a second), 7230 us each in the driver, after 0 us waiting for the GPU and, 274 of them, 3300 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 116 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6521,
+            "raw_time": 223.130256,
+            "text": "[  223.130256]: MiniIOMobileFramebuffer: 400 frames in 5003 ms (79 a second), 12021 us each in the driver, after 1 us waiting for the GPU and, 36 of them, 4047 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 200 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7491,
+            "raw_time": 228.141165,
+            "text": "[  228.141165]: MiniIOMobileFramebuffer: 422 frames in 5010 ms (84 a second), 10587 us each in the driver, after 1 us waiting for the GPU and, 98 of them, 3121 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 180 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7510,
+            "raw_time": 233.147217,
+            "text": "[  233.147217]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12923 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7525,
+            "raw_time": 238.157746,
+            "text": "[  238.157746]: MiniIOMobileFramebuffer: 427 frames in 5010 ms (85 a second), 10278 us each in the driver, after 1 us waiting for the GPU and, 113 of them, 3609 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 175 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7540,
+            "raw_time": 243.166691,
+            "text": "[  243.166691]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7554,
+            "raw_time": 248.167775,
+            "text": "[  248.167775]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 1 of them, 5168 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7567,
+            "raw_time": 253.176421,
+            "text": "[  253.176421]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12930 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8493,
+            "raw_time": 258.188116,
+            "text": "[  258.188116]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12938 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8511,
+            "raw_time": 263.198642,
+            "text": "[  263.198642]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12935 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8528,
+            "raw_time": 268.205734,
+            "text": "[  268.205734]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8540,
+            "raw_time": 273.21313,
+            "text": "[  273.213130]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12927 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8556,
+            "raw_time": 278.224573,
+            "text": "[  278.224573]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12937 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8575,
+            "raw_time": 283.228641,
+            "text": "[  283.228641]: MiniIOMobileFramebuffer: 386 frames in 5003 ms (77 a second), 12952 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9468,
+            "raw_time": 288.236766,
+            "text": "[  288.236766]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9486,
+            "raw_time": 293.240911,
+            "text": "[  293.240911]: MiniIOMobileFramebuffer: 373 frames in 5004 ms (74 a second), 12772 us each in the driver, after 1 us waiting for the GPU and, 5 of them, 1250 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 203 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9504,
+            "raw_time": 298.258528,
+            "text": "[  298.258528]: MiniIOMobileFramebuffer: 396 frames in 5011 ms (79 a second), 12293 us each in the driver, after 1 us waiting for the GPU and, 26 of them, 2903 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 205 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9518,
+            "raw_time": 303.268875,
+            "text": "[  303.268875]: MiniIOMobileFramebuffer: 395 frames in 5010 ms (78 a second), 12364 us each in the driver, after 1 us waiting for the GPU and, 22 of them, 5245 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 206 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9533,
+            "raw_time": 308.273666,
+            "text": "[  308.273666]: MiniIOMobileFramebuffer: 386 frames in 5004 ms (77 a second), 12954 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9550,
+            "raw_time": 313.275735,
+            "text": "[  313.275735]: MiniIOMobileFramebuffer: 437 frames in 5001 ms (87 a second), 9683 us each in the driver, after 1 us waiting for the GPU and, 140 of them, 3360 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 165 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10408,
+            "raw_time": 318.291666,
+            "text": "[  318.291666]: MiniIOMobileFramebuffer: 446 frames in 5010 ms (89 a second), 9157 us each in the driver, after 1 us waiting for the GPU and, 168 of them, 3712 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 154 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10430,
+            "raw_time": 323.302057,
+            "text": "[  323.302057]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10444,
+            "raw_time": 328.309348,
+            "text": "[  328.309348]: MiniIOMobileFramebuffer: 553 frames in 5007 ms (110 a second), 4441 us each in the driver, after 0 us waiting for the GPU and, 465 of them, 3385 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 49 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10459,
+            "raw_time": 333.316281,
+            "text": "[  333.316281]: MiniIOMobileFramebuffer: 406 frames in 5000 ms (81 a second), 11549 us each in the driver, after 1 us waiting for the GPU and, 57 of them, 3300 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 193 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10474,
+            "raw_time": 338.32665,
+            "text": "[  338.326650]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10487,
+            "raw_time": 343.3287,
+            "text": "[  343.328700]: MiniIOMobileFramebuffer: 387 frames in 5001 ms (77 a second), 12897 us each in the driver, after 1 us waiting for the GPU and, 2 of them, 3104 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11319,
+            "raw_time": 348.339589,
+            "text": "[  348.339589]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12936 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11349,
+            "raw_time": 353.339806,
+            "text": "[  353.339806]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12942 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11364,
+            "raw_time": 358.344781,
+            "text": "[  358.344781]: MiniIOMobileFramebuffer: 463 frames in 5004 ms (92 a second), 8276 us each in the driver, after 1 us waiting for the GPU and, 215 of them, 3612 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 138 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11377,
+            "raw_time": 363.354482,
+            "text": "[  363.354482]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11390,
+            "raw_time": 368.362192,
+            "text": "[  368.362192]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12927 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11406,
+            "raw_time": 373.368804,
+            "text": "[  373.368804]: MiniIOMobileFramebuffer: 425 frames in 5006 ms (84 a second), 10458 us each in the driver, after 1 us waiting for the GPU and, 104 of them, 3726 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 177 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12114,
+            "raw_time": 378.38023,
+            "text": "[  378.380230]: MiniIOMobileFramebuffer: 402 frames in 5005 ms (80 a second), 11759 us each in the driver, after 1 us waiting for the GPU and, 48 of them, 3293 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 196 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12139,
+            "raw_time": 383.391647,
+            "text": "[  383.391647]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12937 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12155,
+            "raw_time": 388.401908,
+            "text": "[  388.401908]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12183,
+            "raw_time": 393.407163,
+            "text": "[  393.407163]: MiniIOMobileFramebuffer: 409 frames in 5005 ms (81 a second), 10846 us each in the driver, after 1 us waiting for the GPU and, 85 of them, 3021 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 178 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12326,
+            "raw_time": 398.407472,
+            "text": "[  398.407472]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12942 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12339,
+            "raw_time": 403.419477,
+            "text": "[  403.419477]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12938 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13089,
+            "raw_time": 408.429243,
+            "text": "[  408.429243]: MiniIOMobileFramebuffer: 406 frames in 5009 ms (81 a second), 11625 us each in the driver, after 1 us waiting for the GPU and, 53 of them, 3991 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 195 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13110,
+            "raw_time": 413.436368,
+            "text": "[  413.436368]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13126,
+            "raw_time": 418.444876,
+            "text": "[  418.444876]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12930 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13138,
+            "raw_time": 423.450993,
+            "text": "[  423.450993]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12923 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13151,
+            "raw_time": 428.463102,
+            "text": "[  428.463102]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12939 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13285,
+            "raw_time": 433.464049,
+            "text": "[  433.464049]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12944 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14154,
+            "raw_time": 438.466141,
+            "text": "[  438.466141]: MiniIOMobileFramebuffer: 389 frames in 5002 ms (77 a second), 12763 us each in the driver, after 1 us waiting for the GPU and, 6 of them, 5430 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 212 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14174,
+            "raw_time": 443.475657,
+            "text": "[  443.475657]: MiniIOMobileFramebuffer: 435 frames in 5004 ms (86 a second), 9797 us each in the driver, after 1 us waiting for the GPU and, 136 of them, 3534 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 165 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14189,
+            "raw_time": 448.475884,
+            "text": "[  448.475884]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12942 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14205,
+            "raw_time": 453.485992,
+            "text": "[  453.485992]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14218,
+            "raw_time": 458.495717,
+            "text": "[  458.495717]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14232,
+            "raw_time": 463.505117,
+            "text": "[  463.505117]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12932 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15091,
+            "raw_time": 468.512852,
+            "text": "[  468.512852]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12928 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15113,
+            "raw_time": 473.521726,
+            "text": "[  473.521726]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15128,
+            "raw_time": 478.529322,
+            "text": "[  478.529322]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12927 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15144,
+            "raw_time": 483.536255,
+            "text": "[  483.536255]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15160,
+            "raw_time": 488.545914,
+            "text": "[  488.545914]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15179,
+            "raw_time": 493.553887,
+            "text": "[  493.553887]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12928 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16041,
+            "raw_time": 498.55533,
+            "text": "[  498.555330]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12945 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16065,
+            "raw_time": 503.56653,
+            "text": "[  503.566530]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12936 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16080,
+            "raw_time": 508.567911,
+            "text": "[  508.567911]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12945 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16102,
+            "raw_time": 513.579503,
+            "text": "[  513.579503]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12938 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16117,
+            "raw_time": 518.580595,
+            "text": "[  518.580595]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12944 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16133,
+            "raw_time": 523.586156,
+            "text": "[  523.586156]: MiniIOMobileFramebuffer: 386 frames in 5005 ms (77 a second), 12955 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16933,
+            "raw_time": 528.596273,
+            "text": "[  528.596273]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12910 us each in the driver, after 1 us waiting for the GPU and, 2 of them, 4637 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16956,
+            "raw_time": 533.607102,
+            "text": "[  533.607102]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 1 of them, 3925 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17002,
+            "raw_time": 538.616637,
+            "text": "[  538.616637]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12932 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17023,
+            "raw_time": 543.622747,
+            "text": "[  543.622747]: MiniIOMobileFramebuffer: 442 frames in 5005 ms (88 a second), 9401 us each in the driver, after 1 us waiting for the GPU and, 155 of them, 3493 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 159 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17035,
+            "raw_time": 548.632344,
+            "text": "[  548.632344]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12932 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17100,
+            "raw_time": 553.637719,
+            "text": "[  553.637719]: MiniIOMobileFramebuffer: 423 frames in 5005 ms (84 a second), 10506 us each in the driver, after 1 us waiting for the GPU and, 102 of them, 4099 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 179 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17970,
+            "raw_time": 558.647783,
+            "text": "[  558.647783]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17994,
+            "raw_time": 563.658119,
+            "text": "[  563.658119]: MiniIOMobileFramebuffer: 418 frames in 5010 ms (83 a second), 10844 us each in the driver, after 1 us waiting for the GPU and, 87 of them, 3598 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 183 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18026,
+            "raw_time": 568.660686,
+            "text": "[  568.660686]: MiniIOMobileFramebuffer: 386 frames in 5002 ms (77 a second), 12948 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18041,
+            "raw_time": 573.672549,
+            "text": "[  573.672549]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12938 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18058,
+            "raw_time": 578.680195,
+            "text": "[  578.680195]: MiniIOMobileFramebuffer: 486 frames in 5007 ms (97 a second), 7187 us each in the driver, after 0 us waiting for the GPU and, 276 of them, 3321 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 116 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18070,
+            "raw_time": 583.690351,
+            "text": "[  583.690351]: MiniIOMobileFramebuffer: 425 frames in 5004 ms (84 a second), 10369 us each in the driver, after 1 us waiting for the GPU and, 109 of them, 3324 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 175 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18447,
+            "raw_time": 588.697323,
+            "text": "[  588.697323]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18616,
+            "raw_time": 593.698403,
+            "text": "[  593.698403]: MiniIOMobileFramebuffer: 385 frames in 5000 ms (76 a second), 12954 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18633,
+            "raw_time": 598.699363,
+            "text": "[  598.699363]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12944 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18834,
+            "raw_time": 603.711833,
+            "text": "[  603.711833]: MiniIOMobileFramebuffer: 398 frames in 5012 ms (79 a second), 11456 us each in the driver, after 1 us waiting for the GPU and, 59 of them, 4304 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 187 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18957,
+            "raw_time": 608.715926,
+            "text": "[  608.715926]: MiniIOMobileFramebuffer: 386 frames in 5003 ms (77 a second), 12952 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 19010,
+            "raw_time": 613.722804,
+            "text": "[  613.722804]: MiniIOMobileFramebuffer: 386 frames in 5006 ms (77 a second), 12890 us each in the driver, after 1 us waiting for the GPU and, 2 of them, 5519 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20145,
+            "raw_time": 618.727852,
+            "text": "[  618.727852]: MiniIOMobileFramebuffer: 386 frames in 5004 ms (77 a second), 12954 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20165,
+            "raw_time": 623.729057,
+            "text": "[  623.729057]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12945 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20178,
+            "raw_time": 628.737709,
+            "text": "[  628.737709]: MiniIOMobileFramebuffer: 386 frames in 5008 ms (77 a second), 12964 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20195,
+            "raw_time": 633.747847,
+            "text": "[  633.747847]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20213,
+            "raw_time": 638.75251,
+            "text": "[  638.752510]: MiniIOMobileFramebuffer: 398 frames in 5004 ms (79 a second), 12115 us each in the driver, after 1 us waiting for the GPU and, 33 of them, 4535 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 202 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20227,
+            "raw_time": 643.762503,
+            "text": "[  643.762503]: MiniIOMobileFramebuffer: 390 frames in 5009 ms (77 a second), 12698 us each in the driver, after 1 us waiting for the GPU and, 10 of them, 5293 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 211 swaps came a refresh late themselves"
+          },
+          {
+            "line": 21198,
+            "raw_time": 648.773167,
+            "text": "[  648.773167]: MiniIOMobileFramebuffer: 408 frames in 5010 ms (81 a second), 11483 us each in the driver, after 1 us waiting for the GPU and, 60 of them, 4302 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 194 swaps came a refresh late themselves"
+          },
+          {
+            "line": 21221,
+            "raw_time": 653.77353,
+            "text": "[  653.773530]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12942 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 21242,
+            "raw_time": 658.783653,
+            "text": "[  658.783653]: MiniIOMobileFramebuffer: 400 frames in 5009 ms (79 a second), 11984 us each in the driver, after 1 us waiting for the GPU and, 38 of them, 2859 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 201 swaps came a refresh late themselves"
+          },
+          {
+            "line": 21257,
+            "raw_time": 664.054112,
+            "text": "[  664.054112]: MiniIOMobileFramebuffer: 357 frames in 5277 ms (67 a second), 12918 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 197 swaps came a refresh late themselves"
+          },
+          {
+            "line": 21270,
+            "raw_time": 669.072953,
+            "text": "[  669.072953]: MiniIOMobileFramebuffer: 446 frames in 5012 ms (88 a second), 9193 us each in the driver, after 1 us waiting for the GPU and, 168 of them, 3803 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 154 swaps came a refresh late themselves"
+          },
+          {
+            "line": 21291,
+            "raw_time": 674.073556,
+            "text": "[  674.073556]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12943 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 22265,
+            "raw_time": 679.073703,
+            "text": "[  679.073703]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12942 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 22291,
+            "raw_time": 684.077907,
+            "text": "[  684.077907]: MiniIOMobileFramebuffer: 394 frames in 5004 ms (78 a second), 12253 us each in the driver, after 1 us waiting for the GPU and, 27 of them, 5233 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 203 swaps came a refresh late themselves"
+          },
+          {
+            "line": 22303,
+            "raw_time": 689.086883,
+            "text": "[  689.086883]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 22317,
+            "raw_time": 694.096888,
+            "text": "[  694.096888]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 22335,
+            "raw_time": 699.105514,
+            "text": "[  699.105514]: MiniIOMobileFramebuffer: 405 frames in 5008 ms (80 a second), 11668 us each in the driver, after 1 us waiting for the GPU and, 51 of them, 3666 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 196 swaps came a refresh late themselves"
+          },
+          {
+            "line": 22347,
+            "raw_time": 704.115662,
+            "text": "[  704.115662]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 23296,
+            "raw_time": 709.119064,
+            "text": "[  709.119064]: MiniIOMobileFramebuffer: 414 frames in 5003 ms (82 a second), 11047 us each in the driver, after 1 us waiting for the GPU and, 78 of them, 3358 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 186 swaps came a refresh late themselves"
+          },
+          {
+            "line": 23317,
+            "raw_time": 714.132182,
+            "text": "[  714.132182]: MiniIOMobileFramebuffer: 387 frames in 5012 ms (77 a second), 12942 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 23329,
+            "raw_time": 719.142297,
+            "text": "[  719.142297]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 23342,
+            "raw_time": 724.663538,
+            "text": "[  724.663538]: MiniIOMobileFramebuffer: 337 frames in 5515 ms (61 a second), 12946 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 186 swaps came a refresh late themselves"
+          },
+          {
+            "line": 23355,
+            "raw_time": 729.663989,
+            "text": "[  729.663989]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12943 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 23374,
+            "raw_time": 734.667685,
+            "text": "[  734.667685]: MiniIOMobileFramebuffer: 386 frames in 5003 ms (77 a second), 12951 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 24288,
+            "raw_time": 739.669168,
+            "text": "[  739.669168]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12945 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 24304,
+            "raw_time": 744.670413,
+            "text": "[  744.670413]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12945 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 24319,
+            "raw_time": 749.681691,
+            "text": "[  749.681691]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12937 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 24334,
+            "raw_time": 754.694691,
+            "text": "[  754.694691]: MiniIOMobileFramebuffer: 387 frames in 5012 ms (77 a second), 12941 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 24351,
+            "raw_time": 759.70651,
+            "text": "[  759.706510]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12938 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 24366,
+            "raw_time": 764.712867,
+            "text": "[  764.712867]: MiniIOMobileFramebuffer: 393 frames in 5006 ms (78 a second), 12465 us each in the driver, after 1 us waiting for the GPU and, 19 of them, 5066 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 207 swaps came a refresh late themselves"
+          },
+          {
+            "line": 25229,
+            "raw_time": 769.723759,
+            "text": "[  769.723759]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12936 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 25249,
+            "raw_time": 774.724975,
+            "text": "[  774.724975]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12945 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 25269,
+            "raw_time": 779.726181,
+            "text": "[  779.726181]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12945 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 25286,
+            "raw_time": 784.735091,
+            "text": "[  784.735091]: MiniIOMobileFramebuffer: 394 frames in 5008 ms (78 a second), 12436 us each in the driver, after 1 us waiting for the GPU and, 20 of them, 4648 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 207 swaps came a refresh late themselves"
+          },
+          {
+            "line": 25299,
+            "raw_time": 789.738073,
+            "text": "[  789.738073]: MiniIOMobileFramebuffer: 386 frames in 5002 ms (77 a second), 12949 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 25313,
+            "raw_time": 794.747548,
+            "text": "[  794.747548]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12932 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 26177,
+            "raw_time": 799.757914,
+            "text": "[  799.757914]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 26189,
+            "raw_time": 804.769745,
+            "text": "[  804.769745]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12938 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 26203,
+            "raw_time": 809.782197,
+            "text": "[  809.782197]: MiniIOMobileFramebuffer: 387 frames in 5012 ms (77 a second), 12940 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 26215,
+            "raw_time": 814.792799,
+            "text": "[  814.792799]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12935 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 26228,
+            "raw_time": 819.795501,
+            "text": "[  819.795501]: MiniIOMobileFramebuffer: 386 frames in 5002 ms (77 a second), 12948 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 26242,
+            "raw_time": 824.79602,
+            "text": "[  824.796020]: MiniIOMobileFramebuffer: 424 frames in 5000 ms (84 a second), 10422 us each in the driver, after 1 us waiting for the GPU and, 106 of them, 3487 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 176 swaps came a refresh late themselves"
+          },
+          {
+            "line": 26924,
+            "raw_time": 829.807451,
+            "text": "[  829.807451]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12937 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 26939,
+            "raw_time": 834.818882,
+            "text": "[  834.818882]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12937 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 26952,
+            "raw_time": 839.828202,
+            "text": "[  839.828202]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12932 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          }
+        ],
+        "wake_receipts": [],
+        "disk_after_empty": [
+          {
+            "line": 27139,
+            "raw_time": 845.884449,
+            "text": "[  845.884449]: tx_flush:1362: disk4 xid 907 tx stats: # 840 owait 60 3591us finish 864 bar2 840 f 44 enter 21 fq 15 19 271us close 0us prep 175us flush 6912us"
+          },
+          {
+            "line": 27140,
+            "raw_time": 845.996218,
+            "text": "[  845.996218]: tx_flush:1362: disk4 xid 927 tx stats: # 860 owait 60 3591us finish 884 bar2 860 f 44 enter 1 fq 8 10 55us close 0us prep 64us flush 4282us"
+          },
+          {
+            "line": 28035,
+            "raw_time": 863.934495,
+            "text": "[  863.934495]: tx_flush:1362: disk4 xid 947 tx stats: # 880 owait 60 3591us finish 904 bar2 880 f 46 enter 66 fq 33 103 181us close 0us prep 106us flush 4976us"
+          },
+          {
+            "line": 28971,
+            "raw_time": 894.891073,
+            "text": "[  894.891073]: tx_flush:1362: disk4 xid 967 tx stats: # 900 owait 60 3591us finish 924 bar2 900 f 48 enter 149 fq 39 48 209us close 0us prep 185us flush 7470us"
+          },
+          {
+            "line": 29931,
+            "raw_time": 932.121864,
+            "text": "[  932.121864]: tx_flush:1362: disk4 xid 987 tx stats: # 920 owait 60 3591us finish 944 bar2 920 f 49 enter 18 fq 34 121 190us close 0us prep 164us flush 6775us"
+          },
+          {
+            "line": 31877,
+            "raw_time": 998.118276,
+            "text": "[  998.118276]: tx_flush:1362: disk4 xid 1007 tx stats: # 940 owait 60 3591us finish 964 bar2 940 f 51 enter 16 fq 17 24 130us close 0us prep 187us flush 6825us"
+          }
+        ]
+      },
+      "last_console": {
+        "line": 32897,
+        "raw_time": 1034.719948,
+        "text": "[ 1034.719948]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 19 available events"
+      },
+      "empty_after_ram_seconds": 817.793009,
+      "first_visible_after_ram_seconds": 64.30376999999999,
+      "activity_after_empty_seconds": 190.9081309999999,
+      "post_empty_frame_stats": []
+    },
+    "v71": {
+      "source_path": "/Users/<user>/abc/111/PongBoot-pull-20261113-223514/extracted/files/logs/PongConsole.txt",
+      "bytes": 5425494,
+      "nul_bytes": 43,
+      "physical_lines": 42312,
+      "events": {
+        "ram": [
+          {
+            "line": 4,
+            "raw_time": 25.826507,
+            "text": "[   25.826507]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages"
+          }
+        ],
+        "first_visible": [
+          {
+            "line": 1856,
+            "raw_time": 92.159344,
+            "text": "[   92.159344]: MiniIOMobileFramebuffer: first visible frame; releasing boot console"
+          }
+        ],
+        "transitions": [
+          {
+            "line": 1858,
+            "raw_time": 92.165517,
+            "text": "[   92.165517]: MiniIOMobileFramebuffer: swap #1: surfaces in layers 0x1 now (0x0 before): 1 0 0 0"
+          },
+          {
+            "line": 21544,
+            "raw_time": 674.087134,
+            "text": "[  674.087134]: MiniIOMobileFramebuffer: swap #45213: surfaces in layers 0x0 now (0x1 before): 0 0 0 0"
+          }
+        ],
+        "frame_stats": [
+          {
+            "line": 2666,
+            "raw_time": 105.922884,
+            "text": "[  105.922884]: MiniIOMobileFramebuffer: 3 frames in 13760 ms (0 a second), 5755 us each in the driver, after 0 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 1 swaps came a refresh late themselves"
+          },
+          {
+            "line": 2740,
+            "raw_time": 115.840155,
+            "text": "[  115.840155]: MiniIOMobileFramebuffer: 599 frames in 5006 ms (119 a second), 2832 us each in the driver, after 0 us waiting for the GPU and, 597 of them, 3428 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 1 swaps came a refresh late themselves"
+          },
+          {
+            "line": 2909,
+            "raw_time": 120.85155,
+            "text": "[  120.851550]: MiniIOMobileFramebuffer: 408 frames in 5005 ms (81 a second), 11436 us each in the driver, after 1 us waiting for the GPU and, 62 of them, 3303 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 192 swaps came a refresh late themselves"
+          },
+          {
+            "line": 2927,
+            "raw_time": 125.857238,
+            "text": "[  125.857238]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12923 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 3139,
+            "raw_time": 130.862193,
+            "text": "[  130.862193]: MiniIOMobileFramebuffer: 387 frames in 5004 ms (77 a second), 12921 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4064,
+            "raw_time": 135.872184,
+            "text": "[  135.872184]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4099,
+            "raw_time": 140.885077,
+            "text": "[  140.885077]: MiniIOMobileFramebuffer: 387 frames in 5012 ms (77 a second), 12941 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4127,
+            "raw_time": 145.894701,
+            "text": "[  145.894701]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4166,
+            "raw_time": 150.897047,
+            "text": "[  150.897047]: MiniIOMobileFramebuffer: 408 frames in 5002 ms (81 a second), 11423 us each in the driver, after 1 us waiting for the GPU and, 62 of them, 3649 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 192 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4190,
+            "raw_time": 155.906232,
+            "text": "[  155.906232]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 4255,
+            "raw_time": 160.91067,
+            "text": "[  160.910670]: MiniIOMobileFramebuffer: 492 frames in 5004 ms (98 a second), 6849 us each in the driver, after 0 us waiting for the GPU and, 297 of them, 3362 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 109 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5239,
+            "raw_time": 165.919,
+            "text": "[  165.919000]: MiniIOMobileFramebuffer: 386 frames in 5008 ms (77 a second), 12963 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5261,
+            "raw_time": 170.928066,
+            "text": "[  170.928066]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5277,
+            "raw_time": 175.928147,
+            "text": "[  175.928147]: MiniIOMobileFramebuffer: 387 frames in 5000 ms (77 a second), 12887 us each in the driver, after 1 us waiting for the GPU and, 2 of them, 1704 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5295,
+            "raw_time": 180.936151,
+            "text": "[  180.936151]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12928 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5330,
+            "raw_time": 185.945231,
+            "text": "[  185.945231]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 5344,
+            "raw_time": 190.94861,
+            "text": "[  190.948610]: MiniIOMobileFramebuffer: 413 frames in 5003 ms (82 a second), 11119 us each in the driver, after 1 us waiting for the GPU and, 74 of them, 3258 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 187 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6320,
+            "raw_time": 195.957596,
+            "text": "[  195.957596]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12931 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6334,
+            "raw_time": 200.964363,
+            "text": "[  200.964363]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12925 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6348,
+            "raw_time": 205.970192,
+            "text": "[  205.970192]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12923 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6361,
+            "raw_time": 210.978279,
+            "text": "[  210.978279]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6381,
+            "raw_time": 215.986602,
+            "text": "[  215.986602]: MiniIOMobileFramebuffer: 420 frames in 5008 ms (83 a second), 10708 us each in the driver, after 1 us waiting for the GPU and, 93 of them, 3250 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 181 swaps came a refresh late themselves"
+          },
+          {
+            "line": 6396,
+            "raw_time": 220.990896,
+            "text": "[  220.990896]: MiniIOMobileFramebuffer: 351 frames in 5004 ms (70 a second), 12583 us each in the driver, after 1 us waiting for the GPU and, 11 of them, 1812 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 187 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7368,
+            "raw_time": 231.006438,
+            "text": "[  231.006438]: MiniIOMobileFramebuffer: 416 frames in 5007 ms (83 a second), 10985 us each in the driver, after 1 us waiting for the GPU and, 80 of them, 4183 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 186 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7382,
+            "raw_time": 235.961184,
+            "text": "[  235.961184]: rtrequest_common_locked: route already exists: 224.0.0.251->link#0->lo0MiniIOMobileFramebuffer: 470 frames in 5001 ms (93 a second), 7909 us each in the driver, after 1 us waiting for the GPU and, 235 of them, 3605 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 129 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7398,
+            "raw_time": 241.016543,
+            "text": "[  241.016543]: MiniIOMobileFramebuffer: 387 frames in 5002 ms (77 a second), 12915 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7419,
+            "raw_time": 246.022482,
+            "text": "[  246.022482]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12923 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 7433,
+            "raw_time": 251.026465,
+            "text": "[  251.026465]: MiniIOMobileFramebuffer: 387 frames in 5003 ms (77 a second), 12918 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8378,
+            "raw_time": 256.032182,
+            "text": "[  256.032182]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12922 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8391,
+            "raw_time": 261.03522,
+            "text": "[  261.035220]: MiniIOMobileFramebuffer: 469 frames in 5002 ms (93 a second), 6031 us each in the driver, after 0 us waiting for the GPU and, 319 of them, 3436 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 80 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8404,
+            "raw_time": 266.047847,
+            "text": "[  266.047847]: MiniIOMobileFramebuffer: 451 frames in 5012 ms (89 a second), 8930 us each in the driver, after 1 us waiting for the GPU and, 179 of them, 3290 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 151 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8416,
+            "raw_time": 271.053789,
+            "text": "[  271.053789]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12923 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8441,
+            "raw_time": 276.060954,
+            "text": "[  276.060954]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 8456,
+            "raw_time": 281.068585,
+            "text": "[  281.068585]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12927 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9119,
+            "raw_time": 286.077444,
+            "text": "[  286.077444]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12930 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9135,
+            "raw_time": 291.090458,
+            "text": "[  291.090458]: MiniIOMobileFramebuffer: 387 frames in 5012 ms (77 a second), 12941 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9150,
+            "raw_time": 296.092826,
+            "text": "[  296.092826]: MiniIOMobileFramebuffer: 386 frames in 5002 ms (77 a second), 12947 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9171,
+            "raw_time": 301.103586,
+            "text": "[  301.103586]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12935 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9402,
+            "raw_time": 306.10983,
+            "text": "[  306.109830]: MiniIOMobileFramebuffer: 413 frames in 5006 ms (82 a second), 11164 us each in the driver, after 1 us waiting for the GPU and, 73 of them, 3893 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 188 swaps came a refresh late themselves"
+          },
+          {
+            "line": 9421,
+            "raw_time": 311.11811,
+            "text": "[  311.118110]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10114,
+            "raw_time": 316.12677,
+            "text": "[  316.126770]: MiniIOMobileFramebuffer: 202 frames in 5008 ms (40 a second), 10633 us each in the driver, after 1 us waiting for the GPU and, 46 of them, 2824 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 85 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10127,
+            "raw_time": 321.137642,
+            "text": "[  321.137642]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12935 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10145,
+            "raw_time": 326.148157,
+            "text": "[  326.148157]: MiniIOMobileFramebuffer: 436 frames in 5010 ms (87 a second), 9785 us each in the driver, after 1 us waiting for the GPU and, 136 of them, 3507 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 165 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10351,
+            "raw_time": 331.160785,
+            "text": "[  331.160785]: MiniIOMobileFramebuffer: 418 frames in 5012 ms (83 a second), 10852 us each in the driver, after 1 us waiting for the GPU and, 87 of them, 4050 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 184 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10376,
+            "raw_time": 336.167475,
+            "text": "[  336.167475]: MiniIOMobileFramebuffer: 431 frames in 5006 ms (86 a second), 10027 us each in the driver, after 1 us waiting for the GPU and, 124 of them, 3214 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 170 swaps came a refresh late themselves"
+          },
+          {
+            "line": 10390,
+            "raw_time": 341.173142,
+            "text": "[  341.173142]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12922 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11263,
+            "raw_time": 346.178095,
+            "text": "[  346.178095]: MiniIOMobileFramebuffer: 387 frames in 5004 ms (77 a second), 12921 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11278,
+            "raw_time": 351.184905,
+            "text": "[  351.184905]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12925 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11291,
+            "raw_time": 356.192828,
+            "text": "[  356.192828]: MiniIOMobileFramebuffer: 444 frames in 5007 ms (88 a second), 9319 us each in the driver, after 1 us waiting for the GPU and, 159 of them, 3503 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 157 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11316,
+            "raw_time": 361.199412,
+            "text": "[  361.199412]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12924 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11330,
+            "raw_time": 366.203499,
+            "text": "[  366.203499]: MiniIOMobileFramebuffer: 387 frames in 5003 ms (77 a second), 12918 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 11353,
+            "raw_time": 371.214239,
+            "text": "[  371.214239]: MiniIOMobileFramebuffer: 394 frames in 5010 ms (78 a second), 12452 us each in the driver, after 1 us waiting for the GPU and, 19 of them, 5252 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 207 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12234,
+            "raw_time": 376.225976,
+            "text": "[  376.225976]: MiniIOMobileFramebuffer: 407 frames in 5011 ms (81 a second), 11492 us each in the driver, after 1 us waiting for the GPU and, 58 of them, 3850 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 193 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12250,
+            "raw_time": 381.234317,
+            "text": "[  381.234317]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12266,
+            "raw_time": 386.244485,
+            "text": "[  386.244485]: MiniIOMobileFramebuffer: 392 frames in 5009 ms (78 a second), 12552 us each in the driver, after 1 us waiting for the GPU and, 16 of them, 4750 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 208 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12291,
+            "raw_time": 391.250815,
+            "text": "[  391.250815]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12924 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12306,
+            "raw_time": 396.258447,
+            "text": "[  396.258447]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12927 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 12319,
+            "raw_time": 401.260351,
+            "text": "[  401.260351]: MiniIOMobileFramebuffer: 391 frames in 5001 ms (78 a second), 12585 us each in the driver, after 1 us waiting for the GPU and, 14 of them, 5183 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 209 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13200,
+            "raw_time": 406.269017,
+            "text": "[  406.269017]: MiniIOMobileFramebuffer: 399 frames in 5008 ms (79 a second), 12114 us each in the driver, after 1 us waiting for the GPU and, 32 of them, 5211 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 203 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13215,
+            "raw_time": 411.27491,
+            "text": "[  411.274910]: MiniIOMobileFramebuffer: 405 frames in 5000 ms (80 a second), 11186 us each in the driver, after 1 us waiting for the GPU and, 86 of them, 3402 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 189 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13230,
+            "raw_time": 416.281538,
+            "text": "[  416.281538]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12924 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13252,
+            "raw_time": 421.288662,
+            "text": "[  421.288662]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13268,
+            "raw_time": 426.293961,
+            "text": "[  426.293961]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12921 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 13281,
+            "raw_time": 431.304269,
+            "text": "[  431.304269]: MiniIOMobileFramebuffer: 395 frames in 5010 ms (78 a second), 12356 us each in the driver, after 1 us waiting for the GPU and, 24 of them, 5196 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 206 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14166,
+            "raw_time": 436.315652,
+            "text": "[  436.315652]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12937 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14180,
+            "raw_time": 441.328559,
+            "text": "[  441.328559]: MiniIOMobileFramebuffer: 387 frames in 5012 ms (77 a second), 12941 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14193,
+            "raw_time": 446.339298,
+            "text": "[  446.339298]: MiniIOMobileFramebuffer: 456 frames in 5010 ms (91 a second), 8658 us each in the driver, after 1 us waiting for the GPU and, 194 of them, 3573 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 145 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14219,
+            "raw_time": 451.348291,
+            "text": "[  451.348291]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12930 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14233,
+            "raw_time": 456.357213,
+            "text": "[  456.357213]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12930 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 14249,
+            "raw_time": 461.365174,
+            "text": "[  461.365174]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12928 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15118,
+            "raw_time": 466.373245,
+            "text": "[  466.373245]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12928 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15133,
+            "raw_time": 471.380638,
+            "text": "[  471.380638]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12926 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15146,
+            "raw_time": 476.389572,
+            "text": "[  476.389572]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12930 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15169,
+            "raw_time": 481.398234,
+            "text": "[  481.398234]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12930 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15185,
+            "raw_time": 486.41027,
+            "text": "[  486.410270]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12938 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 15202,
+            "raw_time": 491.421872,
+            "text": "[  491.421872]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12937 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16019,
+            "raw_time": 496.43078,
+            "text": "[  496.430780]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12930 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16031,
+            "raw_time": 501.440735,
+            "text": "[  501.440735]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16043,
+            "raw_time": 506.444879,
+            "text": "[  506.444879]: MiniIOMobileFramebuffer: 455 frames in 5004 ms (90 a second), 8670 us each in the driver, after 1 us waiting for the GPU and, 192 of them, 3296 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 146 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16117,
+            "raw_time": 511.453467,
+            "text": "[  511.453467]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16130,
+            "raw_time": 516.460499,
+            "text": "[  516.460499]: MiniIOMobileFramebuffer: 387 frames in 5006 ms (77 a second), 12925 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 16143,
+            "raw_time": 521.46119,
+            "text": "[  521.461190]: MiniIOMobileFramebuffer: 512 frames in 5000 ms (102 a second), 5996 us each in the driver, after 0 us waiting for the GPU and, 351 of them, 3422 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 90 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17008,
+            "raw_time": 526.469053,
+            "text": "[  526.469053]: MiniIOMobileFramebuffer: 540 frames in 5002 ms (107 a second), 4857 us each in the driver, after 0 us waiting for the GPU and, 432 of them, 3298 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 60 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17022,
+            "raw_time": 531.477009,
+            "text": "[  531.477009]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12928 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 213 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17036,
+            "raw_time": 536.486132,
+            "text": "[  536.486132]: MiniIOMobileFramebuffer: 446 frames in 5008 ms (89 a second), 9192 us each in the driver, after 1 us waiting for the GPU and, 165 of them, 3691 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 156 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17057,
+            "raw_time": 541.495485,
+            "text": "[  541.495485]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12930 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17070,
+            "raw_time": 546.500843,
+            "text": "[  546.500843]: MiniIOMobileFramebuffer: 397 frames in 5005 ms (79 a second), 12193 us each in the driver, after 1 us waiting for the GPU and, 29 of them, 5145 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 203 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17083,
+            "raw_time": 551.503162,
+            "text": "[  551.503162]: MiniIOMobileFramebuffer: 465 frames in 5002 ms (92 a second), 8165 us each in the driver, after 1 us waiting for the GPU and, 219 of them, 3526 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 137 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17926,
+            "raw_time": 556.51501,
+            "text": "[  556.515010]: MiniIOMobileFramebuffer: 468 frames in 5006 ms (93 a second), 8005 us each in the driver, after 1 us waiting for the GPU and, 229 of them, 3290 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 132 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17939,
+            "raw_time": 561.524457,
+            "text": "[  561.524457]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12932 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17953,
+            "raw_time": 566.532497,
+            "text": "[  566.532497]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12928 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17979,
+            "raw_time": 571.537969,
+            "text": "[  571.537969]: MiniIOMobileFramebuffer: 387 frames in 5005 ms (77 a second), 12921 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 17993,
+            "raw_time": 576.547306,
+            "text": "[  576.547306]: MiniIOMobileFramebuffer: 404 frames in 5009 ms (80 a second), 11747 us each in the driver, after 1 us waiting for the GPU and, 48 of them, 4630 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 197 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18005,
+            "raw_time": 581.553686,
+            "text": "[  581.553686]: MiniIOMobileFramebuffer: 415 frames in 5006 ms (82 a second), 11034 us each in the driver, after 1 us waiting for the GPU and, 77 of them, 3283 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 187 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18840,
+            "raw_time": 586.566392,
+            "text": "[  586.566392]: MiniIOMobileFramebuffer: 472 frames in 5006 ms (94 a second), 7065 us each in the driver, after 0 us waiting for the GPU and, 304 of them, 3308 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 118 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18852,
+            "raw_time": 591.574266,
+            "text": "[  591.574266]: MiniIOMobileFramebuffer: 387 frames in 5007 ms (77 a second), 12927 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18868,
+            "raw_time": 596.582766,
+            "text": "[  596.582766]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18888,
+            "raw_time": 601.591364,
+            "text": "[  601.591364]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18903,
+            "raw_time": 606.595514,
+            "text": "[  606.595514]: MiniIOMobileFramebuffer: 386 frames in 5004 ms (77 a second), 12952 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 18915,
+            "raw_time": 611.605282,
+            "text": "[  611.605282]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12932 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 19751,
+            "raw_time": 616.609241,
+            "text": "[  616.609241]: MiniIOMobileFramebuffer: 496 frames in 5003 ms (99 a second), 6669 us each in the driver, after 0 us waiting for the GPU and, 308 of them, 3411 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 104 swaps came a refresh late themselves"
+          },
+          {
+            "line": 19765,
+            "raw_time": 621.609323,
+            "text": "[  621.609323]: MiniIOMobileFramebuffer: 386 frames in 5000 ms (77 a second), 12941 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 19778,
+            "raw_time": 626.619904,
+            "text": "[  626.619904]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12934 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 19807,
+            "raw_time": 631.624629,
+            "text": "[  631.624629]: MiniIOMobileFramebuffer: 407 frames in 5004 ms (81 a second), 11519 us each in the driver, after 1 us waiting for the GPU and, 57 of them, 3450 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 194 swaps came a refresh late themselves"
+          },
+          {
+            "line": 19819,
+            "raw_time": 636.635751,
+            "text": "[  636.635751]: MiniIOMobileFramebuffer: 387 frames in 5010 ms (77 a second), 12936 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 19831,
+            "raw_time": 641.645434,
+            "text": "[  641.645434]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12932 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20676,
+            "raw_time": 646.652496,
+            "text": "[  646.652496]: MiniIOMobileFramebuffer: 399 frames in 5006 ms (79 a second), 12048 us each in the driver, after 1 us waiting for the GPU and, 35 of them, 3001 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 202 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20690,
+            "raw_time": 651.653686,
+            "text": "[  651.653686]: MiniIOMobileFramebuffer: 386 frames in 5001 ms (77 a second), 12944 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20703,
+            "raw_time": 656.663631,
+            "text": "[  656.663631]: MiniIOMobileFramebuffer: 387 frames in 5009 ms (77 a second), 12933 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20729,
+            "raw_time": 661.672659,
+            "text": "[  661.672659]: MiniIOMobileFramebuffer: 449 frames in 5008 ms (89 a second), 9021 us each in the driver, after 1 us waiting for the GPU and, 174 of them, 3685 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 152 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20741,
+            "raw_time": 666.681304,
+            "text": "[  666.681304]: MiniIOMobileFramebuffer: 387 frames in 5008 ms (77 a second), 12929 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 215 swaps came a refresh late themselves"
+          },
+          {
+            "line": 20753,
+            "raw_time": 671.692656,
+            "text": "[  671.692656]: MiniIOMobileFramebuffer: 387 frames in 5011 ms (77 a second), 12937 us each in the driver, after 1 us waiting for the GPU and, 0 of them, 0 us for the next refresh; 0 swaps waited for the frame before, 0 gave up; 214 swaps came a refresh late themselves"
+          }
+        ],
+        "wake_receipts": [],
+        "disk_after_empty": [
+          {
+            "line": 21673,
+            "raw_time": 687.265963,
+            "text": "[  687.265963]: tx_flush:1362: disk4 xid 603 tx stats: # 540 owait 38 3657us finish 562 bar2 540 f 34 enter 327 fq 15 22 109us close 0us prep 601us flush 16541us"
+          },
+          {
+            "line": 23607,
+            "raw_time": 745.761787,
+            "text": "[  745.761787]: tx_flush:1362: disk4 xid 623 tx stats: # 560 owait 38 3657us finish 582 bar2 560 f 36 enter 35 fq 42 75 217us close 0us prep 271us flush 12574us"
+          },
+          {
+            "line": 25614,
+            "raw_time": 820.963342,
+            "text": "[  820.963342]: tx_flush:1362: disk4 xid 643 tx stats: # 580 owait 38 3657us finish 602 bar2 580 f 39 enter 69 fq 21 28 131us close 0us prep 378us flush 13236us"
+          },
+          {
+            "line": 28679,
+            "raw_time": 905.340205,
+            "text": "[  905.340205]: tx_flush:1362: disk4 xid 663 tx stats: # 600 owait 38 3657us finish 622 bar2 600 f 41 enter 423 fq 20 31 134us close 0us prep 403us flush 12664us"
+          },
+          {
+            "line": 29714,
+            "raw_time": 931.548347,
+            "text": "[  931.548347]: tx_flush:1362: disk4 xid 683 tx stats: # 620 owait 39 3572us finish 642 bar2 620 f 42 enter 26 fq 25 33 152us close 0us prep 195us flush 9326us"
+          },
+          {
+            "line": 33857,
+            "raw_time": 1054.472142,
+            "text": "[ 1054.472142]: tx_flush:1362: disk4 xid 703 tx stats: # 640 owait 39 3572us finish 662 bar2 640 f 47 enter 425 fq 66 148 603us close 0us prep 358us flush 15500us"
+          },
+          {
+            "line": 36948,
+            "raw_time": 1135.778348,
+            "text": "[ 1135.778348]: tx_flush:1362: disk4 xid 723 tx stats: # 660 owait 39 3572us finish 683 bar2 660 f 50 enter 83 fq 48 113 282us close 0us prep 173us flush 8227us"
+          },
+          {
+            "line": 36951,
+            "raw_time": 1136.681829,
+            "text": "[ 1136.681829]: tx_flush:1362: disk4 xid 743 tx stats: # 680 owait 47 3075us finish 702 bar2 680 f 50 enter 52 fq 13 16 74us close 2us prep 115us flush 6046us"
+          },
+          {
+            "line": 37971,
+            "raw_time": 1169.957547,
+            "text": "[ 1169.957547]: tx_flush:1362: disk4 xid 763 tx stats: # 700 owait 49 3149us finish 726 bar2 700 f 52 enter 53 fq 45 77 223us close 9us prep 196us flush 8231us"
+          },
+          {
+            "line": 39165,
+            "raw_time": 1204.924588,
+            "text": "[ 1204.924588]: tx_flush:1362: disk4 xid 783 tx stats: # 720 owait 49 3149us finish 746 bar2 720 f 53 enter 6 fq 29 369 184us close 0us prep 173us flush 7076us"
+          }
+        ]
+      },
+      "last_console": {
+        "line": 42311,
+        "raw_time": 1306.672801,
+        "text": "[ 1306.672801]: void CoreAnalyticsHub::handleNagTimerExpiry(IOTimerEventSource *)::838:messageClients of 2 available events"
+      },
+      "empty_after_ram_seconds": 648.260627,
+      "first_visible_after_ram_seconds": 66.33283700000001,
+      "activity_after_empty_seconds": 632.585667,
+      "post_empty_frame_stats": []
+    }
+  },
+  "comparison": {
+    "empty_after_ram_delay_v72_minus_v71_seconds": 169.53238199999998
+  },
+  "cpu_black_fill_evidence": {
+    "line": 26985,
+    "bottom_surface_zero": true,
+    "set_bit0": true,
+    "gpu_frame_false": true,
+    "graphics_true": true,
+    "transition_log_is_after_branch": true,
+    "conclusion": "Observed v72 transition fields satisfy corresponding show() CPU black-fill branch; does not establish backlight power state or upstream submitter."
+  },
+  "submitter_provenance_issue": "proc_selfpid/name are evaluated on the kernel presenter thread, not captured at user SwapEnd; observed kernel_task pid0 cannot identify the original caller.",
+  "pong_sb_files": [],
+  "missing_pong_sb_not_proof_of_nonexecution": true
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001117.0002.ips",
+    "bytes": 27542,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3107 (char 27260)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001551.0002.ips",
+    "bytes": 26681,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 22 column 3057 (char 26486)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000120.000.ips",
+    "bytes": 44136,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 1017 column 2 (char 43941)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001444.000.ips",
+    "bytes": 28923,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 27 column 4609 (char 28684)\")"
+  }
+]

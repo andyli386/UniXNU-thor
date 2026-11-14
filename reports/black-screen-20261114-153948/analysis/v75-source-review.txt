@@ -1,0 +1,124 @@
+THOR v75 源码与构建身份评审
+时间：2026-11-14，Asia/Shanghai
+范围：只读；未修改代码、未重建、未刷机、未操作手机；未做镜像 hash/完整镜像审核。
+源码：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong
+HEAD：e35afb319245c30039d0c63140b2503079f9cdcc
+对照：d562bc1419e7ae5fd7ffdf0d89951736b69e8ae5（v74）
+
+一、先给确定结论
+
+v75 是针对上轮盲区加观测的版本，当前提交没有修改导致清黑的 framebuffer 功能分支，也没有修复 audiomxd 的 RPC / stackshot 链路。它新增的两种用户态记录均在原调用返回之后才写出，不能通过“没有日志”证明调用没有永久阻塞。不要把这个版本描述成已修复黑屏。
+
+当前主仓提交只改变 userland/ui_compat18.c，90 行新增。IOSurface 的两处统计新增位于实际 xnu-work/iokit/Kernel/MiniIOSurface.cpp；主仓 patches 下未发现这两条格式串。该源码与旁边 .rej 中原始文件重建对比只多两处统计块。当前构建 kernel 产物确实包含两条新格式串，说明本机构建产物包含它们；“主仓干净”不能证明这两处 kernel 改动已经固化、可从主仓独立重建。
+
+二、构建身份（不是整镜像审计）
+
+候选库：
+/Users/<user>/projects/thor-unixnu1030/thor-out/libpong-ui18-v75.dylib
+大小：195120 bytes
+LC_UUID：5FB87088-A68B-35BF-BB1B-180FCD76A481（arm64）
+v74 候选库 UUID 是 FFEC574F-B64E-351D-AD62-3077876C92B5，不能继续拿旧 ctor 字串“v73”识别运行版本。
+
+Mach-O nm/dyld_info 已看到：
+- __interpose 中 _pong_interpose_sb_lstat、_pong_interpose_sb_stat、_pong_interpose_group_wait；
+- 原导入分别是 libSystem 的 _lstat、_stat、_dispatch_group_wait；
+- 包装实现 _pong_sb_lstat @ 0x4000，_pong_sb_stat @ 0x40e4，_pong_bbd_group_wait @ 0x41c8；
+- 反汇编吻合源码：先 clock_gettime，原 API，clock_gettime，再条件输出。
+
+22H374 符号表 /tmp/thor132708_symbols/libsystem_kernel.dylib.txt：
+_lstat = _lstat64 = 0x1ce299ff8
+_stat = _stat64 = 0x1ce29a1e8
+因此仅因源码写 lstat 而栈中显示 lstat64，不能判定 interpose 选错符号。它们在这份缓存中同址。反过来，同址也不能证明该固件中每一个缓存内部调用都已经经过动态 interpose；需要运行回执或具体调用点/绑定证据。直接内部调用、其他 API（fstatat 等）、早于过程标志设置的调用仍是覆盖边界。
+
+三、SpringBoard stat 探针
+
+证据：userland/ui_compat18.c:208–248、274–275、2651–2659。
+行为：
+- SpringBoard 标志为真，原 stat/lstat 已返回，path 非 NULL，测得 CLOCK_MONOTONIC 耗时 >=20ms，才记录。
+- 格式：Pong SB stat: lstat(PATH) -> RETURN errno=ERR ms=TIME
+  或 Pong SB stat: stat(PATH) -> RETURN errno=ERR ms=TIME。
+- 写 /private/var/mobile/Library/Logs/PongSB-PID.txt，并镜像到 /dev/console。
+- stat 与 lstat 各有独立 budget=400，顺序执行情形合计最多 800 条，不是两者总计400。
+- ms 是调用区间经过的时间，含线程未调度、页入等，不是纯 UFS I/O 时间，也不包括之后的日志 fsync。
+
+确定的可修问题：
+1. 没保存原调用 errno。原 API 返回后才进行计时/格式化/open/dprintf/fsync/close/console write；然后直接返回原 result。任何后续失败都可能污染原生 caller 看到的 errno。反汇编也没有 errno 恢复。因此它还不是语义透明的观察器。应紧跟原 API 保存 errno，任何计时/日志完成后恢复；记录也用保存值。
+2. 只在返回后记录。永久卡住的调用没有 BEGIN，也没有 pending 状态，正好漏掉它最想定位的情况。建议固定容量的 in-flight 记录（tid、序列号、开始时间、API、路径快照），由现有独立采样器在超时后读出，完成后补结果；不要让主线程先同步 fsync 再去执行原 API。
+3. 过程判断在 API 与两次计时之后，所有注入该库的进程都会多做两次计时；它们只是“不写 SpringBoard 日志”，并非零额外开销。尽早按进程标志旁路。
+4. 慢调用落盘在调用线程同步执行，每条都 fsync，会加重正在调查的 I/O / 主线程延迟。总行数不大不代表每次落盘耗时受限。应分离低扰动事件记录与持久化，保留有界丢失计数。
+5. budget 不是 atomic，多个线程调用会发生竞争，严格有限条数未成立；路径长度受512字节line缓冲限制，没有专门截断标志。应使用原子预算和截断/覆盖计数。
+6. 未记录 tid/调用者，单个慢路径无法确定来自主线程、哪个功能阶段；不记录快失败，因而不能用它作完整“依赖文件都存在”的证明。
+7. clock_gettime 返回值未检查；没有探针 armed/PASS/FAIL 或写盘成功回执。日志缺失可能包含未覆盖、条件不满足、尚未返回、预算耗尽、写入失败等多种情况。
+
+四、BackBoard dispatch_group_wait 探针
+
+证据：userland/ui_compat18.c:190–205、250–276、2661–2667。
+行为：
+- 原 dispatch_group_wait 返回后，backboard_process=true 且耗时>=50ms或返回非零，才记。
+- 格式：Pong BBD: group_wait GROUP tmo=RAW_TIMEOUT -> RESULT ms=TIME caller=RETURN_ADDRESS。
+- 路径 /private/var/mobile/Library/Logs/PongBBD-PID.txt。
+- budget=300，同步fsync，非原子预算。
+- caller 的返回地址在反汇编中原始 x30 保存在 x21（0x41dc），随后交给日志；不是误取包装器自己的 return PC。
+- tmo 是原 dispatch_time_t 编码，不应直接解读为“超时毫秒数”。
+
+主要盲区：
+- DISPATCH_TIME_FOREVER 或长期未完成等待不会写出任何行。
+- 记录 wait 的 caller 不等于找到完成者/欠缺的 leave。没有 group enter/leave/notify、提交任务及队列来源，不能据此说“RB/BB在等谁”已经确定。
+- 没有每组 generation/context，group 地址可能复用，日志间不能只靠指针武断串接。
+- BBD open 失败甚至没有像 PongSB 那样的首次错误回执；dprintf/fsync/console write结果都未检查。
+- 二进制 interpose 存在 ≠运行时覆盖所有内部 libdispatch 调用。
+
+建议：先用返回日志定位明显慢的 caller，再针对那一处做匹配的 enter/leave/完成回调记录；另外加有界 in-flight wait 状态供独立线程读取，避免对所有 dispatch 调用做高开销同步追踪。明确保留真实超时及失败结果，不能把 wait 强行成功当成修复。
+
+五、IOSurface 统计的正确含义
+
+源码：
+/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOSurface.cpp
+表插入 836–838：gSurfaceCount++，gSurfaceBytes += alloc。
+创建统计 839–851：
+MiniIOSurface: live %llu MB in %u surfaces (crossed %llu x 64MB)
+最后一个 holder 释放 875–882：摘表、减数量、减 allocSize。
+释放统计 883–893：
+MiniIOSurface: live %llu MB in %u surfaces (release crossed %llu x 64MB)
+
+两个 MB 字段实际使用右移20，是 MiB取整；mark右移26，是64MiB桶编号，不是累计已跨越次数。创建与释放各自有一个 lastMark / lastFreeMark，不共享，所以不能把每条记录当成精确的全局跨界事件，也不保证总日志量有限：反复跨界可继续打印。
+
+这个数字是表内 live surface 的像素 allocation 之和，不是该驱动精确物理 wired 占用：
+- 不包含每 surface 的 PAGE_SIZE state页、对象/字典/映射等开销。
+- surface 包裹用户内存时也加 alloc，若底层页面重叠并非物理去重计量。
+- 描述符准备、wrapped pin 页与kalloc/VM fallback边界不同，不能仅以这个总和给系统400MiBwired做完整归因。
+- 旧的复用池不在 gSurfaceBytes 内。189–192定义4项，每项4–32MiB，最多128MiB；surface摘表减live后，其 backing仍可能在free()->surfaceMemoryBack()进入池。池有复用与满池最老驱逐，没有本段可见的内存压力回收入口。live下降并不等于相应物理wired已归还。
+- 新 IOLog 在 gSurfaceLock 内，额外日志耗时会延长全局 surface 临界区。
+- 没有 owner/pid、allocation失败、实际释放、pool bytes、peak 或每个对象引用链。因此不能凭“live<64MB/无统计行”排除 IOSurface 占用，也不能凭增长认定泄漏。
+
+候选 kernel（.../UniXNU-pong/out/ipados18/kernel/mach.development.pong）已包含两个新格式串。实际运行是否包含探针要看本轮运行日志；字符串存在不是设备镜像相等的证明。
+
+建议下轮增加真实类别计数：active backing bytes / retained pool bytes / wrapped pinned bytes / state bytes、对象数、peak和失败计数；分清对象生命周期和实际物理释放。固定频率或状态切换时在锁外输出，有总预算/丢弃计数，不改分配返回语义。若本轮 live 明显低而 wired仍高，应继续看pool与其他VM/I/O分配者，不把“没超过64MiB”当成排除证据。
+
+六、导出覆盖
+
+本轮继续使用的 direct-export-apfs-direct-export.cpp:44–53 对 logs、mobile/Library/Logs、root/Library/Logs 等目录下所有 basename以Pong开头的文件均选取，因此 PongSB-*.txt 和新 PongBBD-*.txt 已在覆盖范围，不需要另加名单。新目录：
+/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-153948
+将读取本轮 extracted/inventory.jsonl 与 manifest 来区别“文件确实不存在”和“没有导出”。
+
+七、本轮优先核对的运行回执
+
+- Data里libpong-ui18 UUID是否5FB87088-A68B-35BF-BB1B-180FCD76A481。
+- PongSB 是否出现 Pong SB stat，具体路径、返回值、最长耗时、发生在UI生命周期哪段。
+- PongBBD 是否存在，返回caller与上轮未明 executable PC的对应；缺失保留多义性。
+- MiniIOSurface live 的真实跨度、数目，并与系统wired/压缩/空闲内存同窗比较。
+- 原有 first visible frame / RESTORED / EMPTIED 的submitter与surfaces，SpringBoard/UI主线程新进展，原生音频RPC/stackshot退出是否复现。
+- 正常结束/空闲退出与crash单独计数。保持Console原始物理行及重复/损坏标记；时间域分开。
+
+本文件结论截至代码审核完成；运行时诊断需由本轮提取日志补证。结构化原始命令输出与源码行：v75-source-evidence.json。
+
+八、补查：原黑填充分支与最小修改顺序
+
+当前 MiniIOMobileFramebuffer.cpp:1116–1125 与 v74 留存源码逐字比对一致（10行）。仍在 sid==0、底层layer==0、set&1、graphics有效且未走gpuFrame时把panel逐像素写0xff000000。v75没有改变此行为。证据 v75-framebuffer-v74-comparison.json / v75-framebuffer-source.json。
+
+最小改动建议顺序（本次未执行）：
+1. wrapper入口尽早按进程开关直接调用原API；在开关启用前不做额外计时。需在constructor足够早、且以安全的已知进程名设置标志，避免标志设置前的调用被误算成“没有慢路径”。
+2. 原API返回后立即 int saved_errno=errno；之后再计时/记日志；返回前 errno=saved_errno，return原result。原调用前如增加任何可能改errno的工作，同样保护入口errno，使成功调用也不引入多余改变。
+3. 最小可靠扩展是有界in-flight记录+现有观察线程抽样，不让热路径同步fsync；用原子预算与线程局部reentry guard。目前源码没有显式TLS防重入；二级命名空间让本库调用原API避免直接自递归，但日志内部路径与其他线程的间接调用仍不应依赖“不会重入”的猜测。
+4. 写失败至少有独立计数/首错回执，区分open、write、fsync；不能每次失败递归尝试同一writer。PongSB只有一次open错误提示，PongBBD连这项都没有。
+5. IOSurface至少补retained_pool_bytes，否则当前live值不足以归因总wired；日志在锁外以固定节律落地；把worktree改动固化进来源补丁，并单独记录host/设备结果。

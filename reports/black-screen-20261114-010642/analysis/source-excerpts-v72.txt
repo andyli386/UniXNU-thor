@@ -1,0 +1,170 @@
+MiniIOMobileFramebuffer v72: small verbatim source excerpts
+Captured 2026-11-14T01:26:28.213201+08:00
+Source: /Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+Surrounding UniXNU-pong HEAD: 258f07ec1ffa922d243679d5affa1b21dc355ca4
+This XNU work-tree source file is untracked; the surrounding repository HEAD alone does not preserve these bytes. These excerpts freeze only the inspected sections, not the full implementation or a binary identity.
+No hashes/build/source modification performed.
+
+--- Persistent kernel presenter startup; source lines 495-510 ---
+495: 	OSSafeReleaseNULL(interval); OSSafeReleaseNULL(step); OSSafeReleaseNULL(refresh);
+496: 	IOLog("MiniIOMobileFramebuffer: Pong fixed refresh %u Hz, 1080x2412 NT37705 mode; GPU frame rate observed separately\n", refreshHz());
+497: 	fStartingDisplayNode = createDisplayNode();
+498: 	if (fStartingDisplayNode == NULL) {
+499: 		IOLog("MiniIOMobileFramebuffer: incomplete display DT node; service not published\n");
+500: 		return failStart(provider);
+501: 	}
+502: 	/* All fallible display-state setup finishes before persistent workers
+503: 	 * start. A failed mode/allocation must leave neither orphan threads nor
+504: 	 * a registered display with incomplete properties. */
+505: 	if (kernel_thread_start(&IOMobileFramebuffer::presenterMain, this, &thread) != KERN_SUCCESS) {
+506: 		IOLog("MiniIOMobileFramebuffer: no thread to put frames on the panel with\n");
+507: 		return failStart(provider);
+508: 	}
+509: 	thread_set_thread_name(thread, "frames to the panel");
+510: 	thread_deallocate(thread);
+
+--- Swap queue copies payload and surfaces; source lines 904-915 ---
+904: 	unsigned slot = (fSwapFirst + fSwapsWaiting) % SWAP_QUEUE;
+905: 
+906: 	memcpy(fSwap[slot], swap, SWAP_SIZE);
+907: 	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+908: 		uint32_t sid = swapWord(swap, SWAP_SURFACE(layer));
+909: 
+910: 		fSwapSurfaces[slot][layer] = sid != 0 ? MiniIOSurfaceCopy(sid) : NULL;
+911: 	}
+912: 	fSwapsWaiting++;
+913: 	IOLockWakeup(fSwapLock, fSwap, true);
+914: 	IOLockUnlock(fSwapLock);
+915: 	return kIOReturnSuccess;
+
+--- Presenter dequeues, then calls show; show reads set; source lines 941-985 ---
+941: void
+942: IOMobileFramebuffer::presenterMain(void * self, wait_result_t result __unused)
+943: {
+944: 	((IOMobileFramebuffer *) self)->presenter();
+945: }
+946: 
+947: void
+948: IOMobileFramebuffer::presenter(void)
+949: {
+950: 	static uint8_t swap[SWAP_SIZE];         /* (one thread) */
+951: 	MiniIOSurface * surfaces[SWAP_LAYERS];
+952: 
+953: 	for (;;) {
+954: 		IOLockLock(fSwapLock);
+955: 		while (fSwapsWaiting == 0) {
+956: 			IOLockSleep(fSwapLock, fSwap, THREAD_UNINT);
+957: 		}
+958: 		memcpy(swap, fSwap[fSwapFirst], SWAP_SIZE);
+959: 		memcpy(surfaces, fSwapSurfaces[fSwapFirst], sizeof(surfaces));
+960: 		IOLockUnlock(fSwapLock);
+961:         IOReturn result=show(swap,surfaces);
+962:         IOLockLock(fSwapLock);
+963:         const uint32_t id=swapWord(swap,SWAP_ID);
+964:         fRetired[id%64]={id,result};
+965:         fSwapFirst=(fSwapFirst+1)%SWAP_QUEUE;--fSwapsWaiting;
+966:         IOLockWakeup(fSwapLock,&fSwapsWaiting,false);
+967:         IOLockUnlock(fSwapLock);
+968: 		for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+969: 			if (surfaces[layer] != NULL) {
+970: 				MiniIOSurfaceDrop(surfaces[layer]);
+971: 			}
+972: 		}
+973: 		MiniIOSurfaceClearKept();               /* (the next frame is some milliseconds away) */
+974: 	}
+975: }
+976: 
+977: /* A swap's surfaces onto the panel, once the GPU is done with them. */
+978: IOReturn
+979: IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
+980: {
+981: 	uint32_t set = swapWord(swap, SWAP_LAYERS_SET);
+982: 	uint64_t began = mach_absolute_time(), nanos, ready, shown, drawn;
+983: 	uint32_t layers = 0;
+984: 	bool report;
+985: 	bool surfacesReady = true;
+
+--- CPU blank branch and v72 transition logging; source lines 1088-1158 ---
+1088: 	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+1089: 		uint32_t sid = swapWord(swap, SWAP_SURFACE(layer));
+1090: 		int32_t src[4], dst[4];
+1091: 		MiniIOSurface * s;
+1092: 
+1093: 		layers |= sid != 0 ? 1u << layer : 0;
+1094: 		/* the frames' surfaces: is it a few, in turn? */
+1095: 		for (unsigned i = 0; layer == 0 && sid != 0 && i < 8; i++) {
+1096: 			if (fStatSurfaces[i] == 0 || fStatSurfaces[i] == sid) {
+1097: 				fStatSurfaces[i] = sid;
+1098: 				break;
+1099: 			}
+1100: 		}
+1101: 		if (sid == 0) {
+1102: 			/* the bottom layer taken away: nothing is shown, the screen is black */
+1103: 			if (!gpuFrame && layer == 0 && (set & 1) && fGraphics) {
+1104: 				for (uint32_t y = 0; y < fPanelHeight; y++) {
+1105: 					uint32_t *row=(uint32_t *)(fBase + (size_t)y * fRowBytes);
+1106: 					for (uint32_t x=0;x<fPanelWidth;x++) row[x]=0xff000000u;
+1107: 				}
+1108: 			}
+1109: 			continue;
+1110: 		}
+1111: 		memcpy(src, swap + SWAP_SOURCE(layer), sizeof(src));
+1112: 		memcpy(dst, swap + SWAP_DEST(layer), sizeof(dst));
+1113: 		s = surfaces[layer];
+1114: 		if (report) {
+1115: 			IOLog("MiniIOMobileFramebuffer: swap %u layer %u: surface %u%s (%ux%u '%c%c%c%c') "
+1116: 			    "from %d,%d %dx%d to %d,%d %dx%d, layers set 0x%x\n", swapWord(swap, SWAP_ID), layer, sid,
+1117: 			    s ? "" : " MISSING", s ? s->info.width : 0, s ? s->info.height : 0,
+1118: 			    s ? (int) (s->info.pixelFormat >> 24 & 0xff) : '?', s ? (int) (s->info.pixelFormat >> 16 & 0xff) : '?',
+1119: 			    s ? (int) (s->info.pixelFormat >> 8 & 0xff) : '?', s ? (int) (s->info.pixelFormat & 0xff) : '?',
+1120: 			    src[0], src[1], src[2], src[3], dst[0], dst[1], dst[2], dst[3], set);
+1121: 		}
+1122: 		if (s == NULL) {
+1123: 			continue;
+1124: 		}
+1125: 		if (s->info.bytesPerElement == 4 && s->info.planeCount == 0) {
+1126: 			if (!gpuFrame) drawLayer(s, src, dst);
+1127: 		}
+1128: 	}
+1129: 	drawn = mach_absolute_time();
+1130: 	fSwapsShown++;
+1131: 	if (gTouchLat) {
+1132: 		IOLog("tl: v %u ready %llu shown %llu done %llu\n", swapWord(swap, SWAP_ID), micros(ready), micros(shown),
+1133: 		    micros(drawn));
+1134: 	}
+1135: 	if (layers != fLayersShown) {
+1136: 		IOLog("MiniIOMobileFramebuffer: swap #%u: surfaces in layers 0x%x now (0x%x before): %u %u %u %u\n", fSwapsShown, layers,
+1137: 		    fLayersShown, swapWord(swap, SWAP_SURFACE(0)), swapWord(swap, SWAP_SURFACE(1)), swapWord(swap, SWAP_SURFACE(2)),
+1138: 		    swapWord(swap, SWAP_SURFACE(3)));
+1139: 		/* THOR v72: layer-count transitions are rare and pivotal. A
+1140: 		 * nonzero->zero transition is the boot picture being torn down
+1141: 		 * (v71 field: layers 0x1 -> 0x0 at swap #45213, screen black,
+1142: 		 * system alive for 10+ more minutes with no restore). On every
+1143: 		 * transition record the submitting task (when the swap runs on
+1144: 		 * the caller's context this is the compositor client), the
+1145: 		 * set mask, all four surface ids, and whether the CPU black
+1146: 		 * fill path was armed. */
+1147: 		{
+1148: 			char submitter[64] = "?";
+1149: 			proc_selfname(submitter, sizeof(submitter));
+1150: 			IOLog("MiniIOMFB layers %s: task=%s pid=%d set=0x%x surfaces=%u,%u,%u,%u gpu=%d graphics=%d swap=%u\n",
+1151: 			    layers == 0 ? "EMPTIED" : (fLayersShown == 0 ? "RESTORED" : "CHANGED"),
+1152: 			    submitter, proc_selfpid(), set,
+1153: 			    swapWord(swap, SWAP_SURFACE(0)), swapWord(swap, SWAP_SURFACE(1)),
+1154: 			    swapWord(swap, SWAP_SURFACE(2)), swapWord(swap, SWAP_SURFACE(3)),
+1155: 			    gpuFrame ? 1 : 0, fGraphics ? 1 : 0, swapWord(swap, SWAP_ID));
+1156: 		}
+1157: 		fLayersShown = layers;
+1158: 	}
+
+--- User-client SwapEnd entry forwards payload; source lines 1502-1507 ---
+1502: 	case kFBMethodSwapEnd:
+1503: 		if (args->structureInput == NULL || args->structureInputSize < SWAP_SIZE) {
+1504: 			IOLog("MiniIOMobileFramebuffer: swap request of %u bytes, expected %u\n", args->structureInputSize, SWAP_SIZE);
+1505: 			return kIOReturnBadArgument;
+1506: 		}
+1507: 		return fOwner->present((const uint8_t *) args->structureInput);
+
+Interpretation boundary:
+The v72 clear record set=0x1, surfaces=0,0,0,0, gpu=0, graphics=1 satisfies the CPU black-fill condition shown above. It does not by itself show hardware power/backlight state or why the submitting client cleared layers.
+show() executes on the persistent kernel presenter thread. Its proc_selfname/proc_selfpid report that thread context, not the original user-client submitter. Capture submitting process identity at SwapEnd/present and carry it per queued swap if provenance is required.

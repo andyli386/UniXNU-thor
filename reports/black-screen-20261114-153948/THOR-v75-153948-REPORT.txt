@@ -1,0 +1,217 @@
+THOR v75 黑屏日志提取与代码对照报告
+采集日期：2026-11-14，Asia/Shanghai
+采集标识：20261114-153948；对照：20261114-103139（v74）
+
+一、先给结论
+
+本轮已成功从 i386 所连手机的 Recovery 只读提取日志，并与 v75 源码、实际注入库和上午 v74 日志对照。
+
+最确定的显示事实没有变：backboardd PID40 提交了四层全空的 surface 集，当前 MiniIOMobileFramebuffer 随即执行既有的黑色填充逻辑。v75 在 Console raw1156.380611（约19分16秒）记录 EMPTIED，后面仍有327.976134秒系统日志，到最后没有留存新的 RESTORED。因此本轮确认的是“显示层被清空后，其他系统活动继续”，尚未锁定使 UI 未能接管显示的唯一上游原因。
+
+这次新增了三条更有定位价值的证据：
+1. backboardd 的一个后台线程在五个快照中都停在真实 v75 group_wait interpose 内；探针确实命中，缺 PongBBD 文件不能当作未注入。
+2. lsd 被明确以 highwater 原因杀掉，原生报告计量16.21875MiB；原装22H374板型策略中确有16MiB活动软限制。重启后又观察到数据库恢复、播种等待和 persona 查询，音频服务也被采到等待 LaunchServices。
+3. 原生框架实际调用 IOSurface selector44，当前驱动返回 Unsupported。固件反汇编与源码已经将它确定为 IOSurfaceSetOwnershipIdentity；这是所有权/内存记账接口缺口，尚不能直接认定为清屏根因。
+
+同时，v75 新探针有 errno 未保留、仅返回后记录、采样间隔覆盖不到本轮黑屏时段等具体缺陷，应先改进可观测性，才能把下一轮结果变成可判定的修复验证。
+
+二、交付位置与提取完整性
+
+i386 原始目录：
+/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-153948
+
+Mac mini 开发目录中的本轮报告目录：
+/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-153948
+
+主要文件：
+- THOR-v75-153948-REPORT.txt：本报告。
+- PongConsole-deduplicated.txt：去重可读版，保留首个原始物理行号和重复次数。
+- extracted/files/：86个按选择集导出的原始日志、状态文件及本地身份核对材料。
+- extracted/manifest.json、inventory.jsonl：导出字节数、路径及完整性记录。
+- analysis/：显示时间线、线程符号化、内存/进程/迁移对照、源码及固件证据、可复现分析脚本。
+- THOR-v75-153948-logs-and-analysis.zip：面向本次分析的日志/报告包，不含8.59GB Data镜像及两个.dylib二进制。
+
+提取过程：15:39:48开始，15:44:01结束。按SHNGROOT记录读取Data窗口 offset10809769984、length8591003648；129个有长度验证的分块，实际8591003648字节，数据读取耗时251.633秒。采集前后Recovery boot_id一致，userdata及其dm holder未挂载，写入/丢弃计数未变化。
+
+宿主只读APFS解析，无设备侧挂载：导出86文件、7127229字节，错误与跳过列表为空，源镜像属性保持不变。两条 Unknown XF15 提示分别对应 AppleAccount/fsCachedData 与 WorkflowKit.BackgroundShortcutRunner 缓存目录；选择的日志文件均完成字节数检查。新 PongBBD 路径在APFS inventory中不存在，不是提取器漏选。
+
+当前Recovery的pstore为空；这只能说明本次没有取到额外pstore记录，不能据此否认之前发生过任何内核异常。手机没有被本次操作重启或刷写。
+
+三、版本和本轮启动基础已核对
+
+源码主仓记录为 e35afb3（v75），前版 d562bc1（v74）。本轮Data里的 libpong-ui18.dylib 为195120字节、LC_UUID=5FB87088-A68B-35BF-BB1B-180FCD76A481，与Mac v75产物一致。实际线程栈还能匹配到新库的 _pong_bbd_group_wait，因此身份判断不依赖陈旧的“ctor(v73)”文字。
+
+Console原始物理行：
+- L347，27.148270：THOR INJECT: armed from boot args (246 chars)。
+- L377，27.156691：SystemOS mounted ... ro=1 union=1。
+- L406，27.164795：Data mount PASS path=/private/var ... rw=1 bytes=8591003648。
+- L4，26.137305：3 owned banks，665MiB managed before kernel reservations，4KiB pages。
+
+说明早期挂载与注入配置仍有明确成功回执。挂载成功不等同于后续迁移、UI场景和显示接管全部成功。
+
+四、与 v74 的关键差异
+
+以下显示时刻均是各自Console原始时钟，不混用用户态time(NULL)或照片时间：
+
+项目                              v74                v75
+第一帧可见                        84.918426           97.414900
+backboardd提交全空图层             691.477906          1156.380611
+最后有效Console时间               1003.111160         1484.356745
+清屏后仍有日志的时间               311.633254秒        327.976134秒
+清屏后留存新的RESTORED              无                  无
+
+按各自RAM标记归一化，第一帧为59.600352→71.277595秒，清屏为666.159832→1130.243306秒。清屏晚了约464.08秒。这两次启动不是单变量A/B试验，不能把晚清屏解释为v75已修复稳定性，也不能只根据更长保存时间比较退出总数。
+
+本轮显示关键原文：
+[97.421223] MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1
+[1156.380611] MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=83377
+
+EMPTIED原文重复8份，是环形控制台抓取重叠，不是8次独立清屏。清屏后有1589条不同的有效时戳记录。MiniIOMobileFramebuffer.cpp:1116起的清黑分支与v74留存源码逐字一致：底层surface为0、CPU图形路径且要求更新时，将帧缓冲填为0xff000000。这里确定了直接显示机制，尚未证明哪一个上游服务应该提交下一张有效UI帧。
+
+五、SpringBoard 与 backboardd：最重要的新定位
+
+SpringBoard PID5的五个完整主线程样本（time128/190/308/673/972）均为：
+SBSystemAppMain → FBSystemShellInitialize → BackBoardServices/BoardServices → 同步XPC → dispatch_mach_send_and_wait_for_reply。
+对应PongBoot-SpringBoard.txt主线程物理行4/13/22/34/46；线程tid249。
+
+v74相近time965已经采到CoverSheet、UIWindow/UIViewController生命周期和lstat64。本轮在这些采样点停得更早。不过五次离散采样不是连续调用追踪；最后一个完整样本之后的状态不能直接外推。
+
+PongSB-5.txt全部只有四行：
+[64] Pong UI18: SpringBoard adapter ctor (v73)
+[65] Pong UI18: wake scheduled on main queue +10s
+[65] Pong UI18: wake enqueue returned
+[1462] Pong SB stat: lstat(/System/Library/UserNotifications/Bundles/com.apple.FindMySafetyAlertsNotifications.bundle) -> 0 errno=0 ms=226
+
+这个lstat成功返回，用时226ms。它不能解释十多分钟卡顿，也不能被解释成该bundle缺失；该行没有tid，所以只能证明SpringBoard进程中的一次文件访问完成，不能据此证明主线程已越过初始化等待。wake_home begin/end在保存日志中仍未出现；原记录器写入错误检查不足，缺失回执不能作为绝对未执行的证明。
+
+backboardd PID40的后台tid671在time107/167/288/648/950五个样本中具有相同PC/FP/SP，栈为：
+__ulock_wait → __dispatch_group_wait_slow → 实际v75库 _pong_bbd_group_wait+0x38 → caller0x1005d53e4。
+这确认新interpose真实进入了原group_wait。现有记录在原调用返回后才输出，因此长期未返回时不会留下PongBBD文件。五样本支持长等待，但缺入口调用号、group地址及enter/leave所有者，尚不能证明始终是同一次调用。
+
+tid671不是backboardd主线程；其主线程tid347后期在RunLoop。后台等待不能直接替代“BB主线程堵死”或“UI唯一根因”的结论。当前还缺SpringBoard所发BBS请求与这个group/接收handler的关联。
+
+一个已从源码解释的采样盲区：boot_snapshot18.c early表为60/120/240/600/900秒，900以后每600秒再采一次，所以下一组是1500秒。本轮SB最后tick elapsed1384、BB1443、RB1440，都还没到下一组。19分钟附近清屏正处于900→1500的详细快照空窗；后期有tick不等于有后期主线程栈。
+
+六、LaunchServices 的真实故障与慢链
+
+新Console L17051，raw553.734670明确记录：
+memorystatus: killing_highwater_process pid 352 [lsd] (highwater 140 ...)
+
+完整JetsamEvent-1970-01-01-000921.0002.ips交叉确认pid352、name=lsd、reason=highwater、priority140、rpages4152、pageSize4096，报告计量为16.21875MiB。之后lsd以PID386重新出现。
+
+22H374原装J171与J172的jetsamproperties中，Version4/Daemon/Override/com.apple.lsd及.system均为：
+ActiveSoftMemoryLimit=16；JetsamPriority=140；InactiveHardMemoryLimit=12。
+原装lsd job plist本身无MemoryLimit字段，自家build-ipados18.py针对lsd只加了LS_DATABASE_DIR。固件策略与本轮优先级/阈值高度吻合；本轮尚未单独读回运行时实际生效的全部memlimit属性，不能把具体策略加载路径说成完全闭环。
+
+重启后的具体栈：
+- time621/682：主线程处于 _LSInstallProgressService performJournalRecovery 的dispatch_sync等待。
+- 同期后台线程出现 LAUNCH_SERVICES_CLIENTS_ARE_WAITING_FOR_THE_DATABASE_TO_FINISH_SEEDING；另一线程从注册bundle推进到setSeedingComplete。
+- audio PID82 time667主线程在_LSCopyServerStore同步XPC查询，证明它此时确实依赖LaunchServices。
+- time802：lsd工作线程在_LSPersonaDatabase personasWithType → UserManagement同步XPC。
+- time1163/1466：已采到的lsd线程回到server RunLoop/闲worker，因此不能定性为从播种开始一直永久死锁。
+
+可以确定服务被内存策略打断并经历重新恢复/播种；与音频等待有具体调用栈关联。尚缺请求ID/owner链，把它与SpringBoard所等BBS回复连接起来仍需下一步证据。
+
+七、IOSurface selector44：一个可以明确命名的兼容性缺口
+
+Console L20700，raw661.443863：
+MiniIOSurface: selector 44 not implemented (scalars 4 in, 0 out; structure 0 in, 0 out)
+
+MiniIOSurface.cpp枚举明确将44命名为kSurfaceMethodSetOwnershipIdentity；externalMethod没有处理该case，最后返回kIOReturnUnsupported。22H374真实共享缓存反汇编确认：
+- IOSurfaceClientSetOwnershipIdentity @0x1a66d09c0；外层IOSurfaceSetOwnershipIdentity @0x1a66d0548。
+- 四个scalar依次为surfaceID、task identity token端口名、signed ledger tag、uint32 options。
+- 原生库把selector44的错误向调用者传播。
+
+这是内存所有权/ledger归属接口，不是提交显示帧的接口。当前只报该selector第一次出现，未记录PID、surface ID、参数和调用者，所以不知道哪个进程如何处理Unsupported；不能直接将它判成黑屏原因。
+
+真正实现已有基础设施可用：task_id_token_port_name_to_task解析身份token，backing IOMemoryDescriptor::setOwnership经mach_memory_entry_ownership更新归属。适配仍需核对目标ABI、调用者权限、surface引用、tag/flags、wrapped内存、task引用释放、复用池所有权转移，以及部分更新失败语义。实现必须传播真实结果，验证owner ledger与释放复用行为，不能用空成功回执代替。
+
+本次检查了Mac已有上游UniXNU克隆（HEAD c67e8016，2026-11-10），其patches未找到同接口可直接套用的修复。该检查未刷新所有远端分支，不能表述为“互联网最新上游一定没有”。具体二进制、API和现有源码位置见v75-selector44-review.txt及两份evidence文件。
+
+八、为什么仍慢：内存、迁移与诊断重试均有证据
+
+本轮仍只有665MiB交给XNU管理，且日志显示压缩器模式2、swap disabled。原生内存快照wired从231.30MiB升到约405–412MiB；后期memoryPressure=true。Console末段available约68.59MiB、compressor约143.54MiB。wired与compressor等口径不可随意相加。
+
+新surface统计仅两条独立事件，分别为raw101.804774和284.340634，均live71MiB、4 surfaces。它只计表内alloc，不含最多4×32MiB的保留复用池及其他开销；池的128MiB是上限，不是本次实测占用。创建/释放各有独立lastMark，两条不能当作一个全局计数的先升后降。现有数据不能证明或排除显示侧内存泄漏。
+
+按双方都覆盖的RAM后977.793秒比较：
+原因                     v74       v75
+idle-exit                 86        145
+long-idle-exit            36        17
+compressor thrashing      7         6
+highwater                 0         1
+合计                      129       169
+
+v75全轮395次中，352是idle-exit，另有18次sustained-memory-pressure在v74保存时窗之外；不能称作395次崩溃，或仅以395对129宣布某改动造成回归。
+
+两份完整Jetsam的largestProcess均为backboardd40，rpages折算77.52→95.11MiB；它不等于整个wired，不构成单独泄漏证明。
+
+用户态同类迁移回执对比：
+                         v74                 v75
+migrationDidFinish        00:11:55.274934      00:19:19.049694
+Completed=true            00:12:06.794046      00:19:40.691340
+
+通知分别晚443.77和453.90秒。但最终com.apple.migration.plist的DMLastMigrationResults.success仍false，.AppleSetupDone仍不存在。通知到达不能替代迁移全部成功。
+
+同样13个共享缓存预读窗口、318.515625MiB，记录read_ms合计从30.610秒增至47.773秒；这是本次预读阶段变慢的证据，不能解释迁移晚七分多的全部时间，也不是UFS基准。PongDM诊断调用由5变13，其中原async=0被强制异步由2变10，说明本轮迁移阶段有更多诊断活动；它们发生在不同长度的完整启动区间，不作纯速率因果比较。
+
+九、退出原因与原生诊断链
+
+audio四次明确SIGABRT：
+Console raw       PID      原文原因
+718.339580        82       writing stackshot failed, aborting
+804.458538        492      writing stackshot took over 5s, aborting
+912.753477        531      writing stackshot failed, aborting
+1171.338033       566      writing stackshot failed, aborting
+
+其中PID492的原生13:20报告reason完整：
+AQ::Server: RPC timeout within audiomxd. Apparently deadlocked. Writing a stackshot and exiting.
+因此这一实例至少有“内部RPC超时”和“诊断stackshot失败/超时”两层信息。其他三个实例缺同样完整触发reason；不能全部推为同一具体RPC。四次退出前三次在本轮清屏之前，第四次之后；与v74首次audio退出晚于清屏不同，但时间先后不是显示因果证明。
+
+其他退出分类：
+- PosterBoard：3次30秒process-launch watchdog，另PID500为idle-exit。
+- AccessibilityUIServer PID583：19:39的unknown报告termination明确为30秒process-launch watchdog。
+- usermanagerd：五个PID均有明确idle-exit，不能称persona五连崩；manifest version1能加载，UserSessionID/nextsession错误仍在。
+- fairplayd.A2：55条PONG EXIT均signal/status/namespace为0，不能按55次崩溃统计。
+- SB5/BB40/RB6后期仍有tick，只能证明所采时刻存活。
+
+四份不完整IPS里的完整局部PID0/1对象还提供了独立线索：三个后期报告的kernel_task daemon.thread-exception（tid106）均显示turnstile blocked on task pid266；本轮Console将266定名为ReportCrash。RunningBoard的一个后台线程也在OSAnalytics写stackshot的同步XPC中。它说明异常/诊断回应链有反复可见的等待对象，尚不能与SB/BB group或AQ接收者合并成一条已证明的死锁链。lastRunTime原值保留，但未直接当作连续等待时长。
+
+十、建议的下一轮代码修改顺序和验收条件
+
+1. 先保证探针透明，并覆盖黑屏现场。
+   stat/lstat原调用返回后立即保存errno，记录结束后恢复；未启用的进程先判断gate；用TLS重入防护和原子有界预算；把慢日志移出主路径的同步fsync。为group/stat建立预分配在途slot，记录tid、调用号、开始时间、group/path摘要、caller及返回值，由低频worker输出未完成项。加入elapsed1200详细快照（1500本来已存在），或在EMPTIED时触发一次有界采样；验收需得到清屏前后主线程和具体请求归属，而不是只有tick。
+
+2. 定向处理lsd限制与恢复成本。
+   先记生效active/inactive memlimit、priority、footprint与策略来源；可做只针对lsd合理放宽上限的单变量实验。验收看highwater重启是否消失、播种完成回复/LS客户端等待是否缩短、系统剩余内存是否可承受。整个系统的jetsam保护应保留。
+
+3. 闭合SpringBoard的BBS请求边。
+   记录同步请求号、目标端口/服务、接收handler入口及完成条件；关联backboardd group enter/leave。只有拿到这条关系，才能决定修哪个等待条件，而不只是在等待函数旁继续加返回日志。
+
+4. 实现并验证selector44的真实所有权语义。
+   先补有界caller/参数/返回追踪，确认实际触发者和错误处理分支；按task identity与真实descriptor ledger路径实现，处理保留池生命周期。验收是实际归属变化正确、失败正确传播及释放/复用完整，随后观察UI行为。
+
+5. 内存计量和原生诊断分别补证。
+   分列active surface backing、retained pool、state页、wrapped/pinned页与其他wired持有者，记录压力回收前后。为AQ RPC记录接收者；为原生stackshot记录实际errno、请求/返回、写入和fsync阶段耗时；补ReportCrash接收/回包状态。已有记录不足以选择“内存不足”“写盘错误”或“IPC卡住”中的单一原因。
+
+另外，当前IOSurface计数改动只在xnu-work中发现，未在主仓patches中找到，应固化为可重建来源。v75新增探针存在errno缺陷是静态代码事实；本轮唯一留存stat为成功调用，尚无证据把该缺陷定为本次黑屏原因。本次分析没有修改产品源码、构建或刷机。
+
+十一、数据解释和引用索引
+
+Console原始6220563字节、47429物理行、49个NUL、7770条不同非空原始行、39589条重复非空行、48个WRAP提示、76类非标准小数位时间戳。原件全部保留；可读版只在展示时去NUL，不在第一个NUL截断。精确时差只使用六位小数时间戳。保存日志可能环绕/截断，缺行不证明未执行。
+
+11个PongBoot文件共有70个详细快照块。6份原生IPS中2份Jetsam正文完整，4份stackshot/watchdog正文截断；对后者只独立解码完整字段/对象，不补造JSON。四个后期/原生报告所能保留的进程有限，缺少完整用户态owner图。
+
+PongBoot共享缓存运行基址0x18ac44000；符号化使用已有22H374缓存。完整本轮原生报告未提供可直接核对的共享缓存UUID，所以相关符号名称以目标缓存未变为前提，原始地址与偏移保留。注入库内帧则用本轮实际导出库的__text、image0 slide和符号表匹配。
+
+主要证据索引（相对本报告目录）：
+E1 extracted/manifest.json、extraction.json、before.json、after.json、recovery-after-export.json：提取与设备状态。
+E2 analysis/display-runtime-v75.json、display-comparison-v74.json、comparison-normalized-times-v75.json：显示事件、重复位置、同口径比较。
+E3 extracted/files/mobile/Library/Logs/PongSB-5.txt、PongBoot-SpringBoard.txt、PongBoot-backboardd.txt：原始UI回执与栈。
+E4 analysis/native-runtime-review-v75.txt、native-key-evidence-v75.json、native-pongboot-late.json、native-ui18-frames.json、native-snapshot-deadlines-v75.json：线程证据及局限。
+E5 analysis/memory-process-review.txt、memory-current.json、memory-summary-current.json、memory-supplement-v75.json、memory-jetsam-processes-v75.json：内存、进程和迁移对照。
+E6 analysis/v75-source-review.txt、v75-source-evidence.json、v75-framebuffer-source.json、v75-framebuffer-v74-comparison.json：v75静态审查与清黑分支。
+E7 analysis/v75-selector44-review.txt、v75-selector44-evidence.json、v75-selector44-binary.json：目标固件ABI、接口实现轮廓、原装lsd策略。
+E8 analysis/native-partial-processes-v75.json：从截断IPS合法解码的独立完整process对象及ReportCrash等待线索。
+
+本轮已把“显示为何变黑”“新增具体接口缺口”“lsd为何被杀”分别落到日志与代码证据；仍需闭合的是SpringBoard同步请求等待哪个真实完成条件，以及它与这些已见故障之间的关系。

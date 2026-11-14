@@ -1,0 +1,238 @@
+{
+  "baseline": {
+    "console_bytes": 4102813,
+    "ram": [
+      {
+        "line": 4,
+        "physical_lines": [
+          4,
+          506,
+          1140,
+          1916
+        ],
+        "copies": 4,
+        "raw": "[   25.318074]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages",
+        "time_literal": "25.318074",
+        "us": 25318074
+      }
+    ],
+    "first_visible": [
+      {
+        "line": 1816,
+        "physical_lines": [
+          1816,
+          2592,
+          3284,
+          4259,
+          5192
+        ],
+        "copies": 5,
+        "raw": "[   84.918426]: MiniIOMobileFramebuffer: first visible frame; releasing boot console",
+        "time_literal": "84.918426",
+        "us": 84918426
+      }
+    ],
+    "transitions": [
+      {
+        "line": 1818,
+        "physical_lines": [
+          1818,
+          2594,
+          3286,
+          4261,
+          5194
+        ],
+        "copies": 5,
+        "raw": "[   84.924587]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1",
+        "time_literal": "84.924587",
+        "us": 84924587,
+        "fields": {
+          "state": "RESTORED",
+          "submitter": "backboardd",
+          "pid": 40,
+          "set": "0x80000007",
+          "surfaces": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "gpu": 0,
+          "graphics": 1,
+          "swap": 1
+        }
+      },
+      {
+        "line": 21541,
+        "physical_lines": [
+          21541,
+          22412,
+          23283,
+          24137,
+          24970,
+          25749,
+          26669,
+          27603,
+          28550
+        ],
+        "copies": 9,
+        "raw": "[  691.477906]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868",
+        "time_literal": "691.477906",
+        "us": 691477906,
+        "fields": {
+          "state": "EMPTIED",
+          "submitter": "backboardd",
+          "pid": 40,
+          "set": "0x1",
+          "surfaces": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gpu": 0,
+          "graphics": 1,
+          "swap": 47868
+        }
+      }
+    ],
+    "maximum_canonical_time": {
+      "line": 31550,
+      "physical_lines": [
+        31550
+      ],
+      "copies": 1,
+      "raw": "[ 1003.111160]: memorystatus: failed to kill a process and no memory was reclaimed",
+      "time_literal": "1003.111160",
+      "us": 1003111160
+    },
+    "post_clear": [
+      {
+        "clear_line": 21541,
+        "clear_us": 691477906,
+        "last_us": 1003111160,
+        "seconds_to_last": 311.633254,
+        "canonical_records_after": 1084,
+        "restored_after": []
+      }
+    ]
+  },
+  "new": "capture 20261114-153948",
+  "caveat": "Two distinct boots, not a controlled A/B experiment.",
+  "current": {
+    "console_bytes": 6220563,
+    "ram": [
+      {
+        "line": 4,
+        "physical_lines": [
+          4,
+          506,
+          1137
+        ],
+        "copies": 3,
+        "raw": "[   26.137305]: Pong RAM: 3 owned banks, 665 MiB managed before kernel reservations, 4 KiB pages",
+        "time_literal": "26.137305",
+        "us": 26137305
+      }
+    ],
+    "first_visible": [
+      {
+        "line": 1877,
+        "physical_lines": [
+          1877,
+          2642,
+          3651,
+          4565,
+          5531
+        ],
+        "copies": 5,
+        "raw": "[   97.414900]: MiniIOMobileFramebuffer: first visible frame; releasing boot console",
+        "time_literal": "97.414900",
+        "us": 97414900
+      }
+    ],
+    "transitions": [
+      {
+        "line": 1879,
+        "physical_lines": [
+          1879,
+          2644,
+          3653,
+          4567,
+          5533
+        ],
+        "copies": 5,
+        "raw": "[   97.421223]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1",
+        "time_literal": "97.421223",
+        "us": 97421223,
+        "fields": {
+          "state": "RESTORED",
+          "submitter": "backboardd",
+          "pid": 40,
+          "set": "0x80000007",
+          "surfaces": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "gpu": 0,
+          "graphics": 1,
+          "swap": 1
+        }
+      },
+      {
+        "line": 37378,
+        "physical_lines": [
+          37378,
+          38224,
+          39084,
+          39946,
+          40813,
+          41562,
+          42445,
+          43253
+        ],
+        "copies": 8,
+        "raw": "[ 1156.380611]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=83377",
+        "time_literal": "1156.380611",
+        "us": 1156380611,
+        "fields": {
+          "state": "EMPTIED",
+          "submitter": "backboardd",
+          "pid": 40,
+          "set": "0x1",
+          "surfaces": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "gpu": 0,
+          "graphics": 1,
+          "swap": 83377
+        }
+      }
+    ],
+    "maximum_canonical_time": {
+      "line": 47428,
+      "physical_lines": [
+        47428
+      ],
+      "copies": 1,
+      "raw": "[ 1484.356745]: memorystatus: failed to kill a process and no memory was reclaimed",
+      "time_literal": "1484.356745",
+      "us": 1484356745
+    },
+    "post_clear": [
+      {
+        "clear_line": 37378,
+        "clear_us": 1156380611,
+        "last_us": 1484356745,
+        "seconds_to_last": 327.976134,
+        "canonical_records_after": 1589,
+        "restored_after": []
+      }
+    ]
+  }
+}

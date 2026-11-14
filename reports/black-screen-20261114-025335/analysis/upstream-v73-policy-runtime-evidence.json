@@ -1,0 +1,87 @@
+{
+  "capture": "025335",
+  "manifest_summary": {
+    "complete": true,
+    "inventory_nodes": 4341,
+    "errors": [],
+    "skipped": []
+  },
+  "data_relative_state": {
+    "preferences/FeatureFlags/Domain/AirPlay.plist": {
+      "exists": false
+    },
+    "pong/etc/AirPlay-local-audio.plist": {
+      "exists": false
+    },
+    "pong/audio-hal18": {
+      "exists": false,
+      "entries": [],
+      "metadata_only": true
+    },
+    "pong/staged-audio18": {
+      "exists": false,
+      "entries": [],
+      "metadata_only": true
+    },
+    "Library/Audio/Plug-Ins/HAL": {
+      "exists": false,
+      "entries": [],
+      "metadata_only": true
+    }
+  },
+  "console": {
+    "init_receipts": {
+      "count_including_overlap": 0,
+      "unique_texts": [],
+      "first_occurrences": []
+    },
+    "ordinary_launchd_path": {
+      "count_including_overlap": 5,
+      "unique_texts": [
+        "[   27.096138]: load_init_program: attempting to load /sbin/launchd"
+      ],
+      "first_occurrences": [
+        {
+          "line": 407,
+          "text": "[   27.096138]: load_init_program: attempting to load /sbin/launchd"
+        },
+        {
+          "line": 909,
+          "text": "[   27.096138]: load_init_program: attempting to load /sbin/launchd"
+        }
+      ]
+    },
+    "airplayd": {
+      "count_including_overlap": 6,
+      "unique_texts": [
+        "[  141.661475]: process airplayd[207] caught waking the CPU 45102 times over ~1 seconds, averaging 32128 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+      ],
+      "first_occurrences": [
+        {
+          "line": 3451,
+          "text": "[  141.661475]: process airplayd[207] caught waking the CPU 45102 times over ~1 seconds, averaging 32128 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        },
+        {
+          "line": 4393,
+          "text": "[  141.661475]: process airplayd[207] caught waking the CPU 45102 times over ~1 seconds, averaging 32128 wakes / second and violating a limit of 45000 wakes over 300 seconds."
+        }
+      ]
+    },
+    "route_discoverer": {
+      "count_including_overlap": 0,
+      "unique_texts": [],
+      "first_occurrences": []
+    },
+    "endpoint_manager": {
+      "count_including_overlap": 0,
+      "unique_texts": [],
+      "first_occurrences": []
+    },
+    "hal_receipts": {
+      "count_including_overlap": 0,
+      "unique_texts": [],
+      "first_occurrences": []
+    }
+  },
+  "scope": "Data-only inventory; no OS/root filesystem identity inferred; no image read, hash, source edit or device mutation by this review."
+}

@@ -1,0 +1,44 @@
+Pong tick: containermanagerd pid=45 seconds=60 threads=3
+Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=60 time=102 threads=3
+Pong boot snapshot: containermanagerd pid=45 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=100609000 cache=0x195148000 size=f37c8000
+thread=0 tid=316 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f8352e0 sp=16f835290 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 197a613c4 1e6840cd8 1005c9630 1bc87996c 0
+thread=2 tid=589 state_result=0 info_result=0 run=3 cpu=24 pc=1e33dc9a8 lr=1f650ea5c fp=16f940970 sp=16f940950 frames: 1f650eab0
+Pong boot snapshot END: containermanagerd pid=45 seconds=60 sampled=2 of 3
+Pong tick: containermanagerd pid=45 seconds=120 threads=3
+Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=120 time=162 threads=3
+Pong boot snapshot: containermanagerd pid=45 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=100609000 cache=0x195148000 size=f37c8000
+thread=0 tid=316 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f8352e0 sp=16f835290 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 197a613c4 1e6840cd8 1005c9630 1bc87996c 0
+thread=2 tid=2380 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16f9c6af0 sp=16f9c6ad0 frames: 1f650eab0
+Pong boot snapshot END: containermanagerd pid=45 seconds=120 sampled=2 of 3
+Pong tick: containermanagerd pid=45 seconds=180 threads=3
+Pong tick: containermanagerd pid=45 seconds=240 threads=3
+Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=240 time=283 threads=3
+Pong boot snapshot: containermanagerd pid=45 seconds=240 image0=/private/var/pong/libpong-ui18.dylib image_slide=100609000 cache=0x195148000 size=f37c8000
+thread=0 tid=316 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f8352e0 sp=16f835290 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 197a613c4 1e6840cd8 1005c9630 1bc87996c 0
+thread=2 tid=3953 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16f9c6af0 sp=16f9c6ad0 frames: 1f650eab0
+Pong boot snapshot END: containermanagerd pid=45 seconds=240 sampled=2 of 3
+Pong tick: containermanagerd pid=45 seconds=301 threads=3
+Pong tick: containermanagerd pid=336 seconds=60 threads=3
+Pong boot snapshot BEGIN: containermanagerd pid=336 seconds=60 time=469 threads=3
+Pong boot snapshot: containermanagerd pid=336 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=10068e000 cache=0x195148000 size=f37c8000
+thread=0 tid=6502 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f7b02e0 sp=16f7b0290 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 197a613c4 1e6840cd8 10064e630 1bc87996c 0
+thread=2 tid=6597 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16f8bbaf0 sp=16f8bbad0 frames: 1f650eab0
+Pong boot snapshot END: containermanagerd pid=336 seconds=60 sampled=2 of 3
+Pong tick: containermanagerd pid=336 seconds=120 threads=3
+Pong boot snapshot BEGIN: containermanagerd pid=336 seconds=120 time=529 threads=3
+Pong boot snapshot: containermanagerd pid=336 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=10068e000 cache=0x195148000 size=f37c8000
+thread=0 tid=6502 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f7b02e0 sp=16f7b0290 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 197a613c4 1e6840cd8 10064e630 1bc87996c 0
+thread=2 tid=6597 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16f8bb980 sp=16f8bb960 frames: 1f650eab0
+Pong boot snapshot END: containermanagerd pid=336 seconds=120 sampled=2 of 3
+Pong tick: containermanagerd pid=336 seconds=181 threads=3
+Pong tick: containermanagerd pid=336 seconds=241 threads=3
+Pong boot snapshot BEGIN: containermanagerd pid=336 seconds=241 time=651 threads=3
+Pong boot snapshot: containermanagerd pid=336 seconds=241 image0=/private/var/pong/libpong-ui18.dylib image_slide=10068e000 cache=0x195148000 size=f37c8000
+thread=0 tid=6502 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f7b02e0 sp=16f7b0290 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 197a613c4 1e6840cd8 10064e630 1bc87996c 0
+thread=2 tid=6597 state_result=0 info_result=0 run=4 cpu=0 pc=1e6917ba0 lr=1e680e6b4 fp=16f8bab30 sp=16f8baaa0 frames: 1e680e4b8 1e680e3dc 1e680e2d4 1e680e238 19f24ea68 19f2330f8 1e680e198 1e680ee30 1e6812c68 1e6812a70 1e68135e4 1e680df30 1e6807ae8 1f656c8c4 1f656e2dc 19f24eaa4 19f2256dc 19f22cdcc 19f226250 19f22e710 19f236710 19f236018 1f650ea10 1f650eab0
+Pong boot snapshot END: containermanagerd pid=336 seconds=241 sampled=2 of 3
+Pong tick: containermanagerd pid=336 seconds=300 threads=3
+Pong tick: containermanagerd pid=336 seconds=360 threads=3
+Pong tick: containermanagerd pid=336 seconds=420 threads=3
+Pong tick: containermanagerd pid=336 seconds=480 threads=3
+Pong tick: containermanagerd pid=336 seconds=540 threads=3

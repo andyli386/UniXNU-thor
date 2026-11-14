@@ -1,0 +1,101 @@
+THOR v74 本轮显示、唤醒与退出回执核对
+采集：PongBoot-pull-20261114-103139
+范围：从本轮保存的日志分析；不改源码、不操作手机、不构建。
+原始文件及物理行号见 v74-display-runtime.json；生成脚本为 analyze-display-current.py。
+
+一、最明确的新事实
+
+1. 这次已识别出清空显示层的直接提交者：backboardd，PID 40。
+
+Console 物理行 1816（共5份完全相同行）：
+[84.918426] MiniIOMobileFramebuffer: first visible frame; releasing boot console
+
+Console 物理行 1818（共5份）：
+[84.924587] MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1
+
+Console 物理行 21541（共9份）：
+[691.477906] MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47868
+
+这些是两个独立层状态事件，不是5次恢复和9次黑屏。日志重放造成完全相同的文本出现多份。
+
+当前源码的 presenter() 从同一个原队列槽、在同一把锁内复制帧数据、surface 引用、who/pid，再把身份显式传入 show()；这次不再依赖复制后静态缓冲的地址反查槽位。日志的 backboardd/40 因而对应 SwapEnd 的直接调用进程，不是 presenter 内核工作线程。
+
+源码审查者同时复核了当前 MiniIOMobileFramebuffer.cpp:1116–1124：当 sid==0、!gpuFrame、layer==0、(set&1)、fGraphics 成立时，以 0xff000000u 填满 CPU framebuffer。此处存在更早的 fGpuOnly&&!gpuFrame 返回条件；本轮已经到达 show 后面的 EMPTIED 回执，且各字段与黑填充分支匹配。源码摘录保存在 Mac 本轮 analysis/framebuffer-cpu-empty-current.txt。
+
+因此可以将“屏幕变黑的直接显示机制”收敛到：backboardd PID40 提交空的第0层，驱动按这次提交清黑。仍不能由此认定 backboardd 本身有 bug，也不能单凭此行判断背光、面板电源或整个渲染链健康。真正未解的是 backboardd 为什么交出空层，以及新的界面 surface 为什么没有接上。
+
+2. 黑屏后系统继续运行至少 311.633254 秒。
+
+最后一个有合法六位小数时间戳的 Console 行为物理行31550：
+[1003.111160] memorystatus: failed to kill a process and no memory was reclaimed
+
+691.477906 到 1003.111160 之间保留了1084条不同的合法时间戳活动行，差值311.633254秒。保存的层状态记录中没有后续 RESTORED。最后一段帧率统计在686.751075：387帧/5007ms、0 swaps gave up；它发生在清空之前，不能拿它证明清空之后仍有新界面帧。
+
+“黑屏后有持续活动”排除了把691秒事件直接等同于整个内核当场停止的说法，但不能据此宣称用户态健康，也不代表1003秒就是实际断电时间。
+
+3. SpringBoard 的唤醒提交调用已确认返回，尚无回调入口记录。
+
+extracted/files/mobile/Library/Logs/PongSB-4.txt，135 bytes，全文三行：
+[63] Pong UI18: SpringBoard adapter ctor (v73)
+[63] Pong UI18: wake scheduled on main queue +10s
+[63] Pong UI18: wake enqueue returned
+
+源码 ui_compat18.c:2568 的 scheduled 在 dispatch_after_f 之前，2570 的 returned 在调用之后；wake_home:1657 的 begin 在 UIScreen 查询之前。这次 returned 是新增的正证据，证明入队调用返回；保存文件中没有 begin。必须再结合 SpringBoard 的实际存活与主线程栈判断等待位置，不能仅凭缺行把原因直接定为 dispatch_after_f 或 UIScreen 卡住。
+
+文件记录函数目前未检查 dprintf/fsync 返回值，缺行仍有落盘边界。这里的[63]来自time(NULL)，不与上面Console原始时钟做小数级因果对齐。Ctor 中的(v73)是当前v74源码仍保留的旧标签，不能据此判定加载旧库。
+
+二、退出记录改变了对本轮故障的认识
+
+本轮保存的 Console 去重后有53条 PONG EXIT：fairplayd.A2 46条、com.apple.migrat 3条、PosterBoard 2条、audiomxd 2条。前两组保存的 signal/status/namespace/code 均为0、description=none；不能把53条都计为崩溃，更不能把 fairplayd 正常退出循环写成46次 SIGABRT。
+
+与黑屏有关的关键次序（均为 Console 原始时钟）：
+
+680.980514  PosterBoard PID413，signal=9，namespace=10，code=0x8badf00d；process-launch watchdog，30秒墙钟预算耗尽。
+688.590003  com.apple.migrat PID240，signal=0/status=0，description=none。
+691.477906  backboardd PID40 提交空层，EMPTIED。
+816.208782  PosterBoard PID446，再次 process-launch watchdog，signal=9，namespace=10，code=0x8badf00d。
+869.166608  audiomxd PID81，signal=6，namespace=39，code=0x0；description=writing stackshot failed, aborting。
+955.520118  audiomxd PID529，signal=6，namespace=39，code=0x0；description=writing stackshot took over 5s, aborting。
+
+PosterBoard 第一次退出在清空前10.497392秒，迁移包装器退出在清空前2.887903秒；这只是相邻时序，尚不构成依赖链证明。
+
+audiomxd 的首次保存退出在清空后177.688702秒，第二次在其后264.042212秒。两次“退出事件”不能反过来作为691秒空帧提交的先行原因。它们也可能与更早的共享等待或资源压力有关，需要 native 栈分析决定。
+
+这次 PONG EXIT 把 audiomxd 的退出原因直接保存下来：写 stackshot 失败／超过5秒后主动 abort。应继续查清发起 stackshot 的调用者、失败的下层接口和当时资源压力；现有原因文本不支持直接写成“因为音频端点缺失而崩”或“被 OOM 杀死”。这里不推断 stackshot 一定由移植诊断代码发起。
+
+PONG EXIT 的 signal/status 来源是同一个 wait status 的不同宏，signal=6/status=0 不能解读成“SIGABRT 又成功 exit(0)”。随后出现的 Corpse failure 是退出后的报告生成问题，不是已保存的原始 abort 描述。PosterBoard 第二次和两次 audiomxd 均有相应 corpse 失败行。
+
+三、早启动挂载与注入三项均有正证据
+
+Console 行347（4份）：
+[26.323415] THOR INJECT: armed from boot args (246 chars) /private/var/pong/libpong-ui18.dylib ...
+
+Console 行377（4份）：
+[26.331619] PONG APFS: SystemOS mounted dev=d000005 ro=1 union=1 flags=14809021
+
+Console 行406（5份）：
+[26.340436] PONG APFS: Data mount PASS path=/private/var device=/dev/disk5s2 rw=1 bytes=8591003648
+
+本轮无需再把 SystemOS union/Data 挂载是否成功作为当前主要未知。armed 证明内核注入规则就绪；具体进程实际加载仍以运行日志/二进制身份核对为准。本轮保存的 Pong*.txt 中未找到 entered backboardd/renderer neutralized 文本，不将其缺失写成失败，也不借旧照片宣称本轮重现过。
+
+四、与上一轮 v73 的确切差异
+
+项目                         v73                    本轮
+首个可见帧（Console raw）     79.341296              84.918426
+清空显示层（Console raw）     906.227133             691.477906
+清空帧提交者                 ? / -1                 backboardd / 40
+空层后的保存活动窗口         67.883710秒             311.633254秒
+SpringBoard PID              5                      4
+入队调用返回回执             无                     有
+wake_home begin              未保存                 未保存
+audiomxd 原因文本            无本轮崩溃记录         两次stackshot相关abort原因
+
+本轮首帧原始时钟晚5.577130秒；按 RAM marker 对齐则晚6.330913秒。清空原始时钟早214.749227秒，按 RAM marker 对齐早213.995444秒。不能仅凭两次启动差值归因于v74诊断改动，也不能把黑屏提前描述为更接近桌面。
+
+五、证据边界与下一步
+
+Console 为4,102,813 bytes，31,551物理行，33个NUL，32个WRAP/lost-text标记。去重保留4,623种完整非空行；其中4,513种有合法六位小数原始时间。59种时间戳为非标准小数长度，保留原文不强行补位/归一。全局去重的对象是完整原始字节行，所有物理出现位置保存在JSON。
+
+已经解决的观察缺口：谁清空了显示层、入队调用是否返回、相关服务为什么退出。
+仍需由其他本轮分析补足：SpringBoard/BackBoard 的实际等待对象、stackshot 失败栈、内存压力与这些事件的对应关系。
+如果全线程栈仍不能证明清空的上游原因，下一处最小诊断应放在 backboardd 的首次非空→空提交调用链及同一时窗的 SpringBoard 主线程，而不是把“禁止清屏、保留最后一帧”当作桌面修复。

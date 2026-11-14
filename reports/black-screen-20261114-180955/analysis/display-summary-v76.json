@@ -1,0 +1,130 @@
+{
+  "console_bytes": 4086189,
+  "physical_lines": 31607,
+  "unique_nonempty": 4751,
+  "nul_bytes": 33,
+  "noncanonical_timestamp_types": 39,
+  "first_visible": [
+    {
+      "line": 1814,
+      "physical_lines": [
+        1814,
+        2590,
+        3190,
+        4108,
+        5047
+      ],
+      "copies": 5,
+      "raw": "[   83.338947]: MiniIOMobileFramebuffer: first visible frame; releasing boot console",
+      "time_literal": "83.338947",
+      "us": 83338947
+    }
+  ],
+  "transitions": [
+    {
+      "line": 1816,
+      "physical_lines": [
+        1816,
+        2592,
+        3192,
+        4110,
+        5049
+      ],
+      "copies": 5,
+      "raw": "[   83.344863]: MiniIOMFB layers RESTORED: submitter=backboardd pid=40 set=0x80000007 surfaces=1,0,0,0 gpu=0 graphics=1 swap=1",
+      "time_literal": "83.344863",
+      "us": 83344863,
+      "fields": {
+        "state": "RESTORED",
+        "submitter": "backboardd",
+        "pid": 40,
+        "set": "0x80000007",
+        "surfaces": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "gpu": 0,
+        "graphics": 1,
+        "swap": 1
+      }
+    },
+    {
+      "line": 21453,
+      "physical_lines": [
+        21453,
+        22340,
+        23220,
+        24106,
+        25005,
+        25915,
+        26822,
+        27642
+      ],
+      "copies": 8,
+      "raw": "[  683.958940]: MiniIOMFB layers EMPTIED: submitter=backboardd pid=40 set=0x1 surfaces=0,0,0,0 gpu=0 graphics=1 swap=47828",
+      "time_literal": "683.958940",
+      "us": 683958940,
+      "fields": {
+        "state": "EMPTIED",
+        "submitter": "backboardd",
+        "pid": 40,
+        "set": "0x1",
+        "surfaces": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gpu": 0,
+        "graphics": 1,
+        "swap": 47828
+      }
+    }
+  ],
+  "post_clear": [
+    {
+      "clear_line": 21453,
+      "clear_us": 683958940,
+      "last_us": 1005876045,
+      "seconds_to_last": 321.917105,
+      "canonical_records_after": 1224,
+      "restored_after": []
+    }
+  ],
+  "maximum_canonical_time": {
+    "line": 31605,
+    "physical_lines": [
+      31605
+    ],
+    "copies": 1,
+    "raw": "[ 1005.876045]: process diagnosticextens[539] caught waking the CPU 45088 times over ~46 seconds, averaging 967 wakes / second and violating a limit of 45000 wakes over 300 seconds.",
+    "time_literal": "1005.876045",
+    "us": 1005876045
+  },
+  "exit_counts": {
+    "fairplayd.A2": 44,
+    "com.apple.migrat": 3,
+    "PosterBoard": 3,
+    "audiomxd": 1
+  },
+  "new_receipt_files": [
+    {
+      "file": "extracted/files/mobile/Library/Logs/PongBBD-40.txt",
+      "bytes": 88,
+      "line_count": 1
+    },
+    {
+      "file": "extracted/files/mobile/Library/Logs/PongDM-84.txt",
+      "bytes": 312,
+      "line_count": 4
+    },
+    {
+      "file": "extracted/files/mobile/Library/Logs/PongSB-5.txt",
+      "bytes": 135,
+      "line_count": 3
+    }
+  ],
+  "iosurface_samples": 3
+}

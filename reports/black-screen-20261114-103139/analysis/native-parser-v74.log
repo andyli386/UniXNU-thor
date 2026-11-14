@@ -1,0 +1,43 @@
+{
+  "parsed": 4,
+  "snapshots": 0,
+  "a2_crashes": 0,
+  "rows": [
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001117.0002.ips",
+      "date": null,
+      "proc": null,
+      "reason": null,
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3107 (char 27260)\")",
+      "boot": null,
+      "chain": []
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001551.0002.ips",
+      "date": null,
+      "proc": null,
+      "reason": null,
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 22 column 3057 (char 26486)\")",
+      "boot": null,
+      "chain": []
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000120.000.ips",
+      "date": null,
+      "proc": null,
+      "reason": null,
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 1017 column 2 (char 43941)\")",
+      "boot": null,
+      "chain": []
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001444.000.ips",
+      "date": null,
+      "proc": null,
+      "reason": null,
+      "error": "JSONDecodeError(\"Expecting ',' delimiter: line 27 column 4609 (char 28684)\")",
+      "boot": null,
+      "chain": []
+    }
+  ]
+}

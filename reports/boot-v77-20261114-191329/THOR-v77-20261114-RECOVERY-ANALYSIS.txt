@@ -1,0 +1,50 @@
+THOR v77 真机启动、显示与触摸日志
+2026-11-14，北京时间。真机采集批次 PongBoot-pull-v77-20261114-194555。
+
+结论
+
+19:13:29 临时启动 v77。19:21 的照片已见 SpringBoard 主屏、Settings 和底部 Dock 区域，19:26 的照片见锁屏日期、时钟和底部手势条。拍摄时间只有分钟精度，首次出现真实界面的准确时间未知。用户现场确认触摸没有反应。结论为显示里程碑通过，实际触摸失败，持续可操作界面尚无证据。
+
+触摸无效已经有同一台手机的明确驱动证据。v77 仍带 Pong 的 Goodix 触摸驱动。内核 26.798572 秒记录时钟状态，26.923924 秒读到全零固件识别，26.925374 秒触摸初始化失败。Recovery 对同一设备只读检查，触屏实际为 STMicroelectronics FTS，设备树 /soc/spi@990000/fts@0、compatible st,spi、SPI1.0 绑定 fts，/dev/input/event7 为 fts，初始化日志显示 sense on 和 probe finished。Goodix 名称另出现于指纹相关模块或 uinput，不能用它代表触屏。问题发生在硬件识别阶段，当前 XNU 无法向后面的触摸桥提交真实事件。
+
+可直接复用的工程路径是保留现有 Pong HID 事件桥，按 Thor 的原生 FTS 协议实现前端，先读芯片身份和事件 FIFO，再用真实点击和拖动比对 backboardd 收到的事件。该机 SPI 模式 0、CS0、8 位、最高 12 MHz；GPIO20 为复位、GPIO21 为中断；原生事件坐标 0..14399、0..31999，10 个槽位。供电与具体 FTS 芯片读写协议需按 Thor 的实际参数配置。MIX Fold 2 的 STM FTS 移植已打通 GPIO SPI 与继承的 HID 路径，可参考传输与桥接实现。原生恢复日志显示触控固件已在芯片，第一次验证可用只读识别与正常运行指令，避免把另一机型的固件和芯片常量混入。
+Thor 原生 fts_spi 源码预期 SALIXP 芯片 ID 36 40，需在 XNU 实测。现有 zizhan 后端使用不同的芯片 ID 36 52，也不能直接复用它的扫描命令或坐标方向。先以 Thor 取实际芯片 ID、控制器 ready 和 FIFO 原始报文，逐级验收到真实触点事件和 Settings 点击。时钟字 0x80000002 还带硬件门控位，单凭一次读值不能断言物理时钟故障。
+Thor 驱动参考 https://github.com/LineageOS/android_kernel_xiaomi_sm8450/tree/lineage-23.2/drivers/input/touchscreen/fts_spi
+同平台移植参考 https://unixnu.com/devices/zizhan#input
+
+旧版是否也能等出来
+
+内核时钟均为同一版原始日志中的时钟。v74 在 11:31.478 清黑，保留到 16:43.111 无恢复，SpringBoard 已进 CoverSheet 窗口流程。v75 在 19:16.381 清黑，保留到 24:44.357 无恢复，最后完整 SpringBoard 栈仍在等 BBS 同步回复。v76 在 11:23.959 清黑，保留到 16:45.876 无恢复，SpringBoard 的后期栈已进入主 scene 和锁屏视图加载。三个版本从清黑起均留有 5:11–5:28 的后续活动。若它们继续运行更久，现有证据无法排除后来出界面；但不能把 v77 的改善归为多等几分钟。v77 约启动 8 分钟已有主屏照片，且首次确认到了此前没有观察到的整套画面。在回退旧用户态库的情况下，v77 同时更改了内存和 IOSurface，不能用单次启动区分哪个改动起决定作用。
+
+本轮显示和性能时间线
+
+内核记录首次可见 swap 在 164.982383 秒，旧库中的 SpringBoard PID4 也在另一时间域 t159–160 返回 native home request accepted=1。这些是程序阶段证据，精确的主屏出现时间用照片作为上界。内核后续清空图层及回填依次为：
+742.230992 → 747.772205（5.541213 秒）
+781.011200 → 784.047655（3.036455 秒）
+907.043593 → 1897.904065（990.860472 秒，16 分 30.860 秒）
+1899.076330 → 1904.929812（5.853482 秒）
+这期间 SpringBoard PID4 还保留心跳到自身 elapsed 1804 秒，系统持续活动。十六分半的空图层间隔和尾段的电源/显示切换说明迟到恢复确实可能发生于本轮，具体是锁屏/熄屏/亮屏策略还是合成提交延迟，仍缺少明确的请求来源。两张照片不建立连续可操作 5 分钟。最后保留的内核行 raw 1905.340930 秒。
+
+本轮 v77 实际生效的改动
+
+PASS 内核接管 RAM = 768 MiB，v76 为 665 MiB，增加 103 MiB。3 段合并为 [0x800000000, 0x830000000)，正好止于原厂 HYP 的起始地址。无额外高端地址冒领。
+PASS IOSurface selector 44 至少有 12 条去重成功回执，调用者为 AudioConverterService，result=0，参数 tag=3、options=0。记录到的 7 个池样本均为 kept=0，暂时没有观察到池实际回收或额外的 ledger 复核。
+FAIL v77 诊断库落盘。Data 正常挂载后约 1 毫秒，内核报 THOR UI runtime: FAIL error=22; using existing adapter。Data 没有 libpong-ui-v77.dylib，原 libpong-ui18.dylib UUID 07D7E424-02CE-3BFF-9852-04AEF2401677 与 v76 相同，且 SpringBoard PID4 留下旧库格式回执。
+FAIL 持久化迁移结果仍 success=false，目标 build 22H374。本轮可显示主屏，迁移失败并未覆盖这一现场结果。
+SKIP 新诊断库承载的预读预算、lsd 实际 active/inactive 回执、增量游标和清黑触发详细采样，本轮走了旧用户态路径。旧磁盘早期报告不能当本轮新 crash。
+对照运行日志还保留了 BackBoard PID40 的同类无限 group wait，原始返回地址后缀仍为 0x3e4。该等待曾对应触觉控制器 BRController 就绪。它与本轮可见主屏同时存在，说明这条后台等待本身不阻止主屏。
+SKIP 19:13 启动参数没有启用 PosterBoard 专用采样。修好参数的候选已在两台主机准备好，未用于本轮。
+
+动态库 EINVAL 定位
+
+固定 XNU 43a90889846e00bfb5cf1d255cdc0a701a1e05a4 的 bsd/vfs/vfs_subr.c:7785 将 VNODE_LOOKUP_NOFOLLOW_ANY 转成 O_NOFOLLOW_ANY，v77 的两个 vnode_open 调用额外显式传入 O_NOFOLLOW。bsd/vfs/vfs_vnops.c:412–415 在 namei/文件系统之前拒绝这两个标志同时存在。符合日志里的快速 EINVAL 与目标文件不存在。修正方式是在创建及重开两处只保留 VNODE_LOOKUP_NOFOLLOW_ANY 这一完整路径防护，并对查找、创建、写入、同步分别打回执。当前请求仅分析，未在本次证据采集时改变设备。
+
+证据和原始路径
+
+i386 采集于 19:45:55.996 开始，19:50:04.986 结束，读出 8,591,003,648 字节，129 块，采集前后设备写入及 discard 计数未变化。导出 256 个文件，共 13,063,795 字节。原始 Data 镜像：
+/home/vincent/Projects/thor-unixnu/PongBoot-pull-v77-20261114-194555/Data-runtime.img
+
+分析单独核对了 Console 的精确字节前缀。v77 导出的 PongConsole.txt 为 11,946,323 字节，前 4,086,189 字节与 v76 原始文件逐字节一致。切分后仅在分析视图中忽略中间不完整行的 44 字节，v77 RAM 第一行是原始 L31610。重复回放按原始字节行分组，保留原始行号；七位小数的行仍在原始日志中，未用于时间差计算。关键原始行：RAM L31610–31613，触摸 L31966/L32026–32027，运行库回退 L32021，首帧 L35324，清屏与回填 L55367/L55502/L56377/L56418/L59946/L88484/L88488/L88529。Recovery 触摸证据为同批目录 THOR-v77-Recovery-touch-identity.txt 和 THOR-v77-Recovery-touch-board.txt。
+
+Mac mini 归档目标：
+/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/boot-v77-20261114-191329/

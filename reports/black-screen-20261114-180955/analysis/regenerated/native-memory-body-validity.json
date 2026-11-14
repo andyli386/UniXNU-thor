@@ -1,0 +1,26 @@
+[
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001119.0003.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 31 column 3267 (char 28500)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000125.000.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 23 column 6460 (char 27502)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001633.000.ips",
+    "header_complete": true,
+    "body_complete": false,
+    "body_error": "Expecting ',' delimiter: line 28 column 1916 (char 27051)"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000508.0002.ips",
+    "header_complete": true,
+    "body_complete": true,
+    "body_end": 113041
+  }
+]

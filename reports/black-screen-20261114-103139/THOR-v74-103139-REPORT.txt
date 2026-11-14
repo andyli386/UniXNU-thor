@@ -1,0 +1,235 @@
+THOR v74 真机黑屏：本轮日志、源码核对与 v73 对照
+日期：2026-11-14（Asia/Shanghai）
+正式采集批次：PongBoot-pull-20261114-103139
+对照批次：v73 / PongBoot-pull-20261114-025335
+状态：完整采集完成；黑屏的直接显示机制已确认，导致新 UI 未提交的唯一上游根因尚未闭合。
+
+一、结论先行
+
+1. 本轮确实取得新设备日志，包含 v74 三项新增诊断的运行回执。Data 中 libpong-ui18.dylib 的 LC_UUID 为 FFEC574F-B64E-351D-AD62-3077876C92B5，与 Mac v74 候选库一致；不能再用 ctor 文本里的旧“(v73)”判断版本。
+2. 黑屏的直接显示机制已确定：backboardd PID40 在 Console 原始时间 691.477906 提交全空层帧，MiniIOMobileFramebuffer 按现有代码把画面填黑。是谁提交的这一点，已经从 v73 的 ?/-1 变成有证据的答案。
+3. 清屏后仍有 311.633254 秒 Console 活动；SpringBoard、backboardd、runningboardd 在所采快照中保持同一 PID。不能把这次黑屏等同于内核当场停止或整机立即崩溃。
+4. SpringBoard 后续确有推进：早期仍在 FBSystemShellInitialize 的同步回复等待，后期快照已进入 CoverSheet/UIViewController viewWillAppear/NSBundle/lstat。它已经走到新的 UI 初始化位置，但尚无锁屏或桌面帧恢复证据。
+5. 本轮 audiomxd 两次真实 SIGABRT。新增 PONG EXIT 抓到了写 stackshot 失败/超过5秒的退出原因；原生报告进一步写明此前发生了 AQ::Server 内部 RPC timeout。这是新的重要故障证据，但首次 audio abort 晚于清屏约178秒，不能反过来当作首次清屏的直接先行原因。
+6. 内存压力比上一轮呈现出更重的回收原因：同一观察窗口中 v73 没有 compressor-thrashing，本轮有6次，完整窗口7次。665 MiB 管理窗口中后期 wired 约393–400 MiB、compressor 约128–143 MiB。这个环境足以对耗时形成重要影响，但具体 wired 归属和每个超时的直接原因仍需区分。
+7. 迁移通知更早出现，但 DMLastMigrationResults.success 仍为 false，.AppleSetupDone 仍不存在。因此“Completed=true”“进度条消失”“进到 CoverSheet 调用链”都不能单独宣称桌面启动完成。
+
+本轮没有修改项目源码、构建或刷机。结论保存位置见末尾。
+
+二、采集过程与可信边界
+
+最初 i386 的远程连接离线。恢复在线后，首次连续传输在 10:26:56 遇到 ADB USB timeout，只取得286,600,704字节；这份失败尝试保留为失败证据，不用于分析 APFS 或冒充完整日志。
+主机 USB 仍识别序列号 <device-serial>。重建 ADB、对该手机执行 USB 连接复位并重新扫描后恢复 Recovery 通道；手机 Recovery boot_id 保持 05f116e8-f5c4-4108-9b22-f483250bec01，未让手机重启。
+
+正式采集：
+  开始：2026-11-14 10:31:39 +08:00
+  完成：2026-11-14 10:36:15 +08:00
+  Data 窗口：offset=10809769984，length=8591003648
+  方式：64 MiB 分段，共129段；每段验证返回码和累计字节数。
+  完整读出：8,591,003,648 bytes；耗时274.483秒。
+  采集前后：Recovery启动标识相同，userdata及dm-7均未挂载，写入/丢弃计数未变。
+  主机解析：只读打开普通 Data-runtime.img，用现有 APFS parser 导出；没有挂载手机 Data 或主机镜像。
+  导出：75个文件，4,766,264字节；errors=[]、skipped=[]，源镜像属性未变。
+  结束后复查：手机仍为 Recovery，启动标识相同。
+
+APFS parser 有两条未知 XF 15 警告，涉及 inode4394 和6678，分别是 AppleAccount/fsCachedData 与 WorkflowKit.BackgroundShortcutRunner 缓存目录。选择导出的日志文件均完成字节数核对；警告保留，不掩盖。
+原始8.59GB Data镜像仅保留在i386；Mac与可下载包包含提取出的日志和分析，不含完整Data镜像。用户下载包也不包含两份提取的dylib。
+
+证据：extraction.json、before.json、after.json、extracted/manifest.json、recovery-after-export.json、failed-attempt-102630/。
+
+三、版本与早启动：本轮不再缺“armed + mount”证据
+
+采集时 Mac 仓库：
+  /Users/<user>/projects/thor-unixnu1030/UniXNU-pong
+  HEAD=d562bc1419e7ae5fd7ffdf0d89951736b69e8ae5
+  最新构建结果 build_complete=true、returncode=0。
+  已有构建记录指向 boot-thor-unixnu-v74.img；hardware_tested=false 是宿主记录状态，不是此次运行结论。
+
+v74候选库与Data提取库同为194576 bytes，LC_UUID一致：
+  FFEC574F-B64E-351D-AD62-3077876C92B5
+v73旧库虽然也是194576 bytes，LC_UUID不同：
+  DCBDA011-9CA3-3BA9-AF5F-CFAF07A981DF
+
+本轮 Console/PongSB 中三个新增功能都有正证据：真实submitter、PONG EXIT Console镜像、wake enqueue returned。
+这足以确认这些诊断行为在本轮运行中存在；没有进行新的完整内核/固件镜像审计，不用宿主HEAD替代设备二进制身份。
+
+Console原始记录（时间是Console内核时钟，不等同于按下电源后的秒数）：
+  L347 [26.323415] THOR INJECT: armed from boot args (246 chars) ...
+  L377 [26.331619] PONG APFS: SystemOS mounted dev=d000005 ro=1 union=1 ...
+  L406 [26.340436] PONG APFS: Data mount PASS path=/private/var device=/dev/disk5s2 rw=1 bytes=8591003648
+
+因此，这轮无需继续猜测是注入未armed、SystemOS未union挂载，或Data根本没挂到/private/var。它们都有明确通过回执。
+
+四、黑屏的直接机制：空层提交与CPU黑填充
+
+Console时间线：
+  84.918426  首个可见帧，释放boot console。
+  84.924587  RESTORED：backboardd PID40，set=0x80000007，surfaces=1,0,0,0，gpu=0，graphics=1，swap=1。
+  680.980514 PosterBoard PID413，30秒process-launch watchdog，signal9，namespace10，code0x8badf00d。
+  691.477906 EMPTIED：backboardd PID40，set=0x1，surfaces=0,0,0,0，gpu=0，graphics=1，swap=47868。
+  816.208782 PosterBoard PID446，再次30秒process-launch watchdog。
+  869.166608 audiomxd PID81，SIGABRT，写stackshot失败。
+  955.520118 audiomxd PID529，SIGABRT，写stackshot超过5秒。
+  1003.111160 最后一个规范Console时间戳；仍在输出内存回收活动。
+
+当前代码依据：
+  thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+  967–974：在同一fSwapLock临界区，从同一队列槽复制swap/surface引用/submitter名/PID。
+  976：显式传递给show()，不再用复制后的static缓冲反查原槽。
+  1116–1124：底层surface=0、set含bit0、!gpuFrame且fGraphics时，按fPanelWidth/fPanelHeight把每个像素写成0xff000000。
+  1162–1167：输出EMPTIED/RESTORED及同一帧的字段。
+
+本轮清空帧的字段逐项命中黑填充分支，并且EMPTIED日志出现在处理之后。这是代码与运行日志对应上的直接显示机制。
+但提交者并不自动等于最初故障制造者：backboardd可能是在移除启动画面或处理场景变化，仍需要确认为什么新的UI图层没有接上。
+
+清屏后又观察到311.633254秒活动，保留记录中没有后续RESTORED。
+首个PosterBoard watchdog在清屏前10.497392秒，时间接近，但现有数据不足以证明因果。
+首个audio abort在清屏后177.688702秒，不是这次首次清屏的直接先行事件。
+
+证据：analysis/v74-display-runtime.json、v74-display-review.txt、framebuffer-cpu-empty-current.txt。
+
+五、SpringBoard与主队列：有推进，尚未完成UI交接
+
+PongSB-4.txt完整内容只有三行：
+  [63] Pong UI18: SpringBoard adapter ctor (v73)
+  [63] Pong UI18: wake scheduled on main queue +10s
+  [63] Pong UI18: wake enqueue returned
+
+代码中 scheduled 在dispatch_after_f之前，enqueue returned在调用返回之后，wake_home begin在回调任何UIScreen查询之前。
+现在可以确认提交调用已经返回；没有保存到回调进入记录。
+PongSB写入函数未检查dprintf/fsync返回值，Console又存在丢失窗口，因此缺begin不能脱离线程快照单独当作绝对未执行证明。
+
+原生PongBoot快照显示：
+  SpringBoard保持PID4。
+  time188/304/666时，主线程仍在FBSystemShellInitialize→BackBoardServices/BoardServices同步XPC回复等待。
+  time965时，主线程调用链已到CoverSheet→UIViewController viewWillAppear→NSBundle/lstat。
+  后者run=4，按thread_basic_info.run_state定义为TH_STATE_UNINTERRUPTIBLE，不是“正在跑”的位掩码；cpu=308也不能解读成308%。
+
+这说明主线程后来走到了新的UI生命周期阶段，但单个lstat样本不能证明该调用长期卡死，也没有给出具体文件路径、返回值或等待时长。
+runningboardd主线程的所采样本在RunLoop；晚期另有工作线程在OSAnalytics WriteCrashReportWithStackshot同步XPC中。不能把整个RB笼统描述成同一处死锁。
+
+与v73相比，v73末次SB样本位于scene连接/指针交互观察者建立路径，本轮出现CoverSheet viewWillAppear，是不同且更具体的后续位置；尚不能承诺“下一版必出桌面”。
+符号基于已有22H374缓存索引与本轮日志基址解析；四份原生IPS都不完整，未获得新的完整cache UUID交叉核验，解释保留这个前提。
+
+六、音频故障：先有AQ内部RPC超时，再有诊断写栈失败
+
+Console的两个退出原因：
+  [869.166608] PONG EXIT audiomxd pid=81 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot failed, aborting
+  [955.520118] PONG EXIT audiomxd pid=529 signal=6 status=0 namespace=39 code=0x0 description=writing stackshot took over 5s, aborting
+
+本地当前bsd/sys/reason.h:153定义 OS_REASON_AUDIO=39。
+关键补充来自 .stacks+audiomxd-1970-01-01-001551.0002.ips 中完整可解码的reason字段：
+  AQ::Server: RPC timeout within audiomxd. Apparently deadlocked. Writing a stackshot and exiting.
+
+对PID529，这把故障顺序缩小为：音频内部RPC超时→尝试写stackshot并退出→写栈超过5秒→SIGABRT。PID81只有退出文本，尚未取得同一条原生AQ reason，不能把后一次的触发原因直接套给前一次。
+“Apparently deadlocked”是报告本身的诊断文字；我们还没有拿到完整持锁者/等待环，不能把它升级为已证明的具体锁死。
+后一次audiomxd PID529的快照仍包含dyld/AudioToolbox路径，另一个运行线程在libBNNS/libAudioDSP初始化链。这说明还需检查音频初始化与内部RPC响应，不能只删除最后的abort或扩大写栈超时。
+
+源码排查：
+  ui_compat18.c:2499–2502对audiomxd/mediaremoted只启动进程内采样器后return。
+  boot_snapshot18.c采样器调用task_threads/thread_get_state/thread_info/vm_read_overwrite，不调用OSAnalytics的WriteStackshotReport。
+  DMDiagnostics强制async的hook位于datamigrator专用分支；不能把音频这条原生AQ故障直接归给该hook。采样额外线程、内存读取和日志I/O的间接时序影响仍未通过对照排除。
+  bsd/kern/stackshot.c:522–575和libsyscall/wrappers/stackshot.c:130–154保留真实调用与错误返回。可区分权限、参数/ABI、内存、空间、同步超时等多种错误。
+
+因此，当前仍缺具体syscall/写文件返回值和errno，不能从“writing stackshot failed”猜成ENOSPC、ENOMEM或功能未实现。
+本轮两个audio退出都没有对应memorystatus kill；不能记成OOM杀死。
+此外53条唯一PONG EXIT中，46条fairplayd.A2和3条migration wrapper都是signal0/status0/namespace0；不能把它们算成53次崩溃。
+
+七、为什么仍很慢：资源压力、初始化与诊断等待共同存在
+
+管理窗口仍为3个owned banks、665 MiB（内核保留之前），4 KiB页、compressor mode2、swap disabled。
+四份原生报告的可完整解码memoryStatus显示：
+  datamigrator 00:01:20：wired230.01MiB，active+inactive390.02MiB，compressor16.24MiB，pressure=false。
+  PosterBoard 00:11:17：wired399.97MiB，active+inactive122.00MiB，compressor128.28MiB，pressure=true。
+  Unknown 00:14:44：wired392.93MiB，active+inactive119.28MiB，compressor134.48MiB，pressure=true。
+  audiomxd 00:15:51：wired395.93MiB，active+inactive108.43MiB，compressor142.66MiB，pressure=true。
+  最后一份累计compressions=3,028,400，decompressions=2,761,906。
+
+以各自RAM marker对齐，同样观察948.038986秒：
+  v73：170次回收＝164 idle-exit＋6 long-idle-exit＋0 compressor-thrashing。
+  本轮：128次回收＝86 idle-exit＋36 long-idle-exit＋6 compressor-thrashing。
+  本轮全窗另有第7次compressor-thrashing。
+
+总回收次数少不等于更轻。压缩器抖动回收和大量压缩/解压是本轮的重要不稳定证据。
+但这些数字没有给出wired分配归属，不能直接宣布某个驱动泄漏；压缩次数也不是UFS读写量。
+共享缓存预读本轮13窗口、318.515625MiB，read_ms合计30.610秒；v73为31.869秒。仅这一段预读不能解释后面十几分钟的场景建立和超时，也不应把它当成完整UFS吞吐基准。
+
+八、迁移与用户会话
+
+用户态lockdownd时钟：
+  v73 migrationDidFinish：00:15:22.638325；Completed=true：00:15:37.750881。
+  本轮 migrationDidFinish：00:11:55.274934；Completed=true：00:12:06.794046。
+
+本轮完成通知更早，但Data中：
+  mobile/Library/Preferences/com.apple.migration.plist：DMLastMigrationResults.success=false，buildVersion=22H374。
+  mobile/Library/Preferences/com.apple.springboard.datamigrator.plist：lastBuildVersion=22H374。
+  db/.AppleSetupDone：不存在。
+
+早期datamigrator原生报告reason仍有“unsupported screen class, no apple logo found”。它是需要单独追踪的兼容性证据，不能仅据此推断为最后黑屏根因。
+本轮usermanagerd观察到PID69并加载persona manifest；仍有nextsession.kb/UserSessionID相关错误。没有本轮“persona 11连崩”的证据，不把早期旧照片结论继续套用。
+
+九、与v73的变化，不能混成单一“进步/退步”
+
+首帧Console原始时间：v73 79.341296，本轮84.918426。
+清空Console原始时间：v73 906.227133，本轮691.477906。
+清空提交者：v73 ?/-1，本轮backboardd40，诊断确定性提高。
+清空后保留活动：v73 67.883710秒，本轮311.633254秒；这是日志覆盖差异，不单独证明稳定性提高。
+SpringBoard：都未取得可用UI帧恢复证据，但本轮最后样本到了CoverSheet/viewWillAppear/lstat。
+audiomxd：v73五组都是PID83；本轮PID81→529，并记录两次SIGABRT。
+内存：v73同窗无thrashing，本轮同窗6次。
+迁移：本轮更早通知完成，success仍false。
+
+按RAM marker对齐，清空仍比v73早213.995444秒，首帧晚6.330913秒；不能把两个样本的时序差直接归因于v74三项诊断改动。
+
+十、建议下一轮修改的具体位置和验收条件
+
+优先1：把“新UI为什么没有接上”缩小到具体调用，而不是保留旧画面掩盖空层。
+  在现有有界采样器中，为SB主线程补一次scene/view出现阶段开始与完成回执；对已确认的lstat/stat/open调用记录参数路径、返回值和耗时，限制长度/频率。
+  现有采样上限32线程、每线程24帧；audiomxd末次仅采31/47线程，关键owner可能未被覆盖。优先保证主线程及被诊断超时的RPC线程被选中，避免无界扩大采样量。
+  验收：CoverSheet/scene完成回执＋非空UI surface提交＋EMPTIED之后RESTORED，不能以PID存活代替画面。
+
+优先2：定位AQ内部RPC超时的请求与接收端，并把它和stackshot失败分开。
+  给音频RPC目标、请求类型、开始/返回/超时、接收线程的初始化状态留有界回执；检查实际设备/路由是否完成发布。
+  在原生stackshot和报告写入边界记录实际errno/返回码及耗时，区分采集失败、IPC等待、文件写入和fsync阶段。
+  现有证据不支持全局关闭watchdog、强制返回成功或删除abort作为根治。
+  验收：AQ请求有真实响应、audiomxd跨相同负载窗口保持可用，不再触发这些原生reason；不是仅仅没有日志。
+
+优先3：量化wired增长的归属并控制工作集。
+  给IOSurface/驱动有界分配与释放记账，先判断增长是否可回收、是否随着帧和服务退出回落。
+  扩大Darwin RAM时必须遵守loader保留区与owned banks约束；不能从Recovery看见大块RAM就直接把未获所有权的物理区纳入XNU。
+  可复用已知核心服务集做单变量对照，但不要同时改显示、音频、RAM和多个服务，导致下一轮无法归因。
+  验收：同窗无compressor-thrashing、工作集有余量、关键初始化/IPC耗时下降。
+
+优先4：完成迁移失败项目与结果对应。
+  继续保留各插件的真实false结果，区分业务失败与诊断阻塞；不要强写success或.AppleSetupDone来跳过现场。
+  验收应是失败项有明确解决证据，或确认其可选且不阻塞UI，而非单独一个Completed=true。
+
+这些建议是由本轮日志缩小后的修改方向，尚不是已经验证的最终补丁。要彻底修复，仍需闭合请求/接收者/返回值或内存分配归属的一条因果链。
+
+十一、证据质量与复查
+
+PongConsole.txt为4,102,813字节，31,551物理行；相同行重复回放必须去重。
+文件有33个分散NUL字节、32个WRAP/lost-text标记；不能在第一个NUL处截断。
+59种非六位小数时间戳原样保留；用于精确相减的关键事件均为规范时间。
+内核Console时间、PongSB time(NULL)、原生IPS header各自使用自己的时钟；未混用为一条精确时线。
+四份IPS主体均不完整，只读取完整可独立解码的header/reason/termination/memoryStatus及完整PongBoot记录，不补括号伪造完整报告。
+Recovery的pstore仍为空，绑定a7000000.ramoops；/dev/mem不存在。没有从无法导出的pstore推断原运行没有故障。
+
+主证据索引：
+  extracted/files/logs/PongConsole.txt：挂载、显示层、退出、内存回收。
+  extracted/files/mobile/Library/Logs/PongSB-4.txt：唤醒任务回执。
+  extracted/files/mobile/Library/Logs/PongBoot-*.txt及logs/PongBoot-runningboardd.txt：进程内线程快照。
+  extracted/files/mobile/Library/Logs/CrashReporter/：四份原生报告，保留原始不完整状态。
+  analysis/v74-display-runtime.json：显示/退出事件的每次物理行号与重复次数。
+  analysis/memory-current.json：完整内存事件、同窗统计、PID与迁移状态。
+  analysis/native-runtime-review-v74.txt、native-runtime-key-evidence-v74.json：最新SB/BB/RB/audio栈、原始地址、reason字段与证据边界。
+  analysis/native-sampler-trigger-source.json：采样/原生stackshot区分及线程状态定义。
+  analysis/stackshot-source-evidence.json：当前错误映射与入口代码。
+  analysis/framebuffer-cpu-empty-current.txt：当前黑填充分支。
+  analysis/v74-host-build-identity-20261114-0227.json：宿主构建与库身份。
+
+保存位置：
+  i386原始采集：/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-103139
+  Mac mini结论及提取日志：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-103139
+
+报告结束。

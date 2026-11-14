@@ -1,0 +1,39 @@
+{
+  "files": 75,
+  "bytes": 4766264,
+  "inventory": 4225,
+  "errors": [],
+  "skipped": [],
+  "macho_uuids": {
+    "pong/libpong-ui18.dylib": "FFEC574F-B64E-351D-AD62-3077876C92B5",
+    "pong/libpong-ui.dylib": "9C222EED-9C05-3486-90ED-E93837FB6AA7"
+  },
+  "parser_warnings": [
+    "Warning: Unknown XF \u000f at inode 4394",
+    "Warning: Unknown XF \u000f at inode 6678"
+  ],
+  "warning_paths": {},
+  "policy_state": {
+    "preferences/FeatureFlags/Domain/AirPlay.plist": {
+      "exists": false
+    },
+    "pong/etc/AirPlay-local-audio.plist": {
+      "exists": false
+    },
+    "pong/audio-hal18": {
+      "exists": false,
+      "entries": [],
+      "metadata_only": true
+    },
+    "pong/staged-audio18": {
+      "exists": false,
+      "entries": [],
+      "metadata_only": true
+    },
+    "Library/Audio/Plug-Ins/HAL": {
+      "exists": false,
+      "entries": [],
+      "metadata_only": true
+    }
+  }
+}

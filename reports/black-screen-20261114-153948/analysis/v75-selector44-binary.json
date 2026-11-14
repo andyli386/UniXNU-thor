@@ -1,0 +1,96 @@
+{
+  "ownership-identity": {
+    "rc": 0,
+    "stdout": "sub_1a66d09c0:\n0x1a66d09c0:  ff 43 01 d1   sub\tsp, sp, #0x50\n0x1a66d09c4:  fd 7b 04 a9   stp\tfp, lr, [sp, #0x40]\n0x1a66d09c8:  fd 03 01 91   add\tfp, sp, #0x40\n0x1a66d09cc:  e8 bd 1f 90   adrp\tx8, 0x1e5e8c000\n0x1a66d09d0:  08 e9 43 f9   ldr\tx8, [x8, #0x7d0]\n0x1a66d09d4:  08 01 40 f9   ldr\tx8, [x8]\n0x1a66d09d8:  a8 83 1f f8   stur\tx8, [fp, #-0x8]\n0x1a66d09dc:  08 88 40 b9   ldr\tw8, [x0, #0x88]\n0x1a66d09e0:  e9 03 01 2a   mov\tw9, w1\n0x1a66d09e4:  e8 a7 01 a9   stp\tx8, x9, [sp, #0x18]\n0x1a66d09e8:  48 7c 40 93   sxtw\tx8, w2\n0x1a66d09ec:  e9 03 03 2a   mov\tw9, w3\n0x1a66d09f0:  e8 a7 02 a9   stp\tx8, x9, [sp, #0x28]\n0x1a66d09f4:  00 00 80 52   mov\tw0, #0\n0x1a66d09f8:  fd e2 ff 97   bl\t0x1a66c95ec\n0x1a66d09fc:  ff 7f 00 a9   stp\txzr, xzr, [sp]\n0x1a66d0a00:  e2 63 00 91   add\tx2, sp, #0x18\n0x1a66d0a04:  81 05 80 52   mov\tw1, #0x2c\n0x1a66d0a08:  83 00 80 52   mov\tw3, #0x4\n0x1a66d0a0c:  04 00 80 d2   mov\tx4, #0\n0x1a66d0a10:  05 00 80 d2   mov\tx5, #0\n0x1a66d0a14:  06 00 80 d2   mov\tx6, #0\n0x1a66d0a18:  07 00 80 d2   mov\tx7, #0\n0x1a66d0a1c:  9e 5c 6d 94   bl\t0x1a8227c94\n0x1a66d0a20:  a8 83 5f f8   ldur\tx8, [fp, #-0x8]\n0x1a66d0a24:  e9 bd 1f 90   adrp\tx9, 0x1e5e8c000\n0x1a66d0a28:  29 e9 43 f9   ldr\tx9, [x9, #0x7d0]\n0x1a66d0a2c:  29 01 40 f9   ldr\tx9, [x9]\n0x1a66d0a30:  3f 01 08 eb   cmp\tx9, x8\n0x1a66d0a34:  81 00 00 54   b.ne\t0x1a66d0a44\n0x1a66d0a38:  fd 7b 44 a9   ldp\tfp, lr, [sp, #0x40]\n0x1a66d0a3c:  ff 43 01 91   add\tsp, sp, #0x50\n0x1a66d0a40:  c0 03 5f d6   ret\n0x1a66d0a44:  e5 5c 6d 94   bl\t0x1a8227dd8\n0x1a66d0a48:  08 c8 40 b9   ldr\tw8, [x0, #0xc8]\n0x1a66d0a4c:  1f 01 01 6b   cmp\tw8, w1\n0x1a66d0a50:  a9 00 00 54   b.ls\t0x1a66d0a64\n0x1a66d0a54:  08 13 80 52   mov\tw8, #0x98\n0x1a66d0a58:  28 00 a8 9b   umaddl\tx8, w1, w8, x0\n0x1a66d0a5c:  08 81 04 91   add\tx8, x8, #0x120\n0x1a66d0a60:  05 00 00 14   b\t0x1a66d0a74\n0x1a66d0a64:  61 00 00 34   cbz\tw1, 0x1a66d0a70\n0x1a66d0a68:  00 00 80 d2   mov\tx0, #0\n0x1a66d0a6c:  c0 03 5f d6   ret\n0x1a66d0a70:  08 40 02 91   add\tx8, x0, #0x90\n0x1a66d0a74:  00 01 40 f9   ldr\tx0, [x8]\n0x1a66d0a78:  c0 03 5f d6   ret\n0x1a66d0a7c:  ff 03 01 d1   sub\tsp, sp, #0x40\n0x1a66d0a80:  fd 7b 03 a9   stp\tfp, lr, [sp, #0x30]\n0x1a66d0a84:  fd c3 00 91   add\tfp, sp, #0x30\n0x1a66d0a88:  e8 03 00 aa   mov\tx8, x0\n0x1a66d0a8c:  e9 bd 1f 90   adrp\tx9, 0x1e5e8c000\n0x1a66d0a90:  29 e9 43 f9   ldr\tx9, [x9, #0x7d0]\n0x1a66d0a94:  29 01 40 f9   ldr\tx9, [x9]\n0x1a66d0a98:  a9 83 1f f8   stur\tx9, [fp, #-0x8]\n0x1a66d0a9c:  40 58 80 52   mov\tw0, #0x2c2\n0x1a66d0aa0:  00 00 bc 72   movk\tw0, #0xe000, lsl #0x10\n0x1a66d0aa4:  3f 10 00 71   cmp\tw1, #0x4\n0x1a66d0aa8:  68 02 00 54   b.hi\t0x1a66d0af4\n0x1a66d0aac:  09 c9 40 b9   ldr\tw9, [x8, #0xc8]\n\n",
+    "stderr": ""
+  },
+  "surface-ownership-identity": {
+    "rc": 0,
+    "stdout": "sub_1a66d0548:\n0x1a66d0548:  c0 00 00 b4   cbz\tx0, 0x1a66d0560\n0x1a66d054c:  88 1b 27 d0   adrp\tx8, 0x1f4a42000\n0x1a66d0550:  08 01 1e 91   add\tx8, x8, #0x780\n0x1a66d0554:  08 01 80 b9   ldrsw\tx8, [x8]\n0x1a66d0558:  00 68 68 f8   ldr\tx0, [x0, x8]\n0x1a66d055c:  19 01 00 14   b\t0x1a66d09c0\n0x1a66d0560:  40 58 80 52   mov\tw0, #0x2c2\n0x1a66d0564:  00 00 bc 72   movk\tw0, #0xe000, lsl #0x10\n0x1a66d0568:  c0 03 5f d6   ret\n0x1a66d056c:  f4 4f be a9   stp\tx20, x19, [sp, #-0x20]!\n0x1a66d0570:  fd 7b 01 a9   stp\tfp, lr, [sp, #0x10]\n0x1a66d0574:  fd 43 00 91   add\tfp, sp, #0x10\n0x1a66d0578:  60 01 00 b4   cbz\tx0, 0x1a66d05a4\n0x1a66d057c:  f3 03 00 aa   mov\tx19, x0\n0x1a66d0580:  6b 5d 6d 94   bl\t0x1a8227b2c\n0x1a66d0584:  f4 03 00 aa   mov\tx20, x0\n0x1a66d0588:  27 5d 6d 94   bl\t0x1a8227a24\n0x1a66d058c:  9f 02 00 eb   cmp\tx20, x0\n0x1a66d0590:  a1 00 00 54   b.ne\t0x1a66d05a4\n0x1a66d0594:  e0 03 13 aa   mov\tx0, x19\n0x1a66d0598:  fd 7b 41 a9   ldp\tfp, lr, [sp, #0x10]\n0x1a66d059c:  f4 4f c2 a8   ldp\tx20, x19, [sp], #0x20\n0x1a66d05a0:  b8 f2 ff 17   b\t0x1a66cd080\n0x1a66d05a4:  fd 7b 41 a9   ldp\tfp, lr, [sp, #0x10]\n0x1a66d05a8:  f4 4f c2 a8   ldp\tx20, x19, [sp], #0x20\n\n",
+    "stderr": ""
+  },
+  "J171": [
+    {
+      "path": "/Version4/Daemon/Default/com.apple.gputoolsdhelper",
+      "value": {
+        "EnablePressuredExit": false
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.lsd",
+      "value": {
+        "ActiveSoftMemoryLimit": 16,
+        "JetsamPriority": 140,
+        "InactiveHardMemoryLimit": 12
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.lsd.system",
+      "value": {
+        "ActiveSoftMemoryLimit": 16,
+        "JetsamPriority": 140,
+        "InactiveHardMemoryLimit": 12
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.gputoolsdhelper",
+      "value": {
+        "JetsamPriority": 140
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.lsd.sync",
+      "value": {
+        "JetsamPriority": 50
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.dt.fetchsymbolsd",
+      "value": {
+        "ActiveSoftMemoryLimit": 10
+      }
+    }
+  ],
+  "J172": [
+    {
+      "path": "/Version4/Daemon/Default/com.apple.gputoolsdhelper",
+      "value": {
+        "EnablePressuredExit": false
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.lsd",
+      "value": {
+        "ActiveSoftMemoryLimit": 16,
+        "JetsamPriority": 140,
+        "InactiveHardMemoryLimit": 12
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.lsd.system",
+      "value": {
+        "ActiveSoftMemoryLimit": 16,
+        "JetsamPriority": 140,
+        "InactiveHardMemoryLimit": 12
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.gputoolsdhelper",
+      "value": {
+        "JetsamPriority": 140
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.lsd.sync",
+      "value": {
+        "JetsamPriority": 50
+      }
+    },
+    {
+      "path": "/Version4/Daemon/Override/com.apple.dt.fetchsymbolsd",
+      "value": {
+        "ActiveSoftMemoryLimit": 10
+      }
+    }
+  ]
+}

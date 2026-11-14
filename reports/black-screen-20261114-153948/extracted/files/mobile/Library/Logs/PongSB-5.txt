@@ -1,0 +1,4 @@
+[64] Pong UI18: SpringBoard adapter ctor (v73)
+[65] Pong UI18: wake scheduled on main queue +10s
+[65] Pong UI18: wake enqueue returned
+[1462] Pong SB stat: lstat(/System/Library/UserNotifications/Bundles/com.apple.FindMySafetyAlertsNotifications.bundle) -> 0 errno=0 ms=226

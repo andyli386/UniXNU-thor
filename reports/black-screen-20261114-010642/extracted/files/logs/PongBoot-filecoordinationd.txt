@@ -1,0 +1,20 @@
+Pong tick: filecoordinationd pid=279 seconds=60 threads=3
+Pong boot snapshot BEGIN: filecoordinationd pid=279 seconds=60 time=357 threads=3
+Pong boot snapshot: filecoordinationd pid=279 seconds=60 image0=/private/var/pong/libpong-ui18.dylib image_slide=100e6b000 cache=0x18db48000 size=f37c8000
+thread=1 tid=4900 state_result=0 info_result=0 run=4 cpu=0 pc=18dc5d54c lr=18dc5d398 fp=16f0dc7c0 sp=16f0dc7a0 frames: 18dc5f360 18dc61968 1b5266c78 1b5249e0c 1b5247ec4 1901ca270 197c4ea68 197c2326c 1901c963c 1901c97d8 1901cb208 1901e48a4 1901d3550 1901adca4 1901ad9d0 1901dfbe4
+thread=2 tid=5239 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde0f60 lr=197c36990 fp=16f168fa0 sp=16f168f90 frames: 197c36964 0
+Pong boot snapshot END: filecoordinationd pid=279 seconds=60 sampled=2 of 3
+Pong tick: filecoordinationd pid=279 seconds=120 threads=3
+Pong boot snapshot BEGIN: filecoordinationd pid=279 seconds=120 time=417 threads=3
+Pong boot snapshot: filecoordinationd pid=279 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=100e6b000 cache=0x18db48000 size=f37c8000
+thread=1 tid=5239 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde0f60 lr=197c36990 fp=16f168fa0 sp=16f168f90 frames: 197c36964 0
+thread=2 tid=6173 state_result=0 info_result=0 run=3 cpu=0 pc=1dbddc9a8 lr=1eef0ea5c fp=16f274a20 sp=16f274a00 frames: 1eef0eab0
+Pong boot snapshot END: filecoordinationd pid=279 seconds=120 sampled=2 of 3
+Pong tick: filecoordinationd pid=279 seconds=180 threads=3
+Pong tick: filecoordinationd pid=279 seconds=240 threads=3
+Pong boot snapshot BEGIN: filecoordinationd pid=279 seconds=240 time=537 threads=3
+Pong boot snapshot: filecoordinationd pid=279 seconds=240 image0=/private/var/pong/libpong-ui18.dylib image_slide=100e6b000 cache=0x18db48000 size=f37c8000
+thread=1 tid=5239 state_result=0 info_result=0 run=3 cpu=0 pc=1dbde0f60 lr=197c36990 fp=16f168fa0 sp=16f168f90 frames: 197c36964 0
+thread=2 tid=8604 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:
+Pong boot snapshot END: filecoordinationd pid=279 seconds=240 sampled=2 of 3
+Pong tick: filecoordinationd pid=279 seconds=300 threads=3

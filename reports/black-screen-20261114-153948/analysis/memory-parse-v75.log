@@ -1,0 +1,551 @@
+{
+  "console_bytes": 6220563,
+  "raw_bounds": [
+    26.136725,
+    1484.356745
+  ],
+  "kill_counts": {
+    "idle-exit": 352,
+    "vm-compressor-thrashing": 7,
+    "long-idle-exit": 17,
+    "highwater": 1,
+    "sustained-memory-pressure": 18
+  },
+  "equal_window": {
+    "duration_since_ram": 977.793086,
+    "current": {
+      "ram_anchor_raw": 26.137305,
+      "cutoff_raw": 1003.930391,
+      "kills": 169,
+      "reason_counts": {
+        "idle-exit": 145,
+        "vm-compressor-thrashing": 6,
+        "long-idle-exit": 17,
+        "highwater": 1
+      },
+      "nonstandard_inside": 1,
+      "nonstandard_outside": 1,
+      "boundary_ambiguous": [],
+      "key_process_kills": [
+        {
+          "line": 26142,
+          "text": "[  814.376461]: memorystatus: killing_idle_process pid 500 [PosterBoard] (idle-exit 0 74s rf:-) 591KB - memorystatus_available_pages: 17701 compressor_size:31197",
+          "raw_literal": "814.376461",
+          "raw_second": 814,
+          "timestamp_standard": true,
+          "raw": 814.376461,
+          "since_ram": 788.239156,
+          "function": "killing_idle_process",
+          "pid": 500,
+          "name": "PosterBoard",
+          "reason": "idle-exit"
+        }
+      ]
+    },
+    "v74_baseline": {
+      "ram_anchor_raw": 25.318074,
+      "cutoff_raw": 1003.11116,
+      "kills": 129,
+      "reason_counts": {
+        "idle-exit": 86,
+        "long-idle-exit": 36,
+        "vm-compressor-thrashing": 7
+      },
+      "nonstandard_inside": 3,
+      "nonstandard_outside": 0,
+      "boundary_ambiguous": [],
+      "key_process_kills": []
+    },
+    "causal_ab_test": false
+  },
+  "console_quality": {
+    "nul_bytes": 49,
+    "first_nul_byte": 44635,
+    "exact_duplicate_lines": 39589,
+    "empty_nul_lines": 70,
+    "wrap_distinct_count": 1
+  },
+  "watch_summary": {
+    "fairplayd.A2": {
+      "count": 77,
+      "observed_pids": [
+        60,
+        180,
+        197,
+        207,
+        238,
+        252,
+        261,
+        281,
+        291,
+        307,
+        314,
+        325,
+        357,
+        372,
+        379,
+        384,
+        402,
+        408,
+        413,
+        417,
+        422,
+        428,
+        432,
+        436,
+        445,
+        489,
+        503,
+        548,
+        554,
+        569,
+        574,
+        579,
+        589,
+        620,
+        629,
+        636,
+        647,
+        653,
+        663,
+        700,
+        710,
+        728,
+        740,
+        773,
+        813,
+        844,
+        892
+      ],
+      "first": {
+        "line": 3,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          60
+        ],
+        "text": "[49] Pong watch: fairplayd.A2 (none) -> [60]"
+      },
+      "last": {
+        "line": 244,
+        "epoch": 1481,
+        "before": "[844]",
+        "pids": [
+          892
+        ],
+        "text": "[1481] Pong watch: fairplayd.A2 [844] -> [892]"
+      }
+    },
+    "fairplaydeviceidentityd": {
+      "count": 3,
+      "observed_pids": [
+        268
+      ],
+      "first": {
+        "line": 4,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: fairplaydeviceidentityd (none) -> []"
+      },
+      "last": {
+        "line": 111,
+        "epoch": 574,
+        "before": "[268]",
+        "pids": [],
+        "text": "[574] Pong watch: fairplaydeviceidentityd [268] -> []"
+      }
+    },
+    "locationd": {
+      "count": 1,
+      "observed_pids": [
+        44
+      ],
+      "first": {
+        "line": 5,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          44
+        ],
+        "text": "[49] Pong watch: locationd (none) -> [44]"
+      },
+      "last": {
+        "line": 5,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          44
+        ],
+        "text": "[49] Pong watch: locationd (none) -> [44]"
+      }
+    },
+    "timed": {
+      "count": 1,
+      "observed_pids": [
+        43
+      ],
+      "first": {
+        "line": 6,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          43
+        ],
+        "text": "[49] Pong watch: timed (none) -> [43]"
+      },
+      "last": {
+        "line": 6,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          43
+        ],
+        "text": "[49] Pong watch: timed (none) -> [43]"
+      }
+    },
+    "lockdownd": {
+      "count": 4,
+      "observed_pids": [
+        54,
+        680
+      ],
+      "first": {
+        "line": 7,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          54
+        ],
+        "text": "[49] Pong watch: lockdownd (none) -> [54]"
+      },
+      "last": {
+        "line": 229,
+        "epoch": 1347,
+        "before": "[680]",
+        "pids": [],
+        "text": "[1347] Pong watch: lockdownd [680] -> []"
+      }
+    },
+    "usermanagerd": {
+      "count": 9,
+      "observed_pids": [
+        69,
+        457,
+        615,
+        675,
+        774
+      ],
+      "first": {
+        "line": 8,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          69
+        ],
+        "text": "[49] Pong watch: usermanagerd (none) -> [69]"
+      },
+      "last": {
+        "line": 238,
+        "epoch": 1432,
+        "before": "[774]",
+        "pids": [],
+        "text": "[1432] Pong watch: usermanagerd [774] -> []"
+      }
+    },
+    "containermanagerd": {
+      "count": 13,
+      "observed_pids": [
+        45,
+        74,
+        460,
+        479,
+        601,
+        616,
+        766,
+        822
+      ],
+      "first": {
+        "line": 9,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          45
+        ],
+        "text": "[49] Pong watch: containermanagerd (none) -> [45]"
+      },
+      "last": {
+        "line": 236,
+        "epoch": 1422,
+        "before": "[766]",
+        "pids": [
+          822,
+          766
+        ],
+        "text": "[1422] Pong watch: containermanagerd [766] -> [822,766]"
+      }
+    },
+    "PosterBoard": {
+      "count": 7,
+      "observed_pids": [
+        401,
+        500,
+        721,
+        779,
+        842
+      ],
+      "first": {
+        "line": 10,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: PosterBoard (none) -> []"
+      },
+      "last": {
+        "line": 239,
+        "epoch": 1432,
+        "before": "[779]",
+        "pids": [
+          842
+        ],
+        "text": "[1432] Pong watch: PosterBoard [779] -> [842]"
+      }
+    },
+    "SpringBoard": {
+      "count": 1,
+      "observed_pids": [
+        5
+      ],
+      "first": {
+        "line": 11,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          5
+        ],
+        "text": "[49] Pong watch: SpringBoard (none) -> [5]"
+      },
+      "last": {
+        "line": 11,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          5
+        ],
+        "text": "[49] Pong watch: SpringBoard (none) -> [5]"
+      }
+    },
+    "backboardd": {
+      "count": 1,
+      "observed_pids": [
+        40
+      ],
+      "first": {
+        "line": 12,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          40
+        ],
+        "text": "[49] Pong watch: backboardd (none) -> [40]"
+      },
+      "last": {
+        "line": 12,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          40
+        ],
+        "text": "[49] Pong watch: backboardd (none) -> [40]"
+      }
+    },
+    "runningboardd": {
+      "count": 1,
+      "observed_pids": [
+        6
+      ],
+      "first": {
+        "line": 13,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          6
+        ],
+        "text": "[49] Pong watch: runningboardd (none) -> [6]"
+      },
+      "last": {
+        "line": 13,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [
+          6
+        ],
+        "text": "[49] Pong watch: runningboardd (none) -> [6]"
+      }
+    },
+    "lsd": {
+      "count": 6,
+      "observed_pids": [
+        84,
+        352,
+        386
+      ],
+      "first": {
+        "line": 14,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: lsd (none) -> []"
+      },
+      "last": {
+        "line": 108,
+        "epoch": 559,
+        "before": "[]",
+        "pids": [
+          386
+        ],
+        "text": "[559] Pong watch: lsd [] -> [386]"
+      }
+    },
+    "com.apple.datamig": {
+      "count": 2,
+      "observed_pids": [
+        80
+      ],
+      "first": {
+        "line": 15,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: com.apple.datamig (none) -> []"
+      },
+      "last": {
+        "line": 22,
+        "epoch": 69,
+        "before": "[]",
+        "pids": [
+          80
+        ],
+        "text": "[69] Pong watch: com.apple.datamig [] -> [80]"
+      }
+    },
+    "com.apple.migrationplug": {
+      "count": 21,
+      "observed_pids": [
+        139,
+        192,
+        228,
+        498,
+        551,
+        565,
+        575,
+        581,
+        608,
+        617,
+        626,
+        645,
+        654
+      ],
+      "first": {
+        "line": 16,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: com.apple.migrationplug (none) -> []"
+      },
+      "last": {
+        "line": 209,
+        "epoch": 1157,
+        "before": "[654]",
+        "pids": [],
+        "text": "[1157] Pong watch: com.apple.migrationplug [654] -> []"
+      }
+    },
+    "datamigratorhelper": {
+      "count": 1,
+      "observed_pids": [],
+      "first": {
+        "line": 17,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: datamigratorhelper (none) -> []"
+      },
+      "last": {
+        "line": 17,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: datamigratorhelper (none) -> []"
+      }
+    },
+    "securityd": {
+      "count": 2,
+      "observed_pids": [
+        78
+      ],
+      "first": {
+        "line": 18,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: securityd (none) -> []"
+      },
+      "last": {
+        "line": 23,
+        "epoch": 69,
+        "before": "[]",
+        "pids": [
+          78
+        ],
+        "text": "[69] Pong watch: securityd [] -> [78]"
+      }
+    },
+    "mobileassetd": {
+      "count": 2,
+      "observed_pids": [
+        77
+      ],
+      "first": {
+        "line": 19,
+        "epoch": 49,
+        "before": "(none)",
+        "pids": [],
+        "text": "[49] Pong watch: mobileassetd (none) -> []"
+      },
+      "last": {
+        "line": 24,
+        "epoch": 69,
+        "before": "[]",
+        "pids": [
+          77
+        ],
+        "text": "[69] Pong watch: mobileassetd [] -> [77]"
+      }
+    }
+  },
+  "migration_plists": [
+    {
+      "file": "mobile/Library/Preferences/com.apple.migration.plist",
+      "data": {
+        "LastSystemVersion": "22H374",
+        "DMUserDataDisposition": {
+          "EraseIsRapidReturnToService": false,
+          "SyntheticDidUpgrade": false,
+          "buildVersion": "22H374"
+        },
+        "MultilingualSetsMigrationVersion": 1,
+        "DMLastMigrationResults": {
+          "success": false,
+          "buildVersion": "22H374"
+        }
+      }
+    },
+    {
+      "file": "mobile/Library/Preferences/com.apple.springboard.datamigrator.plist",
+      "data": {
+        "lastBuildVersion": "22H374"
+      }
+    }
+  ]
+}

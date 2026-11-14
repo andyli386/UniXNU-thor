@@ -1,0 +1,150 @@
+{
+  "surface_receipts": [
+    {
+      "physical_lines": [
+        1925,
+        2690,
+        3699,
+        4613,
+        5579,
+        6529
+      ],
+      "text": "[  101.804774]: MiniIOSurface: live 71 MB in 4 surfaces (crossed 1 x 64MB)",
+      "raw_literal": "101.804774",
+      "time_us": 101804774,
+      "counter": {
+        "live_mib_floor": 71,
+        "surface_count": 4,
+        "side": "create",
+        "bucket": 1
+      }
+    },
+    {
+      "physical_lines": [
+        9437,
+        10282,
+        11105,
+        11916,
+        12598,
+        13447,
+        14274
+      ],
+      "text": "[  284.340634]: MiniIOSurface: live 71 MB in 4 surfaces (release crossed 1 x 64MB)",
+      "raw_literal": "284.340634",
+      "time_us": 284340634,
+      "counter": {
+        "live_mib_floor": 71,
+        "surface_count": 4,
+        "side": "release",
+        "bucket": 1
+      }
+    },
+    {
+      "physical_lines": [
+        20700,
+        21258,
+        22129
+      ],
+      "text": "[  661.443863]: MiniIOSurface: selector 44 not implemented (scalars 4 in, 0 out; structure 0 in, 0 out)",
+      "raw_literal": "661.443863",
+      "time_us": 661443863
+    }
+  ],
+  "pressure_receipts": 609,
+  "native_reports": [
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001320.0002.ips",
+      "bytes": 26762,
+      "header": {
+        "bug_type": "288",
+        "timestamp": "1970-01-01 00:13:20.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "roots_installed": 0,
+        "incident_id": "BAB1F968-2CB6-48C6-8735-22302CCFAE21"
+      },
+      "complete_body": false,
+      "body_error": "Expecting ',' delimiter: line 23 column 2640 (char 26744)",
+      "same_path_in_baseline": false,
+      "bytes_identical_to_baseline": false
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000124.000.ips",
+      "bytes": 27697,
+      "header": {
+        "bug_type": "288",
+        "timestamp": "1970-01-01 00:01:24.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "roots_installed": 0,
+        "incident_id": "B20CBCEF-2BB5-455C-A0BD-0494EB4125BD"
+      },
+      "complete_body": false,
+      "body_error": "Expecting ',' delimiter: line 23 column 6721 (char 27679)",
+      "same_path_in_baseline": false,
+      "bytes_identical_to_baseline": false
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001218.000.ips",
+      "bytes": 28253,
+      "header": {
+        "timestamp": "1970-01-01 00:12:18.00 +0000",
+        "roots_installed": 0,
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "incident_id": "BF850FF3-CC4D-4396-81C5-C26478AA17A7",
+        "share_with_app_devs": 0,
+        "bug_type": "509",
+        "app_name": "Unknown",
+        "name": "Unknown"
+      },
+      "complete_body": false,
+      "body_error": "Expecting ',' delimiter: line 28 column 3455 (char 28253)",
+      "same_path_in_baseline": false,
+      "bytes_identical_to_baseline": false
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001939.0002.ips",
+      "bytes": 28885,
+      "header": {
+        "timestamp": "1970-01-01 00:19:39.00 +0000",
+        "roots_installed": 0,
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "incident_id": "7601B2E5-C99B-4283-B1BA-2D27FA6FA26E",
+        "share_with_app_devs": 0,
+        "bug_type": "509",
+        "app_name": "Unknown",
+        "name": "Unknown"
+      },
+      "complete_body": false,
+      "body_error": "Expecting ',' delimiter: line 28 column 3707 (char 28885)",
+      "same_path_in_baseline": false,
+      "bytes_identical_to_baseline": false
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-000921.0002.ips",
+      "bytes": 105819,
+      "header": {
+        "bug_type": "298",
+        "timestamp": "1970-01-01 00:09:21.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "roots_installed": 0,
+        "incident_id": "5E7E2736-0284-43D2-A518-FF55CC4BA1FF"
+      },
+      "complete_body": true,
+      "same_path_in_baseline": false,
+      "bytes_identical_to_baseline": false
+    },
+    {
+      "file": "mobile/Library/Logs/CrashReporter/JetsamEvent-1970-01-01-001935.0002.ips",
+      "bytes": 85761,
+      "header": {
+        "bug_type": "298",
+        "timestamp": "1970-01-01 00:19:35.00 +0000",
+        "os_version": "iPhone OS 18.7.10 (22H374)",
+        "roots_installed": 0,
+        "incident_id": "5325E582-CE37-4CB4-B171-99BE2E538F0C"
+      },
+      "complete_body": true,
+      "same_path_in_baseline": false,
+      "bytes_identical_to_baseline": false
+    }
+  ]
+}

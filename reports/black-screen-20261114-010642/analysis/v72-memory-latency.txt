@@ -1,0 +1,167 @@
+v72 010642：内存、慢启动与黑屏时序独立复核
+========================================
+
+结论
+----
+本轮mode2主动压缩、无swap和665MiB RAM配置仍保持，预读仍一次完成，没有重新出现过去的150秒门控等待。现在的慢不能再用“预读还没读完”解释。
+与v71按相同kernel时间窗口对照，回收事件总数很接近：241对247，而非拿v71整轮375与本轮247比较。本轮有两个更具体的事实：lsd354因highwater被回收；compressor-thrashing在显示层清空之前已经出现三次。
+audiomxd79和479有明确crashed日志，三任PID都出现CPU wake超限。没有找到它们被memorystatus killing的记录，不能混成普通内存idle回收，也不能仅凭wake警告断言其crash的最终原因。
+显示层清空后Console和APFS事务仍继续，支持系统继续运行。压力、音频异常与黑屏有先后/并发关系，但本报告不据此声明其中任一已被证明是显示层清空的直接原因。
+
+来源与身份
+----------
+本轮Mac：
+/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-010642/extracted/files
+本地副本：
+/workspace/scratch/8f895aed6545/THOR-v72-010642/extracted/files
+v71基线：
+/workspace/scratch/8f895aed6545/THOR-v71-223514/extracted/files
+Mac基线：
+/Users/<user>/abc/111/PongBoot-pull-20261113-223514/extracted/files
+
+运行库UUID已由root核对为1E1A9C7E-932C-3A62-AACA-EDAB65CA7A9F（v72）。
+本轮唯一RAM行、唯一cache base0x18db48000、单个Diag worker start、无>5秒Diag回退，符合单boot。PosterBoard部分报告提取到bootSessionUUID B1BD4690-CB70-485B-B466-79175874D744，无矛盾的第二UUID。
+本报告仅分析已同步文件，没有读写手机、挂载、修改源码、构建或benchmark。
+
+一、时间口径必须分开
+--------------------
+1. Console前缀raw：用于kernel事件、显示层清空、内存回收原因与I/O先后。
+2. kernel RAM锚点：本轮raw26.018808；v71 raw25.826507。各轮减自己的RAM锚点，比较相同kernel运行阶段；这不是按电源键后的精确时间。
+3. PongDiag、PongBoot的time和PongA2文件中[整数]是用户态time(NULL) epoch。它们的持续时间及同域先后可以用，但不无条件与raw直接相减。
+4. native的header timestamp、body date/captureTime、uptime也不相同。不能从文件名001203就得到raw723。
+
+具体例子：
+.PosterBoard...001059.000.ips有uptime640、captureTime00:10:48.6563、header00:10:59；三者不同。
+两份partial stacks都没有uptime/body date；第二份只有header00:12:03。完整Jetsam有body date00:08:31.55，但没有uptime。
+所以本报告撤回任何把第二份partial直接称“raw723、比黑屏提前121秒”的说法。黑屏前的压力证据使用独立Console raw事件建立。
+A2最后日志epoch约1062/1063与Console末raw1034.719948的尾差，也不能单独当全程恒定offset；可能同时含不同文件刷新覆盖和不同时基因素。
+
+本轮Console raw覆盖26.018221至1034.719948；RAM后1008.701140秒（16分48.701秒）。
+共同kernel比较窗口：各自RAM后1008.701140秒。
+本轮raw截止1034.719948；v71 raw截止1034.527647。
+
+二、配置及压缩真实工作
+----------------------
+PongConsole.txt：
+L4   raw26.018808：3 owned banks，665MiB managed before kernel reservations，4KiB pages。
+L35  raw26.261973：vm_compressor_mode is2。
+L343 raw27.239816：VM swap disabled。
+
+native memoryStatus字段全部可独立完整解析，页大小4096：
+来源                           报告整体   时间原文/口径                  wiredMiB  active+inactiveMiB  compressorMiB  throttled  pressure
+.stacks...000123，L20           partial    header00:01:23，无uptime        231.15          388.68             18.22        0       false
+Jetsam...000832，L12            完整       body date00:08:31.55            393.86          150.01            107.48        0       未提供
+.PosterBoard...001059，L28       partial    uptime640/captureTime648.6563    393.56          132.16            123.84        0       false
+.stacks...001203，L20           partial    header00:12:03，无uptime        395.90          112.80            138.66        0       true
+
+两个stacks样本中的压缩/解压累计数：
+早期34590/19650；
+后一个2538916/2295961。
+这证明主动压缩工作且后期有大量压缩/解压周转，绝不是mode8 freezer-only。次数不是压缩率，也不能直接换算CPU耗时。
+
+样本显示wired由约231MiB增加到约396MiB，active/inactive队列由约389MiB缩至约113MiB。它们说明可供工作集周转的余量变小，但不定位这约165MiB wired增量属于哪个内核/驱动对象，也不能仅凭它断言泄漏。
+不是所有partial报告都损坏到完全不可用；这里使用的是独立完整字段，未把整个报告冒称完整native。
+Jetsam与stackshot的free口径不同：Jetsam HOST_VM_INFO64 free已含speculative，stackshot没有，不再重复相加。
+不将compressorSize未经核实与wired重复相加；不把compression/decompression相除当实际压缩率。
+
+三、同窗口回收对照
+------------------
+同RAM后1008.701140秒：
+
+原因                         v71       v72
+idle-exit                    237       235
+long-idle-exit                 2         7
+highwater                     0         1
+vm-compressor-thrashing        2         4
+sustained-memory-pressure     0         0
+合计                         241       247
+
+v71整轮后面才出现的19次sustained pressure和其它事件不在此共同窗口，不应混进比较。
+这是相同kernel时间长度的观察，不是严格因果A/B。不同迁移进度、服务工作集和源码改动会影响负载。
+
+本轮显示归零事件：
+Console L26983 raw843.811817：MiniIOMobileFramebuffer swap#59068，layers0x1→0x0；
+详细EMPTIED raw843.811828。
+相对于RAM为817.793009秒。
+v71显示归零相对于RAM为648.260627秒；本轮发生得晚约169.53秒，这不是启动完成或稳定性改善证明。
+
+本轮raw时序：
+L8560  raw279.526840：首次soft-memory-limit执法。
+L11327 raw348.973862：首次long-idle-exit。
+L12175 raw393.395424：首次idle-exit。
+L16085 raw508.699457：lsd354 highwater，16386KB。
+L21231 raw655.092018：SetStoreUpdateService435，vm-compressor-thrashing。
+L23303 raw709.189055：PerfPowerTelemetryClientRegistra468，vm-compressor-thrashing。
+L25243 raw773.331694：dataaccessd442，vm-compressor-thrashing。
+L26983 raw843.811817：显示layers归零。
+L32719 raw1022.612787：icloudmailagent578，第四次vm-compressor-thrashing。
+
+前三次compressor-thrashing都在本轮layers0之前；第一次提前188.719799秒。v71第一次此类事件晚于其layers0约216.6秒，这个先后确实不同。
+本轮layers0前143条回收：132idle+7long-idle+1highwater+3compressor-thrashing。
+layers0后104条：103idle+1compressor-thrashing。
+这证明压力是本轮黑屏前已存在的背景，但不自动证明压力直接触发清层。
+
+四、lsd highwater有两种证据，不能称全局OOM
+----------------------------------------
+Console L16085 raw508.699457明确killing_highwater_process pid354 [lsd]。
+完整JetsamEvent-1970-01-01-000832.0002.ips中reasoned process也是pid354 lsd，reason=highwater，rpages4096。
+两者相互印证该服务触及自身限制而被回收。
+不能将per-process highwater直接改成“全局物理内存耗尽”或“lsd死于A2异常”。
+完整Jetsam中内存状况可用，时间取body date保留为epoch；没有uptime，不将它直接写成kernel raw511.55。
+
+五、audiomxd确有异常，不能当健康常驻服务
+--------------------------------------
+Console原始证据：
+
+PID79：
+L1103 raw69.777909：开始出现其DYLD unnest。
+L1119 raw73.895451：CPU wake警告，45012次/~5秒，日志平均7843次/秒；限制45000次/300秒。
+L20189 raw631.563131：Corpse failure, too many6。
+L20190 raw631.563168：Process79 crashed: audiomxd。
+
+PID479：
+L20206 raw636.678307：新的audiomxd出现。
+L20226 raw643.421388：CPU wake警告，45065次/~10秒，日志平均4221次/秒。
+L28081 raw884.024679：Corpse failure, too many6。
+L28082 raw884.024715：Process479 crashed: audiomxd。
+
+PID598：
+L28084 raw884.588654：新的audiomxd出现。
+L28943 raw886.607685：CPU wake警告，45051次/~2秒，日志平均21266次/秒。
+保存日志中未找到它的后续crashed记录，也不能因此宣布稳定。
+
+全可见memorystatus killing记录中没有PID79/479/598或audiomxd。
+它们不是本报告中的idle-exit/pressure杀进程。79在layers0之前已crashed，479在layers0之后约40.21秒crashed。
+CPU wake超限是明确异常和调度负担线索，但没有完整audiomxd native终止原因时，不能将警告直接判为最终crash原因；Corpse failure说的是crash报告资源失败，不是补出了原始异常类型。
+这些PID和日志应交给native线程/业务链关联审查，不能把“audiomxd存在一个PID”当稳定服务证据。
+
+六、预读没有等待；本轮read循环有所变长
+------------------------------------
+PongDiag L31 user epoch104 opened首段；
+L74 user epoch146 worker finished。
+13/13段、实际318.515625MiB、全部gate-ok，0deferred，pool34928–38382页，超过16000门槛。
+read循环总41.466秒；v71为26.761秒。相同读取窗口本轮read-loop多约14.7秒，但没有150秒门控回退，不能把后续十几分钟黑屏归结为预读没完。
+epoch104→146约42秒是同域日志时长；不把104或146直接当Console raw。
+read-loop包含文件缓存、页入、调度和竞争，不是物理UFS吞吐benchmark；后台预读也不是主迁移线程join。
+.31[82+10]仍EOF夹紧到1.515625MiB，实际bytes=target，不是错误。
+
+七、黑屏后仍有活动
+------------------
+核心watch始终为SpringBoard4、backboardd40、runningboardd6、datamigrator85；未找到这些核心名称的memorystatus killing。此处只说明已观察身份，不能据watch未变化断言所有主线程无阻塞。
+A2实际57份entered，user epoch44到1062；watch观察到45次exit0。文件覆盖截止与Console不同，不混用epoch/raw去算严格等窗A2频率。
+watch还观察到UM3次signal9、PosterBoard3次signal9；不能未经对应终止证据统称crash。
+已保存Console还显示：
+L31877 raw998.118276：APFS disk4 xid1007 tx_flush，flush6825us；
+raw1034.719948：末端CoreAnalytics内核活动。
+从layers0到最后Console约190.908131秒，即3分10.9秒；APFS最后可见事务在layers0后154.306459秒。
+这些证明清层后系统/存储事务继续记录，不能把黑屏当场当作整体停机。末行时间也不是精确断电或重启时刻。
+
+建议给主报告的措辞
+------------------
+“v72没有丢掉压缩与预读改进，但目前665MiB容量下后期工作集周转仍很重，回收总量在相同窗口与v71接近。这轮在黑屏前已出现compressor-thrashing和lsd highwater，同时audiomxd有反复CPU wake异常及明确crashed记录；这些值得作为真实依赖/性能问题继续定位，不能用‘服务都健康’概括。显示层归零后系统与I/O仍继续，仍需沿当前UI场景提交和线程等待证据解释为什么没有新层，而非直接把内存压力、某条wake警告或读盘慢宣布为单一根因。”
+
+产物
+----
+analysis/v72-memory-latency.json保留全部去重事件、原始行号、native完整/部分标记、时基与原始字段。
+analysis/v72-memory-latency.txt为本报告。
+

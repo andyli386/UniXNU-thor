@@ -1,0 +1,80 @@
+[
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001117.0002.ips",
+    "whole_document_complete": false,
+    "fields": {
+      "captureTime": "1970-01-01 00:11:15.8182 +0000",
+      "bootSessionUUID": "CDB9327B-7DF5-4B47-BDDC-D99FACFA4C8A",
+      "termination": {
+        "flags": 0,
+        "code": 2343432205,
+        "namespace": "<0xA>",
+        "details": [
+          "process-launch watchdog transgression: osservice<com.apple.PosterBoard>:413 exhausted real (wall clock) time allowance of 30.00 seconds",
+          "ProcessVisibility: Background",
+          "ProcessState: Running",
+          "WatchdogEvent: process-launch",
+          "WatchdogVisibility: Background",
+          "WatchdogCPUStatistics: (",
+          "\"Elapsed total CPU time (seconds): 71.720 (user 6.170, system 65.550), 29% CPU\",",
+          "\"Elapsed application CPU time (seconds): 0.705, 0% CPU\"",
+          ")",
+          "ThermalInfo: (",
+          "\"Thermal Level:   0\",",
+          "\"Thermal State:   nominal\"",
+          ")"
+        ]
+      },
+      "procName": "PosterBoard",
+      "pid": 413
+    }
+  },
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+audiomxd-1970-01-01-001551.0002.ips",
+    "whole_document_complete": false,
+    "fields": {
+      "reason": "AQ::Server: RPC timeout within audiomxd. Apparently deadlocked. Writing a stackshot and exiting.",
+      "exception": "0xbe18d1ee",
+      "pid": 529
+    }
+  },
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000120.000.ips",
+    "whole_document_complete": false,
+    "fields": {
+      "reason": "unsupported screen class, no apple logo found",
+      "exception": "0xbadedbad",
+      "pid": 80
+    }
+  },
+  {
+    "file": "extracted/files/mobile/Library/Logs/CrashReporter/.unknown-1970-01-01-001444.000.ips",
+    "whole_document_complete": false,
+    "fields": {
+      "captureTime": "1970-01-01 00:14:42.8080 +0000",
+      "bootSessionUUID": "CDB9327B-7DF5-4B47-BDDC-D99FACFA4C8A",
+      "termination": {
+        "flags": 0,
+        "code": 2343432205,
+        "namespace": "<0xA>",
+        "details": [
+          "process-launch watchdog transgression: osservice<com.apple.PosterBoard>:446 exhausted real (wall clock) time allowance of 30.00 seconds",
+          "ProcessVisibility: Background",
+          "ProcessState: Running",
+          "WatchdogEvent: process-launch",
+          "WatchdogVisibility: Background",
+          "WatchdogCPUStatistics: (",
+          "\"Elapsed total CPU time (seconds): 32.250 (user 2.130, system 30.120), 13% CPU\",",
+          "\"Elapsed application CPU time (seconds): 0.384, 0% CPU\"",
+          ")",
+          "ThermalInfo: (",
+          "\"Thermal Level:   0\",",
+          "\"Thermal State:   nominal\"",
+          ")"
+        ]
+      },
+      "pid": 446
+    }
+  }
+]
+

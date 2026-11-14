@@ -1,0 +1,498 @@
+{
+  "scope": {
+    "runtime_library_uuid": "dcbda011-9ca3-3ba9-af5f-cfaf07a981df",
+    "uuid_command": "UUID: DCBDA011-9CA3-3BA9-AF5F-CFAF07A981DF (arm64) /Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-025335/extracted/files/pong/libpong-ui18.dylib\n",
+    "all_pongboot_cache_bases": [
+      "0x195148000"
+    ],
+    "ips_total": 2,
+    "full_snapshots": 0,
+    "current_lib_snapshot_count": 0,
+    "previous_v72_lib_snapshot_count": 0,
+    "boot_ids": [],
+    "parse_errors": [
+      {
+        "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001208.0002.ips",
+        "bytes": 27889,
+        "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3157 (char 27607)\")"
+      },
+      {
+        "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000116.000.ips",
+        "bytes": 30197,
+        "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 276 column 2 (char 30002)\")"
+      }
+    ]
+  },
+  "snapshots": [],
+  "pongboot": [
+    {
+      "file": "logs/PongBoot-containermanagerd.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=60 time=102 threads=3"
+        },
+        {
+          "line": 8,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=120 time=162 threads=3"
+        },
+        {
+          "line": 15,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=45 seconds=240 time=283 threads=3"
+        },
+        {
+          "line": 22,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=336 seconds=60 time=469 threads=3"
+        },
+        {
+          "line": 28,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=336 seconds=120 time=529 threads=3"
+        },
+        {
+          "line": 35,
+          "text": "Pong boot snapshot BEGIN: containermanagerd pid=336 seconds=241 time=651 threads=3"
+        }
+      ],
+      "tail": [
+        {
+          "line": 41,
+          "text": "Pong tick: containermanagerd pid=336 seconds=360 threads=3"
+        },
+        {
+          "line": 42,
+          "text": "Pong tick: containermanagerd pid=336 seconds=420 threads=3"
+        },
+        {
+          "line": 43,
+          "text": "Pong tick: containermanagerd pid=336 seconds=480 threads=3"
+        },
+        {
+          "line": 44,
+          "text": "Pong tick: containermanagerd pid=336 seconds=540 threads=3"
+        }
+      ]
+    },
+    {
+      "file": "logs/PongBoot-filecoordinationd.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: filecoordinationd pid=361 seconds=60 time=525 threads=3"
+        },
+        {
+          "line": 8,
+          "text": "Pong boot snapshot BEGIN: filecoordinationd pid=361 seconds=120 time=585 threads=3"
+        }
+      ],
+      "tail": [
+        {
+          "line": 9,
+          "text": "Pong boot snapshot: filecoordinationd pid=361 seconds=120 image0=/private/var/pong/libpong-ui18.dylib image_slide=1007b3000 cache=0x195148000 size=f37c8000"
+        },
+        {
+          "line": 10,
+          "text": "thread=1 tid=7453 state_result=0 info_result=0 run=3 cpu=0 pc=1e33e0f60 lr=19f236990 fp=16f820fa0 sp=16f820f90 frames: 19f236964 0"
+        },
+        {
+          "line": 11,
+          "text": "thread=2 tid=8161 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16f9b2ae0 sp=16f9b2ac0 frames: 1f650eab0"
+        },
+        {
+          "line": 12,
+          "text": "Pong boot snapshot END: filecoordinationd pid=361 seconds=120 sampled=2 of 3"
+        }
+      ]
+    },
+    {
+      "file": "logs/PongBoot-locationd.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=60 time=107 threads=20"
+        },
+        {
+          "line": 25,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=120 time=167 threads=19"
+        },
+        {
+          "line": 48,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=240 time=288 threads=9"
+        },
+        {
+          "line": 65,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=603 time=651 threads=11"
+        },
+        {
+          "line": 83,
+          "text": "Pong boot snapshot BEGIN: locationd pid=44 seconds=902 time=950 threads=6"
+        }
+      ],
+      "tail": [
+        {
+          "line": 87,
+          "text": "thread=3 tid=1142 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16f455b60 sp=16f455b40 frames: 1f650eab0"
+        },
+        {
+          "line": 88,
+          "text": "thread=4 tid=3116 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f3cecd0 sp=16f3cec80 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 197a613c4 1b767cc34 1967c52b0 1f65106b0 1f650eabc"
+        },
+        {
+          "line": 89,
+          "text": "thread=5 tid=13577 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16ef19b50 sp=16ef19b30 frames: 1f650eab0"
+        },
+        {
+          "line": 90,
+          "text": "Pong boot snapshot END: locationd pid=44 seconds=902 sampled=5 of 6"
+        }
+      ]
+    },
+    {
+      "file": "logs/PongBoot-runningboardd.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=60 time=104 threads=12"
+        },
+        {
+          "line": 17,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=120 time=164 threads=9"
+        },
+        {
+          "line": 30,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=240 time=284 threads=7"
+        },
+        {
+          "line": 45,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=602 time=646 threads=7"
+        },
+        {
+          "line": 59,
+          "text": "Pong boot snapshot BEGIN: runningboardd pid=6 seconds=903 time=947 threads=11"
+        }
+      ],
+      "tail": [
+        {
+          "line": 68,
+          "text": "thread=8 tid=13503 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fec4b50 sp=16fec4b30 frames: 1f650eab0"
+        },
+        {
+          "line": 69,
+          "text": "thread=9 tid=13504 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16ff4ab60 sp=16ff4ab40 frames: 1f650eab0"
+        },
+        {
+          "line": 70,
+          "text": "thread=10 tid=13643 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:"
+        },
+        {
+          "line": 71,
+          "text": "Pong boot snapshot END: runningboardd pid=6 seconds=903 sampled=10 of 11"
+        }
+      ]
+    },
+    {
+      "file": "mobile/Library/Logs/PongBoot-SpringBoard.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=60 time=129 threads=6"
+        },
+        {
+          "line": 11,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=120 time=190 threads=6"
+        },
+        {
+          "line": 21,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=242 time=312 threads=6"
+        },
+        {
+          "line": 35,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=604 time=674 threads=5"
+        },
+        {
+          "line": 47,
+          "text": "Pong boot snapshot BEGIN: SpringBoard pid=5 seconds=901 time=970 threads=9"
+        }
+      ],
+      "tail": [
+        {
+          "line": 54,
+          "text": "thread=6 tid=13397 state_result=0 info_result=0 run=3 cpu=19 pc=1e33e1fd8 lr=1f6518884 fp=16ff8f800 sp=16ff8f770 frames: 22b085c4c 230f9bd98 19f24d830 19f24ea68 19f22cf64 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0"
+        },
+        {
+          "line": 55,
+          "text": "thread=7 tid=13890 state_result=0 info_result=0 run=4 cpu=13 pc=1a3e4b510 lr=1a3e979bc fp=16f9cce00 sp=16f9ccdd0 frames: 19f24ea68 19f2330f8 1a3e97954 1a3e97c6c 22b08487c 22b08475c 19f24ea68 19f22326c 22b082e5c 22b08638c 19f24ea68 19f229a08 19f2394e4 19f22cdcc 19f22d8f0 19f236710 19f236018 1f650ea10 1f650eab0"
+        },
+        {
+          "line": 56,
+          "text": "thread=8 tid=13895 state_result=0 info_result=0 run=4 cpu=9 pc=1e33e2000 lr=1967bba28 fp=16fbe5090 sp=16fbe4750 frames: 1967bb73c 1967f47e8 196783680 1b11b4600 1b11b434c 19f24d830 19f24ea68 19f258ea8 19f2296e8 19f235474 19f235b34 1f650e9d4 1f650eab0"
+        },
+        {
+          "line": 57,
+          "text": "Pong boot snapshot END: SpringBoard pid=5 seconds=901 sampled=8 of 9"
+        }
+      ]
+    },
+    {
+      "file": "mobile/Library/Logs/PongBoot-audiomxd.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: audiomxd pid=83 seconds=60 time=125 threads=27"
+        },
+        {
+          "line": 32,
+          "text": "Pong boot snapshot BEGIN: audiomxd pid=83 seconds=120 time=185 threads=23"
+        },
+        {
+          "line": 59,
+          "text": "Pong boot snapshot BEGIN: audiomxd pid=83 seconds=242 time=308 threads=16"
+        },
+        {
+          "line": 83,
+          "text": "Pong boot snapshot BEGIN: audiomxd pid=83 seconds=602 time=668 threads=15"
+        },
+        {
+          "line": 105,
+          "text": "Pong boot snapshot BEGIN: audiomxd pid=83 seconds=902 time=968 threads=15"
+        }
+      ],
+      "tail": [
+        {
+          "line": 118,
+          "text": "thread=12 tid=1526 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcb70 lr=1f8ee8818 fp=171047f80 sp=171047f50 frames: 1f8ee6e2c 1f8efd094 1f65106b0 1f650eabc"
+        },
+        {
+          "line": 119,
+          "text": "thread=13 tid=13730 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16ff01b50 sp=16ff01b30 frames: 1f650eab0"
+        },
+        {
+          "line": 120,
+          "text": "thread=14 tid=13795 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fd6fb60 sp=16fd6fb40 frames: 1f650eab0"
+        },
+        {
+          "line": 121,
+          "text": "Pong boot snapshot END: audiomxd pid=83 seconds=902 sampled=14 of 15"
+        }
+      ]
+    },
+    {
+      "file": "mobile/Library/Logs/PongBoot-backboardd.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=60 time=107 threads=18"
+        },
+        {
+          "line": 23,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=120 time=167 threads=21"
+        },
+        {
+          "line": 48,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=240 time=287 threads=17"
+        },
+        {
+          "line": 73,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=604 time=651 threads=19"
+        },
+        {
+          "line": 99,
+          "text": "Pong boot snapshot BEGIN: backboardd pid=40 seconds=904 time=951 threads=16"
+        }
+      ],
+      "tail": [
+        {
+          "line": 113,
+          "text": "thread=13 tid=11148 state_result=0 info_result=0 run=3 cpu=36 pc=1e33dc9a8 lr=1f650ea5c fp=16fcc7af0 sp=16fcc7ad0 frames: 1f650eab0"
+        },
+        {
+          "line": 114,
+          "text": "thread=14 tid=13528 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fa29fe0 sp=16fa29fc0 frames: 1f650eab0"
+        },
+        {
+          "line": 115,
+          "text": "thread=15 tid=13529 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16faafb50 sp=16faafb30 frames: 1f650eab0"
+        },
+        {
+          "line": 116,
+          "text": "Pong boot snapshot END: backboardd pid=40 seconds=904 sampled=15 of 16"
+        }
+      ]
+    },
+    {
+      "file": "mobile/Library/Logs/PongBoot-com.apple.datamigrator.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=81 seconds=60 time=125 threads=12"
+        },
+        {
+          "line": 17,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=81 seconds=120 time=185 threads=14"
+        },
+        {
+          "line": 35,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=81 seconds=242 time=308 threads=17"
+        },
+        {
+          "line": 60,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=81 seconds=602 time=668 threads=20"
+        },
+        {
+          "line": 87,
+          "text": "Pong boot snapshot BEGIN: com.apple.datamigrator pid=81 seconds=902 time=968 threads=5"
+        }
+      ],
+      "tail": [
+        {
+          "line": 90,
+          "text": "thread=2 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:"
+        },
+        {
+          "line": 91,
+          "text": "thread=3 tid=0 state_result=268435459 info_result=268435459 run=0 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:"
+        },
+        {
+          "line": 92,
+          "text": "thread=4 tid=13796 state_result=0 info_result=0 run=3 cpu=0 pc=0 lr=0 fp=0 sp=0 frames:"
+        },
+        {
+          "line": 93,
+          "text": "Pong boot snapshot END: com.apple.datamigrator pid=81 seconds=902 sampled=4 of 5"
+        }
+      ]
+    },
+    {
+      "file": "mobile/Library/Logs/PongBoot-com.apple.migrationpluginwrapper.txt",
+      "blocks": [
+        {
+          "line": 1,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=146 seconds=30 time=119 threads=4"
+        },
+        {
+          "line": 8,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=226 seconds=30 time=191 threads=5"
+        },
+        {
+          "line": 15,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=260 seconds=30 time=253 threads=7"
+        },
+        {
+          "line": 26,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=260 seconds=122 time=345 threads=6"
+        },
+        {
+          "line": 36,
+          "text": "Pong boot snapshot BEGIN: com.apple.migrationpluginwrapper pid=260 seconds=243 time=466 threads=6"
+        }
+      ],
+      "tail": [
+        {
+          "line": 44,
+          "text": "Pong tick: com.apple.migrationpluginwrapper pid=260 seconds=303 threads=6"
+        },
+        {
+          "line": 45,
+          "text": "Pong tick: com.apple.migrationpluginwrapper pid=260 seconds=363 threads=11"
+        },
+        {
+          "line": 46,
+          "text": "Pong tick: com.apple.migrationpluginwrapper pid=260 seconds=423 threads=7"
+        },
+        {
+          "line": 47,
+          "text": "Pong tick: com.apple.migrationpluginwrapper pid=260 seconds=483 threads=9"
+        }
+      ]
+    },
+    {
+      "file": "mobile/Library/Logs/PongBoot-lsd.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: lsd pid=94 seconds=60 time=134 threads=8"
+        },
+        {
+          "line": 13,
+          "text": "Pong boot snapshot BEGIN: lsd pid=94 seconds=120 time=194 threads=4"
+        },
+        {
+          "line": 21,
+          "text": "Pong boot snapshot BEGIN: lsd pid=94 seconds=241 time=315 threads=4"
+        },
+        {
+          "line": 32,
+          "text": "Pong boot snapshot BEGIN: lsd pid=418 seconds=60 time=628 threads=5"
+        },
+        {
+          "line": 40,
+          "text": "Pong boot snapshot BEGIN: lsd pid=418 seconds=120 time=688 threads=3"
+        },
+        {
+          "line": 47,
+          "text": "Pong boot snapshot BEGIN: lsd pid=418 seconds=240 time=809 threads=4"
+        }
+      ],
+      "tail": [
+        {
+          "line": 52,
+          "text": "Pong boot snapshot END: lsd pid=418 seconds=240 sampled=3 of 4"
+        },
+        {
+          "line": 53,
+          "text": "Pong tick: lsd pid=418 seconds=300 threads=4"
+        },
+        {
+          "line": 54,
+          "text": "Pong tick: lsd pid=418 seconds=360 threads=3"
+        },
+        {
+          "line": 55,
+          "text": "Pong tick: lsd pid=418 seconds=420 threads=4"
+        }
+      ]
+    },
+    {
+      "file": "mobile/Library/Logs/PongBoot-mediaremoted.txt",
+      "blocks": [
+        {
+          "line": 2,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=60 time=107 threads=3"
+        },
+        {
+          "line": 8,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=120 time=167 threads=11"
+        },
+        {
+          "line": 23,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=241 time=288 threads=3"
+        },
+        {
+          "line": 34,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=604 time=651 threads=4"
+        },
+        {
+          "line": 45,
+          "text": "Pong boot snapshot BEGIN: mediaremoted pid=10 seconds=901 time=948 threads=3"
+        }
+      ],
+      "tail": [
+        {
+          "line": 46,
+          "text": "Pong boot snapshot: mediaremoted pid=10 seconds=901 image0=/private/var/pong/libpong-ui18.dylib image_slide=1009d8000 cache=0x195148000 size=f37c8000"
+        },
+        {
+          "line": 47,
+          "text": "thread=0 tid=364 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dcbf4 lr=1e33e017c fp=16f906510 sp=16f9064c0 frames: 1e33e00d0 1e33dff1c 1979eb998 1979ea2d0 1979ebcb0 196763bac 196768108 10057c06c 1bc87996c 0"
+        },
+        {
+          "line": 48,
+          "text": "thread=2 tid=13458 state_result=0 info_result=0 run=3 cpu=0 pc=1e33dc9a8 lr=1f650ea5c fp=16fa97930 sp=16fa97910 frames: 1f650eab0"
+        },
+        {
+          "line": 49,
+          "text": "Pong boot snapshot END: mediaremoted pid=10 seconds=901 sampled=2 of 3"
+        }
+      ]
+    }
+  ]
+}

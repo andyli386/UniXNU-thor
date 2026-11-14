@@ -1,0 +1,19 @@
+Reading Data {'name': 'Data', 'offset': 10809769984, 'length': 8591003648, 'block': 512, 'flags': 1}
+PROGRESS 536870912 / 8591003648
+PROGRESS 1073741824 / 8591003648
+PROGRESS 1610612736 / 8591003648
+PROGRESS 2147483648 / 8591003648
+PROGRESS 2684354560 / 8591003648
+PROGRESS 3221225472 / 8591003648
+PROGRESS 3758096384 / 8591003648
+PROGRESS 4294967296 / 8591003648
+PROGRESS 4831838208 / 8591003648
+PROGRESS 5368709120 / 8591003648
+PROGRESS 5905580032 / 8591003648
+PROGRESS 6442450944 / 8591003648
+PROGRESS 6979321856 / 8591003648
+PROGRESS 7516192768 / 8591003648
+PROGRESS 8053063680 / 8591003648
+PROGRESS 8589934592 / 8591003648
+Capture complete {'started_local': '2026-11-14T18:09:55.565973+08:00', 'serial': '<device-serial>', 'device_writes': False, 'method': 'read-only physical Data window; unmounted idle dm-7 mapping retained', 'total': 19401801728, 'records': [{'name': 'OS', 'offset': 1048576, 'length': 6845104128, 'block': 512, 'flags': 1}, {'name': 'SystemOS', 'offset': 6846152704, 'length': 3963617280, 'block': 512, 'flags': 1}, {'name': 'Data', 'offset': 10809769984, 'length': 8591003648, 'block': 512, 'flags': 1}], 'expected_bytes': 8591003648, 'chunk_bytes': 67108864, 'chunks_completed': 129, 'validated_bytes': 8591003648, 'dd_returncode': 0, 'read_bytes': 8591003648, 'elapsed_seconds': 250.428, 'no_write_or_discard_counter_change': True, 'capture_status': 'complete'}
+FINISHED {"started_local": "2026-11-14T18:09:55.565973+08:00", "serial": "<device-serial>", "device_writes": false, "method": "read-only physical Data window; unmounted idle dm-7 mapping retained", "total": 19401801728, "records": [{"name": "OS", "offset": 1048576, "length": 6845104128, "block": 512, "flags": 1}, {"name": "SystemOS", "offset": 6846152704, "length": 3963617280, "block": 512, "flags": 1}, {"name": "Data", "offset": 10809769984, "length": 8591003648, "block": 512, "flags": 1}], "expected_bytes": 8591003648, "chunk_bytes": 67108864, "chunks_completed": 129, "validated_bytes": 8591003648, "dd_returncode": 0, "read_bytes": 8591003648, "elapsed_seconds": 250.428, "no_write_or_discard_counter_change": true, "capture_status": "complete", "collector_status": "pending_readonly_host_extraction", "finished_local": "2026-11-14T18:14:07.479547+08:00"}

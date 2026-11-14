@@ -1,0 +1,3 @@
+PASS candidate FD contains only one changed executable, DarwinBoot24
+PASS outer 2 and inner 29 non-padding FFS files, no additions or removals
+PASS exact candidate FVMAIN decodes from outer FD; DarwinBoot rollback arg present

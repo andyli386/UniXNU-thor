@@ -1,0 +1,10 @@
+[65] pid=81 Pong DM: diagnostics swizzled to the native async path
+[72] pid=81 Pong DM: diagnostics incident=0x10180b150 async=1 -> forcing async=1
+[347] pid=81 Pong DM: diagnostics incident=0x101913c90 async=1 -> forcing async=1
+[374] pid=81 Pong DM: diagnostics incident=0x100f3ec00 async=1 -> forcing async=1
+[432] pid=81 Pong DM: diagnostics incident=0x101b04730 async=0 -> forcing async=1
+[595] pid=81 Pong DM: diagnostics incident=0x100f449f0 async=0 -> forcing async=1
+[706] pid=81 Pong DM: diagnostics incident=0x100f46730 async=0 -> forcing async=1
+[739] pid=81 Pong DM: diagnostics incident=0x101a0dd10 async=0 -> forcing async=1
+[774] pid=81 Pong DM: diagnostics incident=0x100f46330 async=0 -> forcing async=1
+[830] pid=81 Pong DM: diagnostics incident=0x101917020 async=0 -> forcing async=1

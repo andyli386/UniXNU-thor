@@ -1,0 +1,22 @@
+{
+  "complete": true,
+  "capture_id": "20261114-153948",
+  "runtime_version": "v75",
+  "runtime_library_uuid": "5FB87088-A68B-35BF-BB1B-180FCD76A481",
+  "source_commit_short": "e35afb3",
+  "capture_original": "/home/vincent/Projects/thor-unixnu/PongBoot-pull-20261114-153948",
+  "mac_report": "/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/reports/black-screen-20261114-153948",
+  "exported_files": 86,
+  "exported_bytes": 7127229,
+  "phone_writes": false,
+  "source_changes": false,
+  "capture_complete": true,
+  "host_extraction_complete": true,
+  "baseline": "20261114-103139 v74",
+  "excluded": [
+    "Data runtime image",
+    "dylib binaries",
+    "transfer archives and base64 intermediates"
+  ],
+  "analysis_claim": "display clear mechanism confirmed; UI upstream wait ownership unresolved; lsd highwater and selector44 incompatibility evidenced"
+}

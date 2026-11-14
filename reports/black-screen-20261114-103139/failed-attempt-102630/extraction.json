@@ -1,0 +1,35 @@
+{
+  "started_local": "2026-11-14T10:26:47.362980+08:00",
+  "serial": "<device-serial>",
+  "device_writes": false,
+  "method": "read-only physical Data window; unmounted idle dm-7 mapping retained",
+  "total": 19401801728,
+  "records": [
+    {
+      "name": "OS",
+      "offset": 1048576,
+      "length": 6845104128,
+      "block": 512,
+      "flags": 1
+    },
+    {
+      "name": "SystemOS",
+      "offset": 6846152704,
+      "length": 3963617280,
+      "block": 512,
+      "flags": 1
+    },
+    {
+      "name": "Data",
+      "offset": 10809769984,
+      "length": 8591003648,
+      "block": 512,
+      "flags": 1
+    }
+  ],
+  "expected_bytes": 8591003648,
+  "dd_returncode": 0,
+  "read_bytes": 286600704,
+  "error": "command failed ['/usr/bin/adb', '-s', '<device-serial>', 'get-state'] error: device '<device-serial>' not found\n",
+  "finished_local": "2026-11-14T10:26:57.323753+08:00"
+}

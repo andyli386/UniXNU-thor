@@ -1,0 +1,108 @@
+v74 三项改动只读源码复核
+核查时间（Mac UTC）：2026-11-14T02:02:37.271387+00:00
+仓库：/Users/<user>/projects/thor-unixnu1030/UniXNU-pong
+HEAD：d562bc1419e7ae5fd7ffdf0d89951736b69e8ae5
+范围：读取当前宿主源码；没有构建、镜像读回、设备运行或本轮 Recovery 日志证据。
+本报告不能证明 v74 已部署，也不能证明黑屏已修好。
+
+结论
+1. 原槽 submitter 的传递在当前 XNU 源码中已修正，payload、surface 引用和 submitter 身份在同一锁内从同一队列槽复制，显式传入同步 show()。
+2. PONG EXIT 确实新增 Console 镜像，字段和输出长度有界；但退出原因仍非完整原始记录，rv 和异常原始值未打印。
+3. wake enqueue returned 确实在 dispatch_after_f 返回之后，wake_home begin 在 UIScreen 查询之前。两者可区分“提交调用返回”与“回调开始执行”，仍不能直接证明唤屏成功。
+4. 三项主要增加诊断确定性，不能仅从这些源码改动推导黑屏根因或解决结论。
+
+A. Framebuffer submitter
+
+实际源文件：
+/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+
+源码锚点：
+- 250–251：每个队列槽各自保存 char fSwapWho[...][20] 和 int fSwapWhoPid[...]。
+- 897–920：present() 持有 fSwapLock，在同一个 slot 内先存 proc_selfname/proc_selfpid，再复制 swap，并 MiniIOSurfaceCopy() 获取各层 surface 引用，最后增加 fSwapsWaiting。
+- 297：show 的声明已加入 const char *who, int whoPid。
+- 954–976：presenter() 在 fSwapLock 内，从 fSwapFirst 同时复制 payload、surface 指针、who 和 pid；解锁后显式 show(swap, surfaces, presenterWho, presenterWhoPid)。
+- 977–988：show 返回后才记录 retired、推进 fSwapFirst、减少 fSwapsWaiting，再释放各 MiniIOSurface 引用及 ClearKept。
+- 994：定义与新声明一致；who 只在同步 show 调用的日志中使用，调用期间 presenterWho 栈缓冲仍存活。
+- 1162–1167：层状态日志直接使用传入的 who/whoPid。
+
+判断：
+该实现消除了“show 收到的是 static swap 复制品，却再用缓冲地址反查原队列槽”的身份丢失路径。show 期间队列槽未退队、surface 的持有引用未释放，新增身份传递没有引入可见的悬空指针。
+
+本轮应寻找的正证据：
+MiniIOMFB layers EMPTIED: submitter=<真实进程名> pid=<真实PID> set=... surfaces=... gpu=... graphics=... swap=...
+以及可能的 RESTORED / CHANGED。
+只有 layers 发生变化时才输出该行；没有某一事件行不能推出该事件必然没有发生或从未提交帧。
+拿到 submitter 只能确定哪一个提交者交出了该帧，仍需和退出/回调/后续帧日志对齐才能归因。
+
+B. PONG EXIT
+
+实际源文件：
+/Users/<user>/projects/thor-unixnu1030/thor-out/build-tree/.cache/xnu-work/bsd/kern/kern_exit.c
+
+源码锚点：
+- 1928–1960：PONG 条件编译诊断块位于 critical-exit/corpse 处理之前。
+- 1935–1940：仅匹配 Preferences、audiomxd、mediaremoted、PosterBoard、fairplayd.A2，以及 com.apple.migrat 前缀。
+- 1941–1947：line[768]；描述格式 %.512s；输出进程名、PID、WTERMSIG(rv)、WEXITSTATUS(rv)、reason namespace/code/description。
+- 1949–1950：原始 ramoops 诊断写入仍在。
+- 1957：新增 printf("%.*s", 有界长度, line)，把同一文本送入 Console。
+- 1962–1964：原 critical-exit 调用仍在。
+- 1999–2003：原异常值 ut->uu_exception、uu_code、uu_subcode 在后续原 crash-report 逻辑使用。
+- 2097–2106：后续 task_mark_corpse 及错误分支仍在。
+
+判断：
+这能让 Console/PongConsole 通路也有 PONG EXIT 原因行，绕过“仅 pmsg 区域中留存、当前 Recovery 导出路径读不到”的观察缺口。输出正文最多 767 字节，printf 采用固定格式，未见新增返回/跳过原退出处理的代码。
+
+边界和建议：
+- 仍缺 raw rv、WIFEXITED/WIFSIGNALED/是否 core、reason 是否存在、uu_exception/uu_code/uu_subcode。
+- signal 和 status 同时打印，不能把二者都当成有效独立退出结论。
+- 无 reason 时 namespace=0/code=0/description=none，建议增加 has_reason 标志。
+- 未覆盖 SpringBoard/backboardd，不能由它们缺少 PONG EXIT 推断它们没有退出。
+- 这只是原因文本镜像，不是恢复完整异常/corpse 原始报告，也未修复 ramoops/Recovery 地址契约。
+- 下一次需要更完整诊断时，在同一位置增加 raw rv、明确的 wait-status 分类和三项原始异常值；正常退出/corpse 决策保持现状。
+
+C. wake 的三个阶段
+
+实际源文件：
+/Users/<user>/projects/thor-unixnu1030/UniXNU-pong/userland/ui_compat18.c
+
+源码锚点：
+- 2564：ctor 日志仍是 "Pong UI18: SpringBoard adapter ctor (v73)"。
+- 2568："wake scheduled on main queue +10s" 在 dispatch_after_f 之前。
+- 2569：dispatch_after_f(..., dispatch_get_main_queue(), NULL, wake_home)。
+- 2570：新增 "Pong UI18: wake enqueue returned" 在上述调用返回之后。
+- 1651–1658：wake_home 的 "wake_home begin" 在任何 UIScreen mainScreen 查询之前。
+- 164–186：pong_sb_note 向 /private/var/mobile/Library/Logs/PongSB-<pid>.txt 追加，尝试 fsync，再写 Console；dprintf/fsync 返回值未检查。
+
+期望顺序：
+SpringBoard adapter ctor (v73)
+wake scheduled on main queue +10s
+wake enqueue returned
+wake_home begin
+后续 screen 属性及唤屏相关回执
+
+如何解读：
+- 看见 enqueue returned：证实提交调用已返回。
+- 看见 begin：证实主队列确实进入回调；后续卡点才应落到回调内部。
+- 只看见 scheduled：既不能证实 dispatch_after_f 返回，也不能排除后续日志未落盘。
+- 看见 enqueue returned 而缺 begin：需要同时有进程存活、采集时间窗及日志连续性的证据，才能推进“主队列未调度”推断。
+- 现有 dprintf/fsync 未校验使“缺行”仍不是严格的未执行证明。
+- ctor 版本标签是陈旧标签，应在后续改为明确的构建 ID，或至少 v74。现阶段不能靠该 v73 字样认定加载了旧版库。
+
+D. 可复现性与本轮证据限制
+
+git show --stat 确认 HEAD 提交自身仅包含：
+userland/ui_compat18.c | 1 +
+即 wake enqueue returned 一行。
+
+两个 kernel 改动存在于当前实际 build-tree/.cache/xnu-work 中。不能以外层 HEAD 单独证明 kernel 两项的可复现性，更不能据此推定设备跑了这些代码。此次仅按任务要求留存了关键源码锚点；未读回候选镜像或设备内核。
+
+最小下一轮运行核对：
+1. 先确认实际运行内核与注入库身份，再解释新版 marker。
+2. 找 EMPTIED/RESTORED 的真实 submitter、PID、swap，并和同一时间窗的进程退出/唤屏日志对齐。
+3. 找 Console 中 PONG EXIT 原始文本，不能将仅缺失行当作未退出。
+4. 比较 scheduled → enqueue returned → begin → 后续 wake 日志的最后一个正证据。
+5. 保留原始日志，不把历史 v73 日志当作本轮新采集。
+
+原始源码摘录与宿主观察元数据：
+/workspace/scratch/8f895aed6545/v74-offline-source-evidence.json
+

@@ -1,0 +1,12 @@
+APFS diagnostic extraction completed without a filesystem mount.
+Input: Data-runtime.img, a regular host file; open O_RDONLY|O_CLOEXEC|O_NOFOLLOW and fstat regular-file check. No FUSE, sudo, phone access, key/password extraction, or source image writes.
+Source size/mtime/ctime/inode were unchanged after extraction. No hashes were computed.
+Data is volume slot 1 in first APFS GPT partition: UUID26FD8349-9B9A-4F22-89EB-C81E070D2AB2.
+The dedicated Device adapter only implements pread; invalid offsets, short reads and read errors are fatal to extraction. libapfs strict mode is used (g_lax=false, g_debug=0). Its normal file/decompression API is reused.
+Selected output follows the previous log collector whitelist, extended by the two exact AirPlay policy files and Info.plist under three audio plugin directories. Keybags have metadata only. HAL binaries are not selected. Symlinks are recorded but never followed.
+Native APFS UID/GID/mode are in manifest; output file host ownership is not substituted for them. All exported content is mode0600.
+Bounds: file64MiB, total1GiB, depth128, nodes200000; any bound/skipped/error appears in manifest.
+One nonfatal parser warning about unknown inode extended field15 is preserved with inode-to-path attribution in manifest.
+Tool source, compile command, compiler output, runtime command, parser output and postprocessor are adjacent to this note. These are self-owned new tools; upstream parser/project/device sources were not modified.
+Upstream libapfs source66b86bd525e8cb90f9012543be89b1f092b75cf3 and lzfse e634ca58b4821d9f3d560cdc6df5dec02ffc93fd were already built by the parent task. GPL-2.0-or-later source/license remains under tools/apfs-fuse-logreader-20261114/source.
+Freeze: extracted files, inventory and manifest are finalized; later analysis should be saved separately.

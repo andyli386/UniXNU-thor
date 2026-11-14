@@ -1,0 +1,12 @@
+[
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.PosterBoard-1970-01-01-001208.0002.ips",
+    "bytes": 27889,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 30 column 3157 (char 27607)\")"
+  },
+  {
+    "file": "mobile/Library/Logs/CrashReporter/.stacks+com.apple.datamigrator-1970-01-01-000116.000.ips",
+    "bytes": 30197,
+    "parse_error": "JSONDecodeError(\"Expecting ',' delimiter: line 276 column 2 (char 30002)\")"
+  }
+]

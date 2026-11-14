@@ -1,0 +1,1018 @@
+{"bug_type":"288","timestamp":"1970-01-01 00:01:20.00 +0000","os_version":"iPhone OS 18.7.10 (22H374)","roots_installed":0,"incident_id":"F7252954-8194-491A-917A-B36AADAB47CF"}
+{
+  "build" : "iPhone OS 18.7.10 (22H374)",
+  "product" : "iPhone17,1",
+  "kernel" : "Darwin Kernel Version 24.6.0: 2026年11月10日 星期二 15时35分52秒 CST; stelax:ios-obj\/DEVELOPMENT_ARM64_PONG",
+  "tuning" : {
+
+  },
+  "incident" : "F7252954-8194-491A-917A-B36AADAB47CF",
+  "crashReporterKey" : "553dea33585698b881a4d45f3fb8ed8878a64fd5",
+  "reason" : "unsupported screen class, no apple logo found",
+  "frontmostPids" : [
+    4
+  ],
+  "exception" : "0xbadedbad",
+  "codeSigningMonitor" : 0,
+  "roots_installed" : 0,
+  "bug_type" : "288",
+  "pid" : 80,
+  "memoryStatus" : {"compressorSize":4157,"compressions":33274,"decompressions":19441,"busyBufferCount":92,"memoryPressureDetails":{"pagesWanted":673,"pagesReclaimed":54807},"pageSize":4096,"memoryPressure":false,"memoryPages":{"active":51988,"throttled":0,"fileBacked":82244,"wired":58883,"purgeable":342,"inactive":47857,"free":828,"speculative":4307}},
+  "processByPid" : {
+    "0" : {"timesThrottled":0,"pageIns":0,"rawFlags":"0x20800001","timesDidThrottle":0,"procname":"kernel_task","jetsamCoalition":3,"copyOnWriteFaults":0,"pageFaults":81,"threadById":{"232":{"id":232,"schedPriority":91,"system_usec":4,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":91,"userTime":0,"waitEvent":[0,68849755536],"continuation":[0,68841187176],"lastRunTime":52.403716666000001,"systemTime":4.2180000000000001e-06,"name":"VM_object_reaper_thread"},"106":{"id":106,"schedPriority":80,"state":["TH_WAIT","TH_UNINT"],"system_usec":0,"snapshotFlags":["kKernel64_p"],"user_usec":0,"kernelFrames":[[0,68840163164]],"basePriority":80,"userTime":0,"waitEvent":[0,68849633024],"continuation":[0,68840085872],"lastRunTime":78.721692967999999,"systemTime":0,"name":"daemon.thread-exception"},"120":{"continuation":[0,68845218360],"userTime":0,"systemTime":1.5311999999999998e-05,"id":120,"basePriority":81,"lastRunTime":52.721098853999997,"user_usec":0,"schedPriority":81,"system_usec":15,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68849770120]},"149":{"id":149,"schedPriority":80,"state":["TH_WAIT","TH_UNINT"],"system_usec":225,"schedFlags":["TH_SFLAG_FLOOR_PROMOTED"],"snapshotFlags":["kKernel64_p"],"user_usec":0,"kernelFrames":[[0,68841833424],[0,68840162156],[0,68840157208],[0,68840053448],[0,68847037972],[0,68847138928],[0,68913640136],[0,68913587136],[0,68847122212],[0,68847119880],[0,68847094388],[0,68847129968],[0,68841800908]],"basePriority":80,"userTime":0,"waitEvent":[1,5431829398105979775],"lastRunTime":52.649078437,"systemTime":0.00022328100000000001,"name":"Waiting_'IOAESAccelerator'"},"121":{"continuation":[0,68842341248],"userTime":0,"systemTime":1.0832999999999999e-05,"id":121,"basePriority":81,"lastRunTime":52.721088020000003,"user_usec":0,"schedPriority":81,"system_usec":10,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68849349104]},"163":{"id":163,"schedPriority":80,"system_usec":125,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":80,"userTime":0,"waitEvent":[1,5431829358890372783],"continuation":[0,68840212976],"lastRunTime":7.4544280199999999,"systemTime":0.00012401,"name":"smr.reclaim:4"},"107":{"id":107,"schedPriority":80,"state":["TH_WAIT","TH_UNINT"],"system_usec":0,"snapshotFlags":["kKernel64_p"],"user_usec":0,"kernelFrames":[[0,68840163164]],"basePriority":80,"userTime":0,"waitEvent":[0,68849633072],"continuation":[0,68840085872],"lastRunTime":78.721692967999999,"systemTime":0,"name":"daemon.thread-backtrace"},"114":{"id":114,"schedPriority":31,"system_usec":7115,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":31,"userTime":0,"waitEvent":[0,68849295224],"continuation":[0,68841274652],"lastRunTime":0.67944150999999997,"systemTime":0.0070416660000000002,"name":"VM_pageout_garbage_collect"},"233":{"id":233,"schedPriority":91,"system_usec":10,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":91,"userTime":0,"waitEvent":[0,68849212836],"continuation":[0,68840842224],"lastRunTime":26.021585937000001,"systemTime":1.0519999999999999e-05,"name":"VM_cswap_trigger"},"157":{"id":157,"schedPriority":80,"state":["TH_WAIT","TH_UNINT"],"system_usec":0,"snapshotFlags":["kKernel64_p"],"user_usec":0,"kernelFrames":[[0,68840163164]],"basePriority":80,"userTime":0,"waitEvent":[1,5431829358890323631],"continuation":[0,68840212976],"lastRunTime":78.721692967999999,"systemTime":0,"name":"smr.reclaim:1"},"122":{"continuation":[0,68842341420],"userTime":0,"systemTime":9.6350000000000001e-06,"id":122,"basePriority":81,"lastRunTime":52.721078384999998,"user_usec":0,"schedPriority":81,"system_usec":9,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68849349056]},"108":{"id":108,"schedPriority":94,"system_usec":282,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":94,"userTime":0,"waitEvent":[0,68848724224],"continuation":[0,68840343516],"lastRunTime":16.687063905999999,"systemTime":0.00027979099999999999,"name":"thread_call_daemon"},"115":{"id":115,"schedPriority":81,"system_usec":14,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":81,"userTime":0,"waitEvent":[0,68849756872],"continuation":[0,68841344168],"lastRunTime":52.800435780999997,"systemTime":1.4739000000000001e-05,"name":"VM_reclaim_scavenger"},"234":{"id":234,"schedPriority":91,"system_usec":213283,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":91,"userTime":0,"waitEvent":[0,68849295312],"continuation":[0,68841315492],"lastRunTime":0.012865156000000001,"systemTime":0.21106187500000001,"name":"VM_compressor"},"172":{"continuation":[0,68845218360],"userTime":0,"systemTime":8.1249999999999993e-06,"id":172,"basePriority":81,"lastRunTime":52.675153854000001,"user_usec":0,"schedPriority":81,"system_usec":8,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68849852720]},"116":{"id":116,"schedPriority":63,"system_usec":78,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":63,"userTime":0,"waitEvent":[0,68849617648],"continuation":[0,68840085872],"lastRunTime":52.648641197000003,"systemTime":7.8125000000000002e-05,"name":"daemon.core-analytics-events"},"123":{"continuation":[0,68844900328],"userTime":0,"systemTime":8.1249999999999993e-06,"id":123,"basePriority":81,"lastRunTime":52.721070259999998,"user_usec":0,"schedPriority":81,"system_usec":8,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68848816128]},"228":{"id":228,"system_usec":106384,"kernelFrames":[[0,68841833424],[0,68840162156],[0,68840157208],[0,68844984316],[0,68841800908]],"state":["TH_WAIT","TH_UNINT"],"snapshotFlags":["kKernel64_p"],"user_usec":0,"basePriority":81,"userTime":0,"waitEvent":[0,68848816772],"lastRunTime":0.012834062,"systemTime":0.10527625,"schedPriority":81},"130":{"id":130,"schedPriority":93,"system_usec":14191,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":93,"userTime":0,"waitEvent":[0,68848719104],"continuation":[0,68840344164],"lastRunTime":0.0050008850000000001,"systemTime":0.014043229000000001,"name":"thread call high #1"},"165":{"id":165,"schedPriority":80,"system_usec":93,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":80,"userTime":0,"waitEvent":[1,5431829358890389167],"continuation":[0,68840212976],"lastRunTime":7.3335930720000002,"systemTime":9.2707999999999994e-05,"name":"smr.reclaim:5"},"109":{"id":109,"schedPriority":80,"system_usec":112,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":80,"userTime":0,"waitEvent":[0,68848963080],"continuation":[0,68840212976],"lastRunTime":0.35395525999999999,"systemTime":0.000111354,"name":"smr.reclaim:0"},"173":{"id":173,"schedPriority":95,"system_usec":17,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":95,"userTime":0,"waitEvent":[1,5431829360268980019],"continuation":[0,68845258536],"lastRunTime":52.687310519999997,"systemTime":1.7394999999999999e-05,"name":"VM_memorystatus_1"},"117":{"continuation":[0,68847264708],"userTime":0,"systemTime":1.0572e-05,"id":117,"basePriority":81,"lastRunTime":52.800425208,"user_usec":0,"schedPriority":81,"system_usec":10,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[1,5431829377018731647]},"180":{"id":180,"schedPriority":81,"system_usec":16,"state":["TH_WAIT"],"user_usec":0,"basePriority":81,"userTime":0,"waitEvent":[0,68849381576],"continuation":[0,68843699820],"lastRunTime":52.174071666000003,"systemTime":1.6562000000000002e-05,"name":"CFIL_STATS_REPORT"},"124":{"continuation":[0,68844900328],"userTime":0,"systemTime":7.2389999999999996e-06,"id":124,"basePriority":81,"lastRunTime":52.721063020000003,"user_usec":0,"schedPriority":81,"system_usec":7,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68848816128]},"131":{"id":131,"name":"thread call kernel #1","state":["TH_WAIT"],"system_usec":2784,"schedFlags":["TH_SFLAG_EAGERPREEMPT"],"user_usec":0,"basePriority":81,"userTime":0,"waitEvent":[0,68848719744],"continuation":[0,68840344164],"lastRunTime":0.062537186999999994,"systemTime":0.0027554680000000001,"schedPriority":81},"159":{"id":159,"schedPriority":80,"state":["TH_WAIT","TH_UNINT"],"system_usec":0,"snapshotFlags":["kKernel64_p"],"user_usec":0,"kernelFrames":[[0,68840163164]],"basePriority":80,"userTime":0,"waitEvent":[1,5431829358890340015],"continuation":[0,68840212976],"lastRunTime":78.721692967999999,"systemTime":0,"name":"smr.reclaim:2"},"236":{"id":236,"schedPriority":31,"system_usec":2168,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":31,"userTime":0,"waitEvent":[1,5431829369286066631],"continuation":[0,68926844360],"lastRunTime":0.036194946999999998,"systemTime":0.0021455720000000001,"name":"apfs_purgatory_cleaner"},"167":{"id":167,"schedPriority":80,"system_usec":141,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":80,"userTime":0,"waitEvent":[1,5431829358890405551],"continuation":[0,68840212976],"lastRunTime":1.764826666,"systemTime":0.00013989499999999999,"name":"smr.reclaim:6"},"174":{"id":174,"schedPriority":95,"system_usec":11,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":95,"userTime":0,"waitEvent":[1,5431829360268980067],"continuation":[0,68845258536],"lastRunTime":52.687299479000004,"systemTime":1.1041e-05,"name":"VM_memorystatus_2"},"181":{"id":181,"system_usec":50893424,"schedPriority":0,"state":["TH_RUN","TH_IDLE"],"snapshotFlags":["kKernel64_p","kThreadOnCore"],"user_usec":0,"kernelFrames":[[0,68841808304],[0,68840177356],[0,68840177708],[0,68841800908]],"basePriority":0,"lastMadeRunnableTime":52.670823489,"userTime":0,"lastRunTime":0.0083696870000000007,"systemTime":50.884118385000001,"name":"idle #1"},"125":{"continuation":[0,68845218360],"userTime":0,"systemTime":7.9160000000000001e-06,"id":125,"basePriority":81,"lastRunTime":52.721055104000001,"user_usec":0,"schedPriority":81,"system_usec":8,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68849787440]},"244":{"id":244,"schedPriority":81,"system_usec":34275,"state":["TH_WAIT","TH_UNINT"],"snapshotFlags":["kKernel64_p","kThreadIOPassive"],"user_usec":0,"kernelFrames":[[0,68841833424],[0,68840162156],[0,68840157208],[0,68840053700],[0,68845216924],[0,68845217884],[0,68927454828],[0,68841800908]],"basePriority":81,"userTime":0,"waitEvent":[1,5431829377018685351],"lastRunTime":0.49135083299999999,"systemTime":0.033918489000000003,"name":"apfs_transaction_flusher"},"175":{"id":175,"schedPriority":95,"system_usec":10,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":95,"userTime":0,"waitEvent":[1,5431829360268980115],"continuation":[0,68845258536],"lastRunTime":52.687289061999998,"systemTime":1.0416e-05,"name":"VM_memorystatus_3"},"119":{"id":119,"schedPriority":81,"state":["TH_WAIT","TH_UNINT"],"system_usec":0,"snapshotFlags":["kKernel64_p"],"user_usec":0,"kernelFrames":[[0,68840163164]],"basePriority":81,"userTime":0,"waitEvent":[0,68849242024],"continuation":[0,68840085872],"lastRunTime":78.721692967999999,"systemTime":0,"name":"VM_io_reprioritize_thread"},"182":{"id":182,"system_usec":51416640,"schedPriority":0,"state":["TH_RUN","TH_IDLE"],"snapshotFlags":["kKernel64_p","kThreadOnCore"],"user_usec":0,"kernelFrames":[[0,68841808304],[0,68840177356],[0,68840177708],[0,68841800908]],"basePriority":0,"lastMadeRunnableTime":52.665735988999998,"userTime":0,"lastRunTime":0.013416822,"systemTime":51.412300000000002,"name":"idle #2"},"126":{"continuation":[0,68845218360],"userTime":0,"systemTime":8.9579999999999996e-06,"id":126,"basePriority":81,"lastRunTime":52.721046145000003,"user_usec":0,"schedPriority":81,"system_usec":9,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68848335380]},"238":{"id":238,"schedPriority":92,"system_usec":4141,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":92,"userTime":0,"waitEvent":[0,68848721664],"continuation":[0,68840344164],"lastRunTime":0.074485833000000001,"systemTime":0.0040979160000000001,"name":"thread call kernel-high #1"},"169":{"id":169,"schedPriority":80,"system_usec":220,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":80,"userTime":0,"waitEvent":[1,5431829358890421935],"continuation":[0,68840212976],"lastRunTime":0.59602515599999994,"systemTime":0.00021854099999999999,"name":"smr.reclaim:7"},"183":{"id":183,"system_usec":51338644,"schedPriority":0,"state":["TH_RUN","TH_IDLE"],"snapshotFlags":["kKernel64_p","kThreadOnCore"],"user_usec":0,"kernelFrames":[[0,68841808304],[0,68840177356],[0,68840177708],[0,68841800908]],"basePriority":0,"lastMadeRunnableTime":52.663148124999999,"userTime":0,"lastRunTime":0.013242968000000001,"systemTime":51.335117343,"name":"idle #3"},"127":{"continuation":[0,68845218360],"userTime":0,"systemTime":7.3429999999999998e-06,"id":127,"basePriority":81,"lastRunTime":52.721038802000002,"user_usec":0,"schedPriority":81,"system_usec":7,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68848801360]},"134":{"id":134,"schedPriority":81,"system_usec":1106,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":81,"userTime":0,"waitEvent":[1,5431829377018732127],"continuation":[0,68847264708],"lastRunTime":10.121413801999999,"systemTime":0.0010954160000000001,"name":"IOPMrootDomain"},"492":{"id":492,"name":"thread call qos-ui #1","state":["TH_WAIT","TH_UNINT"],"system_usec":300,"schedFlags":["TH_SFLAG_EAGERPREEMPT"],"user_usec":0,"basePriority":47,"userTime":0,"waitEvent":[0,68848722304],"continuation":[0,68840344164],"lastRunTime":0.042042655999999998,"systemTime":0.00029729099999999998,"schedPriority":47},"184":{"id":184,"system_usec":44176616,"schedPriority":0,"state":["TH_RUN","TH_IDLE"],"snapshotFlags":["kKernel64_p","kThreadOnCore"],"user_usec":0,"kernelFrames":[[0,68841808304],[0,68840177356],[0,68840177708],[0,68841800908]],"basePriority":0,"lastMadeRunnableTime":52.660776822000003,"userTime":0,"lastRunTime":0.000122447,"systemTime":44.174777186999997,"name":"idle #4"},"128":{"continuation":[0,68842829128],"userTime":0,"systemTime":2.8436999999999999e-05,"id":128,"basePriority":81,"lastRunTime":52.675161979000002,"user_usec":0,"schedPriority":81,"system_usec":28,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68849779080]},"185":{"id":185,"schedPriority":0,"state":["TH_RUN","TH_IDLE"],"system_usec":46699549,"snapshotFlags":["kThreadOnCore"],"user_usec":0,"basePriority":0,"lastMadeRunnableTime":52.655886926999997,"userTime":0,"continuation":[0,68840177648],"lastRunTime":0.00081296799999999996,"systemTime":46.692262708000001,"name":"idle #5"},"129":{"continuation":[0,68842813452],"userTime":0,"systemTime":4.5104e-05,"id":129,"basePriority":81,"lastRunTime":52.687274166000002,"user_usec":0,"schedPriority":81,"system_usec":45,"state":["TH_WAIT","TH_UNINT"],"waitEvent":[0,68849779288]},"178":{"id":178,"schedPriority":81,"state":["TH_WAIT","TH_UNINT"],"system_usec":8,"schedFlags":["TH_SFLAG_FLOOR_PROMOTED"],"snapshotFlags":["kKernel64_p"],"user_usec":0,"kernelFrames":[[0,68841833424],[0,68840162156],[0,68840157208],[0,68840053448],[0,68847432980],[0,68847426312],[0,68841800908]],"basePriority":81,"userTime":0,"waitEvent":[1,5431829373153350015],"lastRunTime":52.675126458000001,"systemTime":8.6969999999999999e-06,"name":"frames to the panel"},"101":{"id":101,"schedPriority":91,"system_usec":984352,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":91,"userTime":0,"waitEvent":[0,68849308864],"continuation":[0,68841270464],"lastRunTime":0.013229687,"systemTime":0.97409869699999996,"name":"VM_pageout_scan"},"402":{"id":402,"name":"thread call user #1","state":["TH_WAIT"],"system_usec":1753,"schedFlags":["TH_SFLAG_EAGERPREEMPT"],"user_usec":0,"basePriority":31,"userTime":0,"waitEvent":[0,68848720384],"continuation":[0,68840344164],"lastRunTime":0.199897031,"systemTime":0.0017347389999999999,"schedPriority":31},"186":{"id":186,"schedPriority":0,"state":["TH_RUN","TH_IDLE"],"system_usec":48615996,"snapshotFlags":["kThreadOnCore"],"user_usec":0,"basePriority":0,"lastMadeRunnableTime":52.654377394999997,"userTime":0,"continuation":[0,68840177648],"lastRunTime":0.01592526,"systemTime":48.609580311999999,"name":"idle #6"},"193":{"id":193,"schedPriority":95,"system_usec":5,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":95,"userTime":0,"waitEvent":[0,68849020136],"continuation":[0,68840184484],"lastRunTime":52.611460260000001,"systemTime":5.7810000000000002e-06,"name":"sched_update_powered_cores"},"102":{"id":102,"system_usec":50048375,"schedPriority":0,"state":["TH_RUN","TH_IDLE"],"snapshotFlags":["kKernel64_p","kThreadOnCore"],"user_usec":0,"kernelFrames":[[0,68841808304],[0,68840177356],[0,68840177708],[0,68841800908]],"basePriority":0,"lastMadeRunnableTime":53.038961718000003,"userTime":0,"lastRunTime":0.0022430200000000001,"systemTime":50.047872030999997,"name":"idle #0"},"187":{"id":187,"schedPriority":0,"state":["TH_RUN","TH_IDLE"],"system_usec":19733659,"snapshotFlags":["kThreadOnCore"],"user_usec":0,"basePriority":0,"lastMadeRunnableTime":52.652878385000001,"userTime":0,"continuation":[0,68840177648],"lastRunTime":1.0468e-05,"systemTime":19.726017342999999,"name":"idle #7"},"103":{"id":103,"schedPriority":95,"system_usec":5885,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":95,"userTime":0,"waitEvent":[0,68848138508],"continuation":[0,68848138508],"lastRunTime":0.054644114000000001,"systemTime":0.0058240100000000001,"name":"sched_maintenance_thread"},"110":{"id":110,"schedPriority":81,"state":["TH_WAIT","TH_UNINT"],"system_usec":199,"schedFlags":["TH_SFLAG_FLOOR_PROMOTED"],"snapshotFlags":["kKernel64_p"],"user_usec":0,"kernelFrames":[[0,68841833424],[0,68840162156],[0,68840157208],[0,68840053448],[0,68847085716],[0,68841800908]],"basePriority":81,"userTime":0,"waitEvent":[0,68849855096],"lastRunTime":5.2248808850000001,"systemTime":0.000197708,"name":"IOServiceTerminateThread"},"188":{"id":188,"schedPriority":81,"system_usec":933,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":81,"userTime":0,"waitEvent":[1,5431829377018717359],"continuation":[0,68847264708],"lastRunTime":0.074483906000000003,"systemTime":0.00092400999999999996,"name":"CoreAnalyticsHub"},"195":{"id":195,"system_usec":7230,"kernelFrames":[[0,68841833424],[0,68840162156],[0,68840157208],[0,68839894856],[0,68848061504],[0,68841800908]],"state":["TH_WAIT","TH_UNINT"],"snapshotFlags":["kKernel64_p"],"user_usec":0,"basePriority":81,"userTime":0,"waitEvent":[0,68839894316],"lastRunTime":0.068033645000000004,"systemTime":0.0071555719999999998,"schedPriority":81},"104":{"id":104,"schedPriority":80,"system_usec":16796,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":80,"userTime":0,"waitEvent":[0,68849627248],"continuation":[0,68840085872],"lastRunTime":0.092570572000000004,"systemTime":0.016621509999999999,"name":"daemon.deferred-deallocation"},"230":{"id":230,"schedPriority":91,"state":["TH_WAIT","TH_UNINT"],"system_usec":160276,"snapshotFlags":["kThreadIOPassive"],"user_usec":0,"basePriority":91,"userTime":0,"waitEvent":[0,68849295192],"continuation":[0,68841314112],"lastRunTime":0.165906145,"systemTime":0.15860734300000001,"name":"VM_pageout_external_iothread"},"161":{"id":161,"schedPriority":80,"state":["TH_WAIT","TH_UNINT"],"system_usec":0,"snapshotFlags":["kKernel64_p"],"user_usec":0,"kernelFrames":[[0,68840163164]],"basePriority":80,"userTime":0,"waitEvent":[1,5431829358890356399],"continuation":[0,68840212976],"lastRunTime":78.721692967999999,"systemTime":0,"name":"smr.reclaim:3"},"105":{"id":105,"schedPriority":93,"system_usec":2566,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":93,"userTime":0,"waitEvent":[0,68849633168],"continuation":[0,68840085872],"lastRunTime":0.51181390599999999,"systemTime":0.0025394269999999999,"name":"daemon.thread-stack"},"231":{"id":231,"schedPriority":31,"system_usec":5,"state":["TH_WAIT","TH_UNINT"],"user_usec":0,"basePriority":31,"userTime":0,"waitEvent":[0,68841274044],"continuation":[0,68841274044],"lastRunTime":52.403735363999999,"systemTime":5.8850000000000004e-06,"name":"VM_pressure"}},"userTimeTask":0,"pid":0,"systemTimeTask":364.69514635399997,"flags":["sharedRegionNone"],"residentMemoryBytes":40960},
+    "1" : {"resampled_images":[["eda938b3-86c9-36f1-a44d-57fe093237ff",4311531520,""],["15662d9d-d5db-3b2a-9637-0c305481cea1",4312219648,""]],"timesThrottled":0,"pageIns":1016,"codeSigningAuxiliaryInfo":0,"rawFlags":"0x40780001","waitInfo":["thread 728: semaphore port 0x4b61bc0a11eb2847 owned by pid 1"],"timesDidThrottle":0,"csTrustLevel":4294967295,"systemTimeTask":19.205730312,"procname":"launchd","copyOnWriteFaults":52,"threadById":{"491":{"id":491,"state":["TH_WAIT"],"system_usec":498563,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadIdleWorker"],"user_usec":23670,"basePriority":37,"userFrames":[[2,1311328680],[2,1631349424]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.023424009999999999,"waitEvent":[1,5431829369285207791],"continuation":[0,68844854024],"lastRunTime":3.6340151559999998,"systemTime":0.49337020799999998,"schedPriority":37},"242":{"id":242,"state":["TH_WAIT"],"system_usec":104,"qosRequested":"QOS_CLASS_DEFAULT","snapshotFlags":["kUser64_p"],"user_usec":15,"basePriority":31,"userFrames":[[2,1311346528],[2,168749412],[1,0]],"qosEffective":"QOS_CLASS_DEFAULT","userTime":1.5729000000000001e-05,"waitEvent":[1,5431829369289982151],"continuation":[0,68845218360],"lastRunTime":0.092803802000000005,"systemTime":0.000103645,"schedPriority":31},"488":{"id":488,"state":["TH_WAIT"],"system_usec":372258,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadIdleWorker"],"user_usec":20829,"basePriority":37,"userFrames":[[2,1311328680],[2,1631349424]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.020612915999999998,"waitEvent":[1,5431829369285230135],"continuation":[0,68844854024],"lastRunTime":3.633125052,"systemTime":0.36838031199999999,"schedPriority":37},"430":{"id":430,"state":["TH_WAIT"],"system_usec":50470,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadIdleWorker"],"user_usec":19127,"basePriority":37,"userFrames":[[2,1311328680],[2,1631349424]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.018928072000000001,"waitEvent":[1,5431829369285370895],"continuation":[0,68844854024],"lastRunTime":3.6324615100000002,"systemTime":0.049945103999999997,"schedPriority":37},"240":{"id":240,"state":["TH_WAIT"],"system_usec":4010606,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadTruncatedBT","kThreadFaultedBT","kThreadIdleWorker","kThreadTruncUserBT"],"user_usec":45357,"basePriority":37,"userFrames":[[2,1311328680]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.044885156000000002,"waitEvent":[1,5431829369287516463],"continuation":[0,68844854024],"lastRunTime":3.6306677600000001,"systemTime":4.0104963539999998,"schedPriority":37},"486":{"id":486,"state":["TH_WAIT"],"system_usec":161043,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadIdleWorker"],"user_usec":13517,"basePriority":37,"userFrames":[[2,1311328680],[2,1631349424]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.013377135,"waitEvent":[1,5431829369285227903],"continuation":[0,68844854024],"lastRunTime":3.6252635409999998,"systemTime":0.15936557200000001,"schedPriority":37},"489":{"id":489,"state":["TH_WAIT"],"system_usec":387236,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadIdleWorker"],"user_usec":54356,"basePriority":37,"userFrames":[[2,1311328680],[2,1631349424]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.053790729000000002,"waitEvent":[1,5431829369285221207],"continuation":[0,68844854024],"lastRunTime":0.092649479000000007,"systemTime":0.38320296799999998,"schedPriority":37},"728":{"id":728,"state":["TH_WAIT"],"name":"fairplayd.A2 throttled after exit()","qosRequested":"QOS_CLASS_DEFAULT","snapshotFlags":["kUser64_p","kThreadTruncatedBT","kThreadFaultedBT","kThreadTruncUserBT"],"user_usec":4,"system_usec":38,"basePriority":31,"userFrames":[[2,1311329136]],"qosEffective":"QOS_CLASS_DEFAULT","userTime":4.3749999999999996e-06,"waitEvent":[0,68836942988],"continuation":[0,68840226460],"lastRunTime":6.8269016660000004,"systemTime":3.7916000000000001e-05,"schedPriority":31},"765":{"id":765,"state":["TH_WAIT"],"system_usec":15085,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadIdleWorker"],"user_usec":5416,"basePriority":37,"userFrames":[[2,1311328680],[2,1631349424]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.0053595830000000002,"waitEvent":[1,5431829369284309663],"continuation":[0,68844854024],"lastRunTime":3.6279530719999999,"systemTime":0.014928541,"schedPriority":37},"490":{"id":490,"state":["TH_WAIT"],"system_usec":480065,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadIdleWorker"],"user_usec":27107,"basePriority":37,"userFrames":[[2,1311328680],[2,1631349424]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.026825312,"waitEvent":[1,5431829369285232367],"continuation":[0,68844854024],"lastRunTime":0.00078801999999999995,"systemTime":0.47506432199999998,"schedPriority":37},"487":{"id":487,"state":["TH_WAIT"],"system_usec":369524,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadIdleWorker"],"user_usec":26795,"basePriority":37,"userFrames":[[2,1311328680],[2,1631349424]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.026516093000000001,"waitEvent":[1,5431829369285218975],"continuation":[0,68844854024],"lastRunTime":0.026528854000000001,"systemTime":0.36567551999999998,"schedPriority":37},"493":{"id":493,"state":["TH_WAIT"],"system_usec":490714,"qosRequested":"QOS_CLASS_USER_INITIATED","snapshotFlags":["kUser64_p","kThreadIdleWorker"],"user_usec":19884,"basePriority":37,"userFrames":[[2,1311328680],[2,1631349424]],"qosEffective":"QOS_CLASS_USER_INITIATED","userTime":0.019677447000000001,"waitEvent":[1,5431829369285187703],"continuation":[0,68844854024],"lastRunTime":3.632869114,"systemTime":0.48560244699999999,"schedPriority":37}},"pageFaults":5908,"jetsamCoalition":3,"userTimeTask":0.43862755199999998,"pid":1,"csFlags":570425345,"flags":["uuidFaultFlags0x00700000","resampledExtraImages","sharedRegionSystem"],"residentMemoryBytes":5484800},
+    "4" : {
+  "codeSigningAuxiliaryInfo" : 0,
+  "jetsamCoalition" : 8,
+  "frontmost" : 1,
+  "pageFaults" : 6789,
+  "userTimeTask" : 0.106644843,
+  "copyOnWriteFaults" : 320,
+  "procname" : "SpringBoard",
+  "rawFlags" : "0x4409C401",
+  "residentMemoryBytes" : 4615680,
+  "timesThrottled" : 0,
+  "turnstileInfo" : [
+    "thread 249: blocked on 631, hops: 1, priority: 47",
+    "thread 624: blocked on 693, hops: 1, priority: 46",
+    "thread 631: blocked on 832, hops: 3, priority: 47 (com.apple.lsd.mapdb)",
+    "thread 823: turnstile has unknown inheritor"
+  ],
+  "flags" : [
+    "foreground",
+    "isImpDonor",
+    "isLiveImpDonor",
+    "dirty",
+    "isDirtyTracked",
+    "sharedRegionSystem"
+  ],
+  "csTrustLevel" : 4294967295,
+  "portlabels" : {
+    "3" : "com.apple.lsd.mapdb"
+  },
+  "timesDidThrottle" : 0,
+  "pageIns" : 3282,
+  "donatingPids" : [
+    6,
+    4
+  ],
+  "pid" : 4,
+  "csFlags" : 570425345,
+  "threadById" : {
+    "249" : {
+      "id" : 249,
+      "state" : [
+        "TH_WAIT"
+      ],
+      "system_usec" : 1535068,
+      "qosRequested" : "QOS_CLASS_USER_INTERACTIVE",
+      "snapshotFlags" : [
+        "kUser64_p",
+        "kHasDispatchSerial",
+        "kThreadMain"
+      ],
+      "user_usec" : 83357,
+      "basePriority" : 47,
+      "dispatch_queue_label" : "com.apple.ControlCenter.ModuleRepository",
+      "userFrames" : [
+        [
+          2,
+          1311328780
+        ],
+        [
+          2,
+          40262640
+        ],
+        [
+          2,
+          40262096
+        ],
+        [
+          2,
+          40261080
+        ],
+        [
+          2,
+          40260768
+        ],
+        [
+          2,
+          2562725928
+        ],
+        [
+          2,
+          170170316
+        ],
+        [
+          2,
+          2562724156
+        ],
+        [
+          2,
+          2562723892
+        ],
+        [
+          2,
+          2562764480
+        ],
+        [
+          2,
+          2562763960
+        ],
+        [
+          2,
+          2562762428
+        ],
+        [
+          2,
+          168847976
+        ],
+        [
+          2,
+          168734968
+        ],
+        [
+          2,
+          2562762360
+        ],
+        [
+          2,
+          2562761928
+        ],
+        [
+          2,
+          168847976
+        ],
+        [
+          2,
+          168669804
+        ],
+        [
+          2,
+          2562761844
+        ],
+        [
+          2,
+          2562728428
+        ],
+        [
+          2,
+          2562728312
+        ],
+        [
+          2,
+          168847976
+        ],
+        [
+          2,
+          168669804
+        ],
+        [
+          2,
+          2562728280
+        ],
+        [
+          2,
+          2562767584
+        ],
+        [
+          2,
+          2562767232
+        ],
+        [
+          2,
+          620525032
+        ],
+        [
+          2,
+          1381830668
+        ],
+        [
+          2,
+          661854572
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "qosEffective" : "QOS_CLASS_USER_INTERACTIVE",
+      "userTime" : 0.082488958000000001,
+      "waitEvent" : [
+        1,
+        5431829373151569927
+      ],
+      "continuation" : [
+        0,
+        68845440916
+      ],
+      "lastRunTime" : 1.1585208330000001,
+      "systemTime" : 1.5294943750000001,
+      "schedPriority" : 47
+    },
+    "554" : {
+      "id" : 554,
+      "state" : [
+        "TH_WAIT"
+      ],
+      "system_usec" : 293,
+      "qosRequested" : "QOS_CLASS_DEFAULT",
+      "snapshotFlags" : [
+        "kUser64_p"
+      ],
+      "user_usec" : 28,
+      "basePriority" : 31,
+      "userFrames" : [
+        [
+          2,
+          1311351240
+        ],
+        [
+          2,
+          169149908
+        ],
+        [
+          3,
+          63240
+        ],
+        [
+          2,
+          1631356592
+        ],
+        [
+          2,
+          1631349436
+        ]
+      ],
+      "qosEffective" : "QOS_CLASS_DEFAULT",
+      "userTime" : 2.7864e-05,
+      "waitEvent" : [
+        0,
+        68836942988
+      ],
+      "continuation" : [
+        0,
+        68840226460
+      ],
+      "lastRunTime" : 4.263837552,
+      "systemTime" : 0.00029062499999999998,
+      "schedPriority" : 31
+    },
+    "823" : {
+      "id" : 823,
+      "state" : [
+        "TH_WAIT"
+      ],
+      "system_usec" : 7001,
+      "qosRequested" : "QOS_CLASS_USER_INITIATED",
+      "snapshotFlags" : [
+        "kUser64_p",
+        "kHasDispatchSerial"
+      ],
+      "user_usec" : 2628,
+      "basePriority" : 37,
+      "dispatch_queue_label" : "com.apple.libtrace.state.block-list",
+      "userFrames" : [
+        [
+          2,
+          1311353352
+        ],
+        [
+          2,
+          168666472
+        ],
+        [
+          2,
+          168735640
+        ],
+        [
+          2,
+          168734628
+        ],
+        [
+          2,
+          491019792
+        ],
+        [
+          2,
+          168843312
+        ],
+        [
+          2,
+          168847976
+        ],
+        [
+          2,
+          168709988
+        ],
+        [
+          2,
+          168712432
+        ],
+        [
+          2,
+          168748816
+        ],
+        [
+          2,
+          168747032
+        ],
+        [
+          2,
+          1631349264
+        ],
+        [
+          2,
+          1631349424
+        ]
+      ],
+      "qosEffective" : "QOS_CLASS_USER_INITIATED",
+      "userTime" : 0.0026014580000000001,
+      "waitEvent" : [
+        1,
+        5431829373151569735
+      ],
+      "continuation" : [
+        0,
+        68845440916
+      ],
+      "lastRunTime" : 1.65322401,
+      "systemTime" : 0.006928437,
+      "schedPriority" : 37
+    },
+    "631" : {
+      "id" : 631,
+      "state" : [
+        "TH_WAIT"
+      ],
+      "system_usec" : 8775,
+      "qosRequested" : "QOS_CLASS_USER_INITIATED",
+      "snapshotFlags" : [
+        "kUser64_p",
+        "kHasDispatchSerial"
+      ],
+      "user_usec" : 2882,
+      "basePriority" : 47,
+      "dispatch_queue_label" : "com.apple.frontboard.repositorymanager.init",
+      "userFrames" : [
+        [
+          2,
+          1311329268
+        ],
+        [
+          2,
+          1311342800
+        ],
+        [
+          2,
+          1311342364
+        ],
+        [
+          2,
+          168674792
+        ],
+        [
+          2,
+          168675716
+        ],
+        [
+          2,
+          1631729704
+        ],
+        [
+          2,
+          23480724
+        ],
+        [
+          2,
+          23209520
+        ],
+        [
+          2,
+          23215896
+        ],
+        [
+          2,
+          23215700
+        ],
+        [
+          2,
+          40416684
+        ],
+        [
+          2,
+          40262820
+        ],
+        [
+          2,
+          40262096
+        ],
+        [
+          2,
+          40433972
+        ],
+        [
+          2,
+          40433076
+        ],
+        [
+          2,
+          43023032
+        ],
+        [
+          2,
+          620476556
+        ],
+        [
+          2,
+          168843312
+        ],
+        [
+          2,
+          168847976
+        ],
+        [
+          2,
+          168709988
+        ],
+        [
+          2,
+          168712432
+        ],
+        [
+          2,
+          168748816
+        ],
+        [
+          2,
+          168747032
+        ],
+        [
+          2,
+          1631349264
+        ],
+        [
+          2,
+          1631349424
+        ]
+      ],
+      "qosEffective" : "QOS_CLASS_USER_INTERACTIVE",
+      "userTime" : 0.0028522909999999999,
+      "continuation" : [
+        0,
+        68839788744
+      ],
+      "lastRunTime" : 2.0519495829999999,
+      "systemTime" : 0.0086841660000000001,
+      "schedPriority" : 47
+    },
+    "826" : {
+      "id" : 826,
+      "state" : [
+        "TH_WAIT"
+      ],
+      "system_usec" : 81769,
+      "qosRequested" : "QOS_CLASS_DEFAULT",
+      "snapshotFlags" : [
+        "kUser64_p",
+        "kThreadIdleWorker"
+      ],
+      "user_usec" : 7864,
+      "basePriority" : 31,
+      "userFrames" : [
+        [
+          2,
+          1311328680
+        ],
+        [
+          2,
+          1631349424
+        ]
+      ],
+      "qosEffective" : "QOS_CLASS_DEFAULT",
+      "userTime" : 0.0077828639999999996,
+      "waitEvent" : [
+        1,
+        5431829369284963159
+      ],
+      "continuation" : [
+        0,
+        68844854024
+      ],
+      "lastRunTime" : 0.38631458299999999,
+      "systemTime" : 0.080917500000000003,
+      "schedPriority" : 31
+    },
+    "624" : {
+      "id" : 624,
+      "state" : [
+        "TH_WAIT",
+        "TH_UNINT"
+      ],
+      "system_usec" : 46001,
+      "qosRequested" : "QOS_CLASS_UTILITY",
+      "schedFlags" : [
+        "TH_SFLAG_RW_PROMOTED",
+        "TH_SFLAG_FLOOR_PROMOTED"
+      ],
+      "snapshotFlags" : [
+        "kUser64_p",
+        "kKernel64_p",
+        "kHasDispatchSerial",
+        "kThreadIOPassive"
+      ],
+      "user_usec" : 4481,
+      "kernelFrames" : [
+        [
+          0,
+          68841833424
+        ],
+        [
+          0,
+          68840162156
+        ],
+        [
+          0,
+          68840157208
+        ],
+        [
+          0,
+          68840025724
+        ],
+        [
+          0,
+          68848072668
+        ],
+        [
+          0,
+          68912381568
+        ],
+        [
+          0,
+          68912392976
+        ],
+        [
+          0,
+          68912418868
+        ],
+        [
+          0,
+          68842578048
+        ],
+        [
+          0,
+          68842531976
+        ],
+        [
+          0,
+          68926316932
+        ],
+        [
+          0,
+          68926317152
+        ],
+        [
+          0,
+          68926316224
+        ],
+        [
+          0,
+          68926973744
+        ],
+        [
+          0,
+          68926549136
+        ],
+        [
+          0,
+          68842531976
+        ],
+        [
+          0,
+          68842277928
+        ],
+        [
+          0,
+          68842281572
+        ],
+        [
+          0,
+          68842280988
+        ],
+        [
+          0,
+          68926606856
+        ],
+        [
+          0,
+          68842530452
+        ],
+        [
+          0,
+          68845793180
+        ],
+        [
+          0,
+          68840835824
+        ],
+        [
+          0,
+          68840831844
+        ],
+        [
+          0,
+          68840920192
+        ],
+        [
+          0,
+          68840944276
+        ],
+        [
+          0,
+          68840957020
+        ],
+        [
+          0,
+          68841787112
+        ],
+        [
+          0,
+          68848289844
+        ],
+        [
+          0,
+          68841784928
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "basePriority" : 31,
+      "dispatch_queue_label" : "com.apple.chronoservices.CHSChronoServicesConnection",
+      "userFrames" : [
+        [
+          2,
+          1630652548
+        ],
+        [
+          2,
+          170321776
+        ],
+        [
+          2,
+          170321036
+        ],
+        [
+          2,
+          170317824
+        ],
+        [
+          2,
+          170317648
+        ],
+        [
+          2,
+          265369172
+        ],
+        [
+          2,
+          168847976
+        ],
+        [
+          2,
+          168669804
+        ],
+        [
+          2,
+          265369084
+        ],
+        [
+          2,
+          265462100
+        ],
+        [
+          2,
+          470943024
+        ],
+        [
+          2,
+          470943464
+        ],
+        [
+          2,
+          265461952
+        ],
+        [
+          2,
+          265461708
+        ],
+        [
+          2,
+          265465336
+        ],
+        [
+          2,
+          168847976
+        ],
+        [
+          2,
+          168734968
+        ],
+        [
+          2,
+          265465188
+        ],
+        [
+          2,
+          265562396
+        ],
+        [
+          2,
+          265562252
+        ],
+        [
+          2,
+          265560308
+        ],
+        [
+          2,
+          265559216
+        ],
+        [
+          2,
+          265449616
+        ],
+        [
+          2,
+          265324188
+        ],
+        [
+          2,
+          265315052
+        ],
+        [
+          2,
+          265315232
+        ],
+        [
+          2,
+          265373932
+        ],
+        [
+          2,
+          1383416932
+        ],
+        [
+          2,
+          168843312
+        ],
+        [
+          2,
+          168847976
+        ],
+        [
+          2,
+          168709988
+        ],
+        [
+          2,
+          168712432
+        ],
+        [
+          2,
+          168748816
+        ],
+        [
+          2,
+          168747032
+        ],
+        [
+          2,
+          1631349264
+        ],
+        [
+          2,
+          1631349424
+        ]
+      ],
+      "qosEffective" : "QOS_CLASS_DEFAULT",
+      "userTime" : 0.0044344270000000003,
+      "waitEvent" : [
+        1,
+        5431829386037196815
+      ],
+      "lastRunTime" : 1.3134836969999999,
+      "systemTime" : 0.045522760000000002,
+      "schedPriority" : 46
+    },
+    "852" : {
+      "id" : 852,
+      "state" : [
+        "TH_WAIT"
+      ],
+      "system_usec" : 21,
+      "qosRequested" : "QOS_CLASS_UTILITY",
+      "snapshotFlags" : [
+        "kUser64_p",
+        "kThreadIOPassive",
+        "kThreadIdleWorker"
+      ],
+      "user_usec" : 0,
+      "basePriority" : 20,
+      "userFrames" : [
+        [
+          1,
+          0
+        ]
+      ],
+      "qosEffective" : "QOS_CLASS_UTILITY",
+      "userTime" : 0,
+      "waitEvent" : [
+        1,
+        5431829369284329775
+      ],
+      "continuation" : [
+        0,
+        68844854024
+      ],
+      "lastRunTime" : 0.429891458,
+      "systemTime" : 2.1458e-05,
+      "schedPriority" : 20
+    },
+    "825" : {
+      "id" : 825,
+      "state" : [
+        "TH_WAIT"
+      ],
+      "system_usec" : 663,
+      "qosRequested" : "QOS_CLASS_USER_INITIATED",
+      "snapshotFlags" : [
+        "kUser64_p",
+        "kThreadIdleWorker"
+      ],
+      "user_usec" : 704,
+      "basePriority" : 37,
+      "userFrames" : [
+        [
+          2,
+          1311328680
+        ],
+        [
+          2,
+          1631349424
+        ]
+      ],
+      "qosEffective" : "QOS_CLASS_USER_INITIATED",
+      "userTime" : 0.00069713499999999999,
+      "waitEvent" : [
+        1,
+        5431829369284811239
+      ],
+      "continuation" : [
+        0,
+        68844854024
+      ],
+      "lastRunTime" : 0.24659401,
+      "systemTime" : 0.00065676999999999999,
+      "schedPriority" : 37
+    },
+    "418" : {
+      "id" : 418,
+      "state" : [
+        "TH_WAIT"
+      ],
+      "system_usec" : 24409,
+      "qosRequested" : "QOS_CLASS_USER_INITIATED",
+      "schedFlags" : [
+        "TH_SFLAG_FLOOR_PROMOTED"
+      ],
+      "snapshotFlags" : [
+        "kUser64_p",
+        "kKernel64_p",
+        "kHasDispatchSerial"
+      ],
+      "user_usec" : 5736,
+      "kernelFrames" : [
+        [
+          0,
+          68841833424
+        ],
+        [
+          0,
+          68840162156
+        ],
+        [
+          0,
+          68840157208
+        ],
+        [
+          0,
+          68840040660
+        ],
+        [
+          0,
+          68841202292
+        ],
+        [
+          0,
+          68840946576
+        ],
+        [
+          0,
+          68840957020
+        ],
+        [
+          0,
+          68841787112
+        ],
+        [
+          0,
+          68848289844
+        ],
+        [
+          0,
+          68841784928
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "basePriority" : 37,
+      "dispatch_queue_label" : "org.unixnu.pong.native-volume",
+      "userFrames" : [
+        [
+          2,
+          1123092
+        ],
+        [
+          2,
+          1122924
+        ],
+        [
+          3,
+          60440
+        ],
+        [
+          3,
+          54068
+        ],
+        [
+          2,
+          168847976
+        ],
+        [
+          2,
+          168696328
+        ],
+        [
+          2,
+          168760548
+        ],
+        [
+          2,
+          168709580
+        ],
+        [
+          2,
+          168712432
+        ],
+        [
+          2,
+          168748816
+        ],
+        [
+          2,
+          168747032
+        ],
+        [
+          2,
+          1631349264
+        ],
+        [
+          2,
+          1631349424
+        ]
+      ],
+      "qosEffective" : "QOS_CLASS_USER_INITIATED",
+      "userTime" : 0.0056770309999999999,
+      "waitEvent" : [
+        1,
+        5431829358894928039
+      ],
+      "lastRunTime" : 0.63884593700000003,
+      "systemTime" : 0.02415552,
+      "schedPriority" : 46
+    }
+  },
+  "systemTimeTask" : 1.6972039059999999,
+  "waitInfo" : [
+    "thread 249: unfair lock 0x1f8491d38 owned by thread 631",
+    "thread 418: unknown type 22 (owner 0, context 0x4b61bc05d97850a7)",
+    "thread 554: semaphore port 0x4b61bc0a11d02927 owned by pid 4",
+    "thread 624: kernel mutex 0x4b61bc0c2b467807 owned by thread 693",
+    "thread 631: mach_msg receive on port 0x4b61bc0a11e64ec7 name 0x4103",
+    "thread 823: spinlock 0x16f74a750"
+  ]
+}
