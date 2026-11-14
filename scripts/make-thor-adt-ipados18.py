@@ -264,6 +264,32 @@ def main():
         ('pins', struct.pack('<6I', 16, 17, 18, 19, 21, 20)),
         ('max-x', struct.pack('<I', 1080)), ('max-y', struct.pack('<I', 2412)),
     ])
+    # THOR v78: ST FST2 touch frontend (Recovery confirms the 12S Ultra touch
+    # is STMicro FTS, not Goodix). The node is generated ONLY when
+    # configs/pong-touch-thor-fts.json exists with this board's confirmed
+    # Recovery-DT values; absent file = no node = the driver stays dormant and
+    # the Goodix frontend keeps its node. Fill: spi_base, tlmm_base, gcc_base,
+    # rsc_base, cmd_db_base, gpio_offset, pins[6] (clk,cs,mosi,miso,irq,rst),
+    # max_x, max_y.
+    fts = {}
+    fts_path = ROOT / 'configs/pong-touch-thor-fts.json'
+    if fts_path.exists():
+        fts = json.loads(fts_path.read_text())
+    if fts.get('enable'):
+        touch_fts = node('pong-touch-fts', [
+            ('compatible', b'pong,st-fst2\0'),
+            ('spi-base', struct.pack('<Q', int(fts['spi_base'], 0))),
+            ('tlmm-base', struct.pack('<Q', int(fts['tlmm_base'], 0))),
+            ('gcc-base', struct.pack('<Q', int(fts['gcc_base'], 0))),
+            ('rsc-base', struct.pack('<Q', int(fts['rsc_base'], 0))),
+            ('cmd-db-base', struct.pack('<Q', int(fts['cmd_db_base'], 0))),
+            ('gpio-offset', struct.pack('<I', int(fts['gpio_offset'], 0))),
+            ('pins', struct.pack('<6I', *[int(p) for p in fts['pins']])),
+            ('max-x', struct.pack('<I', int(fts['max_x'], 0))),
+            ('max-y', struct.pack('<I', int(fts['max_y'], 0))),
+        ])
+    else:
+        touch_fts = None
     tree = node('device-tree', [
         # Keys use the actual SM8475 PMIC-arbiter resources below.
         # MobileGestalt derives ProductType/DeviceClass from hw.product, which
@@ -330,6 +356,7 @@ def main():
             ('udid-version', struct.pack('<I', 1)),
             ('artwork-scale-factor', struct.pack('<I', 3)),
         ]),
+        *([touch_fts] if touch_fts is not None else []),
     ])
     # Hardware-only probes do not load AppleImage4. Full root boot does, and its
     # nonce subsystem requires CHMH even when the chip initializer allows AMNM.
