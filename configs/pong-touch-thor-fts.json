@@ -1,0 +1,13 @@
+{
+  "_comment": "Values from the Xiaomi 12S Ultra (thor) stock DTS, qupv3_se4_spi/fts@0: reg 0x990000, pinmux gpio16-19 qup4, fts irq-gpio 21, reset-gpio 20, x-max 0x3840, y-max 0x7d00. When enabled the Goodix pong-touch node is NOT generated (same serial engine).",
+  "enable": true,
+  "spi_base": "0x990000",
+  "tlmm_base": "0xF000000",
+  "gcc_base": "0x100000",
+  "rsc_base": "0x17A20000",
+  "cmd_db_base": "0x80860000",
+  "gpio_offset": "0x100000",
+  "pins": [16, 17, 18, 19, 21, 20],
+  "max_x": 14400,
+  "max_y": 32000
+}

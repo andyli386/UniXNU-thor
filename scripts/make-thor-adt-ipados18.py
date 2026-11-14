@@ -251,9 +251,21 @@ def main():
         # until a complete Pong GIC SPI provider and interrupt specifier exist.
         ('pong,ufs-spi', struct.pack('<I', UFS_SPI)),
     ])
+    # THOR v78: ST FST2 touch frontend (Recovery confirms the 12S Ultra touch
+    # is STMicro FTS, not Goodix). The node is generated ONLY when
+    # configs/pong-touch-thor-fts.json exists with this board's confirmed
+    # values; absent file = no node = the driver stays dormant and the Goodix
+    # frontend keeps its node. Fill: spi_base, tlmm_base, gcc_base, rsc_base,
+    # cmd_db_base, gpio_offset, pins[6] (clk,cs,mosi,miso,irq,rst), max_x, max_y.
+    fts = {}
+    fts_path = ROOT / 'configs/pong-touch-thor-fts.json'
+    if fts_path.exists():
+        fts = json.loads(fts_path.read_text())
     # Actual Pong live DT: QUP0 SE4 / Goodix Berlin-D, GPIO20 reset/21 IRQ.
     # Absolute metadata avoids an incomplete arm-io interrupt/reg mapping.
-    touch = node('pong-touch', [
+    # THOR v78: when the FTS config is enabled the FTS chip owns this serial
+    # engine (stock thor DTS: qupv3_se4_spi fts@0) - no Goodix node then.
+    touch = None if fts.get('enable') else node('pong-touch', [
         ('compatible', b'pong,goodix-berlin-d\0'),
         ('spi-base', struct.pack('<Q', 0x990000)),
         ('tlmm-base', struct.pack('<Q', 0xF000000)),
@@ -264,17 +276,6 @@ def main():
         ('pins', struct.pack('<6I', 16, 17, 18, 19, 21, 20)),
         ('max-x', struct.pack('<I', 1080)), ('max-y', struct.pack('<I', 2412)),
     ])
-    # THOR v78: ST FST2 touch frontend (Recovery confirms the 12S Ultra touch
-    # is STMicro FTS, not Goodix). The node is generated ONLY when
-    # configs/pong-touch-thor-fts.json exists with this board's confirmed
-    # Recovery-DT values; absent file = no node = the driver stays dormant and
-    # the Goodix frontend keeps its node. Fill: spi_base, tlmm_base, gcc_base,
-    # rsc_base, cmd_db_base, gpio_offset, pins[6] (clk,cs,mosi,miso,irq,rst),
-    # max_x, max_y.
-    fts = {}
-    fts_path = ROOT / 'configs/pong-touch-thor-fts.json'
-    if fts_path.exists():
-        fts = json.loads(fts_path.read_text())
     if fts.get('enable'):
         touch_fts = node('pong-touch-fts', [
             ('compatible', b'pong,st-fst2\0'),
@@ -313,7 +314,7 @@ def main():
             ('#address-cells', struct.pack('<I', 2)),
             ('#size-cells', struct.pack('<I', 2)),
             ('ranges', struct.pack('<QQQ', 0, APSS_BASE, APSS_SIZE)),
-        ], [gic, touch, node('pong-buttons', [
+        ], [gic, *([touch] if touch is not None else []), node('pong-buttons', [
             ('compatible', b'pong,pm8350-keys\0'),
             ('core-base', struct.pack('<Q', 0x0c400000)),
             ('cnfg-base', struct.pack('<Q', 0x0c42d000)),
