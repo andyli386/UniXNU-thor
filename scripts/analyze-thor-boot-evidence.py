@@ -23,7 +23,10 @@ CONSOLE_BEGIN = re.compile(rb"^Pong console capture BEGIN boot=(" + BOOT_UUID + 
 CONSOLE_TIME = re.compile(rb"^\[\s*(\d+)\.(\d{6})\]:")
 RAM_SUMMARY = re.compile(rb"Pong RAM: (\d+) owned banks, (\d+) MiB managed before kernel reservations")
 RAM_BANK = re.compile(rb"Pong RAM: bank (\d+) (0x[0-9a-fA-F]+) \+ (0x[0-9a-fA-F]+)")
-RUNTIME_STAGE = re.compile(rb"THOR UI runtime: (PASS|FAIL)[^\r\n]*libpong-ui-v77\.dylib\b[^\r\n]*")
+RUNTIME_STAGE = re.compile(
+    rb"THOR UI runtime: (PASS) path=/private/var/pong/libpong-ui-v77\.dylib bytes=\d+\b"
+    rb"|THOR UI runtime: (FAIL) error=\d+; using existing adapter"
+)
 SESSION = re.compile(rb"^Pong boot snapshot SESSION: (\S+) pid=(\d+) boot=(" + BOOT_UUID + rb"|unavailable)\b")
 LIMIT = re.compile(rb"Pong lsd memlimit: pid=(\d+) active=(-?\d+)MiB active_attr=(0x[0-9a-fA-F]+) inactive=(-?\d+)MiB inactive_attr=(0x[0-9a-fA-F]+)")
 EXIT = re.compile(rb"(?:audiomxd|PosterBoard|lsd|SpringBoard|backboardd)", re.I)
@@ -71,16 +74,20 @@ def collect_console(root, requested_boot):
     console = []
     files = [*sorted(root.rglob("PongConsole.previous.txt")), *sorted(root.rglob("PongConsole.txt"))]
     for path in files:
+        previous_boot = current_boot if path.name == "PongConsole.txt" else None
+        current_boot = None
+        first_record = True
         for line in file_contents(path, root):
             match = CONSOLE_BEGIN.match(line.raw)
             if match:
                 current_boot = match[1].decode().lower()
                 seen_boots.append(current_boot)
-            if line.number == 1 and path.name == "PongConsole.txt":
-                # Only a rotation receipt links an unlabelled current-file
-                # prefix to the active section left in the previous file.
-                if not line.raw.startswith(b"Pong console capture ROTATE") and not match:
-                    current_boot = None
+            if first_record and line.raw.strip():
+                first_record = False
+                # The writer prepends LF, so ROTATE is the first nonempty
+                # record. It alone can link this prefix to the previous file.
+                if re.fullmatch(rb"Pong console capture ROTATE next=\d+", line.raw):
+                    current_boot = previous_boot
             console.append(Line(line.file, line.number, line.raw, current_boot))
 
     latest = seen_boots[-1] if seen_boots else None
@@ -132,7 +139,7 @@ def macho_uuid(path):
 
 def runtime_check(root, lines):
     staging = [(line, RUNTIME_STAGE.search(line.raw)) for line in lines]
-    staging = [(line, match[1]) for line, match in staging if match]
+    staging = [(line, match[1] or match[2]) for line, match in staging if match]
     stage_lines = [line for line, _ in staging]
     path = root / RUNTIME
     exported = {"file": RUNTIME, "expected_uuid": RUNTIME_UUID, "expected_bytes": RUNTIME_BYTES}
