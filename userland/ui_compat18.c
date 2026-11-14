@@ -2567,6 +2567,7 @@ __attribute__((constructor)) static void pong_ui18_start(void)
         CFPreferencesSetAppValue(CFSTR("SBDisableAutoDim"),kCFBooleanTrue,kCFPreferencesCurrentApplication);
         pong_sb_note("Pong UI18: wake scheduled on main queue +10s");
         dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,10*NSEC_PER_SEC),dispatch_get_main_queue(),NULL,wake_home);
+        pong_sb_note("Pong UI18: wake enqueue returned");
     }
     if(strcmp(name,"backboardd")==0) {
         software_composition=boot_option("pong_ui_software=1");
