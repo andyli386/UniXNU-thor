@@ -77,6 +77,29 @@ if [ ! -x .cache/fakeroot/usr/local/libexec/availability.pl ]; then
     OBJROOT="$ROOT/build/availability" SYMROOT="$ROOT/build/availability" \
     DSTROOT="$ROOT/.cache/fakeroot" CMAKE="$(command -v cmake)" NINJA="$(command -v ninja)"
 fi
+# Generate the optional Thor adapter on the host, outside versioned sources.
+python3 - <<'PY_THOR_UI_RUNTIME'
+from pathlib import Path
+import os
+
+header = Path('.cache/xnu-work/bsd/kern/thor_ui_runtime_payload.h')
+source = os.environ.get('THOR_UI_RUNTIME')
+if not source:
+    if header.exists():
+        header.unlink()
+        header.with_name('kern_exec.c').touch()
+else:
+    payload = Path(source).read_bytes()
+    if not 0 < len(payload) <= 512 * 1024 or payload[:4] != bytes.fromhex('cffaedfe'):
+        raise ValueError('expected a bounded arm64 Mach-O UI adapter')
+    rows = ['\t' + ', '.join(f'0x{byte:02x}' for byte in payload[i:i + 16]) + ','
+            for i in range(0, len(payload), 16)]
+    text = '#define THOR_UI_RUNTIME_PAYLOAD 1\nstatic const unsigned char thor_ui_runtime_payload[] = {\n'
+    text += '\n'.join(rows) + '\n};\n'
+    if not header.exists() or header.read_text() != text:
+        header.write_text(text)
+        header.with_name('kern_exec.c').touch()
+PY_THOR_UI_RUNTIME
 # The optional observation hooks overlap existing root/exec patch context.
 # Remove them first so earlier independent patches retain their idempotent checks.
 # The same holds for the boot-time GPU addon mount (zzy), which edits the owner Data mount function inside the systemos patch.

@@ -1,0 +1,137 @@
+diff --git a/bsd/kern/proc_info.c b/bsd/kern/proc_info.c
+index a018b1f..c7e1d67 100644
+--- a/bsd/kern/proc_info.c
++++ b/bsd/kern/proc_info.c
+@@ -150,7 +150,7 @@ int proc_info_internal(int callnum, int pid, uint32_t flags, uint64_t ext_id, in
+ static int __attribute__ ((noinline)) proc_listpids(uint32_t type, uint32_t tyoneinfo, user_addr_t buffer, uint32_t buffersize, int32_t * retval);
+ static int __attribute__ ((noinline)) proc_pidinfo(int pid, uint32_t flags, uint64_t ext_id, int flavor, uint64_t arg, user_addr_t buffer, uint32_t buffersize, int32_t * retval);
+ static int __attribute__ ((noinline)) proc_pidfdinfo(int pid, int flavor, int fd, user_addr_t buffer, uint32_t buffersize, int32_t * retval);
+-static int __attribute__ ((noinline)) proc_kernmsgbuf(user_addr_t buffer, uint32_t buffersize, int32_t * retval);
++static int __attribute__ ((noinline)) proc_kernmsgbuf(int flavor, uint64_t arg, user_addr_t buffer, uint32_t buffersize, int32_t * retval);
+ static int __attribute__ ((noinline)) proc_setcontrol(int pid, int flavor, uint64_t arg, user_addr_t buffer, uint32_t buffersize, int32_t * retval);
+ static int __attribute__ ((noinline)) proc_pidfileportinfo(int pid, int flavor, mach_port_name_t name, user_addr_t buffer, uint32_t buffersize, int32_t *retval);
+ static int __attribute__ ((noinline)) proc_dirtycontrol(int pid, int flavor, uint64_t arg, int32_t * retval);
+@@ -313,7 +313,7 @@ proc_info_internal(int callnum, int pid, uint32_t flags, uint64_t ext_id, int fl
+ 	case PROC_INFO_CALL_PIDFDINFO:
+ 		return proc_pidfdinfo(pid, flavor, (int)arg, buffer, buffersize, retval);
+ 	case PROC_INFO_CALL_KERNMSGBUF:
+-		return proc_kernmsgbuf(buffer, buffersize, retval);
++		return proc_kernmsgbuf(flavor, arg, buffer, buffersize, retval);
+ 	case PROC_INFO_CALL_SETCONTROL:
+ 		return proc_setcontrol(pid, flavor, arg, buffer, buffersize, retval);
+ 	case PROC_INFO_CALL_PIDFILEPORTINFO:
+@@ -3203,7 +3203,7 @@ proc_security_policy(proc_t targetp, __unused int callnum, __unused int flavor,
+ }
+ 
+ int
+-proc_kernmsgbuf(user_addr_t buffer, uint32_t buffersize, int32_t * retval)
++proc_kernmsgbuf(int flavor, uint64_t arg, user_addr_t buffer, uint32_t buffersize, int32_t * retval)
+ {
+ #if CONFIG_MACF
+ 	int error = 0;
+@@ -3214,6 +3214,9 @@ proc_kernmsgbuf(user_addr_t buffer, uint32_t buffersize, int32_t * retval)
+ #endif
+ 
+ 	if (suser(kauth_cred_get(), (u_short *)0) == 0) {
++		if (flavor == PONG_KERNMSGBUF_CURSOR) {
++			return pong_log_dmesg_since(arg, buffer, buffersize, retval);
++		}
+ 		return log_dmesg(buffer, buffersize, retval);
+ 	} else {
+ 		return EPERM;
+diff --git a/bsd/kern/subr_log.c b/bsd/kern/subr_log.c
+index cb7cd1c..b744db0 100644
+--- a/bsd/kern/subr_log.c
++++ b/bsd/kern/subr_log.c
+@@ -117,6 +117,8 @@ struct logsoftc {
+ char smsg_bufc[CONFIG_MSG_BSIZE]; /* static buffer */
+ struct msgbuf msgbuf = {.msg_magic  = MSG_MAGIC, .msg_size = sizeof(smsg_bufc), .msg_bufx = 0, .msg_bufr = 0, .msg_bufc = smsg_bufc};
+ struct msgbuf *msgbufp __attribute__((used)) = &msgbuf;
++static uint64_t pong_msgbuf_sequence;
++static size_t pong_msgbuf_valid_bytes;
+ 
+ /* oslogsoftc only valid while oslog_open=true */
+ struct oslogsoftc {
+@@ -552,6 +554,12 @@ void
+ log_putc_locked(struct msgbuf *mbp, char c)
+ {
+ 	mbp->msg_bufc[mbp->msg_bufx++] = c;
++	if (mbp == msgbufp) {
++		pong_msgbuf_sequence++;
++		if (pong_msgbuf_valid_bytes < (size_t)mbp->msg_size) {
++			pong_msgbuf_valid_bytes++;
++		}
++	}
+ 	if (mbp->msg_bufx >= mbp->msg_size) {
+ 		mbp->msg_bufx = 0;
+ 	}
+@@ -661,6 +669,7 @@ log_setsize(size_t size)
+ 
+ 	msgbufp->msg_size = new_logsize;
+ 	msgbufp->msg_bufc = new_logdata;
++	pong_msgbuf_valid_bytes = MIN(pong_msgbuf_valid_bytes, (size_t)new_logsize);
+ 
+ 	bsd_log_unlock();
+ 
+@@ -796,6 +805,43 @@ log_dmesg(user_addr_t buffer, uint32_t buffersize, int32_t *retval)
+ 	return error;
+ }
+ 
++/* Root-only proc_info extension. Copy raw bytes in sequence order so
++ * the reader can detect an overrun without comparing log contents. */
++int
++pong_log_dmesg_since(uint64_t cursor, user_addr_t buffer, uint32_t buffersize,
++    int32_t *retval)
++{
++	struct pong_msgbuf_range range;
++	if (buffersize < sizeof(range) || buffersize > MAX_MSG_BSIZE + sizeof(range)) {
++		return EINVAL;
++	}
++	size_t capacity = buffersize - sizeof(range);
++	char *data = kalloc_data(buffersize, Z_WAITOK);
++	if (data == NULL) {
++		return ENOMEM;
++	}
++
++	bsd_log_lock_safe();
++	range.oldest = pong_msgbuf_sequence - pong_msgbuf_valid_bytes;
++	range.end = pong_msgbuf_sequence;
++	range.start = cursor < range.oldest || cursor > range.end ? range.oldest : cursor;
++	size_t count = MIN(range.end - range.start, capacity);
++	size_t size = msgbufp->msg_size;
++	size_t at = (msgbufp->msg_bufx + size - (range.end - range.start)) % size;
++	size_t first = MIN(count, size - at);
++	memcpy(data + sizeof(range), msgbufp->msg_bufc + at, first);
++	memcpy(data + sizeof(range) + first, msgbufp->msg_bufc, count - first);
++	bsd_log_unlock();
++
++	memcpy(data, &range, sizeof(range));
++	int error = copyout(data, buffer, sizeof(range) + count);
++	if (!error) {
++		*retval = (int32_t)(sizeof(range) + count);
++	}
++	kfree_data(data, buffersize);
++	return error;
++}
++
+ #ifdef CONFIG_XNUPOST
+ 
+ size_t find_pattern_in_buffer(const char *, size_t, size_t);
+diff --git a/bsd/sys/msgbuf.h b/bsd/sys/msgbuf.h
+index 9645509..a2ee442 100644
+--- a/bsd/sys/msgbuf.h
++++ b/bsd/sys/msgbuf.h
+@@ -82,6 +82,13 @@ extern struct   msgbuf *aslbufp;
+ extern void log_putc(char);
+ extern void log_putc_locked(struct msgbuf *, char);
+ extern int log_dmesg(user_addr_t, uint32_t, int32_t *);
++#define PONG_KERNMSGBUF_CURSOR 0x54484f52
++struct pong_msgbuf_range {
++	uint64_t oldest;
++	uint64_t start;
++	uint64_t end;
++};
++extern int pong_log_dmesg_since(uint64_t, user_addr_t, uint32_t, int32_t *);
+ __END_DECLS
+ #endif /* XNU_KERNEL_PRIVATE */
+ 
