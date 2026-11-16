@@ -1,0 +1,3708 @@
+diff --git a/bsd/dev/pong_input.c b/bsd/dev/pong_input.c
+index d4e1132..db995ce 100644
+--- a/bsd/dev/pong_input.c
++++ b/bsd/dev/pong_input.c
+@@ -21,23 +21,124 @@ static LCK_MTX_DECLARE(node_lock,&touch_group);
+ struct input_queue {
+     struct pong_touch samples[QUEUE_SIZE];
+     uint32_t head,tail;
+-    bool opened,ready;
++    bool opened,ready,starting;
+ };
+ static struct input_queue queues[2];
+ static int input_major=-1;
++static uint64_t last_touch_event_time, touch_dropped_moves, touch_dropped_edges;
++
++static bool
++touch_evict_move(struct input_queue *q)
++{
++    for (uint32_t index = q->head; index != q->tail; ++index) {
++        if (q->samples[index % QUEUE_SIZE].type != PONG_TOUCH_MOVE) {
++            continue;
++        }
++        /* Shift the prefix forward so every retained sample keeps its order. */
++        while (index != q->head) {
++            q->samples[index % QUEUE_SIZE] = q->samples[(index - 1) % QUEUE_SIZE];
++            --index;
++        }
++        ++q->head;
++        return true;
++    }
++    return false;
++}
++
++uint64_t
++pong_touch_last_event_time(void)
++{
++    return __atomic_load_n(&last_touch_event_time, __ATOMIC_RELAXED);
++}
+
+ void
+ pong_touch_post(uint32_t type,uint32_t finger,uint32_t x,uint32_t y)
+ {
+     if (type<PONG_TOUCH_DOWN || type>PONG_BUTTON_UP ||
+         finger>=(type>=PONG_BUTTON_DOWN?3u:10u)) return;
+-    struct input_queue *q=&queues[type>=PONG_BUTTON_DOWN];
++
++    const bool button = type >= PONG_BUTTON_DOWN;
++    struct input_queue *q = &queues[button];
++    bool enqueue = true;
++    bool lost_edge = false;
++    uint64_t loss_count = 0;
++
+     lck_mtx_lock(&touch_lock);
+-    if (q->tail-q->head==QUEUE_SIZE) q->head++;
+-    q->samples[q->tail++%QUEUE_SIZE]=(struct pong_touch){mach_absolute_time(),type,finger,
+-        x>65535?65535:x,y>65535?65535:y};
++    if (q->tail - q->head == QUEUE_SIZE) {
++        if (button) {
++            ++q->head;
++        } else if (touch_evict_move(q)) {
++            loss_count = ++touch_dropped_moves;
++        } else if (type == PONG_TOUCH_MOVE) {
++            enqueue = false;
++            loss_count = ++touch_dropped_moves;
++        } else {
++            /* All slots hold edges. Keep the newest edge and report the loss. */
++            ++q->head;
++            lost_edge = true;
++            loss_count = ++touch_dropped_edges;
++        }
++    }
++    if (enqueue) {
++        const uint64_t now = mach_absolute_time();
++        q->samples[q->tail++ % QUEUE_SIZE] = (struct pong_touch){now,type,finger,
++            x>65535?65535:x,y>65535?65535:y};
++        if (!button) {
++            __atomic_store_n(&last_touch_event_time, now, __ATOMIC_RELAXED);
++        }
++    }
+     lck_mtx_unlock(&touch_lock);
+-    wakeup(q);
++
++    if (enqueue) {
++        wakeup(q);
++    }
++    if (loss_count && (loss_count & (loss_count - 1)) == 0) {
++        printf("Pong input overflow: touch %s dropped total=%llu\n",
++            lost_edge ? "edge" : "move", (unsigned long long)loss_count);
++    }
++}
++
++/* Read begins after the virtual HID service is ready. Do not replay fully
++ * released contacts older than that start window. Keep complete pairs
++ * together and leave any live or ambiguous prefix untouched. */
++static unsigned
++touch_discard_stale_start(struct input_queue *q)
++{
++    uint64_t stale;
++    clock_interval_to_absolutetime_interval(1, NSEC_PER_SEC, &stale);
++    const uint64_t now = mach_absolute_time();
++    uint32_t active = 0;
++    uint32_t discard_to = q->head;
++
++    for (uint32_t index = q->head; index != q->tail; ++index) {
++        const struct pong_touch *sample = &q->samples[index % QUEUE_SIZE];
++        if (sample->time > now || now - sample->time < stale || sample->finger >= 10) {
++            break;
++        }
++        const uint32_t bit = 1u << sample->finger;
++        if (sample->type == PONG_TOUCH_DOWN) {
++            if (active & bit) {
++                break;
++            }
++            active |= bit;
++        } else {
++            if (!(active & bit)) {
++                break;
++            }
++            if (sample->type == PONG_TOUCH_UP) {
++                active &= ~bit;
++            } else if (sample->type != PONG_TOUCH_MOVE) {
++                break;
++            }
++        }
++        if (!active) {
++            discard_to = index + 1;
++        }
++    }
++
++    const unsigned discarded = discard_to - q->head;
++    q->head = discard_to;
++    return discarded;
+ }
+
+ static int
+@@ -48,7 +149,11 @@ touch_open(dev_t dev,int flags,__unused int kind,__unused struct proc *p)
+     struct input_queue *q=&queues[minor(dev)];
+     lck_mtx_lock(&touch_lock);
+     int error=q->opened?EBUSY:0;
+-    if (!error) {q->opened=true;q->head=q->tail;}
++    if (!error) {
++        q->opened = true;
++        q->head = q->tail;
++        q->starting = minor(dev) == 0;
++    }
+     lck_mtx_unlock(&touch_lock);
+     return error;
+ }
+@@ -67,18 +172,26 @@ touch_read(dev_t dev,struct uio *uio,int flags)
+     struct input_queue *q=&queues[minor(dev)];
+     if (uio_resid(uio)<(user_ssize_t)sizeof(struct pong_touch)) return EINVAL;
+     int error=0;
++    unsigned discarded = 0;
++    struct pong_touch sample;
+     lck_mtx_lock(&touch_lock);
++    if (q->starting) {
++        q->starting = false;
++        discarded = touch_discard_stale_start(q);
++    }
+     while (q->head==q->tail) {
+         if (flags&IO_NDELAY) {error=EWOULDBLOCK;break;}
+         error=msleep(q,&touch_lock,PZERO|PCATCH,"pong-input",NULL);
+         if (error) break;
+     }
+     if (!error) {
+-        struct pong_touch sample=q->samples[q->head++%QUEUE_SIZE];
+-        lck_mtx_unlock(&touch_lock);
+-        return uiomove((caddr_t)&sample,sizeof(sample),uio);
++        sample = q->samples[q->head++ % QUEUE_SIZE];
++    }
++    lck_mtx_unlock(&touch_lock);
++    if (discarded) {
++        printf("Pong input: skipped %u stale completed touch samples at HID startup\n", discarded);
+     }
+-    lck_mtx_unlock(&touch_lock);return error;
++    return error ? error : uiomove((caddr_t)&sample, sizeof(sample), uio);
+ }
+
+ static const struct cdevsw touch_cdevsw={
+diff --git a/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+index 5372d98..f698f27 100644
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -143,6 +143,27 @@
+ #if defined(PONG)
+ extern void pong_ramoops_diagnostic_write(const char *, int);
+
++/* Give the Metal test a bounded number of records in PongConsole per boot. */
++static unsigned pong_settings_receipt_count;
++static unsigned pong_desktop_receipt_count;
++static unsigned pong_touch_receipt_count;
++static unsigned pong_touch_edge_receipt_count;
++static unsigned pong_touch_slow_receipt_count;
++static unsigned pong_desktop_handoff_count;
++
++static bool
++pong_metal_receipt_reserve(unsigned *counter, unsigned limit)
++{
++	unsigned count = __atomic_load_n(counter, __ATOMIC_RELAXED);
++	while (count < limit) {
++		if (__atomic_compare_exchange_n(counter, &count,
++		    count + 1, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
++			return true;
++		}
++	}
++	return false;
++}
++
+ /* A write-only, small diagnostic endpoint for the Settings adapter. No
+  * process can read kernel memory or choose a physical address through it.
+  * Resolve its MIB once in userspace before installing fatal signal handlers.
+@@ -154,17 +175,90 @@ pong_diagnostic_sysctl SYSCTL_HANDLER_ARGS
+ 	proc_t process = current_proc();
+ 	if (!process) return EPERM;
+ 	bool settings = strcmp(process->p_comm, "Preferences") == 0;
+-	bool renderer = strcmp(process->p_comm, "backboardd") == 0 ||
+-	    strcmp(process->p_comm, "SpringBoard") == 0;
++	bool desktop = strcmp(process->p_comm, "backboardd") == 0;
++	bool renderer = desktop || strcmp(process->p_comm, "SpringBoard") == 0;
+ 	if (!settings && !renderer) return EPERM;
+ 	if (!req->newptr || !req->newlen || req->newlen >= sizeof(text)) return EINVAL;
+ 	int error = SYSCTL_IN(req, text, req->newlen);
+ 	if (error) return error;
+ 	text[req->newlen] = 0;
++
++#if XNU_PONG_ADRENO_PLATFORM
++	/* This fixed-size cue is accepted only through the existing SpringBoard endpoint. */
++	static unsigned switcher_status_count;
++	static const char switcher_status[] = "Pong Switcher: timing armed drag=";
++	if (!strcmp(process->p_comm, "SpringBoard") &&
++	    (!strcmp(text, "Pong Switcher: timing unavailable") ||
++	    !strncmp(text, switcher_status, sizeof(switcher_status) - 1)) &&
++	    pong_metal_receipt_reserve(&switcher_status_count, 2)) {
++		printf("PONG SWITCHER STATUS: %s\n", text);
++	}
++	static const char switcher_prefix[] = "Pong Switcher: ";
++	const size_t prefix_size = sizeof(switcher_prefix) - 1;
++	if (!strcmp(process->p_comm, "SpringBoard") && req->newlen == prefix_size + 18 &&
++	    !memcmp(text, switcher_prefix, prefix_size) &&
++	    (text[prefix_size] == 'P' || text[prefix_size] == 'K') &&
++	    text[prefix_size + 1] == ' ') {
++		uint64_t timestamp = 0;
++		for (size_t i = prefix_size + 2; i < req->newlen; ++i) {
++			const char digit = text[i];
++			if (!((digit >= '0' && digit <= '9') || (digit >= 'a' && digit <= 'f'))) {
++				return EINVAL;
++			}
++			timestamp = (timestamp << 4) | (uint64_t)(digit <= '9' ?
++			    digit - '0' : digit - 'a' + 10);
++		}
++		extern int thor_switcher_trace_arm(unsigned, uint64_t);
++		return thor_switcher_trace_arm(text[prefix_size] == 'P' ? 1 : 2, timestamp);
++	}
++#endif
+ 	int length = snprintf(line, sizeof(line), "%s[%d]: %s\n",
+ 	    settings ? "PONG SETTINGS" : "PONG GPU", proc_getpid(process), text);
+ 	if (length > 0) pong_ramoops_diagnostic_write(line,
+ 	    length < (int)sizeof(line) ? length : (int)sizeof(line)-1);
++
++	/* Keep late desktop handoff failures independent of startup telemetry. */
++	bool handoff = desktop &&
++	    strncmp(text, "Pong Metal: handoff ", sizeof("Pong Metal: handoff ") - 1) == 0;
++	/* Keep each client in its own bounded console budget. */
++	unsigned metal = 0, scanout = 0;
++	const bool settings_timing = settings &&
++	    strncmp(text, "Pong Settings: ", sizeof("Pong Settings: ") - 1) == 0;
++	const bool metal_timing =
++	    strncmp(text, "Pong Metal: ", sizeof("Pong Metal: ") - 1) == 0 &&
++	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
++	    (settings || (desktop && PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) &&
++	    scanout == 1));
++	const bool touch_timing = desktop &&
++	    strncmp(text, "Pong Touch: ", sizeof("Pong Touch: ") - 1) == 0;
++	unsigned *touch_counter = &pong_touch_receipt_count;
++	if (touch_timing) {
++		if (!strncmp(text, "Pong Touch: edge ", sizeof("Pong Touch: edge ") - 1)) {
++			touch_counter = &pong_touch_edge_receipt_count;
++		} else if (!strncmp(text, "Pong Touch: slow ", sizeof("Pong Touch: slow ") - 1) ||
++		    !strncmp(text, "Pong Touch: refused ", sizeof("Pong Touch: refused ") - 1)) {
++			touch_counter = &pong_touch_slow_receipt_count;
++		}
++	}
++	if (req->newlen < 256 && (settings_timing || metal_timing || touch_timing) &&
++	    pong_metal_receipt_reserve(touch_timing ? touch_counter :
++	        settings ? &pong_settings_receipt_count :
++	        (handoff ? &pong_desktop_handoff_count : &pong_desktop_receipt_count),
++	        touch_counter == &pong_touch_edge_receipt_count ? 2048 : 48)) {
++		size_t end = strnlen(text, req->newlen);
++		if (end && text[end - 1] == '\n') {
++			end--;
++		}
++		for (size_t i = 0; i < end; i++) {
++			uint8_t value = (uint8_t)text[i];
++			if (value < 0x20 || value > 0x7e) {
++				text[i] = '?';
++			}
++		}
++		text[end] = 0;
++		printf("%s[%d]: %s\n", touch_timing ? "PONG INPUT" :
++	        settings ? "PONG SETTINGS" : "PONG GPU", proc_getpid(process), text);
++	}
+ 	return 0;
+ }
+ SYSCTL_PROC(_kern, OID_AUTO, pong_diagnostic,
+@@ -1926,16 +2020,36 @@ proc_prepareexit(proc_t p, int rv, boolean_t perf_notify)
+
+
+ #if defined(PONG)
+-	if (strcmp(p->p_comm, "Preferences") == 0) {
++	/* THOR v73: v72 field data - audiomxd crashed twice but "Corpse
++	 * failure, too many" ate the diagnostics. This record is written
++	 * BEFORE corpse preparation from the original exit state, so it
++	 * survives corpse failure. The Preferences entry is the original
++	 * bounded example; the list covers the daemons whose crash reasons
++	 * this port keeps losing. */
++	if (strcmp(p->p_comm, "Preferences") == 0 ||
++	    strcmp(p->p_comm, "audiomxd") == 0 ||
++	    strcmp(p->p_comm, "mediaremoted") == 0 ||
++	    strcmp(p->p_comm, "PosterBoard") == 0 ||
++	    strcmp(p->p_comm, "fairplayd.A2") == 0 ||
++	    strncmp(p->p_comm, "com.apple.migrat", 16) == 0) {
+ 		char line[768];
+ 		os_reason_t reason = p->p_exit_reason;
+ 		const char *description = reason ? exit_reason_get_string_desc(reason) : NULL;
+ 		int length = snprintf(line, sizeof(line),
+-		    "PONG SETTINGS EXIT pid=%d signal=%d status=%d namespace=%u code=0x%llx description=%.512s\n",
+-		    proc_getpid(p), WTERMSIG(rv), WEXITSTATUS(rv), reason ? reason->osr_namespace : 0,
++		    "PONG EXIT %s pid=%d signal=%d status=%d namespace=%u code=0x%llx description=%.512s\n",
++		    p->p_comm, proc_getpid(p), WTERMSIG(rv), WEXITSTATUS(rv), reason ? reason->osr_namespace : 0,
+ 		    reason ? reason->osr_code : 0ULL, description ? description : "none");
+-		if (length > 0) pong_ramoops_diagnostic_write(line,
+-		    length < (int)sizeof(line) ? length : (int)sizeof(line)-1);
++		if (length > 0) {
++			pong_ramoops_diagnostic_write(line,
++			    length < (int)sizeof(line) ? length : (int)sizeof(line)-1);
++			/* THOR v74: the phone's Recovery does not export this
++			 * ramoops range (its pstore sits elsewhere), so the
++			 * bounded original exit reason also goes to the console,
++			 * which PongConsole.txt does capture. The address
++			 * contract needs loader/Darwin/Recovery alignment and is
++			 * deliberately not patched here. */
++			printf("%.*s", length < (int)sizeof(line) ? length : (int)sizeof(line)-1, line);
++		}
+ 	}
+ #endif
+
+diff --git a/bsd/sys/pong_input.h b/bsd/sys/pong_input.h
+index 6409881..a2ccd31 100644
+--- a/bsd/sys/pong_input.h
++++ b/bsd/sys/pong_input.h
+@@ -16,6 +16,7 @@ struct pong_touch {
+ };
+ #ifdef KERNEL
+ void pong_touch_post(uint32_t, uint32_t, uint32_t, uint32_t);
++uint64_t pong_touch_last_event_time(void);
+ bool pong_touch_device_ready(void);
+ bool pong_buttons_device_ready(void);
+ void pong_goodix_init(void);
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+index 18c42d5..0add781 100644
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -26,13 +26,18 @@
+ #include <libkern/c++/OSString.h>
+ #include <libkern/c++/OSSymbol.h>
+ #include <libkern/c++/OSCollectionIterator.h>
++#include <kern/cpu_number.h>
+ #include <kern/thread_call.h>
++#include <kern/locks.h>
+ #include <kern/thread.h>
+ #include <kern/clock.h>
+ #include <IOKit/IOKitServer.h>
+ #include <pexpert/pexpert.h>
+ #include <sys/systm.h>
+ #include <sys/proc.h>
++#if XNU_PONG_ADRENO_PLATFORM
++#include <vm/memory_types.h>
++#endif
+
+ extern "C" {
+ #include <console/video_console.h>
+@@ -42,6 +47,15 @@ extern struct vc_info vinfo;            /* the boot framebuffer, as the text con
+ #include <IOKit/IOBufferMemoryDescriptor.h>
+
+ #include "MiniIOSurface.h"
++#include "PongNearestThreeToTwo.h"
++#if defined(__aarch64__) && defined(__ARM_NEON)
++/* XNU thread_status.h declares these names with different vector types. */
++#define uint32x4_t ThorNeonU32x4
++#define uint64x2_t ThorNeonU64x2
++#include <arm_neon.h>
++#undef uint64x2_t
++#undef uint32x4_t
++#endif
+
+ #if XNU_PONG_ADRENO_PLATFORM
+ extern "C" void pong_scanout_initialize(uint64_t,size_t,uint32_t,uint32_t,uint32_t);
+@@ -53,6 +67,1247 @@ static void pongDisplayTrace(uint32_t event,uint64_t id,uint64_t phase,uint64_t
+
+ extern "C" bool pong_scanout_quarantined(void);
+ extern "C" void pong_scanout_idle(void);
++extern "C" uint64_t pong_touch_last_event_time(void);
++static uint32_t gSlowSwapWaitReceipts, gTouchFrameGapReceipts;
++static uint32_t gCadenceFrameReceipts, gBurstFrameReceipts;
++static uint64_t gThorFrameEnqueues, gThorFrameWritebacks;
++static constexpr uint64_t kSlowDisplayUs = 100000;
++static constexpr uint32_t kDisplayReceiptLimit = 48;
++
++/* A boot-wide bounded trace. Rendering only appends to memory. */
++struct ThorSwitcherFrame {
++	uint64_t enqueued, dequeued, ready, shown, drawn, gpuWriter;
++	uint32_t id;
++};
++
++struct ThorSwitcherCue {
++	uint64_t user, kernel;
++	unsigned phase;
++};
++
++LCK_GRP_DECLARE(thor_switcher_trace_group, "thor-switcher-trace");
++LCK_MTX_DECLARE(thor_switcher_trace_lock, &thor_switcher_trace_group);
++static ThorSwitcherFrame gSwitcherFrames[1152];
++static ThorSwitcherCue gSwitcherCues[96];
++static unsigned gSwitcherFrameCount, gSwitcherCueCount;
++static uint64_t gSwitcherTraceEnd, gSwitcherHardEnd;
++static bool gSwitcherTraceSealed;
++static thread_call_t gSwitcherTraceCall;
++
++static unsigned long long
++thorSwitcherMicros(uint64_t timestamp)
++{
++	uint64_t ns = 0;
++	absolutetime_to_nanoseconds(timestamp, &ns);
++	return static_cast<unsigned long long>(ns / 1000);
++}
++
++static void
++thorSwitcherReport(thread_call_param_t, thread_call_param_t)
++{
++	lck_mtx_lock(&thor_switcher_trace_lock);
++	if (gSwitcherTraceSealed) {
++		lck_mtx_unlock(&thor_switcher_trace_lock);
++		return;
++	}
++	const uint64_t deadline = __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED);
++	if (deadline > mach_absolute_time()) {
++		thread_call_enter_delayed(gSwitcherTraceCall, deadline);
++		lck_mtx_unlock(&thor_switcher_trace_lock);
++		return;
++	}
++	gSwitcherTraceSealed = true;
++	__atomic_store_n(&gSwitcherTraceEnd, 0, __ATOMIC_RELAXED);
++	lck_mtx_unlock(&thor_switcher_trace_lock);
++
++	IOLog("PONG SWITCHER: capture cues=%u swaps=%u full=%u CPU writeback only\n",
++	    gSwitcherCueCount, gSwitcherFrameCount,
++	    gSwitcherFrameCount == sizeof(gSwitcherFrames) / sizeof(gSwitcherFrames[0]));
++	for (unsigned index = 0; index < gSwitcherCueCount; ++index) {
++		const ThorSwitcherCue &cue = gSwitcherCues[index];
++		IOLog("PONG SWITCHER CUE: phase=%u user_us=%llu kernel_us=%llu\n",
++		    cue.phase, thorSwitcherMicros(cue.user), thorSwitcherMicros(cue.kernel));
++	}
++	for (unsigned index = 0; index < gSwitcherFrameCount; ++index) {
++		const ThorSwitcherFrame &frame = gSwitcherFrames[index];
++		IOLog("PONG SWITCHER FRAME: swap=%u enqueue_us=%llu dequeue_us=%llu ready_us=%llu "
++		    "start_us=%llu done_us=%llu writer_wait_us=%llu\n", frame.id, thorSwitcherMicros(frame.enqueued),
++		    thorSwitcherMicros(frame.dequeued), thorSwitcherMicros(frame.ready),
++		    thorSwitcherMicros(frame.shown), thorSwitcherMicros(frame.drawn),
++		    thorSwitcherMicros(frame.gpuWriter));
++	}
++}
++
++extern "C" int
++thor_switcher_trace_arm(unsigned phase, uint64_t user)
++{
++	const uint64_t now = mach_absolute_time();
++	uint64_t quiet, window;
++	nanoseconds_to_absolutetime(950ull * NSEC_PER_MSEC, &quiet);
++	nanoseconds_to_absolutetime(8ull * NSEC_PER_SEC, &window);
++	if (!user || user > now || now - user > quiet) {
++		return EINVAL;
++	}
++	lck_mtx_lock(&thor_switcher_trace_lock);
++	if (gSwitcherTraceSealed) {
++		lck_mtx_unlock(&thor_switcher_trace_lock);
++		return 0;
++	}
++	if (!gSwitcherTraceCall) {
++		gSwitcherTraceCall = thread_call_allocate_with_priority(thorSwitcherReport,
++		    nullptr, THREAD_CALL_PRIORITY_LOW);
++		if (!gSwitcherTraceCall) {
++			lck_mtx_unlock(&thor_switcher_trace_lock);
++			return ENOMEM;
++		}
++		gSwitcherHardEnd = now + window;
++	}
++	if (gSwitcherCueCount < sizeof(gSwitcherCues) / sizeof(gSwitcherCues[0])) {
++		gSwitcherCues[gSwitcherCueCount++] = { user, now, phase };
++	}
++	const uint64_t deadline = now + quiet < gSwitcherHardEnd ? now + quiet : gSwitcherHardEnd;
++	__atomic_store_n(&gSwitcherTraceEnd, deadline, __ATOMIC_RELAXED);
++	thread_call_enter_delayed(gSwitcherTraceCall, deadline);
++	lck_mtx_unlock(&thor_switcher_trace_lock);
++	return 0;
++}
++
++static void
++thorSwitcherCapture(uint32_t swap, uint64_t enqueued, uint64_t dequeued,
++    uint64_t ready, uint64_t shown, uint64_t drawn, uint64_t gpuWriter)
++{
++	const uint64_t now = drawn ? drawn : mach_absolute_time();
++	const uint64_t deadline = __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED);
++	if (!deadline || now > deadline) {
++		return;
++	}
++	lck_mtx_lock(&thor_switcher_trace_lock);
++	if (!gSwitcherTraceSealed &&
++	    gSwitcherFrameCount < sizeof(gSwitcherFrames) / sizeof(gSwitcherFrames[0])) {
++		gSwitcherFrames[gSwitcherFrameCount++] = { enqueued, dequeued, ready, shown, drawn, gpuWriter, swap };
++	}
++	lck_mtx_unlock(&thor_switcher_trace_lock);
++}
++#endif
++#if XNU_PONG_ADRENO_PLATFORM
++/*
++ * SM8475 Cape display layout from the Thor LineageOS display DT.
++ * The clock check follows the MIX Fold 2 probe: a retained splash can
++ * scan while the MDSS register clock is off. Do not enable gates here.
++ */
++extern "C" vm_offset_t io_map(vm_map_offset_t, vm_size_t, unsigned int, vm_prot_t, bool);
++extern "C" void ml_io_unmap(vm_offset_t, vm_size_t);
++extern "C" void pong_ramoops_diagnostic_write(const char *, int);
++
++static constexpr vm_offset_t kThorGccDispAhb = 0x00137004;
++static constexpr vm_offset_t kThorDispCc = 0x0af00000;
++static constexpr vm_offset_t kThorMdss = 0x0ae00000;
++static constexpr unsigned kThorDispCcMdp = 0x800c;
++static constexpr unsigned kThorDispCcAhb = 0x80a4;
++static constexpr unsigned kThorDispCcGdsc = 0x9000;
++static constexpr unsigned kThorCtlIntfActive = 0xf4;
++static constexpr unsigned kThorCtlFetchActive = 0xfc;
++static constexpr unsigned kThorDsiInterfaces = (1u << 1) | (1u << 2);
++static constexpr unsigned kThorIntfFrameCount = 0xac;
++static constexpr unsigned kThorIntfTearCheck = 0x284;
++static constexpr unsigned kThorIntfAutorefresh = 0x2b4;
++static constexpr unsigned kThorIntfOffset[] = { 0x36000, 0x37000 };
++static constexpr unsigned kThorSsppOffset[] = { 0x5000, 0x7000, 0x9000, 0xb000, 0x25000, 0x27000, 0x29000, 0x2b000 };
++static constexpr unsigned kThorSsppFetchBit[] = { 16, 17, 18, 19, 0, 1, 2, 3 };
++
++struct ThorDpuMappings {
++	vm_offset_t gcc;
++	vm_offset_t clocks;
++	vm_offset_t mdss;
++
++	~ThorDpuMappings()
++	{
++		if (mdss) ml_io_unmap(mdss, 0x84000);
++		if (clocks) ml_io_unmap(clocks, 0x2000);
++		if (gcc) ml_io_unmap(gcc, 0x1000);
++	}
++};
++
++static uint32_t
++thorDpuRead(vm_offset_t address)
++{
++	return *reinterpret_cast<const volatile uint32_t *>(address);
++}
++
++static void
++thorDpuMarker(const char *text)
++{
++	IOLog("%s", text);
++	pong_ramoops_diagnostic_write(text, static_cast<int>(strlen(text)));
++}
++
++static bool
++thorDpuClockRunning(uint32_t cbcr)
++{
++	/* Require both an enable indication and a deasserted CLK_OFF bit. */
++	return (cbcr & 0x80000001u) == 1u;
++}
++
++static bool
++thorDpuClocksReady(const ThorDpuMappings &map)
++{
++	const uint32_t gcc = thorDpuRead(map.gcc + (kThorGccDispAhb & 0xfff));
++	if (!thorDpuClockRunning(gcc)) {
++		IOLog("THOR DPU PROBE: skip GCC DISP AHB cbcr=%#x\n", gcc);
++		return false;
++	}
++	/* The exposed DISPCC range begins at its MDP/AHB/GDSC register page. */
++	const uint32_t gdsc = thorDpuRead(map.clocks + kThorDispCcGdsc - 0x8000);
++	const uint32_t ahb = thorDpuRead(map.clocks + kThorDispCcAhb - 0x8000);
++	const uint32_t mdp = thorDpuRead(map.clocks + kThorDispCcMdp - 0x8000);
++	if ((gdsc & 0x80000001u) != 0x80000000u || !thorDpuClockRunning(ahb) || !thorDpuClockRunning(mdp)) {
++		IOLog("THOR DPU PROBE: skip DISPCC gdsc=%#x ahb=%#x mdp=%#x\n", gdsc, ahb, mdp);
++		return false;
++	}
++	return true;
++}
++
++/* The Cape Android SDE driver writes BIT(31) | frame_count at 0x2b4.
++ * v119 measured firmware 0x8000003c and only one transfer in 753 ms.
++ * Do not change the panel mode, TE timing, route, or scanout addresses. */
++static constexpr uint32_t kThorFirmwareRefresh = 0x8000003c;
++static constexpr uint32_t kThorRefreshEachTe = 0x80000001;
++
++static bool
++thorDpuRefreshRouteMatches(const ThorDpuMappings &map, uint64_t framebuffer)
++{
++	if (framebuffer != 0xb8000000 || !thorDpuClocksReady(map)) return false;
++
++	const vm_offset_t ctl = map.mdss + 0x16000;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	if (thorDpuRead(ctl + kThorCtlIntfActive) != 0x2 ||
++	    thorDpuRead(ctl + kThorCtlFetchActive) != 0x30000 ||
++	    thorDpuRead(ctl + 0x14) != 0xf0020000 ||
++	    thorDpuRead(ctl + 0x18) != 0 ||
++	    thorDpuRead(intf + kThorIntfTearCheck) != 1) {
++		thorDpuMarker("THOR DPU REFRESH: skip unexpected CTL0 or INTF1 route\n");
++		return false;
++	}
++	for (unsigned i = 0; i < 2; ++i) {
++		const vm_offset_t pipe = map.mdss + kThorSsppOffset[i];
++		if (thorDpuRead(pipe + 0x14) != framebuffer ||
++		    thorDpuRead(pipe) != 0x0c8002d0 ||
++		    thorDpuRead(pipe + 0x0c) != 0x0c8002d0 ||
++		    thorDpuRead(pipe + 0x24) != 0x1680 ||
++		    thorDpuRead(pipe + 0x30) != 0x237ff) {
++			thorDpuMarker("THOR DPU REFRESH: skip unexpected VIG0/VIG1 framebuffer\n");
++			return false;
++		}
++	}
++	return true;
++}
++
++static bool
++thorDpuWriteRefresh(const ThorDpuMappings &map, uint64_t framebuffer, uint32_t expected, uint32_t desired)
++{
++	if (!thorDpuRefreshRouteMatches(map, framebuffer)) return false;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	if (thorDpuRead(intf + kThorIntfAutorefresh) != expected) {
++		thorDpuMarker("THOR DPU REFRESH: skip unexpected auto-refresh config\n");
++		return false;
++	}
++	const vm_offset_t writePage = io_map(kThorMdss + kThorIntfOffset[0], 0x1000,
++	    VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
++	if (!writePage) {
++		thorDpuMarker("THOR DPU REFRESH: skip INTF1 write map unavailable\n");
++		return false;
++	}
++
++	bool applied = false;
++	if (thorDpuRefreshRouteMatches(map, framebuffer) &&
++	    thorDpuRead(writePage + kThorIntfAutorefresh) == expected) {
++		thorDpuMarker(desired == kThorRefreshEachTe ?
++		    "THOR DPU REFRESH: write INTF1 auto-refresh 0x8000003c -> 0x80000001\n" :
++		    "THOR DPU REFRESH: restore INTF1 auto-refresh 0x80000001 -> 0x8000003c\n");
++		*reinterpret_cast<volatile uint32_t *>(writePage + kThorIntfAutorefresh) = desired;
++		__asm__ volatile("dsb sy" ::: "memory");
++		if (thorDpuClocksReady(map)) {
++			const uint32_t actual = thorDpuRead(intf + kThorIntfAutorefresh);
++			IOLog("THOR DPU REFRESH: readback=%#x expected=%#x\n", actual, desired);
++			applied = actual == desired;
++			if (!applied) thorDpuMarker("THOR DPU REFRESH: readback mismatch\n");
++		}
++	}
++	ml_io_unmap(writePage, 0x1000);
++	return applied;
++}
++
++/*
++ * The Cape Android DT associates DSI0 (0x0ae94000) with INTF1 and
++ * DSI1 (0x0ae96000) with INTF2. The matching waipio DISPCC table
++ * provides the byte, byte-interface, pixel and escape-clock CBCRs.
++ * Only inspect a routed controller whose branch clocks are all running.
++ */
++struct ThorDsiInstance {
++	vm_offset_t address;
++	unsigned byteClock, byteInterfaceClock, pixelClock, escapeClock;
++	uint32_t route;
++};
++
++static constexpr ThorDsiInstance kThorDsi[] = {
++	{ 0x0ae94000, 0x8028, 0x802c, 0x8004, 0x8038, 1u << 1 },
++	{ 0x0ae96000, 0x8030, 0x8034, 0x8008, 0x803c, 1u << 2 },
++};
++
++static bool
++thorDsiClocksReady(const ThorDpuMappings &map, const ThorDsiInstance &dsi, unsigned index)
++{
++	if (!thorDpuClocksReady(map)) return false;
++	const uint32_t byte = thorDpuRead(map.clocks + dsi.byteClock - 0x8000);
++	const uint32_t byteInterface = thorDpuRead(map.clocks + dsi.byteInterfaceClock - 0x8000);
++	const uint32_t pixel = thorDpuRead(map.clocks + dsi.pixelClock - 0x8000);
++	const uint32_t escape = thorDpuRead(map.clocks + dsi.escapeClock - 0x8000);
++	if (thorDpuClockRunning(byte) && thorDpuClockRunning(byteInterface) &&
++	    thorDpuClockRunning(pixel) && thorDpuClockRunning(escape)) return true;
++
++	IOLog("THOR DSI AUDIT: id=%u skip branch clock byte=%#x byte_intf=%#x pixel=%#x esc=%#x\n",
++	    index, byte, byteInterface, pixel, escape);
++	return false;
++}
++
++/*
++ * GPIO/clock guards and read-only mapping come from thorDsiAudit.
++ * Thor L1 Android timing tables (LineageOS devicetrees 096f783227ec):
++ * each WQHD mode uses one vendor batch, 29 DSI packets, 260 DMA bytes.
++ * Command FIFO capacity is 64 bytes; do not send fragments as individual
++ * packets. Read-only register observations do not qualify a DMA buffer.
++ */
++/*
++ * CAPE Android display binds APPS SMMU SID 0x2800, mask 0x402.
++ * Use the same fixed SMR3/CB3 read-only layout qualified on MIX Fold 2.
++ * No scan of other stream slots, SMMU writes or DMA memory allocations.
++ */
++static bool
++thorDsiDomainAudit(const ThorDpuMappings &map, const ThorDsiInstance &dsi)
++{
++	uint32_t enabled = 1;
++	(void) PE_parse_boot_argn("thor_dsi_domain_audit", &enabled, sizeof(enabled));
++	if (!enabled || !thorDsiClocksReady(map, dsi, 0)) return false;
++
++	constexpr vm_offset_t appsSmmu = 0x15000000;
++	constexpr unsigned idr0Offset = 0x20, idr1Offset = 0x24;
++	constexpr unsigned smr3Offset = 0x80c, s2cr3Offset = 0xc0c, cba2r3Offset = 0x180c;
++	constexpr uint32_t expectedSmr = 0x84022800;
++	const vm_offset_t regs = io_map(appsSmmu, 0x2000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!regs) {
++		thorDpuMarker("THOR DSI DOMAIN: skip APPS SMMU global page map unavailable\n");
++		return false;
++	}
++	thorDpuMarker("THOR DSI DOMAIN: before fixed APPS SMMU identification read\n");
++	const uint32_t idr0 = thorDpuRead(regs + idr0Offset);
++	const uint32_t idr1 = thorDpuRead(regs + idr1Offset);
++	if (!(idr0 & (1u << 27)) || (idr0 & (1u << 8)) || (idr0 & 0xffu) <= 3 ||
++	    (idr1 & 0xf0000000u) != 0x60000000u || (idr1 & 0xffu) <= 3) {
++		IOLog("THOR DSI DOMAIN: skip unsupported layout idr0=%#x idr1=%#x\n", idr0, idr1);
++		ml_io_unmap(regs, 0x2000);
++		return false;
++	}
++	const uint32_t smr = thorDpuRead(regs + smr3Offset);
++	const uint32_t s2cr = thorDpuRead(regs + s2cr3Offset);
++	IOLog("THOR DSI DOMAIN: idr0=%#x idr1=%#x smr3=%#x s2cr3=%#x\n", idr0, idr1, smr, s2cr);
++	if (smr != expectedSmr || (s2cr & 0x300ffu) != 3) {
++		thorDpuMarker("THOR DSI DOMAIN: skip fixed stream or context differs\n");
++		ml_io_unmap(regs, 0x2000);
++		return false;
++	}
++	const uint32_t cba2r = thorDpuRead(regs + cba2r3Offset);
++	if (cba2r != 1) {
++		IOLog("THOR DSI DOMAIN: skip CB3 cba2r=%#x\n", cba2r);
++		ml_io_unmap(regs, 0x2000);
++		return false;
++	}
++
++	const vm_offset_t cb = io_map(appsSmmu + 0x83000, 0x1000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!cb) {
++		thorDpuMarker("THOR DSI DOMAIN: skip CB3 page map unavailable\n");
++		ml_io_unmap(regs, 0x2000);
++		return false;
++	}
++	bool identity = false;
++	if (thorDsiClocksReady(map, dsi, 0)) {
++		thorDpuMarker("THOR DSI DOMAIN: before fixed CB3 read\n");
++		const uint32_t sctlr = thorDpuRead(cb);
++		const uint32_t fsr = thorDpuRead(cb + 0x58);
++		const bool stable = thorDpuRead(regs + smr3Offset) == smr &&
++		    thorDpuRead(regs + s2cr3Offset) == s2cr &&
++		    thorDpuRead(regs + cba2r3Offset) == cba2r && thorDpuRead(cb) == sctlr;
++		identity = stable && !(fsr & 0xc00001feu) && !(sctlr & 1u);
++		const char *observed = !stable ? "changed" :
++		    (fsr & 0xc00001feu) ? "faulted" : (sctlr & 1u) ? "translation-active" : "identity-observed";
++		IOLog("THOR DSI DOMAIN: cb3 cba2r=%#x sctlr=%#x fsr=%#x state=%s "
++		    "snapshot_only=1 dma_unqualified=1\n", cba2r, sctlr, fsr, observed);
++	}
++	ml_io_unmap(cb, 0x1000);
++	ml_io_unmap(regs, 0x2000);
++	return identity;
++}
++
++/* Exact L1 WQHD batches from LineageOS devicetrees 096f783227ec. */
++static constexpr uint8_t kThorDsiWqhd60[] = {
++	0x05, 0x00, 0x39, 0x40, 0x2a, 0x00, 0x00, 0x05, 0x9f, 0xff, 0xff, 0xff,
++	0x05, 0x00, 0x39, 0x40, 0x2b, 0x00, 0x00, 0x0c, 0x7f, 0xff, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xc3, 0x0c, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0xa5, 0xa5, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0xb9, 0x00, 0x15, 0x00,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x06, 0xb9,
++	0x07, 0x00, 0x39, 0x40, 0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xf7, 0x0f, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0xa5, 0xa5, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x08, 0xcb,
++	0x02, 0x00, 0x39, 0x40, 0xcb, 0x27, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xbd, 0x21, 0x82, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x10, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x00, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x21, 0xbd,
++	0x0f, 0x00, 0x39, 0x40, 0xbd, 0x03, 0x00, 0x06, 0x00, 0x09, 0x00, 0x0c, 0x00, 0x0f, 0x00, 0x15, 0x00, 0x21, 0x00, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x61, 0xbd,
++	0x0a, 0x00, 0x39, 0x40, 0xbd, 0x04, 0x00, 0x08, 0x00, 0x0c, 0x00, 0x10, 0x00, 0x74, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x12, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x01, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x16, 0xbd,
++	0x03, 0x00, 0x39, 0x40, 0xbd, 0x00, 0x00, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x21, 0xff, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0x60, 0x01, 0xff, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xf7, 0x0f, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0xc0, 0xf0, 0xa5, 0xa5, 0xff,
++};
++static constexpr uint8_t kThorDsiWqhd120[] = {
++	0x05, 0x00, 0x39, 0x40, 0x2a, 0x00, 0x00, 0x05, 0x9f, 0xff, 0xff, 0xff,
++	0x05, 0x00, 0x39, 0x40, 0x2b, 0x00, 0x00, 0x0c, 0x7f, 0xff, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xc3, 0x0c, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0xa5, 0xa5, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0xb9, 0x41, 0x15, 0x00,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x06, 0xb9,
++	0x07, 0x00, 0x39, 0x40, 0xb9, 0x0c, 0x9e, 0x0c, 0x9e, 0x00, 0x1d, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xf7, 0x0f, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0xa5, 0xa5, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x08, 0xcb,
++	0x02, 0x00, 0x39, 0x40, 0xcb, 0x27, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xbd, 0x23, 0x02, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x10, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x00, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x21, 0xbd,
++	0x0f, 0x00, 0x39, 0x40, 0xbd, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x07, 0x00, 0x0b, 0x00, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x61, 0xbd,
++	0x0a, 0x00, 0x39, 0x40, 0xbd, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x1d, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x12, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x00, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x14, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x01, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x16, 0xbd,
++	0x03, 0x00, 0x39, 0x40, 0xbd, 0x00, 0x00, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xf7, 0x0f, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0xc0, 0xf0, 0xa5, 0xa5, 0xff,
++};
++
++/*
++ * Thor L1 timing programs contain one exact 260-byte embedded DMA batch
++ * per mode. Landings with an unproven APPS SMMU context must not allocate
++ * or start a command. A successful standard DCS NOP precedes the timing
++ * commands, using the same fresh physical page and DMA settings.
++ */
++extern "C" void flush_dcache64(addr64_t address, unsigned length, int physical);
++
++constexpr uint32_t kThorDsiControl = 0x04;
++constexpr uint32_t kThorDsiStatus = 0x08;
++constexpr uint32_t kThorDsiDmaControl = 0x3c;
++constexpr uint32_t kThorDsiDmaOffset = 0x48;
++constexpr uint32_t kThorDsiDmaLength = 0x4c;
++constexpr uint32_t kThorDsiFifo = 0x50;
++constexpr uint32_t kThorDsiTriggerControl = 0x84;
++constexpr uint32_t kThorDsiDmaTrigger = 0x90;
++constexpr uint32_t kThorDsiIrq = 0x110;
++constexpr uint32_t kThorDsiPattern = 0x15c;
++constexpr uint32_t kThorDsiBusy = 6;
++constexpr uint32_t kThorDsiDmaDone = 1;
++constexpr uint32_t kThorDsiError = 1u << 24;
++constexpr uint32_t kThorDsiIrqEnables = (1u << 1) | (1u << 9) | (1u << 11) | (1u << 13) |
++    (1u << 15) | (1u << 17) | (1u << 21) | (1u << 25) | (1u << 29) | (1u << 31);
++static constexpr uint8_t kThorDsiNop[] = { 0x00, 0x00, 0x05, 0x80 };
++
++static constexpr uint64_t kThorScratchLeaseBytes = 18ull << 20;
++static constexpr IOByteCount kThorScratchBytes = 5760ull * 3200;
++constexpr IOByteCount kThorDsiCommandPageBytes = 4096;
++static_assert(kThorScratchBytes <= kThorScratchLeaseBytes - kThorDsiCommandPageBytes);
++static_assert(sizeof(kThorDsiWqhd120) == sizeof(kThorDsiWqhd60));
++static_assert(sizeof(kThorDsiWqhd120) <= kThorDsiCommandPageBytes);
++
++extern "C" bool pmap_pong_pa_valid(uint64_t);
++
++static uint64_t
++thorDpuReservedScratch()
++{
++	IORegistryEntry *chosen = IORegistryEntry::fromPath("/chosen", gIODTPlane);
++	if (!chosen) return 0;
++	auto *data = OSDynamicCast(OSData, chosen->getProperty("thor-native-scanout"));
++	uint64_t range[2] = {};
++	if (data && data->getLength() == sizeof(range)) memcpy(range, data->getBytesNoCopy(), sizeof(range));
++	chosen->release();
++
++	const uint64_t physical = range[0];
++	if (range[1] != kThorScratchLeaseBytes || physical < 0xf8000000 || physical > 0xffc00000 - kThorScratchLeaseBytes ||
++	    (physical & 4095) || !pmap_pong_pa_valid(physical + kThorScratchLeaseBytes)) return 0;
++	for (uint64_t page = physical; page < physical + kThorScratchLeaseBytes; page += 4096) {
++		if (pmap_pong_pa_valid(page)) return 0;
++	}
++	return physical;
++}
++
++struct ThorDsiCommandBuffer {
++	IOBufferMemoryDescriptor *allocated = nullptr;
++	IOMemoryDescriptor *reserved = nullptr;
++	IOMemoryMap *mapping = nullptr;
++	void *cpu = nullptr;
++	uint32_t physical = 0;
++	bool retainForDma = false;
++
++	~ThorDsiCommandBuffer()
++	{
++		if (retainForDma) return;
++		if (mapping) mapping->release();
++		if (reserved) reserved->release();
++		if (allocated) {
++			(void) allocated->complete();
++			allocated->release();
++		}
++	}
++};
++
++enum ThorDsiTransfer { ThorDsiNotStarted, ThorDsiComplete, ThorDsiFailedIdle, ThorDsiRetain };
++
++static void
++thorDsiWrite(vm_offset_t regs, uint32_t offset, uint32_t value)
++{
++	*reinterpret_cast<volatile uint32_t *>(regs + offset) = value;
++	__asm__ volatile("dsb sy" ::: "memory");
++}
++
++static ThorDsiTransfer
++thorDsiTransferBatch(const ThorDpuMappings &map, const ThorDsiInstance &dsi, uint64_t framebuffer,
++    vm_offset_t regs, const ThorDsiCommandBuffer &memory,
++    const uint8_t *program, size_t bytes, const char *tag)
++{
++	if (!thorDsiDomainAudit(map, dsi) || !thorDpuRefreshRouteMatches(map, framebuffer) ||
++	    !thorDsiClocksReady(map, dsi, 0) || thorDpuRead(regs) != 0x20060000 ||
++	    thorDpuRead(regs + kThorDsiControl) != 0x1f5 ||
++	    (thorDpuRead(regs + kThorDsiPattern) & 7u) || (thorDpuRead(regs + kThorDsiIrq) & kThorDsiError)) {
++		IOLog("THOR DSI 120: %s skipped; controller or context changed\n", tag);
++		return ThorDsiNotStarted;
++	}
++	const uint32_t physical = memory.physical;
++	memcpy(memory.cpu, program, bytes);
++	/* Firmware-reserved memory has a cacheable CPU alias outside the direct map. */
++	if (memory.mapping) {
++		flush_dcache64(reinterpret_cast<addr64_t>(memory.cpu), static_cast<unsigned>(bytes), 0);
++	} else {
++		flush_dcache64(physical, static_cast<unsigned>(bytes), 1);
++	}
++	__asm__ volatile("dsb sy" ::: "memory");
++
++	char receipt[140];
++	snprintf(receipt, sizeof(receipt), "THOR DSI 120: %s awaiting command window pa=%#x bytes=%zu\n", tag, physical, bytes);
++	thorDpuMarker(receipt);
++	for (unsigned i = 0; i < 1250 && (thorDpuRead(regs + kThorDsiStatus) & kThorDsiBusy); ++i) {
++		IODelay(20);
++	}
++	if (!thorDsiClocksReady(map, dsi, 0) || (thorDpuRead(regs + kThorDsiStatus) & kThorDsiBusy) ||
++	    (thorDpuRead(regs + kThorDsiIrq) & kThorDsiError)) return ThorDsiNotStarted;
++	const uint32_t ctrl = thorDpuRead(regs + kThorDsiDmaControl);
++	const uint32_t offset = thorDpuRead(regs + kThorDsiDmaOffset);
++	const uint32_t length = thorDpuRead(regs + kThorDsiDmaLength);
++	const uint32_t fifo = thorDpuRead(regs + kThorDsiFifo);
++	const uint32_t trigger = thorDpuRead(regs + kThorDsiTriggerControl);
++	if (ctrl != 0x14000000 || trigger != 0x80000004) {
++		IOLog("THOR DSI 120: %s unexpected retained DMA ctrl=%#x trigger=%#x\n", tag, ctrl, trigger);
++		return ThorDsiNotStarted;
++	}
++
++	/* Vendor embedded HS mode. Leave unrelated interrupt state intact. */
++	thorDsiWrite(regs, kThorDsiIrq, (thorDpuRead(regs + kThorDsiIrq) & kThorDsiIrqEnables) | kThorDsiDmaDone);
++	if (thorDpuRead(regs + kThorDsiIrq) & (kThorDsiDmaDone | kThorDsiError)) return ThorDsiNotStarted;
++	thorDsiWrite(regs, kThorDsiDmaControl, ctrl & ~(1u << 26));
++	thorDsiWrite(regs, kThorDsiFifo, fifo | (1u << 20) | (1u << 16));
++	thorDsiWrite(regs, kThorDsiDmaOffset, physical);
++	thorDsiWrite(regs, kThorDsiDmaLength, static_cast<uint32_t>(bytes));
++	thorDsiWrite(regs, kThorDsiDmaTrigger, 1);
++
++	uint32_t irq = 0, status = 0;
++	bool complete = false;
++	for (unsigned i = 0; i < 1250; ++i) {
++		irq = thorDpuRead(regs + kThorDsiIrq);
++		status = thorDpuRead(regs + kThorDsiStatus);
++		complete = (irq & kThorDsiDmaDone) && !(status & (1u << 1));
++		if (complete || (irq & kThorDsiError)) break;
++		IODelay(20);
++	}
++	if (!thorDsiClocksReady(map, dsi, 0)) return ThorDsiRetain;
++	if (thorDpuRead(regs + kThorDsiStatus) & (1u << 1)) {
++		thorDpuMarker("THOR DSI 120: DMA still busy; retain fresh command page and do not touch controller\n");
++		return ThorDsiRetain;
++	}
++	thorDsiWrite(regs, kThorDsiIrq, (thorDpuRead(regs + kThorDsiIrq) & kThorDsiIrqEnables) | kThorDsiDmaDone);
++	thorDsiWrite(regs, kThorDsiDmaOffset, offset);
++	thorDsiWrite(regs, kThorDsiDmaLength, length);
++	thorDsiWrite(regs, kThorDsiFifo, fifo);
++	thorDsiWrite(regs, kThorDsiDmaControl, ctrl);
++	const bool pass = complete && !(irq & kThorDsiError);
++	IOLog("THOR DSI 120: %s result=%s status=%#x irq=%#x\n", tag, pass ? "done" : "failed", status, irq);
++	return pass ? ThorDsiComplete : ThorDsiFailedIdle;
++}
++
++static uint32_t
++thorDsiMeasurePanel(const ThorDpuMappings &map, const ThorDsiInstance &dsi)
++{
++	if (!thorDsiClocksReady(map, dsi, 0)) return 0;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	const uint32_t frames = thorDpuRead(intf + kThorIntfFrameCount);
++	const uint64_t began = mach_absolute_time();
++	IOSleep(300);
++	if (!thorDsiClocksReady(map, dsi, 0) ||
++	    thorDpuRead(intf + kThorIntfAutorefresh) != kThorRefreshEachTe) return 0;
++	const uint32_t delta = thorDpuRead(intf + kThorIntfFrameCount) - frames;
++	uint64_t elapsed = 0;
++	absolutetime_to_nanoseconds(mach_absolute_time() - began, &elapsed);
++	if (!elapsed || delta > 100) return 0;
++	const uint32_t tenths = static_cast<uint32_t>(delta * 10000000000ull / elapsed);
++	IOLog("THOR DSI 120: hardware frames=%u elapsed_us=%llu refresh_tenths=%u\n",
++	    delta, elapsed / 1000, tenths);
++	return tenths;
++}
++
++static bool
++thorDsiPrepareCommandBuffer(ThorDsiCommandBuffer &buffer)
++{
++	const uint64_t lease = thorDpuReservedScratch();
++	if (lease) {
++		/* This last page is outside the DPU scratch pixels and OS-managed RAM. */
++		const uint64_t address = lease + kThorScratchLeaseBytes - kThorDsiCommandPageBytes;
++		auto *memory = IOMemoryDescriptor::withPhysicalAddress(address, kThorDsiCommandPageBytes, kIODirectionInOut);
++		auto *mapping = memory ? memory->createMappingInTask(kernel_task, 0,
++		    kIOMapAnywhere | kIOMapCopybackCache) : nullptr;
++		if (mapping && mapping->getLength() == kThorDsiCommandPageBytes && mapping->getAddress()) {
++			buffer.reserved = memory;
++			buffer.mapping = mapping;
++			buffer.cpu = reinterpret_cast<void *>(mapping->getAddress());
++			buffer.physical = static_cast<uint32_t>(address);
++			IOLog("THOR DSI 120: dedicated firmware command page pa=%#llx\n", address);
++			return true;
++		}
++		if (mapping) mapping->release();
++		if (memory) memory->release();
++		thorDpuMarker("THOR DSI 120: firmware command page map failed; try low contiguous pages\n");
++	}
++
++	constexpr IOByteCount allocationBytes = 2 * kThorDsiCommandPageBytes;
++	constexpr uint64_t dmaLimit = 1ull << 32;
++	/* IOMallocContiguous will bypass the physical ceiling for a single
++	 * page on ARM64. Two pages take the bounded contiguous VM path. */
++	IOBufferMemoryDescriptor *memory = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task,
++	    static_cast<IOOptionBits>(kIODirectionInOut) | static_cast<IOOptionBits>(kIOMemoryMapperNone) |
++	    kIOMemoryPhysicallyContiguous, allocationBytes, dmaLimit - page_size);
++	if (!memory) {
++		thorDpuMarker("THOR DSI 120: skipped; no fresh low contiguous command pages\n");
++		return false;
++	}
++	const IOReturn prepared = memory->prepare();
++	if (prepared != kIOReturnSuccess) {
++		IOLog("THOR DSI 120: low contiguous pages prepare failed=%#x\n", static_cast<unsigned>(prepared));
++		memory->release();
++		return false;
++	}
++	IOByteCount segment = 0, tail = 0;
++	const uint64_t address = memory->getPhysicalSegment(0, &segment, kIOMemoryMapperNone);
++	const uint64_t last = memory->getPhysicalSegment(allocationBytes - 1, &tail, kIOMemoryMapperNone);
++	const uint64_t descriptorBytes = memory->getLength();
++	void *const cpu = memory->getBytesNoCopy();
++	const bool hasBuffer = cpu != nullptr;
++	IOLog("THOR DSI 120: low contiguous pages pa=%#llx seg=%llu last=%#llx tail=%llu descriptor=%llu kva=%u\n",
++	    address, static_cast<uint64_t>(segment), last, static_cast<uint64_t>(tail), descriptorBytes, hasBuffer ? 1u : 0u);
++	if (!address || (address & (page_size - 1)) || address > dmaLimit - allocationBytes ||
++	    segment < allocationBytes || !tail || last != address + allocationBytes - 1 ||
++	    descriptorBytes != allocationBytes || !hasBuffer) {
++		thorDpuMarker("THOR DSI 120: skipped; fresh DMA pages failed physical range validation\n");
++		(void) memory->complete();
++		memory->release();
++		return false;
++	}
++	buffer.allocated = memory;
++	buffer.cpu = cpu;
++	buffer.physical = static_cast<uint32_t>(address);
++	return true;
++}
++
++static bool
++thorDsiTry120(const ThorDpuMappings &map, const ThorDsiInstance &dsi, uint64_t framebuffer)
++{
++	bool qualified = false;
++	uint32_t enabled = 1;
++	(void) PE_parse_boot_argn("thor_dsi_120", &enabled, sizeof(enabled));
++	if (!enabled || !thorDsiDomainAudit(map, dsi)) {
++		thorDpuMarker("THOR DSI 120: skipped; fixed display identity context was not qualified\n");
++		return false;
++	}
++	const uint32_t initial = thorDsiMeasurePanel(map, dsi);
++	if (initial < 550 || initial > 650) {
++		IOLog("THOR DSI 120: skipped; initial hardware frequency out of range (%u)\n", initial);
++		return false;
++	}
++
++	if (page_size != kThorDsiCommandPageBytes) {
++		thorDpuMarker("THOR DSI 120: skipped; unexpected ARM64 VM page size\n");
++		return false;
++	}
++	ThorDsiCommandBuffer memory;
++	if (!thorDsiPrepareCommandBuffer(memory)) return false;
++
++	const vm_offset_t regs = io_map(dsi.address, 0x1000, VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
++	if (!regs) {
++		thorDpuMarker("THOR DSI 120: skipped; no command controller write mapping\n");
++		return false;
++	}
++	ThorDsiTransfer result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory,
++	    kThorDsiNop, sizeof(kThorDsiNop), "NOP");
++	if (result == ThorDsiComplete) {
++		result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory,
++		    kThorDsiWqhd120, sizeof(kThorDsiWqhd120), "switch120");
++		if (result == ThorDsiComplete) {
++			/* The first rate window can straddle the 60/120 timing
++			 * transition even after command DMA has completed. */
++			IOSleep(150);
++			uint32_t after = thorDsiMeasurePanel(map, dsi);
++			if (after < 1130 || after > 1270) {
++				thorDpuMarker("THOR DSI 120: first settled sample out of range, remeasure before rollback\n");
++				after = thorDsiMeasurePanel(map, dsi);
++			}
++			if (after >= 1130 && after <= 1270) {
++				qualified = true;
++				thorDpuMarker("THOR DSI 120: PASS actual ~120 Hz hardware scanout measured\n");
++			} else {
++				thorDpuMarker("THOR DSI 120: hardware rate not qualified, try stock 60 Hz rollback\n");
++				result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory,
++				    kThorDsiWqhd60, sizeof(kThorDsiWqhd60), "restore60");
++				if (result == ThorDsiComplete) (void) thorDsiMeasurePanel(map, dsi);
++			}
++		} else if (result == ThorDsiFailedIdle) {
++			thorDpuMarker("THOR DSI 120: incomplete switch while idle, try stock 60 Hz rollback\n");
++			result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory,
++			    kThorDsiWqhd60, sizeof(kThorDsiWqhd60), "restore60");
++			if (result == ThorDsiComplete) (void) thorDsiMeasurePanel(map, dsi);
++		}
++	}
++	ml_io_unmap(regs, 0x1000);
++	memory.retainForDma = result == ThorDsiRetain;
++	return qualified;
++}
++
++static void
++thorDsiTimingPreflight(const ThorDpuMappings &map, vm_offset_t regs, const ThorDsiInstance &dsi,
++    unsigned index, uint32_t control)
++{
++	if (index != 0 || control != 0x1f5 || !thorDsiClocksReady(map, dsi, index)) return;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[index];
++	if (thorDpuRead(intf + kThorIntfAutorefresh) != kThorRefreshEachTe) return;
++
++	constexpr uint32_t BusyMask = (1u << 1) | (1u << 2);
++	constexpr uint32_t ErrorPending = 1u << 24;
++	const uint32_t dmaControl = thorDpuRead(regs + 0x03c);
++	const uint32_t dmaOffset = thorDpuRead(regs + 0x048);
++	const uint32_t dmaLength = thorDpuRead(regs + 0x04c);
++	const uint32_t trigger = thorDpuRead(regs + 0x084);
++	const uint32_t pattern = thorDpuRead(regs + 0x15c);
++	const uint32_t irq = thorDpuRead(regs + 0x110);
++	const uint32_t stream = thorDpuRead(regs + 0x058);
++	const uint32_t extent = thorDpuRead(regs + 0x05c);
++	IOLog("THOR DSI TIMING: id=0 dma_ctrl=%#x dma_offset=%#x dma_len=%#x "
++	    "trigger=%#x pattern=%#x irq=%#x stream0=%#x extent0=%#x\n",
++	    dmaControl, dmaOffset, dmaLength, trigger, pattern, irq, stream, extent);
++
++	unsigned samples = 0, idle = 0, error = 0, consecutiveIdle = 0, maxConsecutiveIdle = 0;
++	const uint32_t frameAtStart = thorDpuRead(intf + kThorIntfFrameCount);
++	const uint64_t start = mach_absolute_time();
++	for (; samples < 48; ++samples) {
++		if (!thorDsiClocksReady(map, dsi, index)) return;
++		if (!(thorDpuRead(map.mdss + 0x16000 + kThorCtlIntfActive) & dsi.route) ||
++		    thorDpuRead(regs + 0x004) != control) return;
++
++		const bool irqError = (thorDpuRead(regs + 0x110) & ErrorPending) != 0;
++		if (irqError) ++error;
++		if (!(thorDpuRead(regs + 0x008) & BusyMask) && !irqError) {
++			++idle;
++			++consecutiveIdle;
++			if (consecutiveIdle > maxConsecutiveIdle) maxConsecutiveIdle = consecutiveIdle;
++		} else {
++			consecutiveIdle = 0;
++		}
++		IOSleep(1);
++	}
++	if (!thorDsiClocksReady(map, dsi, index)) return;
++	const uint32_t frameAtEnd = thorDpuRead(intf + kThorIntfFrameCount);
++	uint64_t elapsed = 0;
++	absolutetime_to_nanoseconds(mach_absolute_time() - start, &elapsed);
++	IOLog("THOR DSI TIMING: samples=%u idle=%u irq_error=%u max_consecutive_idle=%u "
++	    "elapsed_us=%llu intf_frames=%u\n",
++	    samples, idle, error, maxConsecutiveIdle, elapsed / 1000, frameAtEnd - frameAtStart);
++	thorDpuMarker("THOR DSI TIMING: L1 WQHD 60/120 each 29 packets, 260-byte batch, "
++	    "FIFO 64 bytes, command DMA not qualified; no commands sent\n");
++}
++
++/* Sample hardware during real interaction as well as at startup. The worker
++ * sleeps outside the presenter and reads only the already-qualified route. */
++static void
++thorDpuInteractionAudit(const ThorDpuMappings &map, uint64_t framebuffer)
++{
++	uint32_t enabled = 1;
++	(void) PE_parse_boot_argn("thor_dpu_interaction", &enabled, sizeof(enabled));
++	if (!enabled) return;
++
++	uint64_t deadline, cooldown = 0;
++	clock_interval_to_deadline(20 * 60, NSEC_PER_SEC, &deadline);
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	for (unsigned samples = 0; samples < 8 && mach_absolute_time() < deadline;) {
++		IOSleep(200);
++		const uint64_t touch = pong_touch_last_event_time();
++		const uint64_t now = mach_absolute_time();
++		if (!touch || touch > now || now < cooldown) continue;
++		uint64_t touchAge;
++		absolutetime_to_nanoseconds(now - touch, &touchAge);
++		if (touchAge > 300 * NSEC_PER_MSEC) continue;
++		clock_interval_to_deadline(10, NSEC_PER_SEC, &cooldown);
++		++samples;
++		if (!thorDpuRefreshRouteMatches(map, framebuffer)) {
++			IOLog("THOR DPU INTERACTION: sample=%u skip guard\n", samples);
++			continue;
++		}
++		const uint32_t configStart = thorDpuRead(intf + kThorIntfAutorefresh);
++		const uint32_t countStart = thorDpuRead(intf + kThorIntfFrameCount);
++		const uint64_t enqueues = __atomic_load_n(&gThorFrameEnqueues, __ATOMIC_RELAXED);
++		const uint64_t writebacks = __atomic_load_n(&gThorFrameWritebacks, __ATOMIC_RELAXED);
++		const uint64_t start = mach_absolute_time();
++		IOSleep(750);
++		if (!thorDpuRefreshRouteMatches(map, framebuffer)) {
++			IOLog("THOR DPU INTERACTION: sample=%u skip route or clocks changed\n", samples);
++			continue;
++		}
++		const uint32_t configEnd = thorDpuRead(intf + kThorIntfAutorefresh);
++		const uint32_t countEnd = thorDpuRead(intf + kThorIntfFrameCount);
++		const uint64_t enqueueDelta = __atomic_load_n(&gThorFrameEnqueues, __ATOMIC_RELAXED) - enqueues;
++		const uint64_t writebackDelta = __atomic_load_n(&gThorFrameWritebacks, __ATOMIC_RELAXED) - writebacks;
++		const uint64_t end = mach_absolute_time();
++		uint64_t touchNs, startNs, elapsedNs;
++		absolutetime_to_nanoseconds(touch, &touchNs);
++		absolutetime_to_nanoseconds(start, &startNs);
++		absolutetime_to_nanoseconds(end - start, &elapsedNs);
++		IOLog("THOR DPU INTERACTION: sample=%u touch_us=%llu start_us=%llu elapsed_us=%llu "
++		    "frames=%u delta=%u enqueued=%llu written=%llu auto_before=%#x auto_after=%#x\n",
++		    samples, touchNs / 1000, startNs / 1000, elapsedNs / 1000,
++		    countEnd, countEnd - countStart, enqueueDelta, writebackDelta, configStart, configEnd);
++	}
++}
++
++static bool
++thorDsiAudit(const ThorDpuMappings &map, uint64_t framebuffer, uint32_t active)
++{
++	uint32_t enabled = 1;
++	(void) PE_parse_boot_argn("thor_dsi_audit", &enabled, sizeof(enabled));
++	if (!enabled || !thorDpuRefreshRouteMatches(map, framebuffer)) return false;
++	bool panel120 = false;
++
++	for (unsigned i = 0; i < sizeof(kThorDsi) / sizeof(kThorDsi[0]); ++i) {
++		const auto &dsi = kThorDsi[i];
++		if (!(active & dsi.route)) {
++			IOLog("THOR DSI AUDIT: id=%u skip no active INTF route (mask=%#x)\n", i, active);
++			continue;
++		}
++		if (!thorDsiClocksReady(map, dsi, i)) continue;
++		const vm_offset_t regs = io_map(dsi.address, 0x1000, VM_WIMG_IO, VM_PROT_READ, true);
++		if (!regs) {
++			IOLog("THOR DSI AUDIT: id=%u skip controller map unavailable\n", i);
++			continue;
++		}
++		if (thorDsiClocksReady(map, dsi, i) &&
++		    (thorDpuRead(map.mdss + 0x16000 + kThorCtlIntfActive) & dsi.route)) {
++			thorDpuMarker(i == 0 ? "THOR DSI AUDIT: DSI0 guards passed, before first controller read\n" :
++			    "THOR DSI AUDIT: DSI1 guards passed, before first controller read\n");
++			const uint32_t version = thorDpuRead(regs);
++			if (version == 0x20060000) {
++				const uint32_t control = thorDpuRead(regs + 0x04);
++				const uint32_t status = thorDpuRead(regs + 0x08);
++				IOLog("THOR DSI AUDIT: id=%u ver=%#x ctrl=%#x status=%#x cmd_enabled=%u "
++				    "video_enabled=%u dma_busy=%u mdp_busy=%u panel_identity=unmeasured\n",
++				    i, version, control, status, (control & 5u) == 5u, (control >> 1) & 1,
++				    (status >> 1) & 1, (status >> 2) & 1);
++				if ((control & 7u) == 5u) {
++					const vm_offset_t intf = map.mdss + kThorIntfOffset[i];
++					IOLog("THOR DSI AUDIT: id=%u intf=%u tear=%#x sync=%#x int_count=%#x line=%#x auto=%#x\n",
++					    i, i + 1, thorDpuRead(intf + kThorIntfTearCheck), thorDpuRead(intf + 0x288),
++					    thorDpuRead(intf + 0x298), thorDpuRead(intf + 0x2b0),
++					    thorDpuRead(intf + kThorIntfAutorefresh));
++					thorDsiTimingPreflight(map, regs, dsi, i, control);
++					if (i == 0 && control == 0x1f5) panel120 = thorDsiTry120(map, dsi, framebuffer);
++				}
++			} else {
++				IOLog("THOR DSI AUDIT: id=%u skip unexpected version=%#x\n", i, version);
++			}
++		}
++		ml_io_unmap(regs, 0x1000);
++	}
++	thorDpuMarker("THOR DSI AUDIT: complete\n");
++	return panel120;
++}
++
++/* The live Cape DT advertises QSEED3 at VIG + 0xa00. Qualcomm's
++ * QSEED3_HW_VERSION register is the first word of that sub-block.
++ * Read only the qualified CTL0, VIG0/1 and INTF1 register blocks. */
++static void
++thorDpuFlipAudit(const ThorDpuMappings &map, uint64_t framebuffer)
++{
++	if (!thorDpuRefreshRouteMatches(map, framebuffer)) return;
++	const vm_offset_t ctl = map.mdss + 0x16000;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	if (thorDpuRead(intf + kThorIntfAutorefresh) != kThorRefreshEachTe) return;
++
++	thorDpuMarker("THOR DPU FLIP AUDIT: CTL0 VIG0/1 INTF1 read-only snapshot\n");
++	const uint32_t layer0 = thorDpuRead(ctl + 0x00);
++	const uint32_t layer1 = thorDpuRead(ctl + 0x04);
++	const uint32_t top = thorDpuRead(ctl + 0x14);
++	const uint32_t flush = thorDpuRead(ctl + 0x18);
++	const uint32_t interfaces = thorDpuRead(ctl + kThorCtlIntfActive);
++	const uint32_t pipes = thorDpuRead(ctl + kThorCtlFetchActive);
++	struct PipeState {
++		uint32_t srcXY, outXY, unpack, opMode, qseedVersion;
++	} state[2];
++	for (unsigned i = 0; i < 2; ++i) {
++		if (!thorDpuClocksReady(map)) return;
++		const vm_offset_t pipe = map.mdss + kThorSsppOffset[i];
++		state[i] = {thorDpuRead(pipe + 0x08), thorDpuRead(pipe + 0x10),
++		    thorDpuRead(pipe + 0x34), thorDpuRead(pipe + 0x38),
++		    thorDpuRead(pipe + 0xa00)};
++	}
++	if (!thorDpuClocksReady(map)) return;
++	const uint32_t te = thorDpuRead(intf + kThorIntfTearCheck);
++	const uint32_t sync = thorDpuRead(intf + 0x288);
++	const uint32_t intCount = thorDpuRead(intf + 0x298);
++	const uint32_t line = thorDpuRead(intf + 0x2b0);
++	const uint32_t autorefresh = thorDpuRead(intf + kThorIntfAutorefresh);
++	const uint32_t frames = thorDpuRead(intf + kThorIntfFrameCount);
++	if (!thorDpuRefreshRouteMatches(map, framebuffer) || autorefresh != kThorRefreshEachTe ||
++	    layer0 != thorDpuRead(ctl + 0x00) || layer1 != thorDpuRead(ctl + 0x04)) return;
++
++	IOLog("THOR DPU FLIP AUDIT: ctl0 lm0=%#x lm1=%#x top=%#x flush=%#x intf=%#x fetch=%#x\n",
++	    layer0, layer1, top, flush, interfaces, pipes);
++	for (unsigned i = 0; i < 2; ++i) {
++		IOLog("THOR DPU FLIP AUDIT: vig%u src_xy=%#x out_xy=%#x unpack=%#x op=%#x qseed_ver=%#x\n",
++		    i, state[i].srcXY, state[i].outXY, state[i].unpack,
++		    state[i].opMode, state[i].qseedVersion);
++	}
++	IOLog("THOR DPU FLIP AUDIT: intf1 te=%#x sync=%#x int_count=%#x line=%#x auto=%#x frames=%u\n",
++	    te, sync, intCount, line, autorefresh, frames);
++}
++
++static constexpr uint32_t kThorFlipMask = (1u << 17) | 3u;
++static constexpr unsigned kThorCtlFlush = 0x18;
++static constexpr unsigned kThorSsppSource = 0x14;
++
++struct ThorDpuScratch {
++	IOMemoryDescriptor *memory = nullptr;
++	IOMemoryMap *mapping = nullptr;
++
++	~ThorDpuScratch()
++	{
++		if (mapping) mapping->release();
++		if (memory) memory->release();
++	}
++};
++
++struct ThorDpuFlipMaps {
++	vm_offset_t ctl = 0;
++	vm_offset_t pipes[2] = {};
++
++	~ThorDpuFlipMaps()
++	{
++		if (ctl) ml_io_unmap(ctl, 0x1000);
++		for (auto pipe : pipes) {
++			if (pipe) ml_io_unmap(pipe, 0x1000);
++		}
++	}
++};
++
++static bool
++thorDpuScratchRoute(const ThorDpuMappings &map, uint32_t address, uint32_t &pending, uint32_t alternate = 0)
++{
++	if (!thorDpuClocksReady(map)) return false;
++	const vm_offset_t ctl = map.mdss + 0x16000;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	pending = thorDpuRead(ctl + kThorCtlFlush);
++	if ((pending & ~kThorFlipMask) ||
++	    thorDpuRead(ctl) != 0x100002d || thorDpuRead(ctl + 4) != 0x100002d ||
++	    thorDpuRead(ctl + 0x14) != 0xf0020000 ||
++	    thorDpuRead(ctl + kThorCtlIntfActive) != 0x2 ||
++	    thorDpuRead(ctl + kThorCtlFetchActive) != 0x30000 ||
++	    thorDpuRead(intf + kThorIntfTearCheck) != 1 ||
++	    thorDpuRead(intf + kThorIntfAutorefresh) != kThorRefreshEachTe) return false;
++	for (unsigned i = 0; i < 2; ++i) {
++		const vm_offset_t pipe = map.mdss + kThorSsppOffset[i];
++		const uint32_t x = i * 720;
++		const uint32_t source = thorDpuRead(pipe + kThorSsppSource);
++		if (thorDpuRead(pipe) != 0x0c8002d0 || thorDpuRead(pipe + 0x0c) != 0x0c8002d0 ||
++		    thorDpuRead(pipe + 0x08) != x || thorDpuRead(pipe + 0x10) != x ||
++		    (source != address && (!alternate || source != alternate)) ||
++		    thorDpuRead(pipe + 0x24) != 0x1680 || thorDpuRead(pipe + 0x30) != 0x237ff ||
++		    thorDpuRead(pipe + 0x34) != 0x3020001 || thorDpuRead(pipe + 0x38) != 0x80000000) return false;
++	}
++	return true;
++}
++
++enum ThorDpuScratchFlip { ThorDpuScratchSkipped, ThorDpuScratchPending, ThorDpuScratchLatched };
++
++static ThorDpuScratchFlip
++thorDpuScratchSubmit(const ThorDpuMappings &map, const ThorDpuFlipMaps &write,
++    uint32_t original, uint32_t address, const char *stage)
++{
++	uint32_t pending = 0;
++	if (!thorDpuScratchRoute(map, original, pending) || pending != 0) {
++		IOLog("THOR DPU SCRATCH: %s skipped before MMIO, route or flush changed\n", stage);
++		return ThorDpuScratchSkipped;
++	}
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	const uint32_t before = thorDpuRead(intf + kThorIntfFrameCount);
++	for (auto pipe : write.pipes) {
++		*reinterpret_cast<volatile uint32_t *>(pipe + kThorSsppSource) = address;
++	}
++	__asm__ volatile("dsb sy" ::: "memory");
++	*reinterpret_cast<volatile uint32_t *>(write.ctl + kThorCtlFlush) = kThorFlipMask;
++	__asm__ volatile("dsb sy" ::: "memory");
++
++	bool sawPending = false, latched = false;
++	uint32_t scans = 0;
++	for (unsigned attempt = 0; attempt < 160; ++attempt) {
++		if (!thorDpuScratchRoute(map, address, pending, original)) break;
++		sawPending |= pending != 0;
++		scans = thorDpuRead(intf + kThorIntfFrameCount) - before;
++		if (sawPending && !pending && scans >= 2 && scans <= 8 &&
++		    thorDpuScratchRoute(map, address, pending) && !pending) {
++			latched = true;
++			break;
++		}
++		IODelay(250);
++	}
++	IOLog("THOR DPU SCRATCH: %s addr=%#x pending_seen=%u flush=%#x scans=%u result=%s\n",
++	    stage, address, sawPending ? 1u : 0u, pending, scans, latched ? "latched" : "unconfirmed");
++	return latched ? ThorDpuScratchLatched : ThorDpuScratchPending;
++}
++
++static void
++thorDpuScratchTrial(const ThorDpuMappings &map, uint64_t framebuffer, const uint8_t *source, IOLock *lock)
++{
++	if (page_size != 4096 || !source || !lock || !thorDpuRefreshRouteMatches(map, framebuffer) ||
++	    !thorDsiDomainAudit(map, kThorDsi[0])) return;
++
++	ThorDpuFlipMaps write;
++	write.ctl = io_map(kThorMdss + 0x16000, 0x1000, VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
++	for (unsigned i = 0; i < 2; ++i) {
++		write.pipes[i] = io_map(kThorMdss + kThorSsppOffset[i], 0x1000,
++		    VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
++	}
++	if (!write.ctl || !write.pipes[0] || !write.pipes[1]) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP write aliases unavailable\n");
++		return;
++	}
++
++	const uint32_t original = static_cast<uint32_t>(framebuffer);
++	if (thorDpuScratchSubmit(map, write, original, original, "same-address") != ThorDpuScratchLatched) return;
++
++	const uint64_t physical = thorDpuReservedScratch();
++	if (!physical) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP no separate firmware lease\n");
++		return;
++	}
++	ThorDpuScratch scratch;
++	scratch.memory = IOMemoryDescriptor::withPhysicalAddress(physical, kThorScratchBytes, kIODirectionInOut);
++	if (scratch.memory) {
++		scratch.mapping = scratch.memory->createMappingInTask(kernel_task, 0,
++		    kIOMapAnywhere | kIOMapCopybackCache);
++	}
++	if (!scratch.mapping || scratch.mapping->getLength() != kThorScratchBytes ||
++	    !scratch.mapping->getAddress()) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP dedicated buffer mapping failed\n");
++		return;
++	}
++	const vm_offset_t pixels = scratch.mapping->getAddress();
++	IOLog("THOR DPU SCRATCH: dedicated firmware buffer pa=%#llx bytes=%llu pitch=5760\n",
++	    physical, static_cast<uint64_t>(kThorScratchBytes));
++	if (!IOLockTryLock(lock)) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP presenter busy at snapshot\n");
++		return;
++	}
++	memcpy(reinterpret_cast<void *>(pixels), source, kThorScratchBytes);
++	IOLockUnlock(lock);
++
++	constexpr unsigned chunk = 64 * 1024;
++	for (IOByteCount offset = 0; offset < kThorScratchBytes; offset += chunk) {
++		const IOByteCount left = kThorScratchBytes - offset;
++		flush_dcache64(pixels + offset, static_cast<unsigned>(left < chunk ? left : chunk), 0);
++	}
++	if (!IOLockTryLock(lock)) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP presenter busy at switch\n");
++		return;
++	}
++
++	const uint32_t address = static_cast<uint32_t>(physical);
++	thorDpuMarker("THOR DPU SCRATCH: before fresh source submission\n");
++	const auto submitted = thorDpuScratchSubmit(map, write, original, address, "fresh-buffer");
++	if (submitted == ThorDpuScratchSkipped) {
++		IOLockUnlock(lock);
++		return;
++	}
++
++	/* Restore only from an idle, precisely recognized controller route.
++	 * Keep the mapping and backing pinned if restore cannot be confirmed. */
++	auto restored = thorDpuScratchSubmit(map, write, address, original, "restore");
++	if (restored == ThorDpuScratchSkipped) {
++		restored = thorDpuScratchSubmit(map, write, original, original, "restore-original-route");
++	}
++	IOLockUnlock(lock);
++	if (restored != ThorDpuScratchLatched) {
++		scratch.mapping = nullptr;
++		scratch.memory = nullptr;
++		thorDpuMarker("THOR DPU SCRATCH: UNCERTAIN restore, keep fresh backing pinned\n");
++		return;
++	}
++	if (submitted == ThorDpuScratchLatched && thorDsiDomainAudit(map, kThorDsi[0])) {
++		thorDpuMarker("THOR DPU SCRATCH: PASS new-address latch and original-address restore\n");
++	} else {
++		thorDpuMarker("THOR DPU SCRATCH: restore confirmed, new scanout unqualified\n");
++	}
++}
++
++static void
++thorDpuProbe(uint64_t framebuffer, const uint8_t *source, IOLock *lock)
++{
++	ThorDpuMappings map = {};
++	map.gcc = io_map(kThorGccDispAhb & ~0xffful, 0x1000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!map.gcc || !thorDpuClockRunning(thorDpuRead(map.gcc + (kThorGccDispAhb & 0xfff)))) {
++		thorDpuMarker("THOR DPU PROBE: skip GCC DISP AHB unavailable\n");
++		return;
++	}
++	map.clocks = io_map(kThorDispCc + 0x8000, 0x2000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!map.clocks || !thorDpuClocksReady(map)) {
++		thorDpuMarker("THOR DPU PROBE: skip MDSS register clocks or power unavailable\n");
++		return;
++	}
++	map.mdss = io_map(kThorMdss, 0x84000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!map.mdss) {
++		thorDpuMarker("THOR DPU PROBE: skip MDSS map unavailable\n");
++		return;
++	}
++
++	thorDpuMarker("THOR DPU PROBE: clock guards passed, before first MDSS read\n");
++	uint32_t active = 0, fetch = 0;
++	for (unsigned i = 0; i < 6; ++i) {
++		if (!thorDpuClocksReady(map)) return;
++		const vm_offset_t ctl = map.mdss + 0x16000 + i * 0x1000;
++		const uint32_t interfaces = thorDpuRead(ctl + kThorCtlIntfActive);
++		if (!(interfaces & kThorDsiInterfaces)) continue;
++		const uint32_t pipes = thorDpuRead(ctl + kThorCtlFetchActive);
++		active |= interfaces;
++		fetch |= pipes;
++		IOLog("THOR DPU CTL: id=%u intf=%#x fetch=%#x top=%#x flush=%#x\n", i, interfaces,
++		    pipes, thorDpuRead(ctl + 0x14), thorDpuRead(ctl + 0x18));
++	}
++	if (!(active & kThorDsiInterfaces)) {
++		thorDpuMarker("THOR DPU PROBE: skip CTL reported no active DSI route\n");
++		return;
++	}
++	for (unsigned i = 0; i < sizeof(kThorSsppOffset) / sizeof(kThorSsppOffset[0]); ++i) {
++		if (!(fetch & (1u << kThorSsppFetchBit[i]))) continue;
++		if (!thorDpuClocksReady(map)) return;
++		const vm_offset_t pipe = map.mdss + kThorSsppOffset[i];
++		const uint32_t source = thorDpuRead(pipe + 0x14);
++		const bool inFramebuffer = source >= framebuffer && source - framebuffer < 1440ull * 3200 * 4;
++		IOLog("THOR DPU SSPP: id=%u src=%#x size=%#x out=%#x stride=%#x fmt=%#x fb=%#llx inside=%u\n", i,
++		    source, thorDpuRead(pipe), thorDpuRead(pipe + 0x0c), thorDpuRead(pipe + 0x24),
++		    thorDpuRead(pipe + 0x30), framebuffer, inFramebuffer ? 1 : 0);
++	}
++
++	uint32_t previous[2] = {};
++	uint32_t baselineFrames = 0;
++	uint64_t previousAt = 0;
++	for (unsigned sample = 0; sample < 4; ++sample) {
++		if (sample) IOSleep(250);
++		if (!thorDpuClocksReady(map)) return;
++		const uint64_t now = mach_absolute_time();
++		uint64_t elapsed = 0;
++		if (sample) absolutetime_to_nanoseconds(now - previousAt, &elapsed);
++		for (unsigned i = 0; i < 2; ++i) {
++			if (!(active & (1u << (i + 1)))) continue;
++			const vm_offset_t intf = map.mdss + kThorIntfOffset[i];
++			const uint32_t counter = thorDpuRead(intf + kThorIntfFrameCount);
++			IOLog("THOR DPU INTF: id=%u sample=%u frames=%u delta=%u elapsed_us=%llu tear=%#x auto=%#x\n",
++			    i + 1, sample, counter, sample ? counter - previous[i] : 0, elapsed / 1000,
++			    thorDpuRead(intf + kThorIntfTearCheck), thorDpuRead(intf + kThorIntfAutorefresh));
++			if (i == 0 && sample == 0) baselineFrames = counter;
++			previous[i] = counter;
++		}
++		previousAt = now;
++	}
++	thorDpuMarker("THOR DPU PROBE: read-only phase complete\n");
++	if (active != 0x2 || fetch != 0x30000 || previous[0] - baselineFrames > 3) {
++		thorDpuMarker("THOR DPU REFRESH: skip route or frame counter differs from v119\n");
++		return;
++	}
++	uint32_t enable = 1;
++	(void) PE_parse_boot_argn("thor_dpu_refresh", &enable, sizeof(enable));
++	if (enable != 1) {
++		thorDpuMarker("THOR DPU REFRESH: disabled by boot argument\n");
++		return;
++	}
++	if (!thorDpuWriteRefresh(map, framebuffer, kThorFirmwareRefresh, kThorRefreshEachTe)) return;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	if (!thorDpuClocksReady(map)) return;
++	uint32_t counter = thorDpuRead(intf + kThorIntfFrameCount);
++	const uint32_t firstCounter = counter;
++	uint64_t at = mach_absolute_time();
++	for (unsigned i = 0; i < 8; ++i) {
++		IOSleep(250);
++		if (!thorDpuClocksReady(map)) return;
++		const uint32_t next = thorDpuRead(intf + kThorIntfFrameCount);
++		const uint32_t refresh = thorDpuRead(intf + kThorIntfAutorefresh);
++		const uint64_t now = mach_absolute_time();
++		uint64_t elapsed = 0;
++		absolutetime_to_nanoseconds(now - at, &elapsed);
++		IOLog("THOR DPU REFRESH: sample=%u frames=%u delta=%u elapsed_us=%llu auto=%#x\n",
++		    i + 1, next, next - counter, elapsed / 1000, refresh);
++		if (refresh != kThorRefreshEachTe) {
++			thorDpuMarker("THOR DPU REFRESH: stopped after config changed\n");
++			return;
++		}
++		if (i == 2 && next - firstCounter <= 3) {
++			thorDpuMarker("THOR DPU REFRESH: frame count did not accelerate; restoring firmware\n");
++			(void) thorDpuWriteRefresh(map, framebuffer, kThorRefreshEachTe, kThorFirmwareRefresh);
++			return;
++		}
++		counter = next;
++		at = now;
++	}
++	const bool panel120 = thorDsiAudit(map, framebuffer, active);
++	thorDpuFlipAudit(map, framebuffer);
++	uint32_t trial = 1;
++	(void)PE_parse_boot_argn("thor_flip_trial", &trial, sizeof(trial));
++	if (trial && panel120 && source) thorDpuScratchTrial(map, framebuffer, source, lock);
++	thorDpuInteractionAudit(map, framebuffer);
++}
++
+ #endif
+ #if XNU_PONG_BACKLIGHT
+ extern "C" void pong_backlight_start(IOService *display);
+@@ -101,7 +1356,8 @@ enum {
+
+ #define kFBNotifyVSync          5
+ #define kFBNotifyTypes          8
+-#define kFBRefreshHz            120                     /* Pong NT37705; fb_hz may select a lower mode */
++#define kFBRefreshHz            120                     /* Existing non-Thor default */
++#define kFBThorRefreshHz        60                      /* Thor software rendering cadence */
+
+ #define FRAME_TIMES             64                      /* milliseconds told apart between two frames */
+ #define FRAME_PAUSE             90                      /* from so many on, nothing was moving: not a slow frame */
+@@ -111,6 +1367,9 @@ enum {
+ #define FOURCC(a, b, c, d) ((uint32_t)(a) << 24 | (uint32_t)(b) << 16 | (uint32_t)(c) << 8 | (uint32_t)(d))
+
+ static uint64_t gFBLogged[2];           /* selectors already reported */
++/* Statistics across active synthetic-vsync notification clients. */
++static uint64_t gVSyncAccepted, gVSyncDropped, gVSyncErrors, gVSyncLateness;
++
+ static uint8_t  gFBCalls[128];          /* how many calls of each selector were traced */
+
+ /*
+@@ -143,7 +1402,11 @@ static TUNABLE(uint32_t, gDiff, "fb_diff", 0);
+  * panel is worked out from the four of the picture around where it falls (bilinear).
+  */
+ static TUNABLE(uint32_t, gFilter, "fb_filter", 1);
+-static TUNABLE(uint32_t, gRefreshHz, "fb_hz", kFBRefreshHz);
++#if XNU_PONG_ADRENO_PLATFORM
++static TUNABLE(uint32_t, gThorArea, "fb_area", 1);
++static TUNABLE(uint32_t, gThorNativeGpuCopy, "fb_copy", 1);
++#endif
++static TUNABLE(uint32_t, gRefreshHz, "fb_hz", 0);      /* defaults selected per display */
+ static TUNABLE(uint32_t, gOnTheBeat, "fb_beat", 1);
+ /*
+  * Boot-arg fb_threads=N (1 to 8): so many processors scale a frame onto the panel together (see
+@@ -175,11 +1438,6 @@ micros(uint64_t absolute)
+ 	return ns / 1000;
+ }
+
+-static inline uint32_t
+-refreshHz(void)
+-{
+-	return gRefreshHz == 60 || gRefreshHz == 90 || gRefreshHz == 120 ? gRefreshHz : kFBRefreshHz;
+-}
+ static uint32_t
+ swapWord(const uint8_t * swap, unsigned offset)
+ {
+@@ -212,6 +1470,24 @@ canDrawLinearBGRA(const MiniIOSurface * surface)
+
+ struct RowJob;
+
++struct FramePhaseTiming {
++	uint64_t total;
++	uint64_t maximum;
++
++	void add(uint64_t ticks)
++	{
++		total += ticks;
++		if (ticks > maximum) {
++			maximum = ticks;
++		}
++	}
++};
++
++struct FrameReadinessTiming {
++	FramePhaseTiming queued, lock, writer, resume, refresh, panel;
++	uint32_t frames, waitedForWriter, notReady;
++};
++
+ static IORegistryEntry * createDisplayNode(void);
+
+ class IOMobileFramebuffer : public IOService
+@@ -223,12 +1499,26 @@ public:
+ 	uint8_t *       fBase;                  /* the boot framebuffer: the panel */
+ 	uint32_t        fPanelWidth, fPanelHeight, fRowBytes;
+ 	uint32_t        fWidth, fHeight;        /* the display as user space sees it */
++	uint32_t        fRefreshHz;             /* software cadence shared with the user client */
+ 	MiniIOSurface * fDefaultSurface;
+ 	IORegistryEntry * fStartingDisplayNode; /* retained only until startup commits */
+ 	uint32_t        fSwapID;
+ 	uint32_t        fSwapsShown;
+ 	uint32_t        fLayersShown;           /* which layers the last swap had a surface in */
+ 	bool            fGraphics;              /* the text console has been told to stop */
++#if XNU_PONG_ADRENO_PLATFORM
++	/* The presenter owns this state except for the atomic power epoch. */
++	uint64_t        fPowerRequestEpoch;
++	uint64_t        fGpuFramePowerEpoch;
++	uint64_t        fGpuClearDeadline;
++	bool            fLastDesktopGpuFrame;
++	bool            fGpuClearDeferred;
++
++	bool gpuFrameHoldActive(void) const;
++	void expireDeferredGpuClear(void);
++	void cancelGpuFrameHold(void);
++#endif
++	void clearPanel(void);
+ 	/*
+ 	 * A frame goes to the panel when the GPU is done with it: a thread of ours waits for that
+ 	 * and copies it there, and whoever made the frame is back at the next one meanwhile. One
+@@ -244,6 +1534,12 @@ public:
+ 	MiniIOSurface * fSwapSurfaces[SWAP_QUEUE][SWAP_LAYERS]; /* ... their surfaces, held from SwapEnd on: their maker may let go of them */
+ 	unsigned        fSwapFirst, fSwapsWaiting;
+ 	struct {uint32_t id;IOReturn result;} fRetired[64];
++	/* THOR v73: the real swap submitter, captured in present() which runs
++	 * in the client thread of the SwapEnd user call - v72 logged the
++	 * presenter workloop (kernel_task pid=0), which answers nothing. */
++	char            fSwapWho[SWAP_QUEUE][20];
++	int             fSwapWhoPid[SWAP_QUEUE];
++	uint64_t        fSwapEnqueued[SWAP_QUEUE];  /* published under fSwapLock */
+ 	IOReturn waitSwap(uint32_t id,uint32_t flags,uint64_t timeout);
+ 	/*
+ 	 * ... and not whenever the GPU happens to be done, but on a beat of the refresh rate
+@@ -264,18 +1560,33 @@ public:
+ 	uint64_t        fStatBeatWait;
+ 	uint32_t        fStatSurfaces[8];       /* the first different surfaces the bottom layer was given */
+ 	uint32_t        fStatHeld, fStatLost;   /* swaps that waited for the one before; that gave up waiting */
++#if XNU_PONG_ADRENO_PLATFORM
++	uint32_t        fStatTouchFrameGaps;
++	uint64_t        fStatTouchFrameGapMaxUs;
++	uint64_t        fLastWriteback, fInteractionTraceUntil;
++#endif
+ 	uint64_t        fSwapTime;              /* when the last swap was handed over */
+ 	uint32_t        fStatSwapsLate;         /* swaps that came more than a refresh and a quarter after the one before (and no pause) */
+ 	uint64_t        fStatWaiting;           /* how long frames waited for the GPU here */
++	FrameReadinessTiming fReadiness;        /* only the presenter records these times */
+ 	/* how the display is doing: frames and time spent drawing them here since fStatSince */
+ 	uint32_t        fStatFrames;
+ 	uint64_t        fStatSince, fStatDrawing;
++	uint64_t        fStatVSyncAccepted, fStatVSyncDropped, fStatVSyncErrors, fStatVSyncLateness;
+ 	/* ... and how evenly: the time from each frame to the next, counted by the millisecond (the last count: longer) */
+ 	uint64_t        fLastFrame;
+ 	uint32_t        fFrameTimes[FRAME_TIMES + 1], fFramePauses, fFrameLongest;
+ 	/* boot-arg fb_diff=1: which pixels of the panel each frame changed (it costs: the panel's memory is slow to read) */
+ 	bool            fDiff;
+ 	bool            fGpuOnly;              /* explicit bring-up policy, never the default */
++#if XNU_PONG_ADRENO_PLATFORM
++	bool            fThorDpuProbePending;
++	bool            fGpuColorReceipt;
++	bool            fThorRetainedCadence;
++	bool            fThorAreaScaling;
++	bool            fThorNativeCpuCopy;
++	bool            fReportedRetainedCadence;
++#endif
+ 	uint64_t        fDiffPixels;
+ 	uint32_t        fDiffLeft, fDiffTop, fDiffRight, fDiffBottom;
+ 	/* the screen recording, if one was asked for */
+@@ -289,19 +1600,25 @@ public:
+ 	bool failStart(IOService * provider);
+ 	MiniIOSurface * defaultSurface(void);
+ 	IOReturn present(const uint8_t * swap);
+-	IOReturn show(const uint8_t * swap, MiniIOSurface ** surfaces);
++	IOReturn show(const uint8_t * swap, MiniIOSurface ** surfaces, const char * who, int whoPid,
++	    uint64_t enqueued);
+ 	void presenter(void);
+ 	static void presenterMain(void * self, wait_result_t result);
++#if XNU_PONG_ADRENO_PLATFORM
++	static void thorDpuProbeMain(void *self, wait_result_t result);
++#endif
+ 	void reportFrameTimes(void);
+ 	void beginGraphics(void);
+ 	void drawLayer(MiniIOSurface * s, const int32_t * src, const int32_t * dst);
+ 	void drawRows(const struct RowJob * job, int32_t y0, int32_t y1, uint32_t * blendRow);
++	void drawClaimedRows(const struct RowJob * job, uint32_t * blendRow);
+ 	static void helperMain(void * self, wait_result_t result);
+ 	/* the scaling shared out (fb_threads): fThreads drawers, the presenter and fThreads - 1 helpers */
+ 	unsigned        fThreads;
+ 	IOLock *        fHelperLock;
+ 	const struct RowJob * fHelperJob;
+ 	uint64_t        fHelperGeneration;
++	int32_t         fHelperNextRow, fHelperEndRow;
+ 	unsigned        fHelpersBusy, fHelpersStarted;
+ 	uint32_t *      fHelperBlend[7];
+ };
+@@ -323,9 +1640,9 @@ setNumber(OSDictionary * dict, const char * key, uint64_t value)
+
+ /*
+  * The modes of the display, the way CoreAnimation reads them (the properties TimingElements
+- * and ColorElements; without a mode it draws nothing). One timing, the panel's size at
+- * 60 Hz (boot-arg fb_hz=N: at N), with one colour mode, 8-bit RGB. The identifiers are what "the current mode"
+- * (block 0x40) answers with.
++ * and ColorElements; without a mode it draws nothing). One timing covers the logical
++ * workspace at the software refresh rate, with one colour mode, 8-bit RGB. The identifiers
++ * are what "the current mode" (block 0x40) answers with.
+  */
+ #define kFBTimingID     1
+ #define kFBColorID      1
+@@ -339,7 +1656,7 @@ IOMobileFramebuffer::publishModes(void)
+ 	OSDictionary * color = OSDictionary::withCapacity(8);
+ 	OSArray * timings = OSArray::withCapacity(1);
+ 	OSArray * colors = OSArray::withCapacity(1);
+-	const uint32_t rate = refreshHz() << 16;                /* 16.16 fixed point */
++	const uint32_t rate = fRefreshHz << 16;                /* 16.16 fixed point */
+ 	bool success = false;
+
+ 	if (timing == NULL || horizontal == NULL || vertical == NULL || color == NULL || timings == NULL || colors == NULL) {
+@@ -419,6 +1736,24 @@ IOMobileFramebuffer::start(IOService * provider)
+ 	fPanelWidth = vinfo.v_width;
+ 	fPanelHeight = vinfo.v_height;
+ 	fRowBytes = vinfo.v_rowbytes;
++	/* arp0 is also how the native Adreno platform selects the Thor OPPs.
++	 * The scaled desktop commonly spends more than an 8.33 ms budget
++	 * between rendering, IOSurface readiness and copying to the panel.
++	 * Advertise a 60 Hz software deadline on Thor. Firmware retains panel
++	 * timing, and an explicit supported fb_hz still selects the cadence. */
++	char board[16] = {};
++	const bool thor = PE_parse_boot_argn("arp0", board, sizeof(board)) &&
++	    strncmp(board, "thor", sizeof(board)) == 0;
++#if XNU_PONG_ADRENO_PLATFORM
++	uint32_t dpuProbe = 1;
++	(void) PE_parse_boot_argn("thor_dpu_probe", &dpuProbe, sizeof(dpuProbe));
++	fThorDpuProbePending = dpuProbe && thor && fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	    fRowBytes == 5760 && vinfo.v_physaddr != 0;
++#endif
++	fRefreshHz = thor ? kFBThorRefreshHz : kFBRefreshHz;
++	if (gRefreshHz == 60 || gRefreshHz == 90 || gRefreshHz == 120) {
++		fRefreshHz = gRefreshHz;
++	}
+ 	fLock = IOLockAlloc();
+ 	fSwapLock = IOLockAlloc();
+ 	fHelperLock = IOLockAlloc();
+@@ -429,10 +1764,6 @@ IOMobileFramebuffer::start(IOService * provider)
+ 		return failStart(provider);
+ 	}
+ 	fThreads = gThreads >= 1 && gThreads <= 8 ? gThreads : 1;
+-#if XNU_PONG_ADRENO_PLATFORM
+-	pong_scanout_initialize((uint64_t)fBase,(size_t)fRowBytes*fPanelHeight,
+-	    fRowBytes,fPanelWidth,fPanelHeight);
+-#endif
+ 	fWidth = gFBWidth ? gFBWidth : fPanelWidth;
+ 	fHeight = gFBHeight ? gFBHeight : fPanelHeight;
+ 	uint32_t nativeScale = kFBDefaultScale;
+@@ -467,6 +1798,32 @@ IOMobileFramebuffer::start(IOService * provider)
+ 			IOLog("MiniIOMobileFramebuffer: invalid fbscale=%u; retain native workspace\n", scale);
+ 		}
+ 	}
++#if XNU_PONG_ADRENO_PLATFORM
++	uint32_t scanout = 0, memlog = 0;
++	const bool nativeScanout = PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) && scanout == 1;
++	fGpuColorReceipt = nativeScanout && PE_parse_boot_argn("memlog", &memlog, sizeof(memlog)) && memlog == 1;
++	uint32_t metal = 0, beatOverride = 0;
++	const bool scaledWorkspace = fWidth == 960 && fHeight == 2133;
++	const bool nativeThorWorkspace = thor && fWidth == fPanelWidth && fHeight == fPanelHeight;
++	fThorRetainedCadence = !fGpuOnly && !gFilter && fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	    ((nativeScanout && scaledWorkspace) || nativeThorWorkspace) &&
++	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
++	    !PE_parse_boot_argn("fb_beat", &beatOverride, sizeof(beatOverride));
++	fThorAreaScaling = thor && scaledWorkspace && fThorRetainedCadence && gThorArea != 0;
++	fThorNativeCpuCopy = nativeThorWorkspace && !fGpuOnly && gThorNativeGpuCopy == 0;
++	fReportedRetainedCadence = false;
++	fLastWriteback = fInteractionTraceUntil = 0;
++	/* Publish the direct presenter only when this framebuffer can enqueue
++	 * its GPU copies. Metal rendering remains available on the CPU route. */
++	if (fThorNativeCpuCopy) {
++		if (nativeScanout) IOLog("MiniIOMobileFramebuffer: native CPU copy; direct GPU scanout skipped\n");
++	} else if (fGpuOnly || (fWidth == fPanelWidth && fHeight == fPanelHeight)) {
++		pong_scanout_initialize((uint64_t) fBase, (size_t) fRowBytes * fPanelHeight,
++		    fRowBytes, fPanelWidth, fPanelHeight);
++	} else if (nativeScanout) {
++		IOLog("MiniIOMobileFramebuffer: scaled workspace; direct GPU scanout skipped\n");
++	}
++#endif
+ 	fDiff = gDiff != 0;
+ 	fDiffLeft = fDiffTop = ~0u;
+ 	IOLog("MiniIOMobileFramebuffer: display %ux%u on a panel of %ux%u (%u bytes per row)\n", fWidth, fHeight,
+@@ -477,13 +1834,11 @@ IOMobileFramebuffer::start(IOService * provider)
+ 		IOLog("MiniIOMobileFramebuffer: incomplete display mode; service not published\n");
+ 		return failStart(provider);
+ 	}
+-	/* Pong REC DRM and its selected NT37705 timing expose 1080x2412 at
+-	 * 120/90/60 Hz. Publish the native CoreAnimation heartbeat contract as
+-	 * well as IOMFB mode timing; without it AppleDisplay retains its 60 Hz
+-	 * minimum despite a faster synthetic vsync timer. A fixed step does not
+-	 * claim APT/VRR that this framebuffer does not implement. */
++	/* Match the IOMFB mode and the software notification clock. AppleDisplay
++	 * reads this fixed-point interval for its CoreAnimation heartbeat.
++	 * Panel timing remains owned by the firmware display path. */
+ 	OSDictionary *refresh = OSDictionary::withCapacity(2);
+-	OSNumber *interval = OSNumber::withNumber((1ULL << 32) / refreshHz(), 32);
++	OSNumber *interval = OSNumber::withNumber((1ULL << 32) / fRefreshHz, 32);
+ 	OSNumber *step = OSNumber::withNumber(0ULL, 32);
+ 	if (!refresh || !interval || !step) {
+ 		OSSafeReleaseNULL(interval); OSSafeReleaseNULL(step); OSSafeReleaseNULL(refresh);
+@@ -493,7 +1848,8 @@ IOMobileFramebuffer::start(IOService * provider)
+ 	refresh->setObject("displayRefreshStepMachTime", step);
+ 	setProperty("IOMFBDisplayRefresh", refresh);
+ 	OSSafeReleaseNULL(interval); OSSafeReleaseNULL(step); OSSafeReleaseNULL(refresh);
+-	IOLog("MiniIOMobileFramebuffer: Pong fixed refresh %u Hz, 1080x2412 NT37705 mode; GPU frame rate observed separately\n", refreshHz());
++	IOLog("MiniIOMobileFramebuffer: software refresh %u Hz, workspace=%ux%u retained panel=%ux%u; physical refresh unmeasured\n",
++	    fRefreshHz, fWidth, fHeight, fPanelWidth, fPanelHeight);
+ 	fStartingDisplayNode = createDisplayNode();
+ 	if (fStartingDisplayNode == NULL) {
+ 		IOLog("MiniIOMobileFramebuffer: incomplete display DT node; service not published\n");
+@@ -546,6 +1902,88 @@ blend(uint32_t a, uint32_t b, uint32_t w)
+ 	return rb | ga;
+ }
+
++/* Exact 3:2 horizontal area coverage. Only the middle pixel straddles
++ * a source-pixel boundary, and carries half the weight of each pixel. */
++static inline void
++drawThorAreaRowScalar(const uint32_t *top, const uint32_t *bottom, uint32_t weight,
++    uint32_t *panel, uint32_t width)
++{
++	constexpr uint32_t opaque = 0xff000000u;
++	for (uint32_t x = 0; x < width; x += 2) {
++		const uint32_t a = top[x] == bottom[x] ? top[x] : blend(top[x], bottom[x], weight);
++		const uint32_t b = top[x + 1] == bottom[x + 1] ? top[x + 1] :
++		    blend(top[x + 1], bottom[x + 1], weight);
++		const uint32_t middle = (a & b) + (((a ^ b) & 0xfefefefeu) >> 1);
++		panel[0] = a | opaque;
++		panel[1] = middle | opaque;
++		panel[2] = b | opaque;
++		panel += 3;
++	}
++}
++
++#if defined(__aarch64__) && defined(__ARM_NEON)
++static inline ThorNeonU32x4
++thorAreaBlendRows(ThorNeonU32x4 top, ThorNeonU32x4 bottom, uint8x8_t rest, uint8x8_t next)
++{
++	const uint8x16_t a = vreinterpretq_u8_u32(top);
++	const uint8x16_t b = vreinterpretq_u8_u32(bottom);
++	const uint16x8_t lo = vmlal_u8(vmull_u8(vget_low_u8(a), rest), vget_low_u8(b), next);
++	const uint16x8_t hi = vmlal_u8(vmull_u8(vget_high_u8(a), rest), vget_high_u8(b), next);
++	return vreinterpretq_u32_u8(vcombine_u8(vshrn_n_u16(lo, 8), vshrn_n_u16(hi, 8)));
++}
++
++template <bool overlap>
++static inline void
++drawThorAreaRowVectors(const uint32_t *top, const uint32_t *bottom, uint32_t weight,
++    uint32_t *panel, uint32_t width)
++{
++	const ThorNeonU32x4 opaque = vdupq_n_u32(0xff000000u);
++	const uint8x8_t rest = vdup_n_u8(static_cast<uint8_t>(256 - weight));
++	const uint8x8_t next = vdup_n_u8(static_cast<uint8_t>(weight));
++	for (uint32_t x = 0; x < width; x += 8) {
++		auto pixels = vld2q_u32(top + x);
++		if constexpr (overlap) {
++			const auto below = vld2q_u32(bottom + x);
++			pixels.val[0] = thorAreaBlendRows(pixels.val[0], below.val[0], rest, next);
++			pixels.val[1] = thorAreaBlendRows(pixels.val[1], below.val[1], rest, next);
++		}
++		const ThorNeonU32x4 middle = vreinterpretq_u32_u8(
++		    vhaddq_u8(vreinterpretq_u8_u32(pixels.val[0]), vreinterpretq_u8_u32(pixels.val[1])));
++		const uint32x4x3_t output = {{
++			vorrq_u32(pixels.val[0], opaque), vorrq_u32(middle, opaque), vorrq_u32(pixels.val[1], opaque),
++		}};
++		vst3q_u32(panel, output);
++		panel += 12;
++	}
++}
++#endif
++
++static inline void
++drawThorAreaRow(const uint32_t *top, const uint32_t *bottom, uint32_t weight,
++    uint32_t *panel, uint32_t width)
++{
++#if defined(__aarch64__) && defined(__ARM_NEON)
++	/* The 8-bit vector weights represent all mixed rows. A fully
++	 * covered row uses the single-input path, including when rounded
++	 * coverage selects the entire bottom row. */
++	if (weight == 256) {
++		top = bottom;
++		weight = 0;
++	}
++	const uint32_t vectors = width & ~7u;
++	if (weight != 0) {
++		drawThorAreaRowVectors<true>(top, bottom, weight, panel, vectors);
++	} else {
++		drawThorAreaRowVectors<false>(top, bottom, weight, panel, vectors);
++	}
++	top += vectors;
++	bottom += vectors;
++	panel += vectors * 3 / 2;
++	width -= vectors;
++#endif
++	drawThorAreaRowScalar(top, bottom, weight, panel, width);
++}
++
+ /*
+  * Where the middle of the `i`th of `out` pixels falls among `in` of them, in 256ths of a pixel,
+  * kept within the first and the last.
+@@ -567,9 +2005,27 @@ struct RowJob {
+ 	const uint8_t * pixels;
+ 	uint32_t        stride;
+ 	int32_t         sx, sy, sw, sh, px0, py0, px1, py1, cx0, cx1;
+-	bool            filter, unscaled;
++	bool            filter, unscaled, nearestThreeToTwo, areaThreeToTwo;
+ };
+
++#if XNU_PONG_ADRENO_PLATFORM && defined(__aarch64__) && defined(__ARM_NEON)
++static inline void
++drawThorNativeRow(const uint32_t *row, uint32_t *panel)
++{
++	const ThorNeonU32x4 opaque = vdupq_n_u32(0xff000000u);
++	for (uint32_t x = 0; x < 1440; x += 16) {
++		const auto a = vld1q_u32(row + x);
++		const auto b = vld1q_u32(row + x + 4);
++		const auto c = vld1q_u32(row + x + 8);
++		const auto d = vld1q_u32(row + x + 12);
++		vst1q_u32(panel + x, vorrq_u32(a, opaque));
++		vst1q_u32(panel + x + 4, vorrq_u32(b, opaque));
++		vst1q_u32(panel + x + 8, vorrq_u32(c, opaque));
++		vst1q_u32(panel + x + 12, vorrq_u32(d, opaque));
++	}
++}
++#endif
++
+ void
+ IOMobileFramebuffer::drawRows(const RowJob * job, int32_t y0, int32_t y1, uint32_t * blendRow)
+ {
+@@ -584,6 +2040,44 @@ IOMobileFramebuffer::drawRows(const RowJob * job, int32_t y0, int32_t y1, uint32
+ 	if (y1 > (int32_t) fPanelHeight) y1 = (int32_t) fPanelHeight;
+ 	if (y0 >= y1 || cx0 >= cx1) return;
+
++#if XNU_PONG_ADRENO_PLATFORM && defined(__aarch64__) && defined(__ARM_NEON)
++	if (fThorNativeCpuCopy && job->unscaled && sx == 0 && sy == 0 && px0 == 0 && py0 == 0 &&
++	    sw == 1440 && sh == 3200 && fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	    (stride == 5888 || stride == 5760) && fRowBytes == 5760 &&
++	    ((reinterpret_cast<uintptr_t>(pixels) | reinterpret_cast<uintptr_t>(fBase)) & 15) == 0) {
++		for (int32_t y = y0; y < y1; y++) {
++			const auto *row = reinterpret_cast<const uint32_t *>(pixels + static_cast<size_t>(y) * stride);
++			auto *panel = reinterpret_cast<uint32_t *>(fBase + static_cast<size_t>(y) * fRowBytes);
++			drawThorNativeRow(row, panel);
++		}
++		static unsigned reported;
++		if (!__atomic_load_n(&reported, __ATOMIC_RELAXED) &&
++		    !__atomic_exchange_n(&reported, 1u, __ATOMIC_RELAXED)) {
++			IOLog("PONG SCANOUT: native CPU vector copy active\n");
++		}
++		return;
++	}
++#endif
++	if (job->areaThreeToTwo) {
++		const uint32_t sourceHeight = static_cast<uint32_t>(sh);
++		const uint32_t panelHeight = fPanelHeight;
++		for (int32_t y = y0; y < y1; y++) {
++			/* Count source coverage in units of 1 / panelHeight.
++			 * This preserves the slight 2133:3200 ratio difference. */
++			const uint32_t first = static_cast<uint32_t>(y) * sourceHeight;
++			const uint32_t row = first / panelHeight;
++			const uint32_t remaining = panelHeight - first % panelHeight;
++			const uint32_t next = remaining < sourceHeight ? sourceHeight - remaining : 0;
++			const uint32_t weight = (next * 256 + sourceHeight / 2) / sourceHeight;
++			const auto *top = reinterpret_cast<const uint32_t *>(pixels + (size_t)row * stride);
++			const auto *bottom = weight ?
++			    reinterpret_cast<const uint32_t *>(pixels + (size_t)(row + 1) * stride) : top;
++			auto *panel = reinterpret_cast<uint32_t *>(fBase + (size_t)y * fRowBytes);
++			drawThorAreaRow(top, bottom, weight, panel, static_cast<uint32_t>(sw));
++		}
++		return;
++	}
++
+ 	for (int32_t y = y0; y < y1; y++) {
+ 		const uint32_t * from;
+ 		uint32_t * to;
+@@ -617,6 +2111,10 @@ IOMobileFramebuffer::drawRows(const RowJob * job, int32_t y0, int32_t y1, uint32
+ 			}
+ 		} else {
+ 			from = (const uint32_t *) (pixels + (size_t) (sy + (int64_t) (y - py0) * sh / (py1 - py0)) * stride);
++			if (job->nearestThreeToTwo) {
++				pongNearestThreeToTwoRow(from + sx, to, (uint32_t)sw);
++				continue;
++			}
+ 		}
+ 		if (fDiff) {
+ 			for (int32_t x = cx0; x < cx1; x++) {
+@@ -650,43 +2148,45 @@ IOMobileFramebuffer::drawRows(const RowJob * job, int32_t y0, int32_t y1, uint32
+ 	}
+ }
+
+-/* A helper of the scaling (fb_threads): waits for rows to do, does them, says so. */
++static constexpr int32_t kHelperRowGrain = 256;
++
++/* Enter and return with fHelperLock held. Each range is reserved once;
++ * render outside the lock using this thread's own optional blend row. */
++void
++IOMobileFramebuffer::drawClaimedRows(const RowJob * job, uint32_t * blendRow)
++{
++	while (fHelperNextRow < fHelperEndRow) {
++		const int32_t first = fHelperNextRow;
++		const int32_t remaining = fHelperEndRow - first;
++		const int32_t last = first + (remaining < kHelperRowGrain ? remaining : kHelperRowGrain);
++		fHelperNextRow = last;
++		IOLockUnlock(fHelperLock);
++		drawRows(job, first, last, blendRow);
++		IOLockLock(fHelperLock);
++	}
++}
++
+ void
+ IOMobileFramebuffer::helperMain(void * self, wait_result_t result __unused)
+ {
+-	IOMobileFramebuffer * fb = (IOMobileFramebuffer *) self;
+-	unsigned index;
++	auto *fb = static_cast<IOMobileFramebuffer *>(self);
+ 	uint64_t done = 0;
+
+ 	IOLockLock(fb->fHelperLock);
+-	index = fb->fHelpersStarted++;
+-	IOLockUnlock(fb->fHelperLock);
++	const unsigned index = fb->fHelpersStarted++;
+ 	for (;;) {
+-		const RowJob * job;
+-		int32_t rows, y0, y1;
+-		uint32_t * blend;
+-
+-		IOLockLock(fb->fHelperLock);
+ 		while (fb->fHelperGeneration == done) {
+ 			IOLockSleep(fb->fHelperLock, &fb->fHelperGeneration, THREAD_UNINT);
+ 		}
+ 		done = fb->fHelperGeneration;
+-		job = fb->fHelperJob;
+-		IOLockUnlock(fb->fHelperLock);
+-		/* share index + 1 of fThreads (the presenter takes share 0) */
+-		int32_t first = job->py0 < 0 ? 0 : job->py0;
+-		int32_t last = job->py1 > (int32_t) fb->fPanelHeight ? (int32_t) fb->fPanelHeight : job->py1;
+-		rows = last - first;
+-		y0 = first + (int32_t) ((int64_t) rows * (index + 1) / fb->fThreads);
+-		y1 = first + (int32_t) ((int64_t) rows * (index + 2) / fb->fThreads);
+-		blend = fb->fHelperBlend[index];
+-		fb->drawRows(job, y0, y1, blend);
+-		IOLockLock(fb->fHelperLock);
+-		fb->fHelpersBusy--;
+-		if (fb->fHelpersBusy == 0) {
++		/* A helper that wakes after the presenter drained the work
++		 * must not retain or touch the stack-backed job. */
++		if (!fb->fHelperJob || fb->fHelperNextRow >= fb->fHelperEndRow) continue;
++		++fb->fHelpersBusy;
++		fb->drawClaimedRows(fb->fHelperJob, fb->fHelperBlend[index]);
++		if (--fb->fHelpersBusy == 0) {
+ 			IOLockWakeup(fb->fHelperLock, &fb->fHelpersBusy, true);
+ 		}
+-		IOLockUnlock(fb->fHelperLock);
+ 	}
+ }
+
+@@ -787,15 +2287,33 @@ IOMobileFramebuffer::drawLayer(MiniIOSurface * s, const int32_t * src, const int
+ 		}
+ 	}
+ 	filter = filter && fBlendRow != NULL && fBlendRowSize >= (uint32_t) sw;
+-	/* which pixel of a source row each pixel of a panel row takes: worked out once, not 2.6 million times */
+-	for (int32_t x = cx0; x < cx1; x++) {
+-		if (filter) {
+-			int64_t at = sample_at(x - px0, sw, px1 - px0);
+-
+-			fColumn[x] = (uint32_t) (at >> 8);              /* (in the blended row: from sx on) */
+-			fColumnWeight[x] = (uint16_t) (fColumn[x] + 1 < (uint32_t) sw ? at & 255 : 0);
+-		} else {
+-			fColumn[x] = (uint32_t) (sx + (int64_t) (x - px0) * sw / (px1 - px0));
++	job.nearestThreeToTwo = pongNearestThreeToTwo(filter, fDiff, sw, px0, px1, fPanelWidth);
++	job.areaThreeToTwo = false;
++#if XNU_PONG_ADRENO_PLATFORM
++	job.areaThreeToTwo = fThorAreaScaling && job.nearestThreeToTwo && sx == 0 && sy == 0 &&
++	    sw == 960 && sh == 2133 && px0 == 0 && py0 == 0 && py1 == 3200;
++#endif
++	if (job.nearestThreeToTwo) {
++		static unsigned reported;
++		if (!__atomic_load_n(&reported, __ATOMIC_RELAXED) &&
++		    !__atomic_exchange_n(&reported, 1u, __ATOMIC_RELAXED)) {
++			IOLog("PONG SCANOUT: 3:2 CPU fast path source=%dx%d panel=%ux%u stride=%u panel_stride=%u filter=%s\n",
++			    sw, sh, fPanelWidth, fPanelHeight, s->info.bytesPerRow, fRowBytes,
++			    job.areaThreeToTwo ? "area" : "nearest");
++		}
++	}
++	job.unscaled = px1 - px0 == sw && py1 - py0 == sh && px0 >= 0 && (uint32_t) px1 <= fPanelWidth;
++	/* Work out source columns only for the generic scaling path. */
++	if (!job.unscaled && !job.nearestThreeToTwo) {
++		for (int32_t x = cx0; x < cx1; x++) {
++			if (filter) {
++				int64_t at = sample_at(x - px0, sw, px1 - px0);
++
++				fColumn[x] = (uint32_t) (at >> 8);        /* (in the blended row: from sx on) */
++				fColumnWeight[x] = (uint16_t) (fColumn[x] + 1 < (uint32_t) sw ? at & 255 : 0);
++			} else {
++				fColumn[x] = (uint32_t) (sx + (int64_t) (x - px0) * sw / (px1 - px0));
++			}
+ 		}
+ 	}
+ 	job.pixels = s->pixels();
+@@ -811,12 +2329,21 @@ IOMobileFramebuffer::drawLayer(MiniIOSurface * s, const int32_t * src, const int
+ 	job.cx0 = cx0;
+ 	job.cx1 = cx1;
+ 	job.filter = filter;
+-	job.unscaled = px1 - px0 == sw && py1 - py0 == sh && px0 >= 0 && (uint32_t) px1 <= fPanelWidth;
++#if XNU_PONG_ADRENO_PLATFORM
++	if (fThorRetainedCadence && job.unscaled && sx == 0 && sy == 0 && px0 == 0 && py0 == 0 &&
++	    sw == 1440 && sh == 3200) {
++		static unsigned reportedNative;
++		if (!__atomic_load_n(&reportedNative, __ATOMIC_RELAXED) &&
++		    !__atomic_exchange_n(&reportedNative, 1u, __ATOMIC_RELAXED)) {
++			IOLog("PONG SCANOUT: native CPU 1:1 source=%dx%d stride=%u panel_stride=%u\n",
++			    sw, sh, s->info.bytesPerRow, fRowBytes);
++		}
++	}
++#endif
+ 	if (fThreads <= 1 || fDiff) {
+ 		drawRows(&job, visibleY0, visibleY1, fBlendRow);
+ 		return;
+ 	}
+-	/* shared out: the helpers take their rows, this thread the first share, then waits for them */
+ 	IOLockLock(fHelperLock);
+ 	if (fHelpersStarted + 1 < fThreads) {
+ 		IOLockUnlock(fHelperLock);
+@@ -824,16 +2351,27 @@ IOMobileFramebuffer::drawLayer(MiniIOSurface * s, const int32_t * src, const int
+ 		return;
+ 	}
+ 	fHelperJob = &job;
+-	fHelpersBusy = fThreads - 1;
+-	fHelperGeneration++;
++	fHelperNextRow = visibleY0;
++	fHelperEndRow = visibleY1;
++	++fHelperGeneration;
+ 	IOLockWakeup(fHelperLock, &fHelperGeneration, false);
+-	IOLockUnlock(fHelperLock);
+-	drawRows(&job, visibleY0, visibleY0 + (visibleY1 - visibleY0) / fThreads, fBlendRow);
+-	IOLockLock(fHelperLock);
++	drawClaimedRows(&job, fBlendRow);
++	/* No new helper can join once all ranges have been claimed.
++	 * Existing helpers keep the job and its IOSurface reader live. */
++	fHelperJob = nullptr;
+ 	while (fHelpersBusy != 0) {
+ 		IOLockSleep(fHelperLock, &fHelpersBusy, THREAD_UNINT);
+ 	}
+ 	IOLockUnlock(fHelperLock);
++#if XNU_PONG_ADRENO_PLATFORM
++	if (fThorNativeCpuCopy) {
++		static unsigned reportedBalancedRows;
++		if (!__atomic_load_n(&reportedBalancedRows, __ATOMIC_RELAXED) &&
++		    !__atomic_exchange_n(&reportedBalancedRows, 1u, __ATOMIC_RELAXED)) {
++			IOLog("PONG SCANOUT: balanced CPU rows grain=%d threads=%u\n", kHelperRowGrain, fThreads);
++		}
++	}
++#endif
+ }
+
+ /*
+@@ -883,7 +2421,7 @@ IOMobileFramebuffer::present(const uint8_t * swap)
+ 	uint64_t now = mach_absolute_time(), period, pause;
+
+ 	/* (a frame that is late on the panel was late here already, or it was not: for telling whose it is) */
+-	nanoseconds_to_absolutetime(NSEC_PER_SEC / refreshHz() * 5 / 4, &period);
++	nanoseconds_to_absolutetime(NSEC_PER_SEC / fRefreshHz * 5 / 4, &period);
+ 	nanoseconds_to_absolutetime(FRAME_PAUSE * NSEC_PER_MSEC, &pause);
+ 	clock_interval_to_deadline(SWAP_HELD_MS, kMillisecondScale, &deadline);
+ 	if (gTouchLat) {
+@@ -903,12 +2441,20 @@ IOMobileFramebuffer::present(const uint8_t * swap)
+ 	}
+ 	unsigned slot = (fSwapFirst + fSwapsWaiting) % SWAP_QUEUE;
+
++	proc_selfname(fSwapWho[slot], sizeof(fSwapWho[slot]));
++	fSwapWhoPid[slot] = proc_selfpid();
+ 	memcpy(fSwap[slot], swap, SWAP_SIZE);
+ 	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+ 		uint32_t sid = swapWord(swap, SWAP_SURFACE(layer));
+
+ 		fSwapSurfaces[slot][layer] = sid != 0 ? MiniIOSurfaceCopy(sid) : NULL;
+ 	}
++	fSwapEnqueued[slot] = mach_absolute_time();
++#if XNU_PONG_ADRENO_PLATFORM
++	if (fThorRetainedCadence && fSwapSurfaces[slot][0] && strcmp(fSwapWho[slot], "backboardd") == 0) {
++		__atomic_fetch_add(&gThorFrameEnqueues, 1, __ATOMIC_RELAXED);
++	}
++#endif
+ 	fSwapsWaiting++;
+ 	IOLockWakeup(fSwapLock, fSwap, true);
+ 	IOLockUnlock(fSwapLock);
+@@ -921,22 +2467,62 @@ IOMobileFramebuffer::present(const uint8_t * swap)
+  * never sleep for a future frame and stall the render server. */
+ IOReturn IOMobileFramebuffer::waitSwap(uint32_t id,uint32_t flags,uint64_t timeout)
+ {
++#if XNU_PONG_ADRENO_PLATFORM
++    const uint64_t began = mach_absolute_time();
++    const uint32_t requested = id;
++#endif
+     uint64_t deadline;
+     clock_interval_to_deadline((uint32_t)(timeout && timeout<1000?timeout:1000),kMillisecondScale,&deadline);
++    IOReturn result = kIOReturnSuccess;
+     IOLockLock(fSwapLock);
+-    if(!id) {
+-        if(!fSwapsWaiting){IOLockUnlock(fSwapLock);return kIOReturnSuccess;}
++    const bool hasTarget = id != 0 || fSwapsWaiting != 0;
++    if (!id && hasTarget) {
+         const unsigned last=(fSwapFirst+fSwapsWaiting-1)%SWAP_QUEUE;
+         id=swapWord(fSwap[last],SWAP_ID);
+     }
+-    while(fRetired[id%64].id!=id) {
+-        if(flags&0x80000000u){IOLockUnlock(fSwapLock);return kIOReturnBusy;}
+-        if(IOLockSleepDeadline(fSwapLock,&fSwapsWaiting,deadline,THREAD_ABORTSAFE)!=THREAD_AWAKENED) {
+-            IOLockUnlock(fSwapLock);return kIOReturnTimeout;
++    if (hasTarget) {
++        while (fRetired[id%64].id != id) {
++            if (flags & 0x80000000u) {
++                result = kIOReturnBusy;
++                break;
++            }
++            if (IOLockSleepDeadline(fSwapLock, &fSwapsWaiting, deadline, THREAD_ABORTSAFE) != THREAD_AWAKENED) {
++                result = kIOReturnTimeout;
++                break;
++            }
++        }
++        if (result == kIOReturnSuccess) {
++            result = fRetired[id%64].result;
+         }
+     }
+-    IOReturn result=fRetired[id%64].result;IOLockUnlock(fSwapLock);return result;
++#if XNU_PONG_ADRENO_PLATFORM
++    const uint32_t slotID = fRetired[id%64].id;
++    const unsigned queued = fSwapsWaiting;
++#endif
++    IOLockUnlock(fSwapLock);
++#if XNU_PONG_ADRENO_PLATFORM
++    const uint64_t elapsed = micros(mach_absolute_time() - began);
++    if (elapsed >= kSlowDisplayUs &&
++        __atomic_fetch_add(&gSlowSwapWaitReceipts, 1, __ATOMIC_RELAXED) < kDisplayReceiptLimit) {
++        IOLog("PONG SWAP WAIT: at_us=%llu elapsed_us=%llu requested=%u id=%u flags=%#x "
++            "slot_id=%u queued=%u result=%#x\n", micros(began), elapsed, requested, id,
++            flags, slotID, queued, static_cast<unsigned>(result));
++    }
++#endif
++    return result;
++}
++
++#if XNU_PONG_ADRENO_PLATFORM
++void
++IOMobileFramebuffer::thorDpuProbeMain(void *self, wait_result_t result __unused)
++{
++	auto *fb = static_cast<IOMobileFramebuffer *>(self);
++	const uint8_t *source = fb->fThorNativeCpuCopy ? fb->fBase : nullptr;
++	thorDpuProbe(vinfo.v_physaddr, source, fb->fLock);
++	fb->release();
++	(void)thread_terminate(current_thread());
+ }
++#endif
+
+ void
+ IOMobileFramebuffer::presenterMain(void * self, wait_result_t result __unused)
+@@ -944,21 +2530,91 @@ IOMobileFramebuffer::presenterMain(void * self, wait_result_t result __unused)
+ 	((IOMobileFramebuffer *) self)->presenter();
+ }
+
++void
++IOMobileFramebuffer::clearPanel(void)
++{
++	for (uint32_t y = 0; y < fPanelHeight; y++) {
++		uint32_t *row = reinterpret_cast<uint32_t *>(fBase + (size_t)y * fRowBytes);
++		for (uint32_t x = 0; x < fPanelWidth; x++) {
++			row[x] = 0xff000000u;
++		}
++	}
++}
++
++#if XNU_PONG_ADRENO_PLATFORM
++bool
++IOMobileFramebuffer::gpuFrameHoldActive(void) const
++{
++	return fGpuClearDeadline && mach_absolute_time() < fGpuClearDeadline &&
++	    fGpuFramePowerEpoch == __atomic_load_n(&fPowerRequestEpoch, __ATOMIC_ACQUIRE);
++}
++
++void
++IOMobileFramebuffer::expireDeferredGpuClear(void)
++{
++	if (!fGpuClearDeferred || gpuFrameHoldActive()) {
++		return;
++	}
++	fGpuClearDeferred = false;
++	fLastDesktopGpuFrame = false;
++	fGpuClearDeadline = 0;
++	IOLockLock(fLock);
++	/* A quarantined DMA copy still owns the destination. */
++	if (!pong_scanout_quarantined()) {
++		clearPanel();
++	}
++	IOLockUnlock(fLock);
++}
++
++void
++IOMobileFramebuffer::cancelGpuFrameHold(void)
++{
++	IOLockLock(fSwapLock);
++	__atomic_add_fetch(&fPowerRequestEpoch, 1, __ATOMIC_RELEASE);
++	IOLockWakeup(fSwapLock, fSwap, true);
++	IOLockUnlock(fSwapLock);
++}
++#endif
++
+ void
+ IOMobileFramebuffer::presenter(void)
+ {
+ 	static uint8_t swap[SWAP_SIZE];         /* (one thread) */
+ 	MiniIOSurface * surfaces[SWAP_LAYERS];
++	char presenterWho[20];                  /* THOR v74: submitter of the swap being shown */
++	int presenterWhoPid;
+
+ 	for (;;) {
+ 		IOLockLock(fSwapLock);
+ 		while (fSwapsWaiting == 0) {
++#if XNU_PONG_ADRENO_PLATFORM
++			if (fGpuClearDeferred) {
++				if (gpuFrameHoldActive()) {
++					IOLockSleepDeadline(fSwapLock, fSwap, fGpuClearDeadline, THREAD_UNINT);
++				} else {
++					IOLockUnlock(fSwapLock);
++					expireDeferredGpuClear();
++					IOLockLock(fSwapLock);
++				}
++				continue;
++			}
++#endif
+ 			IOLockSleep(fSwapLock, fSwap, THREAD_UNINT);
+ 		}
+ 		memcpy(swap, fSwap[fSwapFirst], SWAP_SIZE);
+ 		memcpy(surfaces, fSwapSurfaces[fSwapFirst], sizeof(surfaces));
++		/* THOR v74: copy the submitter out of the SAME slot under the
++		 * SAME lock - v73 reverse-look-up the static buffer address
++		 * after the copy, which always answered who=-1 ("submitter=?
++		 * pid=-1" in the field log). */
++		strlcpy(presenterWho, fSwapWho[fSwapFirst], sizeof(presenterWho));
++		presenterWhoPid = fSwapWhoPid[fSwapFirst];
++		const uint64_t enqueued = fSwapEnqueued[fSwapFirst];
+ 		IOLockUnlock(fSwapLock);
+-        IOReturn result=show(swap,surfaces);
++#if XNU_PONG_ADRENO_PLATFORM
++		expireDeferredGpuClear();
++#endif
++        IOReturn result=show(swap,surfaces,presenterWho,presenterWhoPid,enqueued);
+         IOLockLock(fSwapLock);
+         const uint32_t id=swapWord(swap,SWAP_ID);
+         fRetired[id%64]={id,result};
+@@ -971,46 +2627,147 @@ IOMobileFramebuffer::presenter(void)
+ 			}
+ 		}
+ 		MiniIOSurfaceClearKept();               /* (the next frame is some milliseconds away) */
++#if XNU_PONG_ADRENO_PLATFORM
++		if (fThorDpuProbePending && result == kIOReturnSuccess && fLayersShown &&
++		    strcmp(presenterWho, "backboardd") == 0) {
++			fThorDpuProbePending = false;
++			thread_t probeThread;
++			retain();
++			if (kernel_thread_start(thorDpuProbeMain, this, &probeThread) == KERN_SUCCESS) {
++				thread_deallocate(probeThread);
++			} else {
++				release();
++				IOLog("THOR DPU PROBE: skip worker creation failed\n");
++			}
++		}
++#endif
+ 	}
+ }
+
++#if XNU_PONG_ADRENO_PLATFORM
++/* Only the presenter calls this, with the display-reader reference held.
++ * Report color counts, not pixel data, from the source before CPU scaling. */
++static void
++reportGpuSourceColor(MiniIOSurface *surface, uint32_t swapID)
++{
++	static unsigned initial, notable, invalid;
++	if (!canDrawLinearBGRA(surface)) {
++		if (invalid < 8) {
++			invalid++;
++			IOLog("PONG GPU COLOR: swap=%u sid=%u linear=0 format=%#x row=%u\n",
++			    swapID, surface->sid, surface->info.pixelFormat, surface->info.bytesPerRow);
++		}
++		return;
++	}
++
++	const uint8_t *pixels = surface->pixels();
++	const size_t stride = surface->info.bytesPerRow;
++	unsigned purple = 0, white = 0, translucent = 0, freshPattern = 0;
++	for (unsigned y = 1; y < 5; y++) {
++		const uint8_t *row = pixels + (size_t)surface->info.height * y / 5 * stride;
++		for (unsigned x = 1; x < 5; x++) {
++			const uint8_t *pixel = row + (size_t)surface->info.width * x / 5 * 4;
++			const unsigned b = pixel[0], g = pixel[1], r = pixel[2];
++			purple += r > 96 && b > 96 && r > g + 40 && b > g + 40;
++			white += r > 230 && g > 230 && b > 230;
++			translucent += pixel[3] != 255;
++			freshPattern += b == 255 && g == 0 && r == 255 && pixel[3] == 255;
++		}
++	}
++	if (initial < 8) {
++		initial++;
++	} else if (purple != 0 && notable < 12) {
++		notable++;
++	} else {
++		return;
++	}
++	IOLog("PONG GPU COLOR: swap=%u sid=%u linear=1 purple=%u white=%u translucent=%u fresh_pattern=%u samples=16\n",
++	    swapID, surface->sid, purple, white, translucent, freshPattern);
++}
++#endif
++
+ /* A swap's surfaces onto the panel, once the GPU is done with them. */
+ IOReturn
+-IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
++IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces, const char * who, int whoPid,
++    uint64_t enqueued)
+ {
+ 	uint32_t set = swapWord(swap, SWAP_LAYERS_SET);
+-	uint64_t began = mach_absolute_time(), nanos, ready, shown, drawn;
++	const uint64_t dequeued = mach_absolute_time();
++	uint64_t began = dequeued, nanos, ready, shown, drawn;
+ 	uint32_t layers = 0;
+ 	bool report;
+-	bool surfacesReady = true;
++	const uint32_t swapID = swapWord(swap, SWAP_ID);
++	uint64_t surfaceDeadline;
++	clock_interval_to_deadline(SWAP_GPU_MS, kMillisecondScale, &surfaceDeadline);
+ #if XNU_PONG_ADRENO_PLATFORM
+-    pongDisplayTrace(20,swapWord(swap,SWAP_ID),1,swapWord(swap,SWAP_SURFACE(0)));
++	const bool desktop = who && strcmp(who, "backboardd") == 0;
++	const uint64_t powerEpoch = __atomic_load_n(&fPowerRequestEpoch, __ATOMIC_ACQUIRE);
++	pongDisplayTrace(20, swapID, 1, swapWord(swap, SWAP_SURFACE(0)));
+ #endif
+     struct Readers {
+         MiniIOSurface *held[SWAP_LAYERS]={};
+-        ~Readers(){for(auto *surface:held)if(surface)MiniIOSurfaceDisplayDone(surface);}
++        void release()
++        {
++            for (auto *&surface : held) {
++                if (surface) MiniIOSurfaceDisplayDone(surface);
++                surface = nullptr;
++            }
++        }
++        ~Readers() { release(); }
+     } readers;
++	MiniIOSurfaceReadTiming readTiming = {};
++#if XNU_PONG_ADRENO_PLATFORM
++	MiniIOSurfaceReadTiming *timing = desktop ? &readTiming : nullptr;
++#else
++	MiniIOSurfaceReadTiming *timing = nullptr;
++#endif
+
+ 	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+-		if (surfaces[layer] != NULL && !MiniIOSurfaceDrawn(surfaces[layer], SWAP_GPU_MS)) {
+-			surfacesReady = false;
++		if (surfaces[layer] == NULL) {
++			continue;
++		}
++		if (!MiniIOSurfaceDrawn(surfaces[layer], surfaceDeadline, swapID, timing)) {
++			if (timing) {
++				fReadiness.notReady++;
++			}
++			fStatWaiting += mach_absolute_time() - began;
++			fStatLost++;
+ #if XNU_PONG_ADRENO_PLATFORM
+-            pongDisplayTrace(22,swapWord(swap,SWAP_ID),3,swapWord(swap,SWAP_SURFACE(layer)),SWAP_GPU_MS);
++			pongDisplayTrace(22, swapID, 3, swapWord(swap, SWAP_SURFACE(layer)), micros(mach_absolute_time() - began));
++			if (desktop && fThorRetainedCadence && surfaces[0]) {
++				thorSwitcherCapture(swapID, enqueued, dequeued, 0, 0, 0, readTiming.writerTicks);
++			}
++			/* Arm once per completed desktop GPU frame, never per retry. */
++			if (desktop && fLastDesktopGpuFrame && !fGpuClearDeadline &&
++			    fGpuFramePowerEpoch == powerEpoch) {
++				clock_interval_to_deadline(2500, kMillisecondScale, &fGpuClearDeadline);
++			}
+ #endif
+-			IOLog("MiniIOMobileFramebuffer: swap %u: GPU surface %u incomplete after %u ms; retaining the last completed frame\n",
+-			    swapWord(swap, SWAP_ID), swapWord(swap, SWAP_SURFACE(layer)), SWAP_GPU_MS);
+-		} else if(surfaces[layer]){readers.held[layer]=surfaces[layer];
++			return kIOReturnNotReady;
++		}
++		readers.held[layer] = surfaces[layer];
+ #if XNU_PONG_ADRENO_PLATFORM
+-            pongDisplayTrace(22,swapWord(swap,SWAP_ID),1,swapWord(swap,SWAP_SURFACE(layer)));
++		pongDisplayTrace(22, swapID, 1, swapWord(swap, SWAP_SURFACE(layer)));
+ #endif
+-        }
+ 	}
+ 	fStatWaiting += mach_absolute_time() - began;
+ 	began = ready = mach_absolute_time();
+-	if (gOnTheBeat) {
++	bool pace = gOnTheBeat != 0;
++#if XNU_PONG_ADRENO_PLATFORM
++	if (pace && fThorRetainedCadence && desktop && surfaces[0] != NULL) {
++		/* The v118 software beat added delay without improving presentation. */
++		pace = false;
++		fBeat = fReady = 0;
++		if (!fReportedRetainedCadence) {
++			fReportedRetainedCadence = true;
++			IOLog("PONG FB PACE: Thor retained framebuffer presents on readiness\n");
++		}
++	}
++#endif
++	if (pace) {
+ 		uint64_t period, aim, next;
+
+-		nanoseconds_to_absolutetime(NSEC_PER_SEC / refreshHz(), &period);
++		nanoseconds_to_absolutetime(NSEC_PER_SEC / fRefreshHz, &period);
+ 		aim = period * 3 / 8;
+ 		next = fReady;
+ 		fReady = began;
+@@ -1032,13 +2789,47 @@ IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
+ 		}
+ 	}
+ 	shown = began;
+-    if (!surfacesReady) { fStatLost++; return kIOReturnNotReady; }
++#if XNU_PONG_ADRENO_PLATFORM
++	uint64_t touchGapUs = 0, lastTouch = 0, previousFrame = 0;
++#endif
+     IOLockLock(fLock);
++#if XNU_PONG_ADRENO_PLATFORM
++    const uint64_t interaction = pong_touch_last_event_time();
++    if (fThorRetainedCadence && desktop && fLastWriteback && interaction > fLastWriteback &&
++        interaction <= enqueued && micros(shown - fLastWriteback) >= 100000) {
++        uint64_t span;
++        nanoseconds_to_absolutetime(1200ull * NSEC_PER_MSEC, &span);
++        fInteractionTraceUntil = shown + span;
++    }
++	// Report instantaneous presenter placement in sampled writebacks.
++	// The CPU may migrate while its helpers do their share of the copy.
++	const bool samplePresenterCPU = fThorRetainedCadence && desktop &&
++	    (shown <= fInteractionTraceUntil ||
++	    (fSwapsShown % 4 == 0 && interaction &&
++	    (interaction > shown || micros(shown - interaction) <= 90000)));
++	const int presenterCPUStart = samplePresenterCPU ? cpu_number() : -1;
++#endif
+     if (fLastFrame != 0) {
+ 		absolutetime_to_nanoseconds(began - fLastFrame, &nanos);
+ 		nanos /= NSEC_PER_MSEC;
+ 		if (nanos >= FRAME_PAUSE) {
+ 			fFramePauses++;
++#if XNU_PONG_ADRENO_PLATFORM
++			if (desktop && nanos >= kSlowDisplayUs / 1000) {
++				const uint64_t event = pong_touch_last_event_time();
++				/* These gaps can include static content. Record the actual timestamps
++				 * so the trace can distinguish that from delayed presentation. */
++				if (event > fLastWriteback && event <= enqueued && fLastWriteback) {
++					touchGapUs = micros(shown - fLastWriteback);
++					lastTouch = event;
++					previousFrame = fLastWriteback;
++					++fStatTouchFrameGaps;
++					if (touchGapUs > fStatTouchFrameGapMaxUs) {
++						fStatTouchFrameGapMaxUs = touchGapUs;
++					}
++				}
++			}
++#endif
+ 		} else {
+ 			fFrameTimes[nanos < FRAME_TIMES ? nanos : FRAME_TIMES]++;
+ 			fFrameLongest = nanos > fFrameLongest ? (uint32_t) nanos : fFrameLongest;
+@@ -1063,7 +2854,7 @@ IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
+ 	int32_t source[4],destination[4];
+ 	memcpy(source,swap+SWAP_SOURCE(0),sizeof(source));
+ 	memcpy(destination,swap+SWAP_DEST(0),sizeof(destination));
+-	if(surfacesReady && base && !swapWord(swap,SWAP_SURFACE(1)) && !swapWord(swap,SWAP_SURFACE(2)) &&
++	if(!fThorNativeCpuCopy && base && !swapWord(swap,SWAP_SURFACE(1)) && !swapWord(swap,SWAP_SURFACE(2)) &&
+ 	    !swapWord(swap,SWAP_SURFACE(3)) && canDrawLinearBGRA(base) &&
+ 	    base->info.width>=fPanelWidth && base->info.height>=fPanelHeight &&
+ 	    !source[0] && !source[1] && !destination[0] && !destination[1] &&
+@@ -1101,10 +2892,21 @@ IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
+ 		if (sid == 0) {
+ 			/* the bottom layer taken away: nothing is shown, the screen is black */
+ 			if (!gpuFrame && layer == 0 && (set & 1) && fGraphics) {
+-				for (uint32_t y = 0; y < fPanelHeight; y++) {
+-					uint32_t *row=(uint32_t *)(fBase + (size_t)y * fRowBytes);
+-					for (uint32_t x=0;x<fPanelWidth;x++) row[x]=0xff000000u;
++#if XNU_PONG_ADRENO_PLATFORM
++				if (desktop && !swapWord(swap, SWAP_SURFACE(1)) &&
++				    !swapWord(swap, SWAP_SURFACE(2)) && !swapWord(swap, SWAP_SURFACE(3)) &&
++				    gpuFrameHoldActive()) {
++					if (!fGpuClearDeferred) {
++						IOLog("PONG SCANOUT: deferred desktop empty swap=%u after GPU surface failure\n", swapID);
++					}
++					fGpuClearDeferred = true;
++					continue;
+ 				}
++				fGpuClearDeferred = false;
++				fGpuClearDeadline = 0;
++				fLastDesktopGpuFrame = false;
++#endif
++				clearPanel();
+ 			}
+ 			continue;
+ 		}
+@@ -1122,11 +2924,51 @@ IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
+ 		if (s == NULL) {
+ 			continue;
+ 		}
++#if XNU_PONG_ADRENO_PLATFORM
++		if (fGpuColorReceipt && desktop && !gpuFrame && layer == 0) {
++			reportGpuSourceColor(s, swapID);
++		}
++#endif
+ 		if (s->info.bytesPerElement == 4 && s->info.planeCount == 0) {
+ 			if (!gpuFrame) drawLayer(s, src, dst);
+ 		}
+ 	}
++#if XNU_PONG_ADRENO_PLATFORM
++	if (layers != 0) {
++		fGpuClearDeferred = false;
++		fGpuClearDeadline = 0;
++		fLastDesktopGpuFrame = gpuFrame && desktop;
++		fGpuFramePowerEpoch = powerEpoch;
++	}
++#endif
+ 	drawn = mach_absolute_time();
++#if XNU_PONG_ADRENO_PLATFORM
++	const int presenterCPUEnd = samplePresenterCPU ? cpu_number() : -1;
++	fLastWriteback = drawn;
++	if (fThorRetainedCadence && desktop && surfaces[0]) {
++		__atomic_fetch_add(&gThorFrameWritebacks, 1, __ATOMIC_RELAXED);
++		thorSwitcherCapture(swapID, enqueued, dequeued, ready, shown, drawn, readTiming.writerTicks);
++	}
++	const uint64_t sampledTouch = interaction;
++	const bool traceWindow = drawn <= fInteractionTraceUntil;
++	// Retain launch detail with sampled timing outside the presenter lock.
++	const bool sampleFrame = traceWindow || fSwapsShown % 4 == 0;
++	uint32_t *const traceBudget = traceWindow ? &gBurstFrameReceipts : &gCadenceFrameReceipts;
++	const uint32_t traceLimit = traceWindow ? 1536 : 2048;
++	const bool cadenceReceipt = sampleFrame && fThorRetainedCadence && desktop && layers && !gpuFrame &&
++	    (traceWindow || (sampledTouch && sampledTouch <= drawn &&
++	        micros(drawn - sampledTouch) <= 90000)) &&
++	    __atomic_load_n(traceBudget, __ATOMIC_RELAXED) < traceLimit &&
++	    __atomic_fetch_add(traceBudget, 1, __ATOMIC_RELAXED) < traceLimit;
++	// The full-screen 1:1 copy preserves RGB and only sets the alpha byte.
++	// The display reader keeps this source stable until show() returns.
++	const bool exactNativeSample = cadenceReceipt && fThorNativeCpuCopy && layers == 1 &&
++	    canDrawLinearBGRA(base) && base->info.width >= fPanelWidth && base->info.height >= fPanelHeight &&
++	    !source[0] && !source[1] && !destination[0] && !destination[1] &&
++	    source[2] == (int32_t) fPanelWidth && source[3] == (int32_t) fPanelHeight &&
++	    destination[2] == (int32_t) fPanelWidth && destination[3] == (int32_t) fPanelHeight;
++	const uint32_t sampleWidth = fPanelWidth, sampleHeight = fPanelHeight;
++#endif
+ 	fSwapsShown++;
+ 	if (gTouchLat) {
+ 		IOLog("tl: v %u ready %llu shown %llu done %llu\n", swapWord(swap, SWAP_ID), micros(ready), micros(shown),
+@@ -1136,14 +2978,44 @@ IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
+ 		IOLog("MiniIOMobileFramebuffer: swap #%u: surfaces in layers 0x%x now (0x%x before): %u %u %u %u\n", fSwapsShown, layers,
+ 		    fLayersShown, swapWord(swap, SWAP_SURFACE(0)), swapWord(swap, SWAP_SURFACE(1)), swapWord(swap, SWAP_SURFACE(2)),
+ 		    swapWord(swap, SWAP_SURFACE(3)));
++		/* THOR v72: layer-count transitions are rare and pivotal. A
++		 * nonzero->zero transition is the boot picture being torn down
++		 * (v71 field: layers 0x1 -> 0x0, screen black, system alive
++		 * 10+ more minutes with no restore). THOR v74: the submitter is
++		 * carried from the queue slot by presenter() - v73's reverse
++		 * address lookup always missed after the copy to the static
++		 * buffer (field log: "submitter=? pid=-1"). */
++		{
++			IOLog("MiniIOMFB layers %s: submitter=%s pid=%d set=0x%x surfaces=%u,%u,%u,%u gpu=%d graphics=%d swap=%u\n",
++			    layers == 0 ? "EMPTIED" : (fLayersShown == 0 ? "RESTORED" : "CHANGED"),
++			    who ? who : "?", whoPid, set,
++			    swapWord(swap, SWAP_SURFACE(0)), swapWord(swap, SWAP_SURFACE(1)),
++			    swapWord(swap, SWAP_SURFACE(2)), swapWord(swap, SWAP_SURFACE(3)),
++			    gpuFrame ? 1 : 0, fGraphics ? 1 : 0, swapWord(swap, SWAP_ID));
++		}
+ 		fLayersShown = layers;
+ 	}
+
++	if (timing && layers) {
++		fReadiness.frames++;
++		fReadiness.waitedForWriter += readTiming.waitedForWriter;
++		fReadiness.queued.add(dequeued - enqueued);
++		fReadiness.lock.add(readTiming.lockTicks);
++		fReadiness.writer.add(readTiming.writerTicks);
++		fReadiness.resume.add(readTiming.resumeTicks);
++		fReadiness.refresh.add(shown - ready);
++		fReadiness.panel.add(drawn - shown);
++	}
++
+ 	/* every five seconds in which something was drawn: how many frames, and what each cost here */
+ 	fStatFrames++;
+ 	fStatDrawing += mach_absolute_time() - began;
+ 	if (fStatSince == 0) {
+ 		fStatSince = began;
++		fStatVSyncAccepted = __atomic_load_n(&gVSyncAccepted, __ATOMIC_RELAXED);
++		fStatVSyncDropped = __atomic_load_n(&gVSyncDropped, __ATOMIC_RELAXED);
++		fStatVSyncErrors = __atomic_load_n(&gVSyncErrors, __ATOMIC_RELAXED);
++		fStatVSyncLateness = __atomic_load_n(&gVSyncLateness, __ATOMIC_RELAXED);
+ 	}
+ 	absolutetime_to_nanoseconds(mach_absolute_time() - fStatSince, &nanos);
+ 	if (nanos >= 5 * NSEC_PER_SEC) {
+@@ -1159,6 +3031,35 @@ IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
+ 		    fStatFrames * NSEC_PER_SEC / nanos, drawing / fStatFrames / NSEC_PER_USEC,
+ 		    waiting / fStatFrames / NSEC_PER_USEC, fStatOnBeat, fStatOnBeat ? beat / fStatOnBeat / NSEC_PER_USEC : 0,
+ 		    fStatHeld, fStatLost, fStatSwapsLate);
++		const uint64_t accepted = __atomic_load_n(&gVSyncAccepted, __ATOMIC_RELAXED);
++		const uint64_t dropped = __atomic_load_n(&gVSyncDropped, __ATOMIC_RELAXED);
++		const uint64_t errors = __atomic_load_n(&gVSyncErrors, __ATOMIC_RELAXED);
++		const uint64_t lateness = __atomic_load_n(&gVSyncLateness, __ATOMIC_RELAXED);
++		const uint64_t callbacks = (accepted - fStatVSyncAccepted) + (dropped - fStatVSyncDropped) +
++		    (errors - fStatVSyncErrors);
++		IOLog("MiniIOMobileFramebuffer: vsync callbacks=%llu accepted=%llu dropped=%llu errors=%llu mean_fire_late_us=%llu\n",
++		    callbacks, accepted - fStatVSyncAccepted, dropped - fStatVSyncDropped, errors - fStatVSyncErrors,
++		    callbacks ? micros(lateness - fStatVSyncLateness) / callbacks : 0);
++		const uint32_t frames = fReadiness.frames;
++		if (frames) {
++			const auto mean = [frames](const FramePhaseTiming &phase) {
++				return micros(phase.total / frames);
++			};
++			IOLog("PONG FRAME READY: desktop=%u writer_waited=%u not_ready=%u mean/max_us queued=%llu/%llu "
++			    "surface_lock=%llu/%llu writer_release=%llu/%llu resume=%llu/%llu refresh=%llu/%llu panel=%llu/%llu\n",
++			    frames, fReadiness.waitedForWriter, fReadiness.notReady,
++			    mean(fReadiness.queued), micros(fReadiness.queued.maximum),
++			    mean(fReadiness.lock), micros(fReadiness.lock.maximum),
++			    mean(fReadiness.writer), micros(fReadiness.writer.maximum),
++			    mean(fReadiness.resume), micros(fReadiness.resume.maximum),
++			    mean(fReadiness.refresh), micros(fReadiness.refresh.maximum),
++			    mean(fReadiness.panel), micros(fReadiness.panel.maximum));
++		}
++		fReadiness = {};
++		fStatVSyncAccepted = accepted;
++		fStatVSyncDropped = dropped;
++		fStatVSyncErrors = errors;
++		fStatVSyncLateness = lateness;
+ 		fStatSwapsLate = 0;
+ 		for (different = 0; different < 8 && fStatSurfaces[different] != 0; different++) {
+ 		}
+@@ -1177,6 +3078,14 @@ IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
+ 		fStatHeld = fStatLost = fStatOnBeat = 0;
+ 		fStatWaiting = fStatBeatWait = 0;
+ 		reportFrameTimes();
++#if XNU_PONG_ADRENO_PLATFORM
++		if (fStatTouchFrameGaps) {
++			IOLog("PONG TOUCH FRAME GAPS: count=%u max_us=%llu\n",
++			    fStatTouchFrameGaps, fStatTouchFrameGapMaxUs);
++			fStatTouchFrameGaps = 0;
++			fStatTouchFrameGapMaxUs = 0;
++		}
++#endif
+ 		if (fDiff) {
+ 			IOLog("MiniIOMobileFramebuffer: %llu pixels of the panel changed a frame, all within %u,%u to %u,%u\n",
+ 			    fDiffPixels / fStatFrames, fDiffLeft, fDiffTop, fDiffRight, fDiffBottom);
+@@ -1189,6 +3098,43 @@ IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces)
+ 		fStatSince = 0;
+ 	}
+ 	IOLockUnlock(fLock);
++#if XNU_PONG_ADRENO_PLATFORM
++	uint64_t frameFingerprint = 0, sampleUs = 0;
++	unsigned nearWhite = 0, nearBlack = 0, samples = 0;
++	if (exactNativeSample) {
++		const uint64_t sampleBegan = mach_absolute_time();
++		const uint8_t *pixels = base->pixels();
++		frameFingerprint = 14695981039346656037ull;
++		for (unsigned y = 1; y < 24; ++y) {
++			const uint8_t *row = pixels + (size_t) (sampleHeight * y / 24) * base->info.bytesPerRow;
++			for (unsigned x = 1; x < 12; ++x) {
++				uint32_t pixel;
++				memcpy(&pixel, row + sizeof(pixel) * (sampleWidth * x / 12), sizeof(pixel));
++				const uint32_t rgb = pixel & 0xffffffu;
++				frameFingerprint ^= rgb;
++				frameFingerprint *= 1099511628211ull;
++				nearWhite += (rgb & 0x00f8f8f8u) == 0x00f8f8f8u;
++				nearBlack += (rgb & 0x00f8f8f8u) == 0;
++			}
++		}
++		samples = 23 * 11;
++		sampleUs = micros(mach_absolute_time() - sampleBegan);
++	}
++	readers.release();
++	if (cadenceReceipt) {
++		IOLog("PONG TOUCH FRAME: swap=%u touch_us=%llu enqueue_us=%llu ready_us=%llu "
++		    "start_us=%llu done_us=%llu fp=%016llx white=%u dark=%u samples=%u sample_us=%llu cpu=%d/%d\n",
++		    swapID, micros(sampledTouch), micros(enqueued), micros(ready), micros(shown),
++		    micros(drawn), frameFingerprint, nearWhite, nearBlack, samples, sampleUs,
++		    presenterCPUStart, presenterCPUEnd);
++	}
++	if (touchGapUs &&
++	    __atomic_fetch_add(&gTouchFrameGapReceipts, 1, __ATOMIC_RELAXED) < kDisplayReceiptLimit) {
++		IOLog("PONG TOUCH FRAME GAP: swap=%u gap_us=%llu previous_us=%llu touch_us=%llu "
++		    "enqueue_us=%llu ready_us=%llu done_us=%llu\n", swapID, touchGapUs,
++		    micros(previousFrame), micros(lastTouch), micros(enqueued), micros(ready), micros(drawn));
++	}
++#endif
+ 	return kIOReturnSuccess;
+ }
+
+@@ -1336,7 +3282,7 @@ IOMobileFramebufferUserClient::armVSync(void)
+ 	uint64_t period, now = mach_absolute_time();
+
+ 	/* one refresh after the last, not after whenever we got round to this: the rate does not drift */
+-	nanoseconds_to_absolutetime(NSEC_PER_SEC / refreshHz(), &period);
++	nanoseconds_to_absolutetime(NSEC_PER_SEC / fOwner->fRefreshHz, &period);
+ 	fVSyncTime += period;
+ 	if (fVSyncTime <= now || fVSyncTime > now + 2 * period) {
+ 		fVSyncTime = now + period;
+@@ -1353,6 +3299,7 @@ IOMobileFramebufferUserClient::vsync(void)
+ {
+ 	OSAsyncReference64 ref = { 0 };
+ 	io_user_reference_t args[6];
++	const uint64_t fired = mach_absolute_time();
+ 	uint64_t now, count = 0;
+ 	mach_port_t port = IPC_PORT_NULL;
+ 	bool send = false;
+@@ -1385,6 +3332,12 @@ IOMobileFramebufferUserClient::vsync(void)
+ 	if (send) {
+ 		IOReturn result = sendAsyncResult64WithOptions(ref, kIOReturnSuccess, args, 6, kIOUserNotifyOptionCanDrop);
+ 		ipc_port_release_send(port);
++		uint64_t *counter = result == kIOReturnSuccess ? &gVSyncAccepted :
++		    (result == MACH_SEND_TIMED_OUT ? &gVSyncDropped : &gVSyncErrors);
++		__atomic_fetch_add(counter, 1, __ATOMIC_RELAXED);
++		if (fired > now) {
++			__atomic_fetch_add(&gVSyncLateness, fired - now, __ATOMIC_RELAXED);
++		}
+ 		if (count <= 2) {
+ 			IOLog("MiniIOMobileFramebuffer: refresh notification %llu result=%x\n", count, result);
+ 		}
+@@ -1494,10 +3447,16 @@ IOMobileFramebufferUserClient::externalMethod(uint32_t selector, IOExternalMetho
+ 	case kFBMethodSwapSignal:
+ 	case kFBMethodSwapCancel:
+ 	case kFBMethodSwapCancelAll:
+-	case kFBMethodRequestPowerChange:
+ 	case kFBMethodChangeFrameInfo:
+ 		return kIOReturnSuccess;
+
++	case kFBMethodRequestPowerChange:
++#if XNU_PONG_ADRENO_PLATFORM
++		/* Any request cancels optional retention; leave the power ABI alone. */
++		fOwner->cancelGpuFrameHold();
++#endif
++		return kIOReturnSuccess;
++
+ 	case kFBMethodNotifications:                    /* in: callback (0 = off), its argument, type, 0 */
+ 		if (args->scalarInputCount < 3 || in[2] >= kFBNotifyTypes) {
+ 			return kIOReturnBadArgument;
+diff --git a/iokit/Kernel/MiniIOSurface.cpp b/iokit/Kernel/MiniIOSurface.cpp
+index 9e2008c..f71f7ad 100644
+--- a/iokit/Kernel/MiniIOSurface.cpp
++++ b/iokit/Kernel/MiniIOSurface.cpp
+@@ -30,11 +30,21 @@
+ #include <libkern/c++/OSSymbol.h>
+ #include <kern/thread_call.h>
+ #include <kern/task.h>
++#include <kern/thread.h>
++#include <mach/vm_statistics.h>
++#include <sys/event_private.h>
+ #include <sys/systm.h>
+ #include <sys/proc.h>
+
+ #include "MiniIOSurface.h"
+
++/* Match the kernel-proper declaration in kern/task_ident.h. Both that
++ * header and BSD proc.h declare proc_ident in this mixed IOKit target. */
++extern "C" kern_return_t task_id_token_port_name_to_task(mach_port_name_t, task_t *)
++__XNU_INTERNAL(task_id_token_port_name_to_task);
++/* vm_pageout.h supplies the prototype to C translation units. */
++extern "C" kern_return_t mach_vm_pressure_level_monitor(boolean_t, unsigned int *);
++
+ static_assert(sizeof(struct minisurf_plane) == 0x80, "plane layout");
+ static_assert(sizeof(struct minisurf_result) == 0x68, "result layout");
+ static_assert(offsetof(struct minisurf_shared, attachments) == 0x30, "shared layout");
+@@ -142,6 +152,10 @@ static MiniIOSurface *  gSurfaceTable[MINISURF_TABLE_SIZE];     /* index = surfa
+ static uint32_t         gSurfaceNext = 1;
+ static uint32_t         gSurfaceCount;
+ static uint64_t         gSurfaceBytes;
++static uint64_t         gSurfaceActiveOwnedBytes;
++static uint64_t         gSurfaceWrappedBytes;
++static uint64_t         gSurfaceStateBytes;
++static uint64_t         gSurfaceMemoryMark;
+ static uint32_t         gSurfaceUnheld;         /* surfaces around client memory that could not be made (said a few times) */
+ /* what making surfaces and taking them away has cost since it was last asked (MiniIOSurfaceCost()) */
+ static uint64_t         gSurfaceMaking, gSurfaceFreeing;
+@@ -186,20 +200,76 @@ OSDefineMetaClassAndStructors(MiniIOSurface, OSObject);
+  * this ran beside it), or a moment later by a thread of this file's if no frames are going
+  * out, or by whoever asks for the memory if that comes first.
+  */
+-#define SURFACE_KEEP_FROM       (4u << 20)      /* bytes: smaller ones are not worth it */
+-#define SURFACE_KEEP_MAX        (32u << 20)     /* four entries retain at most 128 MiB */
++#define SURFACE_KEEP_FROM       (4u << 20)
++#define SURFACE_KEEP_MAX        (32u << 20)
+ #define SURFACE_KEPT            4
+-#define SURFACE_CLEAR_MS        40              /* kept memory is cleared this long after, if the display's driver has not done it */
++#define SURFACE_CLEAR_MS        40
++#define SURFACE_POOL_POLL_MS    1000
++#define SURFACE_KEEP_IDLE_MS    2000
+
+ static struct {
+-	IOBufferMemoryDescriptor *      memory;
+-	bool                            clear;          /* cleared since it was last a surface's */
+-	bool                            busy;           /* being cleared right now */
+-	uint64_t                        since;          /* when it was kept */
++	IOBufferMemoryDescriptor * memory;
++	bool transferable;
++	bool clear;
++	bool busy;
++	uint64_t expires;
+ } gSurfaceKept[SURFACE_KEPT];
+ static IOLock *         gSurfaceKeptLock;
+ static thread_call_t    gSurfaceClearing;
+-static uint32_t         gSurfacesGivenAgain;    /* for MiniIOSurfaceCost() */
++static uint32_t         gSurfacesGivenAgain;
++static uint64_t         gSurfaceKeptBytes;
++
++/* Count the actual slots under their lock, including a slot being cleared. */
++static uint64_t
++surfaceKeptBytesLocked(void)
++{
++	uint64_t bytes = 0;
++	for (const auto &slot : gSurfaceKept) {
++		if (slot.memory != NULL) {
++			bytes += slot.memory->getCapacity();
++		}
++	}
++	__atomic_store_n(&gSurfaceKeptBytes, bytes, __ATOMIC_RELAXED);
++	return bytes;
++}
++
++static bool
++surfaceMemoryPressure(void)
++{
++	unsigned int level = kVMPressureNormal;
++	return mach_vm_pressure_level_monitor(FALSE, &level) == KERN_SUCCESS && level != kVMPressureNormal;
++}
++
++/* This only removes pool-owned references. A busy slot is borrowed by the
++ * zeroing thread and can be reconsidered on a later pass. */
++static uint64_t
++surfaceDiscardKept(bool all)
++{
++	IOBufferMemoryDescriptor * drop[SURFACE_KEPT];
++	unsigned dropped = 0;
++	uint64_t releasedBytes = 0;
++	const uint64_t now = mach_absolute_time();
++
++	IOLockLock(gSurfaceKeptLock);
++	for (auto &slot : gSurfaceKept) {
++		if (slot.memory != NULL && !slot.busy && (all || now >= slot.expires)) {
++			drop[dropped++] = slot.memory;
++			releasedBytes += slot.memory->getCapacity();
++			slot = {};
++		}
++	}
++	const uint64_t remainingBytes = surfaceKeptBytesLocked();
++	IOLockUnlock(gSurfaceKeptLock);
++
++	for (unsigned i = 0; i < dropped; i++) {
++		drop[i]->release();
++	}
++	if (all && dropped != 0) {
++		IOLog("MiniIOSurface: reclaimed %llu kept bytes in %u pieces (%llu bytes still kept)\n",
++		    releasedBytes, dropped, remainingBytes);
++	}
++	return remainingBytes;
++}
+
+ void
+ MiniIOSurfaceClearKept(void)
+@@ -208,18 +278,17 @@ MiniIOSurfaceClearKept(void)
+ 		return;
+ 	}
+ 	IOLockLock(gSurfaceKeptLock);
+-	for (unsigned i = 0; i < SURFACE_KEPT; i++) {
+-		IOBufferMemoryDescriptor * memory = gSurfaceKept[i].memory;
+-
+-		if (memory == NULL || gSurfaceKept[i].clear || gSurfaceKept[i].busy) {
++	for (auto &slot : gSurfaceKept) {
++		IOBufferMemoryDescriptor * memory = slot.memory;
++		if (memory == NULL || slot.clear || slot.busy) {
+ 			continue;
+ 		}
+-		gSurfaceKept[i].busy = true;
++		slot.busy = true;
+ 		IOLockUnlock(gSurfaceKeptLock);
+ 		bzero(memory->getBytesNoCopy(), memory->getCapacity());
+ 		IOLockLock(gSurfaceKeptLock);
+-		gSurfaceKept[i].busy = false;
+-		gSurfaceKept[i].clear = true;
++		slot.busy = false;
++		slot.clear = true;
+ 	}
+ 	IOLockUnlock(gSurfaceKeptLock);
+ }
+@@ -227,50 +296,76 @@ MiniIOSurfaceClearKept(void)
+ static void
+ surfaceMemoryClear(thread_call_param_t unused0 __unused, thread_call_param_t unused1 __unused)
+ {
+-	MiniIOSurfaceClearKept();
++	const bool pressure = surfaceMemoryPressure();
++	if (!pressure) {
++		MiniIOSurfaceClearKept();
++	}
++	if (surfaceDiscardKept(pressure) != 0) {
++		AbsoluteTime deadline;
++		clock_interval_to_deadline(SURFACE_POOL_POLL_MS, kMillisecondScale, &deadline);
++		thread_call_enter_delayed(gSurfaceClearing, deadline);
++	}
+ }
+
+-/* Memory for a surface: the state page and `bytes` after it, all zeroes. */
++/* An owned surface has a dedicated, fully owned VM entry so selector 44 can
++ * transfer it after the pages are wired. Keep it nonvolatile while live.
++ * The initial owner must be the kernel even when created on a user's thread. */
+ static IOBufferMemoryDescriptor *
+-surfaceMemory(vm_size_t bytes)
++surfaceMemory(vm_size_t bytes, bool ownedPixels, bool * transferable)
+ {
+ 	IOBufferMemoryDescriptor * memory = NULL;
+ 	bool clear = false;
++	*transferable = false;
+
+ 	if (bytes >= SURFACE_KEEP_FROM && bytes <= SURFACE_KEEP_MAX && gSurfaceKeptLock != NULL) {
+ 		IOLockLock(gSurfaceKeptLock);
+ 		for (int pass = 0; pass < 2 && memory == NULL; pass++) {
+-			/* one that is clear already, if there is one */
+-			for (unsigned i = 0; i < SURFACE_KEPT && memory == NULL; i++) {
+-				if (gSurfaceKept[i].memory != NULL && !gSurfaceKept[i].busy && (pass == 1 || gSurfaceKept[i].clear) &&
+-				    gSurfaceKept[i].memory->getCapacity() == bytes) {
+-					memory = gSurfaceKept[i].memory;
+-					clear = gSurfaceKept[i].clear;
+-					gSurfaceKept[i].memory = NULL;
++			for (auto &slot : gSurfaceKept) {
++				if (slot.memory != NULL && !slot.busy && (pass == 1 || slot.clear) &&
++				    slot.memory->getCapacity() == bytes) {
++					memory = slot.memory;
++					clear = slot.clear;
++					*transferable = slot.transferable;
++					slot = {};
++					OSIncrementAtomic(&gSurfacesGivenAgain);
++					surfaceKeptBytesLocked();
++					break;
+ 				}
+ 			}
+ 		}
+-		if (memory != NULL) OSIncrementAtomic(&gSurfacesGivenAgain);
+ 		IOLockUnlock(gSurfaceKeptLock);
+ 		if (memory != NULL && !clear) {
+ 			bzero(memory->getBytesNoCopy(), bytes);
+ 		}
+ 	}
+-	if (memory == NULL) {
+-		memory = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task, kIODirectionInOut | kIOMemoryKernelUserShared, bytes,
+-		    PAGE_SIZE);
++	for (unsigned attempt = 0; memory == NULL && attempt < 2; attempt++) {
++		constexpr IOOptionBits shared = kIODirectionInOut | kIOMemoryKernelUserShared;
++		if (attempt == 1) {
++			if (gSurfaceKeptLock != NULL) {
++				surfaceDiscardKept(true);
++			}
++		}
++		if (ownedPixels) {
++			memory = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
++			    shared | kIOMemoryPageable | kIOMemoryPurgeable | kIOMemoryThreadSafe, bytes, PAGE_SIZE);
++			if (memory != NULL) {
++				const IOReturn owner = memory->setOwnership(kernel_task, VM_LEDGER_TAG_DEFAULT,
++				    VM_LEDGER_FLAG_FROM_KERNEL);
++				if (owner == kIOReturnSuccess && memory->prepare() == kIOReturnSuccess) {
++					*transferable = true;
++				} else {
++					OSSafeReleaseNULL(memory);
++				}
++			}
++		}
++		if (memory == NULL) {
++			memory = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task, shared, bytes, PAGE_SIZE);
++		}
+ 		if (memory == NULL) {
+-			/* A shared kalloc extent can fail while the VM still has ample
+-			 * pages (full-resolution poster drawables hit this on Pong).
+-			 * Use a VM-backed descriptor and wire it before exposing its
+-			 * state/pixels. This is real backing memory, not a larger quota
+-			 * or an unprepared pageable surface handed to the GPU. */
+ 			memory = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
+-			    kIODirectionInOut | kIOMemoryKernelUserShared | kIOMemoryPageable,
+-			    bytes, PAGE_SIZE);
++			    shared | kIOMemoryPageable, bytes, PAGE_SIZE);
+ 			if (memory != NULL && memory->prepare() != kIOReturnSuccess) {
+-				memory->release();
+-				memory = NULL;
++				OSSafeReleaseNULL(memory);
+ 			}
+ 		}
+ 		if (memory != NULL) {
+@@ -280,50 +375,31 @@ surfaceMemory(vm_size_t bytes)
+ 	return memory;
+ }
+
+-/*
+- * A surface is gone: its memory is kept for the next, if it is big and nobody else has it. When
+- * all the places are taken, it takes the place of the piece kept longest: pieces of a size nobody
+- * asks for again (a big picture made once) once stayed there for good, and then no frame's memory
+- * was kept any more -- each made afresh and freed (2 to 4 ms, and 1 to 2) instead of 0.3 and 0.05.
+- */
+ static void
+-surfaceMemoryBack(IOBufferMemoryDescriptor * memory)
++surfaceMemoryBack(IOBufferMemoryDescriptor * memory, bool transferable, bool ownershipAttempted)
+ {
+-	IOBufferMemoryDescriptor * evicted = NULL;
+-
+-	if (memory->getCapacity() >= SURFACE_KEEP_FROM && memory->getCapacity() <= SURFACE_KEEP_MAX &&
+-	    memory->getRetainCount() == 1 && gSurfaceKeptLock != NULL) {
+-		int oldest = -1;
+-
++	const vm_size_t bytes = memory->getCapacity();
++	if (!ownershipAttempted && bytes >= SURFACE_KEEP_FROM && bytes <= SURFACE_KEEP_MAX &&
++	    memory->getRetainCount() == 1 && gSurfaceKeptLock != NULL && !surfaceMemoryPressure()) {
+ 		IOLockLock(gSurfaceKeptLock);
+-		for (unsigned i = 0; i < SURFACE_KEPT && memory != NULL; i++) {
+-			if (gSurfaceKept[i].memory == NULL) {
+-				gSurfaceKept[i].memory = memory;
+-				gSurfaceKept[i].clear = gSurfaceKept[i].busy = false;
+-				gSurfaceKept[i].since = mach_absolute_time();
+-				memory = NULL;
+-			} else if (!gSurfaceKept[i].busy && (oldest < 0 || gSurfaceKept[i].since < gSurfaceKept[oldest].since)) {
+-				oldest = (int) i;
++		const uint64_t kept = surfaceKeptBytesLocked();
++		if (kept + bytes <= SURFACE_KEEP_MAX) {
++			for (auto &slot : gSurfaceKept) {
++				if (slot.memory == NULL) {
++					slot.memory = memory;
++					slot.transferable = transferable;
++					clock_interval_to_deadline(SURFACE_KEEP_IDLE_MS, kMillisecondScale, &slot.expires);
++					surfaceKeptBytesLocked();
++					memory = NULL;
++					break;
++				}
+ 			}
+ 		}
+-		if (memory != NULL && oldest >= 0) {
+-			evicted = gSurfaceKept[oldest].memory;
+-			gSurfaceKept[oldest].memory = memory;
+-			gSurfaceKept[oldest].clear = gSurfaceKept[oldest].busy = false;
+-			gSurfaceKept[oldest].since = mach_absolute_time();
+-			memory = NULL;
+-		}
+ 		IOLockUnlock(gSurfaceKeptLock);
+-		if (evicted != NULL) {
+-			evicted->release();
+-		}
+ 		if (memory == NULL) {
+-			{
+-				AbsoluteTime deadline;
+-
+-				clock_interval_to_deadline(SURFACE_CLEAR_MS, kMillisecondScale, &deadline);
+-				thread_call_enter_delayed(gSurfaceClearing, deadline);
+-			}
++			AbsoluteTime deadline;
++			clock_interval_to_deadline(SURFACE_CLEAR_MS, kMillisecondScale, &deadline);
++			thread_call_enter_delayed(gSurfaceClearing, deadline);
+ 			return;
+ 		}
+ 	}
+@@ -360,7 +436,8 @@ MiniIOSurface::free(void)
+ 		clientTask = TASK_NULL;
+ 	}
+ 	if (memory != NULL) {
+-		surfaceMemoryBack(memory);
++		surfaceMemoryBack(memory, transferable,
++		    __atomic_load_n(&ownershipAttempted, __ATOMIC_RELAXED));
+ 		memory = NULL;
+ 	}
+ 	OSObject::free();
+@@ -563,6 +640,28 @@ describeComponents(struct minisurf_plane * plane, uint32_t format)
+  * Make a surface from the properties a client gave to IOSurfaceCreate().
+  * Returned with one holder, and entered in the table.
+  */
++/* gSurfaceLock protects the live counters. Pool bytes are published by the
++ * separate pool lock. Wrapped bytes describe pinned pixels, not unique pages. */
++static void
++surfaceAccountMemory(const MiniIOSurface * surface, bool add)
++{
++	uint64_t &pixels = surface->client != NULL ? gSurfaceWrappedBytes : gSurfaceActiveOwnedBytes;
++	if (add) {
++		pixels += surface->info.allocSize;
++		gSurfaceStateBytes += PAGE_SIZE;
++	} else {
++		pixels -= surface->info.allocSize;
++		gSurfaceStateBytes -= PAGE_SIZE;
++	}
++	const uint64_t mark = gSurfaceBytes >> 26;
++	if (mark != gSurfaceMemoryMark) {
++		gSurfaceMemoryMark = mark;
++		IOLog("MiniIOSurface: %u active, owned=%llu wrapped=%llu state=%llu kept=%llu bytes\n",
++		    gSurfaceCount, gSurfaceActiveOwnedBytes, gSurfaceWrappedBytes, gSurfaceStateBytes,
++		    __atomic_load_n(&gSurfaceKeptBytes, __ATOMIC_RELAXED));
++	}
++}
++
+ static MiniIOSurface *
+ surfaceCreate(OSDictionary * props, IOReturn * error)
+ {
+@@ -748,7 +847,8 @@ surfaceCreate(OSDictionary * props, IOReturn * error)
+ 		}
+ 	}
+
+-	s->memory = surfaceMemory((vm_size_t) PAGE_SIZE + (wrapped ? 0 : alloc));
++	s->memory = surfaceMemory((vm_size_t) PAGE_SIZE + (wrapped ? 0 : alloc), wrapped == NULL,
++	    &s->transferable);
+ 	if (s->memory == NULL) {
+ 		IOLog("MiniIOSurface: no memory for %u bytes (%u surfaces, %llu MB in use)\n", alloc, gSurfaceCount,
+ 		    gSurfaceBytes >> 20);
+@@ -836,6 +936,7 @@ surfaceCreate(OSDictionary * props, IOReturn * error)
+ 	gSurfaceTable[sid] = s;                 /* the table owns the object until the last holder goes */
+ 	gSurfaceCount++;
+ 	gSurfaceBytes += alloc;
++	surfaceAccountMemory(s, true);
+
+ 	struct minisurf_shared * sh = s->shared();
+ 	sh->registryID = 0x100000000ULL + sid;
+@@ -867,6 +968,7 @@ surfaceUnhold(MiniIOSurface * s)
+ 	gSurfaceTable[s->sid] = NULL;
+ 	gSurfaceCount--;
+ 	gSurfaceBytes -= s->info.allocSize;
++	surfaceAccountMemory(s, false);
+ 	s->release();
+ }
+
+@@ -942,6 +1044,7 @@ class IOSurfaceSendRight : public OSObject
+
+ public:
+ 	MiniIOSurface * surface;
++	bool ownershipAuthorized;
+
+ 	virtual bool
+ 	init(void) APPLE_KEXT_OVERRIDE
+@@ -1046,6 +1149,7 @@ struct minisurf_client_ref {
+ 	IOMemoryMap *   pixelMap;               /* ... the pixels, where those are another client's memory */
+ 	uint32_t        use[2];                 /* what this client added to the use counts */
+ 	bool            detached;               /* the client let go of it and will release shortly */
++	bool            ownershipAuthorized;    /* creator or a holder of an authorized send right */
+ };
+
+ class IOSurfaceRootUserClient : public IOUserClient
+@@ -1073,6 +1177,7 @@ class IOSurfaceRootUserClient : public IOUserClient
+ 	IOReturn methodLookup(IOExternalMethodArguments * args);
+ 	IOReturn methodLookupFromPort(IOExternalMethodArguments * args);
+ 	IOReturn methodCreatePort(IOExternalMethodArguments * args);
++	IOReturn methodSetOwnershipIdentity(IOExternalMethodArguments * args);
+ 	IOReturn methodSetValue(IOExternalMethodArguments * args, const uint8_t * in, size_t inSize);
+ 	IOReturn methodCopyValue(IOExternalMethodArguments * args, const uint8_t * in, size_t inSize);
+ 	IOReturn methodRemoveValue(IOExternalMethodArguments * args, const uint8_t * in, size_t inSize);
+@@ -1098,7 +1203,7 @@ public:
+ 	virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArguments * args,
+ 	    IOExternalMethodDispatch * dispatch, OSObject * target, void * reference) APPLE_KEXT_OVERRIDE;
+ 	virtual IOExternalTrap * getTargetAndTrapForIndex(IOService ** targetP, UInt32 index) APPLE_KEXT_OVERRIDE;
+-	static mach_port_name_t makeSendRight(task_t task, MiniIOSurface * surface);
++	static mach_port_name_t makeSendRight(task_t task, MiniIOSurface * surface, bool ownershipAuthorized);
+ };
+
+ OSDefineMetaClassAndStructors(IOSurfaceRootUserClient, IOUserClient);
+@@ -1449,6 +1554,9 @@ IOSurfaceRootUserClient::methodCreate(IOExternalMethodArguments * args)
+
+ 	IOLockLock(gSurfaceLock);
+ 	ref = addRef(s);
++	if (ref != NULL) {
++		ref->ownershipAuthorized = true;
++	}
+ 	ret = ref ? returnSurface(ref, false, args) : kIOReturnNoMemory;
+ 	if (ref != NULL && ret != kIOReturnSuccess) {
+ 		dropRef(ref);
+@@ -1574,7 +1682,9 @@ IOSurfaceRootUserClient::methodLookupFromPort(IOExternalMethodArguments * args)
+ 		ref = addRef(right->surface);
+ 	}
+ 	ret = ref ? returnSurface(ref, known, args) : kIOReturnNoMemory;
+-	if (ref != NULL && !known && ret != kIOReturnSuccess) {
++	if (ret == kIOReturnSuccess && right->ownershipAuthorized) {
++		ref->ownershipAuthorized = true;
++	} else if (ref != NULL && !known && ret != kIOReturnSuccess) {
+ 		dropRef(ref);
+ 	}
+ 	IOLockUnlock(gSurfaceLock);
+@@ -1603,7 +1713,7 @@ IOSurfaceRootUserClient::methodLookupFromPort(IOExternalMethodArguments * args)
+ }
+
+ mach_port_name_t
+-IOSurfaceRootUserClient::makeSendRight(task_t task, MiniIOSurface * s)
++IOSurfaceRootUserClient::makeSendRight(task_t task, MiniIOSurface * s, bool ownershipAuthorized)
+ {
+ 	IOSurfaceSendRight * right;
+ 	mach_port_name_t name = 0;
+@@ -1617,6 +1727,7 @@ IOSurfaceRootUserClient::makeSendRight(task_t task, MiniIOSurface * s)
+ 	surfaceHold(s);                         /* for as long as the send right exists */
+ 	IOLockUnlock(gSurfaceLock);
+ 	right->surface = s;
++	right->ownershipAuthorized = ownershipAuthorized;
+ 	copyPortNameForObjectInTask(task, right, &name);
+ 	right->release();
+ 	return name;
+@@ -1625,7 +1736,7 @@ IOSurfaceRootUserClient::makeSendRight(task_t task, MiniIOSurface * s)
+ mach_port_name_t
+ MiniIOSurfaceMakeSendRight(task_t task, MiniIOSurface * surface)
+ {
+-	return IOSurfaceRootUserClient::makeSendRight(task, surface);
++	return IOSurfaceRootUserClient::makeSendRight(task, surface, true);
+ }
+
+ IOReturn
+@@ -1641,7 +1752,11 @@ IOSurfaceRootUserClient::methodCreatePort(IOExternalMethodArguments * args)
+ 	if (s == NULL) {
+ 		return kIOReturnNotFound;
+ 	}
+-	name = makeSendRight(fTask, s);
++	IOLockLock(gSurfaceLock);
++	const auto * ref = findRef(s->sid, false);
++	const bool ownershipAuthorized = ref != NULL && ref->ownershipAuthorized;
++	IOLockUnlock(gSurfaceLock);
++	name = makeSendRight(fTask, s, ownershipAuthorized);
+ 	if (s->traced) {
+ 		char procname[32] = "?";
+
+@@ -1891,10 +2006,21 @@ IOSurfaceRootUserClient::methodSetCoreVideoBridgedKeys(const uint8_t * in, size_
+  * authorizes the handoff. No numeric surface ID is treated as ownership.
+  * Each connection retains its pending surfaces; a dead producer poisons its
+  * incomplete frame rather than inventing GPU completion. */
++static bool
++logGpuSurfaceReceipt(void)
++{
++	static unsigned count;
++	return __atomic_fetch_add(&count, 1, __ATOMIC_RELAXED) < 24;
++}
++
+ void IOSurfaceRootUserClient::abandonGpuHolds(void)
+ {
+     for(auto &hold:fGpuHolds)if(hold.surface) {
+         auto *surface=hold.surface;
++        if (!surface->gpuFailed && logGpuSurfaceReceipt()) {
++            IOLog("PONG IOSURFACE: sid=%u poison=producer-close writers=%u abandoned=%u\n",
++                surface->sid, surface->gpuWriters, hold.writers);
++        }
+         surface->gpuFailed=true;surface->gpuWriters-=hold.writers;
+         hold={};IOLockWakeup(gSurfaceLock,surface,false);surfaceUnhold(surface);
+     }
+@@ -1931,8 +2057,17 @@ IOReturn IOSurfaceRootUserClient::gpuHandoff(IOExternalMethodArguments *args)
+         unsigned i=0;for(;i<256;i++)if(fGpuHolds[i].surface==surface)break;
+         if(i==256 || !fGpuHolds[i].writers)result=kIOReturnBadArgument;
+         else {
+-            if(args->scalarInput[2])surface->gpuFailed=true;
++            if (args->scalarInput[2]) {
++                if (!surface->gpuFailed && logGpuSurfaceReceipt()) {
++                    IOLog("PONG IOSURFACE: sid=%u poison=producer-end pid=%d writers=%u\n",
++                        surface->sid, proc_selfpid(), surface->gpuWriters);
++                }
++                surface->gpuFailed = true;
++            }
+             --surface->gpuWriters;
++            if (!surface->gpuWriters && !surface->gpuFailed) {
++                surface->lastGpuWriterRelease = mach_absolute_time();
++            }
+             if(!--fGpuHolds[i].writers){fGpuHolds[i]={};surfaceUnhold(surface);}
+             IOLockWakeup(gSurfaceLock,surface,false);
+         }
+@@ -1940,6 +2075,67 @@ IOReturn IOSurfaceRootUserClient::gpuHandoff(IOExternalMethodArguments *args)
+     IOLockUnlock(gSurfaceLock);object->release();return result;
+ }
+
++IOReturn
++IOSurfaceRootUserClient::methodSetOwnershipIdentity(IOExternalMethodArguments * args)
++{
++	if (args->scalarInputCount != 4 || args->scalarInput == NULL || args->scalarOutputCount != 0 ||
++	    args->structureInputSize != 0 || args->structureOutputSize != 0 ||
++	    args->structureInputDescriptor != NULL || args->structureOutputDescriptor != NULL ||
++	    args->scalarInput[0] == 0 || args->scalarInput[0] >= MINISURF_TABLE_SIZE ||
++	    args->scalarInput[1] > UINT32_MAX ||
++	    args->scalarInput[2] < VM_LEDGER_TAG_DEFAULT || args->scalarInput[2] > VM_LEDGER_TAG_MAX ||
++	    (args->scalarInput[3] & ~(uint64_t) VM_LEDGER_FLAG_NO_FOOTPRINT) != 0) {
++		return kIOReturnBadArgument;
++	}
++	const uint32_t sid = (uint32_t) args->scalarInput[0];
++	const mach_port_name_t token = (mach_port_name_t) args->scalarInput[1];
++	const int tag = (int) args->scalarInput[2];
++	const IOOptionBits options = (IOOptionBits) args->scalarInput[3];
++	if (token == 0 || token == MACH_PORT_DEAD || fTask != current_task()) {
++		return kIOReturnBadArgument;
++	}
++	MiniIOSurface * surface = NULL;
++	IOReturn result = kIOReturnNotFound;
++	IOLockLock(gSurfaceLock);
++	const auto * ref = findRef(sid, false);
++	if (ref != NULL) {
++		if (!ref->ownershipAuthorized) {
++			result = kIOReturnNotPermitted;
++		} else if (!ref->surface->transferable) {
++			/* Wrapped pixels and legacy kalloc fallback cannot be reassigned. */
++			result = kIOReturnUnsupported;
++		} else {
++			surface = ref->surface;
++			surface->retain();
++		}
++	}
++	IOLockUnlock(gSurfaceLock);
++
++	if (surface != NULL) {
++		task_t owner = TASK_NULL;
++		result = task_id_token_port_name_to_task(token, &owner);
++		if (result == KERN_SUCCESS) {
++			/* The object remains alive until this call returns. Do not recycle
++			 * it if its ledger could have changed even on an error. */
++			__atomic_store_n(&surface->ownershipAttempted, true, __ATOMIC_RELAXED);
++			/* VM checks the real current task's transfer and footprint entitlements. */
++			result = surface->memory->setOwnership(owner, tag, options);
++			task_deallocate(owner);
++		}
++		surface->release();
++	}
++
++	static uint32_t receipts;
++	if (__atomic_load_n(&receipts, __ATOMIC_RELAXED) < 24 &&
++	    __atomic_fetch_add(&receipts, 1, __ATOMIC_RELAXED) < 24) {
++		char name[32] = "?";
++		proc_selfname(name, sizeof(name));
++		IOLog("MiniIOSurface: ownership sid=%u caller=%s[%d] tid=%llu tag=%d options=%#x result=%#x\n",
++		    sid, name, proc_selfpid(), thread_tid(current_thread()), tag, options, result);
++	}
++	return result;
++}
++
+ IOReturn
+ IOSurfaceRootUserClient::externalMethod(uint32_t selector, IOExternalMethodArguments * args,
+     IOExternalMethodDispatch * dispatch, OSObject * target, void * reference)
+@@ -1964,6 +2160,8 @@ IOSurfaceRootUserClient::externalMethod(uint32_t selector, IOExternalMethodArgum
+ 		return methodLookupFromPort(args);
+ 	case kSurfaceMethodCreatePort:
+ 		return methodCreatePort(args);
++	case kSurfaceMethodSetOwnershipIdentity:
++		return methodSetOwnershipIdentity(args);
+
+ 	case kSurfaceMethodSetValue:
+ 	case kSurfaceMethodCopyValue:
+@@ -2276,19 +2474,55 @@ IOSurfaceRootUserClient::trapRelease(void * p1, void * p2, void * p3, void * p4,
+ /* The Metal frontend brackets actual submissions with authorized send
+  * rights. Reading starts only after those GPU jobs and cache acquisition
+  * completed; subsequent writers wait until the display finishes copying. */
+-bool MiniIOSurfaceDrawn(MiniIOSurface *surface,uint64_t milliseconds)
++bool
++MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID,
++    MiniIOSurfaceReadTiming *timing)
+ {
+-    if(!surface)return false;
+-    uint64_t deadline;clock_interval_to_deadline((uint32_t)(milliseconds>1000?1000:milliseconds),kMillisecondScale,&deadline);
+-    IOLockLock(gSurfaceLock);
+-    while(surface->gpuWriters && !surface->gpuFailed) {
+-        if(IOLockSleepDeadline(gSurfaceLock,surface,deadline,THREAD_ABORTSAFE)!=THREAD_AWAKENED) {
+-            IOLockUnlock(gSurfaceLock);return false;
+-        }
+-    }
+-    const bool ready=!surface->gpuFailed && !surface->drawn;
+-    if(ready)++surface->displayReaders;
+-    IOLockUnlock(gSurfaceLock);return ready;
++	if (surface == NULL) {
++		return false;
++	}
++	const uint64_t began = mach_absolute_time();
++	wait_result_t waitResult = THREAD_AWAKENED;
++	IOLockLock(gSurfaceLock);
++	const uint64_t locked = timing ? mach_absolute_time() : 0;
++	const bool waitedForWriter = timing && surface->gpuWriters && !surface->gpuFailed;
++	while (surface->gpuWriters && !surface->gpuFailed && waitResult == THREAD_AWAKENED) {
++		/* Only the dedicated presenter enters here. The absolute deadline
++		 * bounds the wait, independent of transient thread aborts. */
++		waitResult = IOLockSleepDeadline(gSurfaceLock, surface, deadline, THREAD_UNINT);
++	}
++	const bool ready = !surface->gpuWriters && !surface->gpuFailed && !surface->drawn;
++	if (ready) {
++		surface->displayReaders++;
++		if (timing) {
++			timing->lockTicks += locked - began;
++			if (waitedForWriter) {
++				const uint64_t resumed = mach_absolute_time();
++				const uint64_t released = surface->lastGpuWriterRelease;
++				timing->waitedForWriter = true;
++				/* A successful wait can only end after the final writer
++				 * publishes release under this same lock. */
++				if (released >= locked && released <= resumed) {
++					timing->writerTicks += released - locked;
++					timing->resumeTicks += resumed - released;
++				} else {
++					timing->writerTicks += resumed - locked;
++				}
++			}
++		}
++	}
++	const bool logFailure = !ready && logGpuSurfaceReceipt();
++	const uint32_t writers = surface->gpuWriters, readers = surface->displayReaders;
++	const bool poison = surface->gpuFailed, drawn = surface->drawn;
++	IOLockUnlock(gSurfaceLock);
++	if (logFailure) {
++		uint64_t nanos;
++		absolutetime_to_nanoseconds(mach_absolute_time() - began, &nanos);
++		IOLog("PONG IOSURFACE: swap=%u sid=%u format=%#x writers=%u readers=%u poison=%d drawn=%d wait=%d elapsed_us=%llu\n",
++		    swapID, surface->sid, surface->info.pixelFormat, writers, readers, poison, drawn,
++		    waitResult, nanos / NSEC_PER_USEC);
++	}
++	return ready;
+ }
+ void MiniIOSurfaceDisplayDone(MiniIOSurface *surface)
+ {
+diff --git a/iokit/Kernel/MiniIOSurface.h b/iokit/Kernel/MiniIOSurface.h
+index 29c3e07..3e15165 100644
+--- a/iokit/Kernel/MiniIOSurface.h
++++ b/iokit/Kernel/MiniIOSurface.h
+@@ -120,7 +120,10 @@ public:
+ 	mach_vm_address_t               clientAddress;  /* ... and where it is there */
+ 	uint8_t *                       kpixels;        /* where the pixel memory starts in the kernel, either way */
+ 	uint32_t                        gpuWriters, displayReaders;
++	uint64_t                        lastGpuWriterRelease; /* protected by gSurfaceLock */
+ 	bool                            gpuFailed;
++	bool                            transferable;
++	bool                            ownershipAttempted;
+ 	uint32_t                        drawn;          /* nonzero means a submitted GPU fence; CPU surfaces use zero */
+ 	struct minisurf_result          info;           /* addresses not filled in */
+ 	struct minisurf_plane           planes[MINISURF_MAX_PLANES];
+@@ -167,8 +170,15 @@ MiniIOSurface * MiniIOSurfaceCopy(uint32_t sid);
+ void            MiniIOSurfaceCost(uint32_t * made, uint64_t * making, uint32_t * freed, uint64_t * freeing, uint32_t * again);
+ /* Clear the memory that is kept of surfaces that are gone, for the next ones: when the caller has a moment. */
+ void            MiniIOSurfaceClearKept(void);
+-/* True only when the surface has no pending GPU fence in this CPU backend. */
+-bool            MiniIOSurfaceDrawn(MiniIOSurface * surface, uint64_t milliseconds);
++struct MiniIOSurfaceReadTiming {
++	uint64_t lockTicks;
++	uint64_t writerTicks;
++	uint64_t resumeTicks;
++	bool waitedForWriter;
++};
++/* Acquires a display reader once GPU writers have released the surface. */
++bool            MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID,
++                    MiniIOSurfaceReadTiming *timing);
+ void            MiniIOSurfaceDisplayDone(MiniIOSurface * surface);
+ MiniIOSurface * MiniIOSurfaceCreateSimple(uint32_t width, uint32_t height, uint32_t pixelFormat);
+ void            MiniIOSurfaceDrop(MiniIOSurface * surface);
+diff --git a/iokit/Kernel/PongNearestThreeToTwo.h b/iokit/Kernel/PongNearestThreeToTwo.h
+new file mode 100644
+index 0000000..c025228
+--- /dev/null
++++ b/iokit/Kernel/PongNearestThreeToTwo.h
+@@ -0,0 +1,51 @@
++/* SPDX-License-Identifier: BSD-2-Clause-Patent */
++#pragma once
++#include <stdint.h>
++
++static inline bool
++pongNearestThreeToTwo(bool filter, bool diff, int32_t sourceWidth,
++    int32_t left, int32_t right, uint32_t panelWidth)
++{
++	return !filter && !diff && sourceWidth > 0 && left == 0 &&
++	       right > 0 && (uint32_t)right == panelWidth &&
++	       (uint64_t)sourceWidth * 3 == (uint64_t)panelWidth * 2;
++}
++
++/* floor(x * 2 / 3) expands each two source pixels to [a, a, b].
++ * The selector ensures an even source width and a complete output row. */
++static inline void
++pongNearestThreeToTwoRow(const uint32_t *source, uint32_t *panel, uint32_t sourceWidth)
++{
++	uint32_t x = 0;
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++	/* Read four pixels in two aligned words and expand them to three
++	 * aligned words in the write-combined framebuffer. */
++	const uintptr_t alignment = reinterpret_cast<uintptr_t>(source) |
++	    reinterpret_cast<uintptr_t>(panel);
++	if ((alignment & (alignof(uint64_t) - 1)) == 0) {
++		typedef uint64_t PackedPixels __attribute__((__may_alias__));
++		const auto *from = reinterpret_cast<const PackedPixels *>(source);
++		auto *to = reinterpret_cast<PackedPixels *>(panel);
++		const uint32_t pairedWidth = sourceWidth & ~3u;
++		constexpr uint64_t alpha = 0xff000000ff000000ull;
++		for (; x < pairedWidth; x += 4) {
++			const uint64_t ab = from[0] | alpha;
++			const uint64_t cd = from[1] | alpha;
++			to[0] = (ab & 0xffffffffull) | (ab << 32);
++			to[1] = (ab >> 32) | (cd << 32);
++			to[2] = cd;
++			from += 2;
++			to += 3;
++		}
++		panel = reinterpret_cast<uint32_t *>(to);
++	}
++#endif
++	for (; x < sourceWidth; x += 2) {
++		const uint32_t a = source[x] | 0xff000000u;
++		const uint32_t b = source[x + 1] | 0xff000000u;
++		panel[0] = a;
++		panel[1] = a;
++		panel[2] = b;
++		panel += 3;
++	}
++}
