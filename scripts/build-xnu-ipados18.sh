@@ -6,9 +6,9 @@ cd "$ROOT"
 echo "DIAG: build-xnu-ipados18.sh version d85825e+diag running, ROOT=$ROOT"
 # Refuse Wi-Fi and backlight before any XNU compile when their trees are absent.
 # The later builders still refuse on their own; this only moves that refusal forward.
-if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ]; then
+if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${THOR_REQUIRE_NATIVE_UFS_LEASE:-0}" = 1 ]; then
   if [ -z "${PONG_NATIVE_DRIVER_SOURCE:-}" ]; then
-    echo 'refusing before compile: PONG_NATIVE_DRIVER_SOURCE is unset, so Wi-Fi and backlight inputs cannot be resolved' >&2
+    echo 'refusing before compile: PONG_NATIVE_DRIVER_SOURCE is unset, so the platform archive inputs cannot be resolved' >&2
     exit 1
   fi
   python3 - <<'PY'
@@ -78,6 +78,53 @@ if [ ! -x .cache/fakeroot/usr/local/libexec/availability.pl ]; then
     OBJROOT="$ROOT/build/availability" SYMROOT="$ROOT/build/availability" \
     DSTROOT="$ROOT/.cache/fakeroot" CMAKE="$(command -v cmake)" NINJA="$(command -v ninja)"
 fi
+# Generate optional Thor C payloads from locally supplied signed artifacts.
+python3 - <<'PY_THOR_PAYLOADS'
+from pathlib import Path
+import os
+import re
+import struct
+
+
+def read_macho(path, expected_type):
+    with Path(path).open('rb') as source:
+        payload = source.read(512 * 1024 + 1)
+    if not 32 <= len(payload) <= 512 * 1024:
+        raise ValueError('expected a bounded arm64 Mach-O')
+    magic, cpu, _, file_type = struct.unpack_from('<IIII', payload)
+    if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, expected_type):
+        raise ValueError('unexpected Thor payload architecture or kind')
+    return payload
+
+
+def c_array(name, payload):
+    rows = ['    ' + ', '.join(f'0x{byte:02x}' for byte in payload[i:i + 16]) + ','
+            for i in range(0, len(payload), 16)]
+    return f'static const unsigned char {name}[] = {{\n' + '\n'.join(rows) + '\n};\n'
+
+
+header = Path('.cache/xnu-work/bsd/kern/thor_ui_runtime_payload.h')
+adapter = os.environ.get('THOR_UI_RUNTIME')
+installer = os.environ.get('THOR_APP_INSTALLER')
+text = ''
+if adapter:
+    tag = os.environ.get('THOR_UI_RUNTIME_TAG', 'v77')
+    if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,31}', tag):
+        raise ValueError('invalid Thor UI runtime tag')
+    text += '#define THOR_UI_RUNTIME_PAYLOAD 1\n'
+    text += f'#define THOR_UI_RUNTIME_STAGE_PATH "/private/var/pong/libpong-ui-{tag}.dylib"\n'
+    text += c_array('thor_ui_runtime_payload', read_macho(adapter, 6))
+if installer:
+    text += '#define THOR_APP_INSTALLER_PAYLOAD 1\n'
+    text += c_array('thor_app_installer_payload', read_macho(installer, 2))
+
+if text and (not header.exists() or header.read_text() != text):
+    header.write_text(text)
+    header.with_name('kern_exec.c').touch()
+elif not text and header.exists():
+    header.unlink()
+    header.with_name('kern_exec.c').touch()
+PY_THOR_PAYLOADS
 # The optional observation hooks overlap existing root/exec patch context.
 # Remove them first so earlier independent patches retain their idempotent checks.
 # The same holds for the boot-time GPU addon mount (zzy), which edits the owner Data mount function inside the systemos patch.
@@ -270,7 +317,7 @@ if [ "${XNU_PONG_WIFI:-0}" = 1 ]; then
   python3 "$PONG_NATIVE_DRIVER_SOURCE/scripts/build-pong-wifi-native.py" --tree "$ROOT" \
     --ath11k "$WIFI_BUILD/libPongAth11k.a"
 fi
-if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ]; then
+if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${THOR_REQUIRE_NATIVE_UFS_LEASE:-0}" = 1 ]; then
   python3 "$PONG_NATIVE_DRIVER_SOURCE/scripts/build-pong-power-native.py" --tree "$ROOT"
 fi
 if [ ! -f "$KERNEL_SDKROOT/usr/local/lib/kernel/libfirehose_kernel.a" ]; then
@@ -1003,7 +1050,7 @@ PY_RAM_BLOCK_BINDINGS
     PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$ROOT/build/pong-adreno/libPongAdrenoPlatform.a"
     PLATFORM_DEPENDENCIES="$PLATFORM_DEPENDENCIES $ROOT/build/pong-adreno/libPongAdrenoPlatform.a"
   fi
-  if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ]; then
+  if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${THOR_REQUIRE_NATIVE_UFS_LEASE:-0}" = 1 ]; then
     POWER_ARCHIVE=$ROOT/build/pong-power/libPongPower.a
     test -f "$POWER_ARCHIVE"
     PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$POWER_ARCHIVE"
@@ -1015,19 +1062,21 @@ PY_RAM_BLOCK_BINDINGS
     PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$WIFI_ARCHIVE"
     PLATFORM_DEPENDENCIES="$PLATFORM_DEPENDENCIES $WIFI_ARCHIVE"
   fi
-  # Weak stubs for the shared Apps SMMU lease API. PongUfsTransport declares
-  # pong_smmu_lease_lock/unlock as weak_import and NULL-checks before calling,
-  # but the kernel static linker still needs a definition. When the power/USB/
-  # WLAN aggregate is linked its strong definitions override these; without it
-  # (CI config drops Wi-Fi/backlight) the stubs keep the link happy.
-  cat > "$ROOT/build/smmu_lease_stubs.c" <<'STUB_EOF'
+  if [ "${THOR_REQUIRE_NATIVE_UFS_LEASE:-0}" != 1 ]; then
+    # Weak stubs for the shared Apps SMMU lease API. PongUfsTransport declares
+    # pong_smmu_lease_lock/unlock as weak_import and NULL-checks before calling,
+    # but the kernel static linker still needs a definition. When the power/USB/
+    # WLAN aggregate is linked its strong definitions override these; without it
+    # (CI config drops Wi-Fi/backlight) the stubs keep the link happy.
+    cat > "$ROOT/build/smmu_lease_stubs.c" <<'STUB_EOF'
 __attribute__((weak)) _Bool pong_smmu_lease_lock(void) { return 1; }
 __attribute__((weak)) void pong_smmu_lease_unlock(void) {}
 STUB_EOF
-  clang -c -target arm64-apple-ios18.0 -o "$ROOT/build/smmu_lease_stubs.o" "$ROOT/build/smmu_lease_stubs.c"
-  ar rcs "$ROOT/build/smmu_lease_stubs.a" "$ROOT/build/smmu_lease_stubs.o"
-  echo "smmu_lease stubs: built $ROOT/build/smmu_lease_stubs.a"
-  PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$ROOT/build/smmu_lease_stubs.a"
+    clang -c -target arm64-apple-ios18.0 -o "$ROOT/build/smmu_lease_stubs.o" "$ROOT/build/smmu_lease_stubs.c"
+    ar rcs "$ROOT/build/smmu_lease_stubs.a" "$ROOT/build/smmu_lease_stubs.o"
+    echo "smmu_lease stubs: built $ROOT/build/smmu_lease_stubs.a"
+    PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$ROOT/build/smmu_lease_stubs.a"
+  fi
   EXTRA_MAKE_ARGS+=("LD_KERNEL_ARCHIVES=$PLATFORM_ARCHIVES")
   EXTRA_MAKE_ARGS+=("XNU_EXTERNAL_KERNEL_ARCHIVES=$PLATFORM_DEPENDENCIES")
 fi

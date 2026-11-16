@@ -168,7 +168,7 @@ paths = ["scripts/package.sh", "scripts/finalize-pong-adt.py", "scripts/build-po
 inputs = ["UniXNU c96b299（release 与 templates/package.sh）、uefi-pong 固件树、匹配 22H374 restore、UNIXNU_UNIQUE_CHIP_ID 平台种子"]
 configuration = ["board.toml 的 [package]/[package.defconfig]/[bootimg]/[userdata]，os-profiles/ipados-18.7.10-22H374，configs/pong_ipados18_ci_defconfig"]
 procedure = ["scripts/package.sh --check 走 deps/preflight/patches；CI 的 package job 跑 scripts/package.sh --os … --skip-prelink，再跑 scripts/finalize-pong-adt.py：用本地同一份 make-pong-adt-ipados18.py 与同一组参数（12 GiB DRAM、4 GiB 窗口、单 CPU）重写 payload 里的 ADT，并重打 boot.img 与 PONGFAT1 包装的 boot.img.pong。"]
-findings = ["scripts/package.sh --check --no-deps 在 Linux 上通过：1 个补丁、pong_ipados18_defconfig、OS ipados-18.7.10-22H374。release 只跑 kernel/package/firmware/payload，不含 userdata；本板内核需要 MACHINE_CONFIGS=PONG，共享 kernel 步骤写死 BCM2837，因此由 kits/PongPlatform24 作为组件 recipe 编译；共享 kernel 步骤的 tree 已有真实 drivers/ 目录，设备 builder 另用一棵树并在编完后回填 mach.development.pong。bootimg 的 validate 只认 v0-v2 头，board 覆写 header_version = 0。本板固件只认 PONGFAT1 包装的 ramdisk，故规范产物 boot/boot.img 之外另出 boot.img.pong。userdata 不走 unixnu userdata：它写 SHNGROOT v2 且缺 Data 窗口，本板 RootLayout.h 只接受 v1 且强制 OS/SystemOS/Data 三窗口。", "package.yml 去掉未使用的 blacktop/tap/ipsw；porting-record.yml 改为 submodules: recursive，与 drivers/ submodule 拆分对齐。"]
+findings = ["Thor v156 source recipe exposes the local restore, firmware and build inputs and stages signed optional runtime payloads.", "scripts/package.sh --check --no-deps 在 Linux 上通过：1 个补丁、pong_ipados18_defconfig、OS ipados-18.7.10-22H374。release 只跑 kernel/package/firmware/payload，不含 userdata；本板内核需要 MACHINE_CONFIGS=PONG，共享 kernel 步骤写死 BCM2837，因此由 kits/PongPlatform24 作为组件 recipe 编译；共享 kernel 步骤的 tree 已有真实 drivers/ 目录，设备 builder 另用一棵树并在编完后回填 mach.development.pong。bootimg 的 validate 只认 v0-v2 头，board 覆写 header_version = 0。本板固件只认 PONGFAT1 包装的 ramdisk，故规范产物 boot/boot.img 之外另出 boot.img.pong。userdata 不走 unixnu userdata：它写 SHNGROOT v2 且缺 Data 窗口，本板 RootLayout.h 只接受 v1 且强制 OS/SystemOS/Data 三窗口。", "package.yml 去掉未使用的 blacktop/tap/ipsw；porting-record.yml 改为 submodules: recursive，与 drivers/ submodule 拆分对齐。"]
 completion = ["在 macOS runner 上跑通 package.yml 两个 job，并取得 boot.img、boot.img.pong、payload.img、kernel.macho、package.manifest.json 与 userdata 分片"]
 limits = ["CI 尚未在 macOS runner 上运行；真机未刷入。prelink slide 尚未在本板表达，流水线用 --skip-prelink。devicetree.generate() 要求单段 /memory，自定义 DT 属性不透传。"]
 next_action = ["在 fork 上手动触发 package.yml，带 ipsw_url，核对两处产物再上真机"]
@@ -447,7 +447,7 @@ paths = ["scripts/build-ipados18*", "scripts/build-pong-smmu4k.py", "scripts/mak
 inputs = ["Pong live Android DT、NothingOSS SM8475源码与匹配22H374 restore"]
 configuration = ["board.toml、pong_ipados18_defconfig 与对应板级配置"]
 procedure = ["Darwin24/XNU11417与22H374原始组件，格式2硬件输入与固定ABI。"]
-findings = ["services85完整内核与匹配运行时已编译，96MiB OS更新已安装；Fastboot Sending/Booting均OKAY，Data/SystemOS保留。", "services113: official rootful Procursus/Sileo, genuine iphoneos-arm repository indices and mobile sileolists permissions staged; expanded writable OS and real package configuration required before qualifying installation."]
+findings = ["Thor v156 source recipe exposes the local restore, firmware and build inputs and stages signed optional runtime payloads.", "services85完整内核与匹配运行时已编译，96MiB OS更新已安装；Fastboot Sending/Booting均OKAY，Data/SystemOS保留。", "services113: official rootful Procursus/Sileo, genuine iphoneos-arm repository indices and mobile sileolists permissions staged; expanded writable OS and real package configuration required before qualifying installation."]
 completion = ["在设备上观察该接口的实际工作结果并保存对应日志"]
 limits = ["新一轮外设及性能效果仍待设备反馈；构建脚本未修改。"]
 next_action = ["读取本轮启动日志并继续完成板级接口"]
@@ -467,3 +467,18 @@ completion = ["Reviewable source-only pull request with cumulative WiFi,brightne
 limits = ["No private binaries,firmware,restore images,Data or credentials", "Full hosted build and packaging pipeline not run", "Poster frame backlog and audible wake recovery still unresolved", "Running22H374 remainsarm64"]
 next_action = ["Review and run the preserved hosted packaging workflow with required local inputs"]
 evidence = [{kind = "source", reported_kind = "host-build", reference = ".gitmodules", result = "Twelve Chengdong-Yu/pong-* driver repositories referenced as submodules under drivers/ with original path names."}, {kind = "source", reported_kind = "host-build", reference = "migration/ipados18/runtime-fixes-and-build-overlay.md", result = "Merged native helper/UI/audio/sleep/Sileo/phone/route binaries, frontend,ArmCpu and changed GPU units compiled. Prepared Mesa source reproduces all25 changed source files; current device results remain separately recorded."}]
+
+
+[[area]]
+id = "thor-v156-build-recipe"
+status = "implemented"
+components = ["PongPlatform24", "NativePrelink"]
+paths = ["scripts/build-thor-v156-macos.py", "scripts/build-xnu-ipados18.sh", "scripts/make-thor-adt-ipados18.py", "scripts/pack-thor-boot.py", "scripts/prelink-thor-kernel.py", "scripts/prepare-thor-v156-adt.py", "scripts/verify-thor-v156-kernel.py"]
+inputs = ["Local iPhoneOS SDK and pinned Apple OSS sources", "22H374 original kernel cache and storage bindings", "Thor v137 firmware, retained v126 boot template and ADT", "Matching signed UI adapter and helper, caller-supplied board and APFS layout configs"]
+configuration = ["Boot kit v4 container, v156 retained ADT, and real shared SMMU lease when staging the native UFS build"]
+procedure = ["Run the Mac build, linked-kernel check, sparse prelink and pack phases described in docs/thor-v156-build-recipe.md"]
+findings = ["Host checks verified ADT affinities, the boot argument bound, the shim plus firmware envelope, and generated runtime payloads.", "The revised verifier passes against the retained v156 linked kernel."]
+completion = ["Build and boot from the consolidated device and component branches with explicitly supplied local inputs"]
+limits = ["This branch is a source checkpoint. The linked-kernel check used the retained v156 build. Full independent build and on-device verification are pending."]
+next_action = ["Reconcile the board, driver, installer and firmware refs and reproduce all phases with a fresh build tree"]
+evidence = [{kind = "source", reference = "docs/thor-v156-build-recipe.md", result = "Input contract and commands for the retained local recipe"}, {kind = "source", reference = "scripts/verify-thor-v156-kernel.py", result = "Linked v156 scheduler, GPU and sandbox checks"}]
