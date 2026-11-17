@@ -1,0 +1,457 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -103,11 +103,43 @@
+ };
+ static_assert(sizeof(ThorSwitcherProducer) == 12 * sizeof(uint64_t), "producer trace ABI");
+ 
++
++/* Sample only during the existing boot-wide switcher gesture window. Raw
++ * user-space pointer keys remain in memory, never in the console. */
++static constexpr unsigned kSwitcherGpuLinkLimit = 4096;
++static constexpr unsigned kSwitcherGpuFenceLimit = 1024;
++static constexpr unsigned kSwitcherGpuMaxCommandFences = 32;
++static constexpr uint32_t kSwitcherGpuFrontend = 30, kSwitcherGpuChunk = 38;
++static constexpr uint32_t kSwitcherGpuSubmitBuffer = 42, kSwitcherGpuRuntimeBuffer = 45;
++static constexpr uint32_t kSwitcherGpuStages = 65;
++
++struct ThorSwitcherGpuLink {
++	uint64_t us, a, b, c, d, e;
++	uint32_t event;
++};
++struct ThorSwitcherGpuFence {
++	uint64_t submit, cpStart, cpEnd, irqCandidate, observed, retired, queue, execute, acquire;
++	uint32_t pid, fence;
++};
++struct ThorSwitcherGpuStages {
++	uint64_t surface, command, releaseTicks, intervals[8], heldMask;
++};
++static_assert(sizeof(ThorSwitcherGpuStages) == 12 * sizeof(uint64_t), "stage trace ABI");
++
+ LCK_GRP_DECLARE(thor_switcher_trace_group, "thor-switcher-trace");
+ LCK_MTX_DECLARE(thor_switcher_trace_lock, &thor_switcher_trace_group);
+ static ThorSwitcherFrame gSwitcherFrames[kSwitcherFrameLimit];
+ static ThorSwitcherCue gSwitcherCues[kSwitcherCueLimit];
+ static ThorSwitcherProducer gSwitcherProducers[kSwitcherProducerLimit];
++static ThorSwitcherGpuLink gSwitcherGpuLinks[kSwitcherGpuLinkLimit];
++static ThorSwitcherGpuFence gSwitcherGpuFences[kSwitcherGpuFenceLimit];
++static ThorSwitcherGpuStages gSwitcherGpuStageRecords[kSwitcherProducerLimit];
++static unsigned gSwitcherGpuLinkCount, gSwitcherGpuLinksLost;
++static unsigned gSwitcherGpuFenceCount, gSwitcherGpuFencesLost;
++static unsigned gSwitcherGpuStageCount, gSwitcherGpuStagesLost;
++static uint64_t gSwitcherGpuOwner;
++static uint32_t gSwitcherGpuPid;
++static bool gSwitcherGpuOwnerChanged;
+ static unsigned gSwitcherFrameCount, gSwitcherCueCount, gSwitcherLostFrames, gSwitcherLostCues;
+ static unsigned gSwitcherProducerCount, gSwitcherProducerNext, gSwitcherLostProducers;
+ static uint64_t gSwitcherTraceStart, gSwitcherTraceEnd, gSwitcherHardEnd;
+@@ -133,6 +165,125 @@
+ thor_switcher_producer_active(uint64_t now)
+ {
+ 	return now < __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED);
++}
++
++
++static bool
++thorSwitcherClaimGpuOwner(uint32_t pid, uint64_t owner)
++{
++	/* Call under the trace lock; a process restart during capture makes the
++	 * user-space pointer graph unattributable, even if its PID is reused. */
++	if (!pid || !owner) {
++		return false;
++	}
++	if (!gSwitcherGpuOwner) {
++		gSwitcherGpuOwner = owner;
++		gSwitcherGpuPid = pid;
++	}
++	if (gSwitcherGpuOwner != owner || gSwitcherGpuPid != pid) {
++		gSwitcherGpuOwnerChanged = true;
++		return false;
++	}
++	return true;
++}
++
++extern "C" void
++thor_switcher_gpu_event(uint32_t event, uint32_t pid, const uint64_t *words)
++{
++	const uint64_t now = mach_absolute_time();
++	if (!thor_switcher_producer_active(now)) {
++		return;
++	}
++	const uint64_t owner = proc_uniqueid(current_proc());
++	if (!owner) {
++		return;
++	}
++	ThorSwitcherGpuStages stages{};
++	ThorSwitcherGpuLink link{thorSwitcherMicros(now), words[0], words[1], words[2], words[3], words[4], event};
++	switch (event) {
++	case kSwitcherGpuFrontend:
++		if (!link.a || !link.b || link.c != 1) {
++			return;
++		}
++		break;
++	case kSwitcherGpuRuntimeBuffer:
++		if (!link.a || !link.b) {
++			return;
++		}
++		break;
++	case kSwitcherGpuSubmitBuffer:
++		if (!link.a || !link.b || link.c >= link.d || link.d > kSwitcherGpuLinkLimit) {
++			return;
++		}
++		break;
++	case kSwitcherGpuChunk:
++		// e is the total flattened IB count, a v159 extension. Old events
++		// stay in the generic trace and never imply a complete fence set.
++		if (!link.a || !link.b || link.b > UINT32_MAX || !link.e ||
++		    link.c >= link.e || !link.d || link.d > link.e - link.c) {
++			return;
++		}
++		break;
++	case kSwitcherGpuStages:
++		memcpy(&stages, words, sizeof(stages));
++		if (!stages.surface || stages.surface > UINT32_MAX || !stages.command ||
++		    !stages.releaseTicks || stages.releaseTicks > now || stages.heldMask > UINT32_MAX) {
++			return;
++		}
++		for (uint64_t duration : stages.intervals) {
++			if (duration != UINT64_MAX && duration > 8000000) {
++				return;
++			}
++		}
++		break;
++	default:
++		return;
++	}
++
++	lck_mtx_lock(&thor_switcher_trace_lock);
++	if (!gSwitcherTraceSealed && now >= gSwitcherTraceStart && thorSwitcherClaimGpuOwner(pid, owner)) {
++		if (event == kSwitcherGpuStages) {
++			if (gSwitcherGpuStageCount < kSwitcherProducerLimit) {
++				gSwitcherGpuStageRecords[gSwitcherGpuStageCount++] = stages;
++			} else {
++				++gSwitcherGpuStagesLost;
++			}
++		} else if (gSwitcherGpuLinkCount < kSwitcherGpuLinkLimit) {
++			gSwitcherGpuLinks[gSwitcherGpuLinkCount++] = link;
++		} else {
++			++gSwitcherGpuLinksLost;
++		}
++	}
++	lck_mtx_unlock(&thor_switcher_trace_lock);
++}
++
++extern "C" void
++thor_switcher_gpu_fence_record(uint32_t pid, uint32_t fence, const uint64_t *words)
++{
++	const uint64_t now = mach_absolute_time();
++	if (!thor_switcher_producer_active(now) || !pid || !fence) {
++		return;
++	}
++	const ThorSwitcherGpuFence sample{words[0], words[1], words[2], words[3],
++		words[4], words[5], words[6], words[7], words[8], pid, fence};
++	const uint64_t nowUs = thorSwitcherMicros(now);
++	if (!sample.submit || sample.observed < sample.submit || sample.retired < sample.observed ||
++	    sample.retired > nowUs || sample.acquire > sample.retired - sample.observed ||
++	    (sample.cpEnd && (sample.cpStart < sample.submit || sample.cpEnd < sample.cpStart ||
++	    sample.cpEnd > sample.observed)) ||
++	    (sample.irqCandidate && (!sample.cpEnd || sample.irqCandidate < sample.cpEnd ||
++	    sample.irqCandidate > sample.observed))) {
++		return;
++	}
++	lck_mtx_lock(&thor_switcher_trace_lock);
++	if (!gSwitcherTraceSealed && sample.submit >= thorSwitcherMicros(gSwitcherTraceStart)) {
++		if (gSwitcherGpuFenceCount < kSwitcherGpuFenceLimit) {
++			gSwitcherGpuFences[gSwitcherGpuFenceCount++] = sample;
++		} else {
++			++gSwitcherGpuFencesLost;
++		}
++	}
++	lck_mtx_unlock(&thor_switcher_trace_lock);
+ }
+ 
+ /* The driver accepts these records from backboardd. Only the quiet-window cue
+@@ -159,7 +310,8 @@
+ 		return;
+ 	}
+ 	lck_mtx_lock(&thor_switcher_trace_lock);
+-	if (!gSwitcherTraceSealed && producer.releaseTicks >= gSwitcherTraceStart) {
++	if (!gSwitcherTraceSealed && producer.releaseTicks >= gSwitcherTraceStart &&
++	    thorSwitcherClaimGpuOwner(static_cast<uint32_t>(proc_selfpid()), proc_uniqueid(current_proc()))) {
+ 		gSwitcherProducers[gSwitcherProducerNext] = producer;
+ 		gSwitcherProducerNext = (gSwitcherProducerNext + 1) % kSwitcherProducerLimit;
+ 		if (gSwitcherProducerCount < kSwitcherProducerLimit) {
+@@ -307,6 +459,248 @@
+ 	    static_cast<unsigned>(timing.baseWriterState), timing.baseWritersAtLock,
+ 	    thorSwitcherMicros(timing.baseWriterLocked), thorSwitcherMicros(timing.baseWriterRelease),
+ 	    thorSwitcherMicros(timing.baseWriterResumed));
++}
++
++
++struct ThorSwitcherFenceSet {
++	uint32_t fences[kSwitcherGpuMaxCommandFences] = {};
++	unsigned count = 0;
++	bool shared = false;
++
++	bool add(uint32_t fence)
++	{
++		for (unsigned i = 0; i < count; ++i) {
++			if (fences[i] == fence) {
++				return true;
++			}
++		}
++		if (count == kSwitcherGpuMaxCommandFences) {
++			return false;
++		}
++		fences[count++] = fence;
++		return true;
++	}
++};
++
++static bool
++thorSwitcherAppendSubmit(unsigned buffer, uint64_t through, ThorSwitcherFenceSet &result)
++{
++	const auto &target = gSwitcherGpuLinks[buffer];
++	unsigned first = buffer;
++	for (; first > 0; --first) {
++		const auto &item = gSwitcherGpuLinks[first];
++		if (item.event == kSwitcherGpuSubmitBuffer && item.a == target.a && item.c == 0) {
++			break;
++		}
++	}
++	const auto &opening = gSwitcherGpuLinks[first];
++	if (opening.event != kSwitcherGpuSubmitBuffer || opening.a != target.a ||
++	    opening.c != 0 || opening.d != target.d) {
++		return false;
++	}
++	unsigned buffers = 0;
++	uint64_t ibOffset = 0, ibTotal = 0;
++	for (unsigned i = first; i < gSwitcherGpuLinkCount; ++i) {
++		const auto &item = gSwitcherGpuLinks[i];
++		if (item.us > through || ((item.event != kSwitcherGpuSubmitBuffer &&
++		    item.event != kSwitcherGpuChunk) || item.a != target.a)) {
++			continue;
++		}
++		if (item.event == kSwitcherGpuSubmitBuffer) {
++			if (i != first && item.c == 0) {
++				break;
++			}
++			if (ibOffset || buffers >= target.d || item.d != target.d || item.c != buffers++) {
++				return false;
++			}
++			continue;
++		}
++		if (buffers != target.d || item.c != ibOffset || (ibTotal && item.e != ibTotal) ||
++		    !result.add(static_cast<uint32_t>(item.b))) {
++			return false;
++		}
++		ibOffset += item.d;
++		ibTotal = item.e;
++	}
++	if (!ibTotal || ibOffset != ibTotal) {
++		return false;
++	}
++	result.shared |= target.d > 1;
++	return true;
++}
++
++static bool
++thorSwitcherMatchFences(const ThorSwitcherProducer &producer, ThorSwitcherFenceSet &result)
++{
++	if (!gSwitcherGpuPid || gSwitcherGpuOwnerChanged || gSwitcherGpuLinksLost) {
++		return false;
++	}
++	unsigned first = gSwitcherGpuLinkCount;
++	for (unsigned i = 0; i < gSwitcherGpuLinkCount; ++i) {
++		const auto &item = gSwitcherGpuLinks[i];
++		if (item.event == kSwitcherGpuFrontend && item.a == producer.command &&
++		    item.us >= producer.commit && item.us <= producer.callback) {
++			if (first != gSwitcherGpuLinkCount) {
++				return false;
++			}
++			first = i;
++		}
++	}
++	if (first == gSwitcherGpuLinkCount) {
++		return false;
++	}
++	const auto &frontend = gSwitcherGpuLinks[first];
++	unsigned runtimeBuffers = 0;
++	for (unsigned i = first + 1; i < gSwitcherGpuLinkCount; ++i) {
++		const auto &runtime = gSwitcherGpuLinks[i];
++		if (runtime.us > producer.callback) {
++			continue;
++		}
++		if (runtime.event == kSwitcherGpuFrontend && runtime.b == frontend.b) {
++			// Arc addresses can be recycled. Refuse a conflicting lifetime.
++			return false;
++		}
++		if (runtime.event != kSwitcherGpuRuntimeBuffer || runtime.a != frontend.b) {
++			continue;
++		}
++		if (++runtimeBuffers > kSwitcherGpuMaxCommandFences) {
++			return false;
++		}
++		unsigned submit = gSwitcherGpuLinkCount;
++		for (unsigned j = i + 1; j < gSwitcherGpuLinkCount; ++j) {
++			const auto &item = gSwitcherGpuLinks[j];
++			if (item.us > producer.callback) {
++				continue;
++			}
++			if (item.event == kSwitcherGpuRuntimeBuffer && item.b == runtime.b) {
++				break;
++			}
++			if (item.event == kSwitcherGpuSubmitBuffer && item.b == runtime.b) {
++				if (submit != gSwitcherGpuLinkCount) {
++					return false;
++				}
++				submit = j;
++			}
++		}
++		if (submit == gSwitcherGpuLinkCount ||
++		    !thorSwitcherAppendSubmit(submit, producer.callback, result)) {
++			return false;
++		}
++	}
++	return result.count > 0;
++}
++
++static bool
++thorSwitcherReportGpu(const ThorSwitcherFrame &frame, const ThorSwitcherProducer &producer)
++{
++	const ThorSwitcherGpuStages *stage = nullptr;
++	for (unsigned i = 0; !gSwitcherGpuOwnerChanged && i < gSwitcherGpuStageCount; ++i) {
++		const auto &sample = gSwitcherGpuStageRecords[i];
++		if (sample.surface == producer.surface && sample.command == producer.command &&
++		    sample.releaseTicks == producer.releaseTicks) {
++			if (stage) {
++				stage = nullptr;
++				break;
++			}
++			stage = &sample;
++		}
++	}
++	if (stage) {
++		const auto duration = [stage](unsigned i) -> long long {
++			const auto value = stage->intervals[i];
++			return value == UINT64_MAX ? -1 : static_cast<long long>(value);
++		};
++		IOLog("PONG SWITCHER V159 STAGES: swap=%u cmd=%llu us=%lld/%lld/%lld/%lld/%lld/%lld/%lld/%lld held_mask=%llx\n",
++		    frame.id, (unsigned long long)producer.command, duration(0), duration(1), duration(2),
++		    duration(3), duration(4), duration(5), duration(6), duration(7),
++		    (unsigned long long)stage->heldMask);
++	}
++
++	ThorSwitcherFenceSet set{};
++	if (!thorSwitcherMatchFences(producer, set)) {
++		return false;
++	}
++	char ids[kSwitcherGpuMaxCommandFences * 11 + 1] = {};
++	size_t used = 0;
++	unsigned recorded = 0;
++	const ThorSwitcherGpuFence *slow = nullptr;
++	for (unsigned i = 0; i < set.count; ++i) {
++		used += snprintf(ids + used, sizeof(ids) - used, "%s%u", i ? "," : "", set.fences[i]);
++		for (unsigned j = 0; j < gSwitcherGpuFenceCount; ++j) {
++			const auto &sample = gSwitcherGpuFences[j];
++			if (sample.pid != gSwitcherGpuPid || sample.fence != set.fences[i] ||
++			    sample.retired > producer.callback) {
++				continue;
++			}
++			++recorded;
++			if (!slow || sample.retired - sample.submit > slow->retired - slow->submit) {
++				slow = &sample;
++			}
++			break;
++		}
++	}
++	IOLog("PONG SWITCHER V159 JOIN: swap=%u cmd=%llu shared=%u fences=%s receipts=%u\n",
++	    frame.id, (unsigned long long)producer.command, set.shared, ids, recorded);
++	if (slow) {
++		IOLog("PONG SWITCHER V159 LINKED: swap=%u fence=%u queue_us=%llu gpu_us=%llu cp_end_est_us=%llu irq_candidate_us=%llu observed_us=%llu retired_us=%llu acquire_us=%llu\n",
++		    frame.id, slow->fence, (unsigned long long)slow->queue, (unsigned long long)slow->execute,
++		    (unsigned long long)slow->cpEnd, (unsigned long long)slow->irqCandidate,
++		    (unsigned long long)slow->observed, (unsigned long long)slow->retired,
++		    (unsigned long long)slow->acquire);
++	}
++	return true;
++}
++
++static void
++thorSwitcherReportGpuFences(unsigned joined)
++{
++	// This independent native-fence sample must not be attributed to a
++	// particular displayed frame if its user-space links were unavailable.
++	const ThorSwitcherGpuFence *worst[4] = {};
++	unsigned marked = 0, timed = 0;
++	uint64_t maxPostCp = 0, maxGpu = 0;
++	for (unsigned i = 0; i < gSwitcherGpuFenceCount; ++i) {
++		const auto &sample = gSwitcherGpuFences[i];
++		if (gSwitcherGpuOwnerChanged || !gSwitcherGpuPid || sample.pid != gSwitcherGpuPid) {
++			continue;
++		}
++		++marked;
++		if (sample.cpEnd) {
++			++timed;
++			const uint64_t gap = sample.observed - sample.cpEnd;
++			if (gap > maxPostCp) {
++				maxPostCp = gap;
++			}
++			if (sample.execute > maxGpu) {
++				maxGpu = sample.execute;
++			}
++			for (unsigned j = 0; j < sizeof(worst) / sizeof(worst[0]); ++j) {
++				if (!worst[j] || gap > worst[j]->observed - worst[j]->cpEnd) {
++					for (unsigned k = sizeof(worst) / sizeof(worst[0]) - 1; k > j; --k) {
++						worst[k] = worst[k - 1];
++					}
++					worst[j] = &sample;
++					break;
++				}
++			}
++		}
++	}
++	for (const auto *sample : worst) {
++		if (sample) {
++			IOLog("PONG SWITCHER V159 NATIVE: fence=%u submit_us=%llu queue_us=%llu gpu_us=%llu cp_end_est_us=%llu irq_candidate_us=%llu observed_us=%llu retired_us=%llu acquire_us=%llu\n",
++			    sample->fence, (unsigned long long)sample->submit, (unsigned long long)sample->queue,
++			    (unsigned long long)sample->execute, (unsigned long long)sample->cpEnd,
++			    (unsigned long long)sample->irqCandidate, (unsigned long long)sample->observed,
++			    (unsigned long long)sample->retired, (unsigned long long)sample->acquire);
++		}
++	}
++	IOLog("PONG SWITCHER V159 FENCE SUMMARY: native=%u stored=%u cp_tagged=%u fence_lost=%u links=%u link_lost=%u stages=%u stage_lost=%u joined=%u owner_change=%u max_gpu_us=%llu max_cp_to_observed_est_us=%llu\n",
++	    marked, gSwitcherGpuFenceCount, timed, gSwitcherGpuFencesLost, gSwitcherGpuLinkCount,
++	    gSwitcherGpuLinksLost, gSwitcherGpuStageCount, gSwitcherGpuStagesLost, joined, gSwitcherGpuOwnerChanged,
++	    (unsigned long long)maxGpu, (unsigned long long)maxPostCp);
++	if (gSwitcherGpuStageCount) {
++		IOLog("PONG SWITCHER V159 STAGE SCHEMA: run/prepare/hand/inbox/held/submit/poll/seen, -1=missing\n");
++	}
+ }
+ 
+ static void
+@@ -403,7 +797,7 @@
+ 	}
+ 	previous = nullptr;
+ 	unsigned printed = 0;
+-	unsigned selectedWriters = 0, matchedProducers = 0, ambiguousProducers = 0;
++	unsigned selectedWriters = 0, matchedProducers = 0, ambiguousProducers = 0, joinedFences = 0;
+ 	for (unsigned i = 0; i < gSwitcherFrameCount; ++i) {
+ 		const ThorSwitcherFrame &frame = gSwitcherFrames[i];
+ 		unsigned reason = (i == 0 || i + 1 == gSwitcherFrameCount) ? 1u : 0u;
+@@ -436,6 +830,7 @@
+ 					    (unsigned long long)producer->submit, (unsigned long long)producer->callback,
+ 					    (unsigned long long)producer->syncDone, (unsigned long long)producer->flushDone,
+ 					    (unsigned long long)producer->releaseBegin, (unsigned long long)producer->releaseEnd);
++					joinedFences += thorSwitcherReportGpu(frame, *producer);
+ 				}
+ 			}
+ 			++printed;
+@@ -447,6 +842,7 @@
+ 	IOLog("PONG SWITCHER V158 PRODUCER SUMMARY: receipts=%u overwritten=%u selected=%u matched=%u ambiguous=%u "
+ 	    "t=commit/writer_begin/submit/callback/sync_done/flush_done/release_begin/release_end unit=us\n",
+ 	    gSwitcherProducerCount, gSwitcherLostProducers, selectedWriters, matchedProducers, ambiguousProducers);
++	thorSwitcherReportGpuFences(joinedFences);
+ 	IOLog("PONG SWITCHER V157 END: attempts=%u details=%u cues=%u\n",
+ 	    gSwitcherFrameCount, printed, gSwitcherCueCount);
+ }

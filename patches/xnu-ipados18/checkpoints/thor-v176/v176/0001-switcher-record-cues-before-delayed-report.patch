@@ -1,0 +1,71 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -847,6 +847,27 @@
+ 	    gSwitcherFrameCount, printed, gSwitcherCueCount);
+ }
+ 
++/* Durable receipt for the cue, independent of the delayed frame report.
++ * Only the diagnostic endpoint's SpringBoard caller can arm this window.
++ * Keep malformed or failed requests out of the normal receipt budget. */
++static void
++thorSwitcherCueReceipt(unsigned phase, uint64_t user, uint64_t now, const char *state, bool valid)
++{
++	static unsigned validReceipts, faultReceipts;
++	unsigned *counter = valid ? &validReceipts : &faultReceipts;
++	const unsigned limit = valid ? kSwitcherCueLimit : 8;
++	unsigned count = __atomic_load_n(counter, __ATOMIC_RELAXED);
++	while (count < limit) {
++		if (__atomic_compare_exchange_n(counter, &count, count + 1, false,
++		    __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
++			const uint64_t userUs = user && user <= now ? thorSwitcherMicros(user) : 0;
++			IOLog("PONG SWITCHER V176 CUE: phase=%u state=%s user_us=%llu kernel_us=%llu\n",
++			    phase, state, userUs, thorSwitcherMicros(now));
++			return;
++		}
++	}
++}
++
+ extern "C" int
+ thor_switcher_trace_arm(unsigned phase, uint64_t user)
+ {
+@@ -855,24 +876,30 @@
+ 	nanoseconds_to_absolutetime(950ull * NSEC_PER_MSEC, &quiet);
+ 	nanoseconds_to_absolutetime(8ull * NSEC_PER_SEC, &window);
+ 	if ((phase != 1 && phase != 2) || !user || user > now || now - user > quiet) {
++		thorSwitcherCueReceipt(phase, user, now, "invalid", false);
+ 		return EINVAL;
+ 	}
+ 	lck_mtx_lock(&thor_switcher_trace_lock);
+ 	if (gSwitcherTraceSealed || (gSwitcherHardEnd && now >= gSwitcherHardEnd)) {
++		const char *state = gSwitcherTraceSealed ? "sealed" : "expired";
+ 		lck_mtx_unlock(&thor_switcher_trace_lock);
++		thorSwitcherCueReceipt(phase, user, now, state, true);
+ 		return 0;
+ 	}
+-	if (!gSwitcherTraceCall) {
++	const bool first = !gSwitcherTraceCall;
++	if (first) {
+ 		gSwitcherTraceCall = thread_call_allocate_with_priority(thorSwitcherReport,
+ 		    nullptr, THREAD_CALL_PRIORITY_LOW);
+ 		if (!gSwitcherTraceCall) {
+ 			lck_mtx_unlock(&thor_switcher_trace_lock);
++			thorSwitcherCueReceipt(phase, user, now, "allocation-failed", false);
+ 			return ENOMEM;
+ 		}
+ 		gSwitcherTraceStart = now;
+ 		gSwitcherHardEnd = now + window;
+ 	}
+-	if (gSwitcherCueCount < kSwitcherCueLimit) {
++	const bool recorded = gSwitcherCueCount < kSwitcherCueLimit;
++	if (recorded) {
+ 		gSwitcherCues[gSwitcherCueCount++] = { user, now, phase };
+ 	} else {
+ 		++gSwitcherLostCues;
+@@ -883,6 +910,7 @@
+ 		thread_call_enter_delayed(gSwitcherTraceCall, deadline);
+ 	}
+ 	lck_mtx_unlock(&thor_switcher_trace_lock);
++	thorSwitcherCueReceipt(phase, user, now, first ? "first" : recorded ? "recorded" : "full", true);
+ 	return 0;
+ }
+ 

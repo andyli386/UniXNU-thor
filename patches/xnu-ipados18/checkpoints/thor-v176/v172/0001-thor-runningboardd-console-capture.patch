@@ -1,0 +1,74 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -192,6 +192,10 @@
+ 
+ #if defined(ARM64_BOARD_CONFIG_PONG) && (DEVELOPMENT || DEBUG) && __has_include("thor_ui_runtime_payload.h")
+ #include "thor_ui_runtime_payload.h"
++#endif
++
++#if defined(THOR_UI_RUNTIME_PAYLOAD) && __has_include("thor_console_v172_payload.h")
++#include "thor_console_v172_payload.h"
+ #endif
+ 
+ #if defined(THOR_UI_RUNTIME_PAYLOAD) && defined(THOR_APP_INSTALLER_PAYLOAD) && __has_include("thor_metal_pool_payload.h")
+@@ -6381,6 +6385,25 @@
+ }
+ #endif
+ 
++#ifdef THOR_CONSOLE_V172_STAGE_PATH
++static unsigned thor_console_v172_ready;
++static unsigned thor_console_v172_tried;
++
++static void
++thor_stage_console_v172(proc_t p)
++{
++	int error = thor_stage_data_payload(p, "/private/var/pong", THOR_CONSOLE_V172_STAGE_PATH,
++	    thor_console_v172_payload, sizeof(thor_console_v172_payload), false);
++	if (error) {
++		printf("THOR CONSOLE V172: stage failed error=%d\n", error);
++		return;
++	}
++	__atomic_store_n(&thor_console_v172_ready, 1, __ATOMIC_RELEASE);
++	printf("THOR CONSOLE V172: staged %s bytes=%zu\n", THOR_CONSOLE_V172_STAGE_PATH,
++	    sizeof(thor_console_v172_payload));
++}
++#endif
++
+ #ifdef THOR_UI_RUNTIME_PAYLOAD
+ /* Keep the existing adapter untouched. A diagnostic candidate is published
+  * to the configured process list only after a successful native APFS write. */
+@@ -6516,6 +6539,24 @@
+ 			any = true;
+ 		}
+ 	}
++#ifdef THOR_CONSOLE_V172_STAGE_PATH
++	static const char target[] = "runningboardd";
++	static const char library[] = THOR_CONSOLE_V172_STAGE_PATH;
++	if (any && used + 1 + sizeof(library) <= size &&
++	    __atomic_load_n(&thor_console_v172_ready, __ATOMIC_ACQUIRE) &&
++	    imgp->ip_ndp->ni_cnd.cn_namelen == sizeof(target) - 1 &&
++	    !memcmp(name, target, sizeof(target) - 1)) {
++		char path[64];
++		int path_length = sizeof(path);
++		if (imgp->ip_vp && vn_getpath(imgp->ip_vp, path, &path_length) == 0 &&
++		    !strcmp(path, "/usr/libexec/runningboardd") &&
++		    !__atomic_exchange_n(&thor_console_v172_tried, 1, __ATOMIC_ACQ_REL)) {
++			env[used++] = ':';
++			memcpy(env + used, library, sizeof(library));
++			printf("THOR CONSOLE V172: runningboardd diagnostic armed\n");
++		}
++	}
++#endif
+ 	return any;
+ }
+ #endif
+@@ -8499,6 +8540,9 @@
+ 	    PE_parse_boot_argn("pong_stage_ui_v77", &stage_ui_runtime, sizeof(stage_ui_runtime)) &&
+ 	    stage_ui_runtime == 1) {
+ 		thor_stage_ui_runtime(p, installer_ready);
++#ifdef THOR_CONSOLE_V172_STAGE_PATH
++		thor_stage_console_v172(p);
++#endif
+ #ifdef THOR_METAL_POOL_PAYLOAD_BYTES
+ 		thor_stage_metal_pool_trial(p);
+ #endif

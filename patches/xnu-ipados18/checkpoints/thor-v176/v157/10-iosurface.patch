@@ -1,0 +1,108 @@
+diff --git a/iokit/Kernel/MiniIOSurface.cpp b/iokit/Kernel/MiniIOSurface.cpp
+index f71f7ad..74c935b 100644
+--- a/iokit/Kernel/MiniIOSurface.cpp
++++ b/iokit/Kernel/MiniIOSurface.cpp
+@@ -2476,7 +2476,7 @@ IOSurfaceRootUserClient::trapRelease(void * p1, void * p2, void * p3, void * p4,
+  * completed; subsequent writers wait until the display finishes copying. */
+ bool
+ MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID,
+-    MiniIOSurfaceReadTiming *timing)
++    MiniIOSurfaceReadTiming *timing, bool traceBaseWriter)
+ {
+ 	if (surface == NULL) {
+ 		return false;
+@@ -2486,6 +2486,7 @@ MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID,
+ 	IOLockLock(gSurfaceLock);
+ 	const uint64_t locked = timing ? mach_absolute_time() : 0;
+ 	const bool waitedForWriter = timing && surface->gpuWriters && !surface->gpuFailed;
++	const uint32_t writersAtLock = timing && traceBaseWriter ? surface->gpuWriters : 0;
+ 	while (surface->gpuWriters && !surface->gpuFailed && waitResult == THREAD_AWAKENED) {
+ 		/* Only the dedicated presenter enters here. The absolute deadline
+ 		 * bounds the wait, independent of transient thread aborts. */
+@@ -2494,15 +2495,18 @@ MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID,
+ 	const bool ready = !surface->gpuWriters && !surface->gpuFailed && !surface->drawn;
+ 	if (ready) {
+ 		surface->displayReaders++;
+-		if (timing) {
++	}
++	if (timing && (ready || traceBaseWriter)) {
++		const uint64_t resumed = waitedForWriter ? mach_absolute_time() : 0;
++		const uint64_t released = ready && waitedForWriter ? surface->lastGpuWriterRelease : 0;
++		/* The final writer publishes release under this lock before waking
++		 * readers. Reject stamps outside the observed wait. */
++		const bool observedRelease = released && released >= locked && released <= resumed;
++		if (ready) {
+ 			timing->lockTicks += locked - began;
+ 			if (waitedForWriter) {
+-				const uint64_t resumed = mach_absolute_time();
+-				const uint64_t released = surface->lastGpuWriterRelease;
+ 				timing->waitedForWriter = true;
+-				/* A successful wait can only end after the final writer
+-				 * publishes release under this same lock. */
+-				if (released >= locked && released <= resumed) {
++				if (observedRelease) {
+ 					timing->writerTicks += released - locked;
+ 					timing->resumeTicks += resumed - released;
+ 				} else {
+@@ -2510,6 +2514,24 @@ MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID,
+ 				}
+ 			}
+ 		}
++		if (traceBaseWriter) {
++			timing->baseWriterLocked = locked;
++			timing->baseWriterRelease = observedRelease ? released : 0;
++			timing->baseWriterResumed = resumed;
++			timing->baseWritersAtLock = writersAtLock;
++			if (surface->gpuFailed) {
++				timing->baseWriterState = MiniIOSurfaceWriterState::Poisoned;
++			} else if (!ready && waitResult == THREAD_TIMED_OUT) {
++				timing->baseWriterState = MiniIOSurfaceWriterState::TimedOut;
++			} else if (!ready) {
++				timing->baseWriterState = MiniIOSurfaceWriterState::NotReady;
++			} else if (!waitedForWriter) {
++				timing->baseWriterState = MiniIOSurfaceWriterState::Immediate;
++			} else {
++				timing->baseWriterState = observedRelease ? MiniIOSurfaceWriterState::Released :
++				    MiniIOSurfaceWriterState::Unattributed;
++			}
++		}
+ 	}
+ 	const bool logFailure = !ready && logGpuSurfaceReceipt();
+ 	const uint32_t writers = surface->gpuWriters, readers = surface->displayReaders;
+diff --git a/iokit/Kernel/MiniIOSurface.h b/iokit/Kernel/MiniIOSurface.h
+index 3e15165..8561a24 100644
+--- a/iokit/Kernel/MiniIOSurface.h
++++ b/iokit/Kernel/MiniIOSurface.h
+@@ -170,15 +170,31 @@ MiniIOSurface * MiniIOSurfaceCopy(uint32_t sid);
+ void            MiniIOSurfaceCost(uint32_t * made, uint64_t * making, uint32_t * freed, uint64_t * freeing, uint32_t * again);
+ /* Clear the memory that is kept of surfaces that are gone, for the next ones: when the caller has a moment. */
+ void            MiniIOSurfaceClearKept(void);
++enum class MiniIOSurfaceWriterState : uint8_t {
++	None = 0,
++	Immediate,
++	Released,
++	Unattributed,
++	TimedOut,
++	Poisoned,
++	NotReady,
++};
+ struct MiniIOSurfaceReadTiming {
+ 	uint64_t lockTicks;
+ 	uint64_t writerTicks;
+ 	uint64_t resumeTicks;
+ 	bool waitedForWriter;
++	/* Optional base-layer observations, in absolute Mach ticks. Zero is
++	 * unavailable. Release is the IOSurface ownership handoff receipt. */
++	uint64_t baseWriterLocked;
++	uint64_t baseWriterRelease;
++	uint64_t baseWriterResumed;
++	uint32_t baseWritersAtLock;
++	MiniIOSurfaceWriterState baseWriterState;
+ };
+ /* Acquires a display reader once GPU writers have released the surface. */
+ bool            MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID,
+-                    MiniIOSurfaceReadTiming *timing);
++                    MiniIOSurfaceReadTiming *timing, bool traceBaseWriter = false);
+ void            MiniIOSurfaceDisplayDone(MiniIOSurface * surface);
+ MiniIOSurface * MiniIOSurfaceCreateSimple(uint32_t width, uint32_t height, uint32_t pixelFormat);
+ void            MiniIOSurfaceDrop(MiniIOSurface * surface);

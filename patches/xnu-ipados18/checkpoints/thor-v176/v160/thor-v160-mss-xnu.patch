@@ -1,0 +1,92 @@
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -97,6 +97,79 @@
+ 
+ #if defined(PONG)
+ bool thor_modem_smem_admitted;
++
++/* DarwinBoot supplies these chosen cells only after reserving the ranges
++ * below 4 GiB. ADT properties can be only four-byte aligned. */
++static void
++thor_modem_dma_preflight(DTEntry chosen, const uint32_t cell[28])
++{
++    struct {
++        const char *property;
++        uint64_t bytes;
++        uint64_t base;
++    } leases[] = {
++        { "pong-modem-metadata", 0x10000, 0 },
++        { "pong-rmtfs-dma", 0x280000, 0 },
++        { "pong-audio-dma", 0x10000, 0 },
++        { "pong-usb-dma", 0x8000, 0 },
++    };
++    unsigned missing = 0, invalid = 0, overlap = 0;
++    for (unsigned i = 0; i < sizeof(leases) / sizeof(leases[0]); i++) {
++        const void *property = NULL;
++        unsigned size = 0;
++        uint64_t range[2] = { 0, 0 };
++        if (SecureDTGetProperty(chosen, leases[i].property, &property, &size) == kSuccess) {
++            if (property == NULL || size != sizeof(range)) {
++                invalid |= 1u << i;
++                continue;
++            }
++            memcpy(range, property, sizeof(range));
++        }
++        if (range[0] == 0 && range[1] == 0) {
++            missing |= 1u << i;
++        } else if (range[0] == 0 || (range[0] & 0xfff) ||
++            range[1] != leases[i].bytes || range[0] > 0x100000000ULL - leases[i].bytes) {
++            invalid |= 1u << i;
++        } else {
++            leases[i].base = range[0];
++        }
++    }
++    for (unsigned i = 0; i < 2; i++) {
++        const uint64_t start = leases[i].base;
++        const uint64_t end = start + leases[i].bytes;
++        if (!start) {
++            continue;
++        }
++        for (unsigned other = i + 1; other < sizeof(leases) / sizeof(leases[0]); other++) {
++            const uint64_t base = leases[other].base;
++            if (base && start < base + leases[other].bytes && end > base) {
++                overlap |= (1u << i) | (1u << other);
++            }
++        }
++        for (unsigned row = 0; row < 4; row++) {
++            const uint64_t base = cell[4 + 2 * row];
++            const uint64_t length = cell[5 + 2 * row];
++            if (start < base + length && end > base) {
++                overlap |= 1u << i;
++            }
++        }
++        for (unsigned bank = 0; bank < pong_ram_range_count; bank++) {
++            if (start < pong_ram_ranges[bank].end && end > pong_ram_ranges[bank].start) {
++                overlap |= 1u << i;
++            }
++        }
++    }
++    if (invalid || overlap) {
++        printf("THOR MODEM V160: dma=rejected invalid_mask=0x%x overlap_mask=0x%x\n",
++            invalid, overlap);
++    } else if (missing & 3) {
++        printf("THOR MODEM V160: dma=unavailable missing_mask=0x%x\n", missing & 3);
++    } else {
++        printf("THOR MODEM V160: dma=validated metadata=0x%llx+0x%llx rmtfs=0x%llx+0x%llx\n",
++            (unsigned long long)leases[0].base, (unsigned long long)leases[0].bytes,
++            (unsigned long long)leases[1].base, (unsigned long long)leases[1].bytes);
++    }
++}
+ #endif
+ 
+ extern void     patch_low_glo(void);
+@@ -681,6 +754,9 @@
+                                  * The late IOKit probe consumes this admission once. */
+                                 thor_modem_smem_admitted = cell[4] == 0x80900000 &&
+                                     cell[5] == 0x200000 && cell[22] == 1 && cell[23] == 435;
++                                if (thor_modem_smem_admitted) {
++                                    thor_modem_dma_preflight(chosen, cell);
++                                }
+                                 printf("THOR MODEM V158: prereqs=fdt-verified crc=%08x hardware=unprobed\n",
+                                     modem[3]);
+                                 printf("THOR MODEM V158: mss=%x+%x mpss=%x+%x cma_request=%x align=%x rmtfs_request=%x\n",

@@ -1,0 +1,26 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -1692,15 +1692,19 @@
+ 	}
+ };
+ 
+-/* Sample hardware during real interaction as well as at startup. The worker
+- * sleeps outside the presenter and reads only the already-qualified route. */
++/* Opt-in interaction diagnostics publish the mapped registers to the frame
++ * writer while it holds the presenter lock. Ordinary presentation uses no
++ * interaction MMIO. */
+ static void
+ thorDpuInteractionAudit(const ThorDpuMappings &map, uint64_t framebuffer,
+     IOLock *lock, ThorDpuPhaseAudit *phase)
+ {
+-	uint32_t enabled = 1;
++	uint32_t enabled = 0;
+ 	(void) PE_parse_boot_argn("thor_dpu_interaction", &enabled, sizeof(enabled));
+-	if (!enabled) return;
++	if (!enabled) {
++		thorDpuMarker("THOR DPU INTERACTION disabled (opt in: thor_dpu_interaction=1)\n");
++		return;
++	}
+ 
+ 	uint64_t deadline, cooldown = 0;
+ 	clock_interval_to_deadline(20 * 60, NSEC_PER_SEC, &deadline);

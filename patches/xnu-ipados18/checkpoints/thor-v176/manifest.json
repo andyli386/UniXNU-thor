@@ -1,0 +1,211 @@
+{
+  "format": "thor-v176-xnu-source-checkpoint/1",
+  "xnu": "43a90889846e00bfb5cf1d255cdc0a701a1e05a4",
+  "steps": [
+    {
+      "version": 157,
+      "before": {
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "bd4d42dbe85a72dff801b5df3633ced3f5a1d663628b673d167405ffc75bd630",
+        "iokit/Kernel/MiniIOSurface.cpp": "69543bb4771f56da568a7610e28ff980deb49ca712caf5e105abfa566788eafb",
+        "iokit/Kernel/MiniIOSurface.h": "91642d36825edcc10f390b6dceec7da6e621d4bdc3e43d9634d55958458452f2"
+      },
+      "patches": {
+        "10-iosurface.patch": "ad3e1e885980ea1dc7eb2a888ebc7682756b56bcee9e471e78902160a8b0c92f",
+        "20-switcher-summary.patch": "b11b978765a8e54db909de6a960471f754db3b5925432796b8a8041b50d1af7a",
+        "30-presenter-calls.patch": "181267e8a423a11ad1cbe5eaf8a33742d1dbc9da162aa51b3479203bce023196"
+      },
+      "after": {
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "41d75187d9e92a7b32b33feeecad864fa864960565ce055d73ec0ac39588da3a",
+        "iokit/Kernel/MiniIOSurface.cpp": "25c3effd53675eef04ecaadb091f483c0f710cad37e2042ac3cda111f12386aa",
+        "iokit/Kernel/MiniIOSurface.h": "bb38b98f1da56693dc59f92eb6b564e1aac961defe80b38d0f4a6411dbab6169"
+      }
+    },
+    {
+      "version": 158,
+      "before": {
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "41d75187d9e92a7b32b33feeecad864fa864960565ce055d73ec0ac39588da3a",
+        "iokit/Kernel/MiniIOSurface.cpp": "25c3effd53675eef04ecaadb091f483c0f710cad37e2042ac3cda111f12386aa",
+        "osfmk/arm/arm_init.c": "5e381d136e3e12a9dee79dd8925a6a7450826e332c6f80ae4590f8634153acf4"
+      },
+      "after": {
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "4968a254f5ba98c35d1f7c274c1d5c8ee28366f39499ee23432cbd9fb3950c8c",
+        "iokit/Kernel/MiniIOSurface.cpp": "e1679730e22c71dcf1c496a6aeff3fa9e26e7a60eeb72cc69a2a4240e59ca3b6",
+        "osfmk/arm/arm_init.c": "ce3c3fb989c2c5489d2ff3a86c464223a3813011891bbcbda91d4d43608044e3"
+      },
+      "patches": {
+        "v158-switcher-producer-xnu.patch": "2cff4dc0b85ddf72ef8b34dca876178a47c2933ca8046ce2cd3986fcb46b1d30",
+        "v158-switcher-producer-arm-gating.patch": "6e8f9f779d879d1ffadb7495278f7212fec41d0b7156975ccd227c408da5d842",
+        "thor-modem-prereqs-v158.patch": "7f59880765138e061dc436e35ef203c33d7ffc72edd9fd35793a62a099379594"
+      }
+    },
+    {
+      "version": 159,
+      "before": {
+        "iokit/Kernel/IOStartIOKit.cpp": "af38a358967f8b736069ecfdf0d785a9d3c4ffa264f4f1330624aab54aac1116",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "4968a254f5ba98c35d1f7c274c1d5c8ee28366f39499ee23432cbd9fb3950c8c",
+        "osfmk/arm/arm_init.c": "ce3c3fb989c2c5489d2ff3a86c464223a3813011891bbcbda91d4d43608044e3"
+      },
+      "after": {
+        "iokit/Kernel/IOStartIOKit.cpp": "1050316577e5c5f350428f608ed86ef696cf47f7a94a1018c64b1afa3d95a53a",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "fd42de89570d97edb46944ff5df241f9ecbed2260d8153eeb78d1291a3cfccd3",
+        "osfmk/arm/arm_init.c": "e298479df4ba3f0d2fbdeb761f9b680ae6e933456a4fb5857f686066e246b738"
+      },
+      "patches": {
+        "thor-v159-mss-xnu.patch": "a07809eb6dab8043447382c6b57a1bb36900c4d6af2ac630561c1cabd84c0b0a",
+        "gpu159-switcher-xnu.patch": "703d37ec74034d2eb0068634246d27209107ab29fe7f8640cd8fac3dbeb7e3bc"
+      }
+    },
+    {
+      "version": 160,
+      "before": {
+        "iokit/Kernel/MiniIOSurface.cpp": "e1679730e22c71dcf1c496a6aeff3fa9e26e7a60eeb72cc69a2a4240e59ca3b6",
+        "iokit/Kernel/MiniIOSurface.h": "bb38b98f1da56693dc59f92eb6b564e1aac961defe80b38d0f4a6411dbab6169",
+        "osfmk/arm/arm_init.c": "e298479df4ba3f0d2fbdeb761f9b680ae6e933456a4fb5857f686066e246b738"
+      },
+      "after": {
+        "iokit/Kernel/MiniIOSurface.cpp": "8fab59a41b148a8a8985e76288233457a962bbbcaaaa2ea1a4ce107a13505015",
+        "iokit/Kernel/MiniIOSurface.h": "c47156ea19845cf5156d6ac7605748a44b1dcbb2250221af88825b9b8914d9e6",
+        "osfmk/arm/arm_init.c": "4a010ec442e05a90c96d97902ba0804ce2c051ce52e85d5c340f39a0c66b6492"
+      },
+      "patches": {
+        "v160-iosurface-poison-receipts.patch": "37ff2b4ffc17106a0632fc09f7b9927ef9bdbfdf74f80c1a0f4bb3aaf3e2ac0e",
+        "thor-v160-mss-xnu.patch": "0dacacb5aadc1c9d8dfc36a6e40e8cae56d64e7345aa60671cc78406c0ce0086"
+      }
+    },
+    {
+      "version": 161,
+      "before": {
+        "bsd/kern/kern_exec.c": "3c5d5879322cca8428350a6c9d48137fb7a64fe553edb1a3989b216567d1cb0b",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "fd42de89570d97edb46944ff5df241f9ecbed2260d8153eeb78d1291a3cfccd3",
+        "osfmk/arm/arm_init.c": "4a010ec442e05a90c96d97902ba0804ce2c051ce52e85d5c340f39a0c66b6492",
+        "osfmk/arm64/arm_vm_init.c": "1df724dbe0c7ae5aee96732f8c09b5ac58b87dfccb22746de0365ff27bad1b2f"
+      },
+      "after": {
+        "bsd/kern/kern_exec.c": "8bd79b750fbbad093dfbe8ba5ed377af6a1b7f87191ed02bbf0d1ec8748cc616",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "5fe18b33c9343307146986e9f5b53163128693ef2f7934c585a76a77e6199596",
+        "osfmk/arm/arm_init.c": "a420ddde31679f1acfa1093fa4ec627fe4cfacddb85cf655b060880ffd8ee1cc",
+        "osfmk/arm64/arm_vm_init.c": "f6008e55dff0c3b562be0138b50a98179460cd9b1669588137604baefbed1bbd"
+      },
+      "patches": {
+        "thor-v161-early-dma-xnu.patch": "9e3b74681712337d64d3fc2ecf1e97c1b9814585e35ac003081fa0a4e0422851",
+        "v161-thor-rmtfs-preflight-xnu.patch": "935d9541727b5e192933d874fedc7efc82cff4ab831a44fa8cc456f8b77db48a",
+        "thor-dpu-readonly-phase.patch": "a1a840ee08d8859e27ccf1b67172333678db4ba9f19c8926e77de83db366ab27"
+      }
+    },
+    {
+      "version": 162,
+      "before": {
+        "bsd/kern/kern_exec.c": "8bd79b750fbbad093dfbe8ba5ed377af6a1b7f87191ed02bbf0d1ec8748cc616",
+        "osfmk/arm/arm_init.c": "a420ddde31679f1acfa1093fa4ec627fe4cfacddb85cf655b060880ffd8ee1cc"
+      },
+      "after": {
+        "bsd/kern/kern_exec.c": "4458af20d355b2ca528ea431b32d16d4fbb72a33e4703ac5725853050ab3bfb5",
+        "osfmk/arm/arm_init.c": "8a16ac49248ab4c3f5352ad97f1d2f57c62f446e319d21fcac7287116b00a639"
+      },
+      "patches": {
+        "thor-v162-modem-xnu.patch": "534386a507a49d1bb84bedb44c854206620a776c77e1fa2d8f897bfe594ec652",
+        "thor-turnip-v162-xnu.patch": "bfbecafece15c84f55497d63c0a2905e76b317c4649e695071f16dcd8bdb8fd2"
+      }
+    },
+    {
+      "version": 163,
+      "before": {
+        "bsd/kern/kern_exec.c": "4458af20d355b2ca528ea431b32d16d4fbb72a33e4703ac5725853050ab3bfb5",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "5fe18b33c9343307146986e9f5b53163128693ef2f7934c585a76a77e6199596"
+      },
+      "after": {
+        "bsd/kern/kern_exec.c": "a477c21258041e9113a248e08d2701bffa207c3dc46a6427072f47dfe91f3da8",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "b1b1d29a494af54b62d2e8ad93aebebdf1a367e1f3e1ad1953045d09ef6ca40b"
+      },
+      "patches": {
+        "thor-v163-dpu-pp-done.patch": "1257e6f9416ae8727532cc0ff20642306b804ebed715c183852d25e037f3735b",
+        "v163-thor-modem-firmware-xnu.patch": "0f484a8644307b44d0ac428320c80779e99cb5a380cff6ea03a77eacde704c30"
+      }
+    },
+    {
+      "version": 170,
+      "patches": {
+        "0001-thor-disable-interaction-mmio-by-default.patch": "09edb9efd6afefd0a5c7a7b2bff6421bc2b6782f8b7be82b78c8d2171e8ccc5e"
+      },
+      "before": {
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "b1b1d29a494af54b62d2e8ad93aebebdf1a367e1f3e1ad1953045d09ef6ca40b"
+      },
+      "after": {
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "919dacc3d34a98af31c22e50ba4f07151cfc84b4e796bccede027a99145dfc80"
+      }
+    },
+    {
+      "version": 171,
+      "patches": {
+        "0001-thor-isolate-swap-queue-from-iosurface-retain.patch": "58158a1603d122d2faa1b7217addfa85b48efaa737a8e21fa763c612f75c2533",
+        "0001-thor-salixp-fifo-health.patch": "92f62ea8f39e11834c327253bbbbe3b672b5935b31048a4f753babdf88611bd9"
+      },
+      "before": {
+        "bsd/dev/pong_fts.c": "ffcc4101bd1f5f93ab6d36c061eb0f5f54812c494a1b1232cd76c6e7a9be9ddd",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "919dacc3d34a98af31c22e50ba4f07151cfc84b4e796bccede027a99145dfc80"
+      },
+      "after": {
+        "bsd/dev/pong_fts.c": "c2c2b96578501b3a91026e062acf0ad2be4d7cc5066e68b06674a7e1ad0dd244",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "bcc22eec4b449d97eb92493fb2ab9539e5f7300bc7245a8eab5eeabc86d67663"
+      }
+    },
+    {
+      "version": 172,
+      "patches": {
+        "0001-thor-retire-swap-and-iosurface-safely.patch": "a8af20b4e55f29da1e900f6f386877393575c17d18a9226d249ffd030daa631e",
+        "0001-thor-runningboardd-console-capture.patch": "1b8ac985701b6efbd06592098fe7bde41a61dfa154d813e98f9145570299169d"
+      },
+      "before": {
+        "bsd/kern/kern_exec.c": "a477c21258041e9113a248e08d2701bffa207c3dc46a6427072f47dfe91f3da8",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "bcc22eec4b449d97eb92493fb2ab9539e5f7300bc7245a8eab5eeabc86d67663",
+        "iokit/Kernel/MiniIOSurface.cpp": "8fab59a41b148a8a8985e76288233457a962bbbcaaaa2ea1a4ce107a13505015"
+      },
+      "after": {
+        "bsd/kern/kern_exec.c": "b07c14973ef69c1ebf7d63affda786e63d5cd10ddce13e2273f2ad3a9530ffa0",
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "e75e7be10465c2b1b92406985d79d87cec771a40f65c04cebf2ba36cb5a8a67c",
+        "iokit/Kernel/MiniIOSurface.cpp": "ed1003737a16093b02032b3d96b763da4a29a33794c553e8ef4ed21d0723c91c"
+      }
+    },
+    {
+      "version": 175,
+      "patches": {
+        "0002-iosurface-detach-client-mappings-before-unlocked-release.patch": "b5bb63f53007f175af60a6c5f6e1f49b81f122f315a53382b5dd0d8777f08cf5"
+      },
+      "before": {
+        "iokit/Kernel/MiniIOSurface.cpp": "ed1003737a16093b02032b3d96b763da4a29a33794c553e8ef4ed21d0723c91c"
+      },
+      "after": {
+        "iokit/Kernel/MiniIOSurface.cpp": "b1ad927beafaacc0bcc5fb527d5125a5df7dd08b6d0aa54f9f6ca3c6f189af17"
+      }
+    },
+    {
+      "version": 176,
+      "patches": {
+        "0001-switcher-record-cues-before-delayed-report.patch": "2f963be85cdd59de28f88b78fe5f7dcd22af347d15f2a5cfabd7af28e71d7eee"
+      },
+      "before": {
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "e75e7be10465c2b1b92406985d79d87cec771a40f65c04cebf2ba36cb5a8a67c"
+      },
+      "after": {
+        "iokit/Kernel/MiniIOMobileFramebuffer.cpp": "37bca1c3cc09bcbce0988f688b1357e536e210e6af8a2b974ce2d759a7ddc769"
+      }
+    }
+  ],
+  "console_sha256": {
+    "thor_console_v172_payload.h": "44352032284dc3791130ee0835f774dc63b6e0049b1fce06812eec4ec4cb6f11",
+    "libpong-console-v172.dylib": "6542245207deaa55ea52686ba0f62bcee3d2a4d5c0c41d8d0ac8567476164e9e",
+    "console-v172.c": "4d17c1c39c9f1ef9ecf71c76ca258d33869caf8505d8610b0d905f4cc9241d76"
+  },
+  "driver_commits": {
+    "PongAdreno": "0145905ba42d9f552fdb11267525d8f9fda3f511",
+    "PongPower": "b97875dd8a3c22a74325bdae98e3d26adca62b3b",
+    "NativeUfs": "6c19cdb59d808a032fcb4200f6047b02ab8b8eb5",
+    "PongMetal": "5f329dd683a541298f91805a5031e3b000c8fdd4"
+  },
+  "turnip": {
+    "mesa_commit": "85fda3b36405bcaea8bffc64aa4f2651dc90770d",
+    "patch": "patches/mesa/checkpoints/thor-v162-turnip-bo-retirement.patch",
+    "patch_sha256": "6d378f0787f91c0075f64ed70d4f9e576bb80f3a186c4f9872d76e348e7dbf94",
+    "observed_binary_sha256": "88a3c53f1973a6be6dd244e76b3947e375e5680a80e7cd762b58ac9f3f752fe0"
+  }
+}

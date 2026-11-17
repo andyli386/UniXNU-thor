@@ -1,0 +1,64 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -3343,7 +3343,9 @@
+                 result = kIOReturnBusy;
+                 break;
+             }
+-            if (IOLockSleepDeadline(fSwapLock, &fSwapsWaiting, deadline, THREAD_ABORTSAFE) != THREAD_AWAKENED) {
++            /* The presenter can retire this ID before sleep reacquires fSwapLock. */
++            if (IOLockSleepDeadline(fSwapLock, &fSwapsWaiting, deadline, THREAD_ABORTSAFE) != THREAD_AWAKENED &&
++                fRetired[id%64].id != id) {
+                 result = kIOReturnTimeout;
+                 break;
+             }
+--- a/iokit/Kernel/MiniIOSurface.cpp
++++ b/iokit/Kernel/MiniIOSurface.cpp
+@@ -962,18 +962,28 @@
+ 	s->holders++;
+ }
+ 
+-/* With the lock held. The caller must not touch the surface afterwards. */
+-static void
+-surfaceUnhold(MiniIOSurface * s)
++/* Under gSurfaceLock, remove this holder. If it was last, unpublish the
++ * surface and return the table-owned reference for the caller to release. */
++static MiniIOSurface *
++surfaceDropHolder(MiniIOSurface * s)
+ {
+ 	if (--s->holders != 0) {
+-		return;
++		return nullptr;
+ 	}
+ 	gSurfaceTable[s->sid] = NULL;
+ 	gSurfaceCount--;
+ 	gSurfaceBytes -= s->info.allocSize;
+ 	surfaceAccountMemory(s, false);
+-	s->release();
++	return s;
++}
++
++/* With the lock held. The caller must not touch the surface afterwards. */
++static void
++surfaceUnhold(MiniIOSurface * s)
++{
++	if (auto * retired = surfaceDropHolder(s)) {
++		retired->release();
++	}
+ }
+ 
+ MiniIOSurface *
+@@ -1008,8 +1018,13 @@
+ 		return;
+ 	}
+ 	IOLockLock(gSurfaceLock);
+-	surfaceUnhold(s);
++	MiniIOSurface * retired = surfaceDropHolder(s);
+ 	IOLockUnlock(gSurfaceLock);
++	/* A final free may unmap or complete large descriptors. Keep it out
++	 * of the registry lock used by scanout and GPU writer retirement. */
++	if (retired != nullptr) {
++		retired->release();
++	}
+ }
+ 
+ MiniIOSurface *

@@ -1,0 +1,258 @@
+--- a/iokit/Kernel/MiniIOSurface.cpp
++++ b/iokit/Kernel/MiniIOSurface.cpp
+@@ -1178,7 +1178,9 @@
+ 	task_t                          fTask;
+ 	struct { MiniIOSurface *surface; uint32_t writers; } fGpuHolds[256];
+ 	IOReturn gpuHandoff(IOExternalMethodArguments *args);
+-	void abandonGpuHolds(void);
++	unsigned poisonGpuHolds(void);
++	void closeSurfaces(void);
++	bool                            fClosing = false;
+ 	struct minisurf_client_ref *    fRefs;
+ 	uint32_t                        fRefCount;
+ 	uint32_t                        fRefCapacity;
+@@ -1187,6 +1189,7 @@
+ 
+ 	struct minisurf_client_ref * findRef(uint32_t sid, bool detached);
+ 	struct minisurf_client_ref * addRef(MiniIOSurface * surface);
++	struct minisurf_client_ref takeRef(struct minisurf_client_ref * ref);
+ 	void dropRef(struct minisurf_client_ref * ref);
+ 	IOReturn returnSurface(struct minisurf_client_ref * ref, bool known, IOExternalMethodArguments * args);
+ 
+@@ -1261,33 +1264,100 @@
+ IOReturn
+ IOSurfaceRootUserClient::clientClose(void)
+ {
+-	IOLockLock(gSurfaceLock);
+-	abandonGpuHolds();
+-	while (fRefCount != 0) {
+-		dropRef(&fRefs[fRefCount - 1]);
+-	}
+-	IOLockUnlock(gSurfaceLock);
++	closeSurfaces();
+ 	if (!isInactive()) {
+ 		terminate();
+ 	}
+ 	return kIOReturnSuccess;
++}
++
++/* Both the last client reference and any GPU hold keep the surface alive
++ * until their mappings and writer records have been detached. */
++static void
++removeRefUsage(const struct minisurf_client_ref &ref)
++{
++	auto *surface = ref.surface;
++	for (unsigned c = 0; c < 2; c++) {
++		surface->useCount[c] -= ref.use[c];
++	}
++	surface->shared()->useCount = (uint64_t) surface->useCount[1] << 32 | surface->useCount[0];
++}
++
++/* With gSurfaceLock held, retire the logical holder immediately. Retain a
++ * surviving surface so its wrapped-client backing cannot complete before
++ * the detached client's own maps have been released. */
++static void
++detachRefHolder(const struct minisurf_client_ref &ref)
++{
++	if (!surfaceDropHolder(ref.surface)) {
++		ref.surface->retain();
++	}
+ }
+ 
++static void
++releaseDetachedRef(struct minisurf_client_ref &ref)
++{
++	OSSafeReleaseNULL(ref.map);
++	OSSafeReleaseNULL(ref.pixelMap);
++	ref.surface->release();
++}
++
+ void
+-IOSurfaceRootUserClient::free(void)
++IOSurfaceRootUserClient::closeSurfaces(void)
+ {
+-	if(gSurfaceLock) {IOLockLock(gSurfaceLock);abandonGpuHolds();IOLockUnlock(gSurfaceLock);}
+-	if (fRefs != NULL) {
+-		if (gSurfaceLock != NULL) {
+-			IOLockLock(gSurfaceLock);
+-			while (fRefCount != 0) {
+-				dropRef(&fRefs[fRefCount - 1]);
+-			}
+-			IOLockUnlock(gSurfaceLock);
+-		}
+-		IODelete(fRefs, struct minisurf_client_ref, fRefCapacity);
+-		fRefs = NULL;
++	if (!gSurfaceLock) {
++		return;
++	}
++	const uint64_t began = mach_absolute_time();
++	IOLockLock(gSurfaceLock);
++	if (fClosing) {
++		IOLockUnlock(gSurfaceLock);
++		return;
++	}
++	fClosing = true;
++	auto *refs = fRefs;
++	const uint32_t count = fRefCount, capacity = fRefCapacity;
++	fRefs = NULL;
++	fRefCount = fRefCapacity = 0;
++	const unsigned gpuHolds = poisonGpuHolds();
++	for (uint32_t i = 0; i < count; ++i) {
++		removeRefUsage(refs[i]);
++		detachRefHolder(refs[i]);
++	}
++	IOLockUnlock(gSurfaceLock);
++
++	static unsigned receipts;
++	const bool report = (count || gpuHolds) &&
++	    __atomic_load_n(&receipts, __ATOMIC_RELAXED) < 32 &&
++	    __atomic_fetch_add(&receipts, 1u, __ATOMIC_RELAXED) < 32;
++	const int caller = report ? proc_selfpid() : 0;
++	if (report) {
++		IOLog("PONG IOSURFACE V175 CLOSE: phase=begin caller_pid=%d refs=%u gpu_holds=%u\n",
++		    caller, count, gpuHolds);
++	}
++	/* fClosing prevents GPU handoff from accessing these slots. They now
++	 * contain only retired table references, which can be freed unlocked. */
++	for (auto &hold : fGpuHolds) {
++		OSSafeReleaseNULL(hold.surface);
++	}
++	for (uint32_t i = count; i != 0; --i) {
++		releaseDetachedRef(refs[i - 1]);
++	}
++	if (refs) {
++		IODelete(refs, struct minisurf_client_ref, capacity);
++	}
++	if (report) {
++		uint64_t nanos;
++		absolutetime_to_nanoseconds(mach_absolute_time() - began, &nanos);
++		IOLog("PONG IOSURFACE V175 CLOSE: phase=end caller_pid=%d refs=%u gpu_holds=%u elapsed_us=%llu\n",
++		    caller, count, gpuHolds, static_cast<unsigned long long>(nanos / 1000));
+ 	}
++}
++
++void
++IOSurfaceRootUserClient::free(void)
++{
++	closeSurfaces();
+ 	OSSafeReleaseNULL(fCoreVideoKeys);
+ 	IOUserClient::free();
+ }
+@@ -1310,6 +1380,9 @@
+ 	struct minisurf_client_ref * ref;
+ 	IOMemoryMap * map, *pixelMap = NULL;
+ 
++	if (fClosing) {
++		return NULL;
++	}
+ 	if (fRefCount == fRefCapacity) {
+ 		if (fRefCapacity >= MINISURF_TABLE_SIZE) {
+ 			return NULL;
+@@ -1356,19 +1429,26 @@
+ 	return ref;
+ }
+ 
+-void
+-IOSurfaceRootUserClient::dropRef(struct minisurf_client_ref * ref)
++struct minisurf_client_ref
++IOSurfaceRootUserClient::takeRef(struct minisurf_client_ref *ref)
+ {
+-	MiniIOSurface * s = ref->surface;
+-
+-	for (unsigned c = 0; c < 2; c++) {
+-		s->useCount[c] -= ref->use[c];
++	auto detached = *ref;
++	removeRefUsage(detached);
++	auto *last = &fRefs[--fRefCount];
++	if (ref != last) {
++		*ref = *last;
+ 	}
+-	s->shared()->useCount = (uint64_t) s->useCount[1] << 32 | s->useCount[0];
+-	OSSafeReleaseNULL(ref->map);
+-	OSSafeReleaseNULL(ref->pixelMap);
+-	*ref = fRefs[--fRefCount];
+-	surfaceUnhold(s);
++	*last = {};
++	return detached;
++}
++
++void
++IOSurfaceRootUserClient::dropRef(struct minisurf_client_ref *ref)
++{
++	auto detached = takeRef(ref);
++	OSSafeReleaseNULL(detached.map);
++	OSSafeReleaseNULL(detached.pixelMap);
++	surfaceUnhold(detached.surface);
+ }
+ 
+ static uint32_t
+@@ -2059,18 +2139,25 @@
+     return logGpuPoisonReceipt(count);
+ }
+ 
+-void IOSurfaceRootUserClient::abandonGpuHolds(void)
++/* With gSurfaceLock held, keep only references to retired surfaces for
++ * closeSurfaces() to release outside the lock. */
++unsigned
++IOSurfaceRootUserClient::poisonGpuHolds(void)
+ {
+-    static unsigned poisonCloseReceipts;
+-    for(auto &hold:fGpuHolds)if(hold.surface) {
+-        auto *surface=hold.surface;
+-        if (!surface->gpuFailed && logGpuPoisonReceipt(poisonCloseReceipts)) {
+-            IOLog("PONG IOSURFACE: sid=%u poison=producer-close writers=%u abandoned=%u\n",
+-                surface->sid, surface->gpuWriters, hold.writers);
+-        }
+-        surface->gpuFailed=true;surface->gpuWriters-=hold.writers;
+-        hold={};IOLockWakeup(gSurfaceLock,surface,false);surfaceUnhold(surface);
+-    }
++	unsigned count = 0;
++	for (auto &hold : fGpuHolds) {
++		if (!hold.surface) {
++			continue;
++		}
++		auto *surface = hold.surface;
++		surface->gpuFailed = true;
++		surface->gpuWriters -= hold.writers;
++		IOLockWakeup(gSurfaceLock, surface, false);
++		hold.surface = surfaceDropHolder(surface);
++		hold.writers = 0;
++		++count;
++	}
++	return count;
+ }
+ IOReturn IOSurfaceRootUserClient::gpuHandoff(IOExternalMethodArguments *args)
+ {
+@@ -2092,6 +2179,11 @@
+     static unsigned poisonEndReceipts, poisonWriterRetryReceipts;
+     const char *poisonAction = nullptr;
+     IOLockLock(gSurfaceLock);
++    if (fClosing) {
++        IOLockUnlock(gSurfaceLock);
++        object->release();
++        return kIOReturnNotReady;
++    }
+     if(args->scalarInput[1]==0) {
+         if(surface->displayReaders)result=kIOReturnBusy;
+         if (!result && surface->gpuFailed) {
+@@ -2540,11 +2632,17 @@
+ 	if (ref == NULL) {
+ 		ref = findRef(sid, false);
+ 	}
+-	if (ref != NULL) {
+-		dropRef(ref);
++	struct minisurf_client_ref detached = {};
++	if (ref != NULL) {
++		detached = takeRef(ref);
++		detachRefHolder(detached);
+ 	}
+ 	IOLockUnlock(gSurfaceLock);
+-	return ref ? kIOReturnSuccess : kIOReturnNotFound;
++	if (detached.surface == NULL) {
++		return kIOReturnNotFound;
++	}
++	releaseDetachedRef(detached);
++	return kIOReturnSuccess;
+ }
+ 
+ /* The Metal frontend brackets actual submissions with authorized send

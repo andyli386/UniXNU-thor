@@ -1,0 +1,290 @@
+diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -98,6 +98,181 @@
+ #if defined(PONG)
+ bool thor_modem_smem_admitted;
+ 
++#define THOR_MODEM_METADATA_SIZE 0x10000u
++#define THOR_MODEM_RMTFS_SIZE 0x280000u
++#define THOR_MODEM_DMA_SIZE (THOR_MODEM_METADATA_SIZE + THOR_MODEM_RMTFS_SIZE)
++
++SECURITY_READ_ONLY_LATE(static uint64_t) thor_modem_dma_tail;
++void thor_modem_reserve_boot_dma(boot_args *);
++bool thor_modem_get_boot_dma_ranges(uint64_t ranges[4]);
++
++static bool
++thor_modem_read_adt(DTEntry chosen, const char *name, void *result, size_t bytes, bool optional)
++{
++    const void *property = NULL;
++    unsigned size = 0;
++    if (SecureDTGetProperty(chosen, name, &property, &size) != kSuccess) {
++        return optional;
++    }
++    if (property == NULL || size != bytes) {
++        return false;
++    }
++    const volatile uint8_t *source = property;
++    for (size_t i = 0; i < bytes; i++) {
++        ((uint8_t *)result)[i] = source[i];
++    }
++    return true;
++}
++
++static bool
++thor_modem_range_at_low32(const uint64_t range[2], uint64_t bytes)
++{
++    return range[0] && !(range[0] & PAGE_MASK) && range[1] == bytes &&
++        range[0] <= 0x100000000ULL - bytes;
++}
++
++static bool
++thor_modem_dma_overlap(uint64_t a, uint64_t a_size, uint64_t b, uint64_t b_size)
++{
++    return a < b + b_size && b < a + a_size;
++}
++
++static bool
++thor_modem_prereqs_match(const uint32_t cell[28], const uint32_t modem[26])
++{
++    return modem[0] == 0x384d4854 && modem[1] == 1 && modem[2] == 26 &&
++        modem[3] == cell[2] && modem[4] == cell[12] && modem[5] == cell[13] &&
++        modem[6] == cell[10] && modem[7] == cell[11] &&
++        modem[8] == cell[4] && modem[9] == cell[5] &&
++        modem[10] == 0x2000000 && modem[11] == 0x400000 &&
++        modem[12] == cell[25] && modem[13] == cell[22] &&
++        modem[14] == 0 && modem[15] == 2 && modem[16] == 1 &&
++        modem[17] == 3 && modem[18] == 7 && modem[19] == 0 &&
++        modem[20] == 2 && modem[21] == 0 && modem[22] == 2 &&
++        modem[23] == 4 && modem[24] == 264 && modem[25] == cell[14];
++}
++
++static void
++thor_modem_check_carveouts(const uint32_t cell[28], unsigned *invalid, unsigned *overlap)
++{
++    for (unsigned row = 0; row < 4; row++) {
++        const uint64_t start = cell[4 + 2 * row];
++        const uint64_t length = cell[5 + 2 * row];
++        const uint64_t end = start + length;
++        if (!start || !length || ((start | length) & 0xfff) || end > 0x100000000ULL) {
++            *invalid |= 1u << row;
++            continue;
++        }
++        for (unsigned bank = 0; bank < pong_ram_range_count; bank++) {
++            const struct pong_ram_range *range = &pong_ram_ranges[bank];
++            if (start < range->end && end > range->start) {
++                *overlap |= 1u << row;
++                break;
++            }
++        }
++        for (unsigned other = 0; other < row; other++) {
++            if (thor_modem_dma_overlap(start, length,
++                cell[4 + 2 * other], cell[5 + 2 * other])) {
++                *invalid |= (1u << row) | (1u << other);
++            }
++        }
++    }
++}
++
++/* Reserve from a loader-owned non-bootstrap bank before the aperture and
++ * VM free lists are built. Both firmware slots must be absent/zero, since
++ * partially populated or malformed firmware reservations need diagnosis.
++ * The tail is excluded from VM and mapped later by the DMA consumer. */
++void
++thor_modem_reserve_boot_dma(boot_args *args)
++{
++    DTEntry chosen;
++    uint32_t cell[28];
++    uint32_t modem[26];
++    unsigned invalid = 0, overlap = 0;
++    uint64_t metadata[2] = { 0 };
++    uint64_t rmtfs[2] = { 0 };
++    uint64_t display[2] = { 0 };
++    uint64_t audio[2] = { 0 };
++    uint64_t usb[2] = { 0 };
++    if (thor_modem_dma_tail || PAGE_SHIFT != 12 || pong_ram_range_count < 2 ||
++        SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess ||
++        !thor_modem_read_adt(chosen, "thor-cellular-profile", cell, sizeof(cell), false) ||
++        !thor_modem_read_adt(chosen, "thor-modem-prereqs", modem, sizeof(modem), false) ||
++        cell[0] != 0x4c434854 || cell[1] != 1 || cell[2] != 0xc141accf || cell[3] != 4 ||
++        cell[4] != 0x80900000 || cell[5] != 0x200000 || cell[22] != 1 ||
++        cell[23] != 435 || cell[24] != 428 || cell[25] != THOR_MODEM_RMTFS_SIZE ||
++        !thor_modem_prereqs_match(cell, modem)) {
++        return;
++    }
++
++    thor_modem_check_carveouts(cell, &invalid, &overlap);
++    if (invalid || overlap ||
++        !thor_modem_read_adt(chosen, "pong-modem-metadata", metadata, sizeof(metadata), true) ||
++        !thor_modem_read_adt(chosen, "pong-rmtfs-dma", rmtfs, sizeof(rmtfs), true) ||
++        metadata[0] || metadata[1] || rmtfs[0] || rmtfs[1] ||
++        !thor_modem_read_adt(chosen, "thor-native-scanout", display, sizeof(display), false) ||
++        !thor_modem_range_at_low32(display, 18ULL << 20) ||
++        !thor_modem_read_adt(chosen, "pong-audio-dma", audio, sizeof(audio), true) ||
++        !thor_modem_read_adt(chosen, "pong-usb-dma", usb, sizeof(usb), true) ||
++        ((audio[0] || audio[1]) && !thor_modem_range_at_low32(audio, 0x10000)) ||
++        ((usb[0] || usb[1]) && !thor_modem_range_at_low32(usb, 0x8000))) {
++        return;
++    }
++
++    const uint64_t fb = args->Video.v_baseAddr;
++    const uint64_t pitch = args->Video.v_rowBytes;
++    const uint64_t height = args->Video.v_height;
++    if (!fb || fb >= 0x100000000ULL || !pitch || !height ||
++        height > (0x100000000ULL - fb) / pitch) {
++        return;
++    }
++
++    unsigned selected = 0;
++    uint64_t best = 0;
++    for (unsigned i = 1; i < pong_ram_range_count; i++) {
++        const struct pong_ram_range *bank = &pong_ram_ranges[i];
++        if (bank->end > 0x100000000ULL || bank->end - bank->start <= THOR_MODEM_DMA_SIZE ||
++            bank->end - bank->start <= best) {
++            continue;
++        }
++        const uint64_t begin = bank->end - THOR_MODEM_DMA_SIZE;
++        if (thor_modem_dma_overlap(begin, THOR_MODEM_DMA_SIZE, display[0], display[1]) ||
++            /* The retained scanout validator checks that the next page is VM-owned. */
++            (begin <= display[0] + display[1] && display[0] + display[1] < bank->end) ||
++            thor_modem_dma_overlap(begin, THOR_MODEM_DMA_SIZE, fb, pitch * height) ||
++            (audio[0] && thor_modem_dma_overlap(begin, THOR_MODEM_DMA_SIZE, audio[0], audio[1])) ||
++            (usb[0] && thor_modem_dma_overlap(begin, THOR_MODEM_DMA_SIZE, usb[0], usb[1]))) {
++            continue;
++        }
++        best = bank->end - bank->start;
++        selected = i;
++    }
++    if (!selected) {
++        return;
++    }
++
++    pong_ram_ranges[selected].end -= THOR_MODEM_DMA_SIZE;
++    for (unsigned i = selected + 1; i < pong_ram_range_count; i++) {
++        pong_ram_ranges[i].first_page -= THOR_MODEM_DMA_SIZE >> PAGE_SHIFT;
++    }
++    pong_ram_bytes -= THOR_MODEM_DMA_SIZE;
++    thor_modem_dma_tail = pong_ram_ranges[selected].end;
++}
++
++bool
++thor_modem_get_boot_dma_ranges(uint64_t ranges[4])
++{
++    if (!ranges || !thor_modem_dma_tail) {
++        return false;
++    }
++    ranges[0] = thor_modem_dma_tail;
++    ranges[1] = THOR_MODEM_METADATA_SIZE;
++    ranges[2] = ranges[0] + THOR_MODEM_METADATA_SIZE;
++    ranges[3] = THOR_MODEM_RMTFS_SIZE;
++    return true;
++}
++
+ /* DarwinBoot supplies these chosen cells only after reserving the ranges
+  * below 4 GiB. ADT properties can be only four-byte aligned. */
+ static void
+@@ -108,8 +283,8 @@
+         uint64_t bytes;
+         uint64_t base;
+     } leases[] = {
+-        { "pong-modem-metadata", 0x10000, 0 },
+-        { "pong-rmtfs-dma", 0x280000, 0 },
++        { "pong-modem-metadata", THOR_MODEM_METADATA_SIZE, 0 },
++        { "pong-rmtfs-dma", THOR_MODEM_RMTFS_SIZE, 0 },
+         { "pong-audio-dma", 0x10000, 0 },
+         { "pong-usb-dma", 0x8000, 0 },
+     };
+@@ -133,6 +308,13 @@
+         } else {
+             leases[i].base = range[0];
+         }
++    }
++    uint64_t early[4];
++    const bool reserved = !invalid && (missing & 3) == 3 && thor_modem_get_boot_dma_ranges(early);
++    if (reserved) {
++        leases[0].base = early[0];
++        leases[1].base = early[2];
++        missing &= ~3u;
+     }
+     for (unsigned i = 0; i < 2; i++) {
+         const uint64_t start = leases[i].base;
+@@ -164,6 +346,10 @@
+             invalid, overlap);
+     } else if (missing & 3) {
+         printf("THOR MODEM V160: dma=unavailable missing_mask=0x%x\n", missing & 3);
++    } else if (reserved) {
++        printf("THOR MODEM V161: dma=reserved source=owned-bank-tail metadata=0x%llx+0x%llx rmtfs=0x%llx+0x%llx\n",
++            (unsigned long long)leases[0].base, (unsigned long long)leases[0].bytes,
++            (unsigned long long)leases[1].base, (unsigned long long)leases[1].bytes);
+     } else {
+         printf("THOR MODEM V160: dma=validated metadata=0x%llx+0x%llx rmtfs=0x%llx+0x%llx\n",
+             (unsigned long long)leases[0].base, (unsigned long long)leases[0].bytes,
+@@ -698,29 +884,7 @@
+                     printf("THOR CELL: invalid ADT profile header\n");
+                 } else {
+                     unsigned invalid = 0, overlap = 0;
+-                    for (unsigned row = 0; row < 4; row++) {
+-                        const uint64_t start = cell[4 + 2 * row];
+-                        const uint64_t length = cell[5 + 2 * row];
+-                        const uint64_t end = start + length;
+-                        if (!start || !length || ((start | length) & 0xfff) ||
+-                            end > 0x100000000ULL) {
+-                            invalid |= 1u << row;
+-                            continue;
+-                        }
+-                        for (unsigned bank = 0; bank < pong_ram_range_count; bank++) {
+-                            if (start < pong_ram_ranges[bank].end && end > pong_ram_ranges[bank].start) {
+-                                overlap |= 1u << row;
+-                                break;
+-                            }
+-                        }
+-                        for (unsigned other = 0; other < row; other++) {
+-                            const uint64_t other_start = cell[4 + 2 * other];
+-                            const uint64_t other_end = other_start + cell[5 + 2 * other];
+-                            if (start < other_end && end > other_start) {
+-                                invalid |= (1u << row) | (1u << other);
+-                            }
+-                        }
+-                    }
++                    thor_modem_check_carveouts(cell, &invalid, &overlap);
+                     printf("THOR CELL: source_fdt_crc=%08x carveouts=4 invalid_mask=0x%x vm_overlap_mask=0x%x mode=topology-only\n",
+                         cell[2], invalid, overlap);
+                     printf("THOR CELL: SMEM=%x+%x IPA-FW=%x+%x IPA-GSI=%x+%x MPSS=%x+%x\n",
+@@ -737,17 +901,7 @@
+                             printf("THOR MODEM V158: rejected ADT size=%u\n", size);
+                         } else {
+                             memcpy(modem, property, sizeof(modem));
+-                            if (modem[0] != 0x384d4854 || modem[1] != 1 || modem[2] != 26 ||
+-                                modem[3] != cell[2] || invalid != 0 || overlap != 0 ||
+-                                modem[4] != cell[12] || modem[5] != cell[13] ||
+-                                modem[6] != cell[10] || modem[7] != cell[11] ||
+-                                modem[8] != cell[4] || modem[9] != cell[5] ||
+-                                modem[10] != 0x2000000 || modem[11] != 0x400000 ||
+-                                modem[12] != cell[25] || modem[13] != cell[22] ||
+-                                modem[14] != 0 || modem[15] != 2 || modem[16] != 1 ||
+-                                modem[17] != 3 || modem[18] != 7 || modem[19] != 0 ||
+-                                modem[20] != 2 || modem[21] != 0 || modem[22] != 2 ||
+-                                modem[23] != 4 || modem[24] != 264 || modem[25] != cell[14]) {
++                            if (invalid != 0 || overlap != 0 || !thor_modem_prereqs_match(cell, modem)) {
+                                 printf("THOR MODEM V158: rejected ADT prerequisites\n");
+                             } else {
+                                 /* Admit only Thor's fixed SMEM carveout and inbound edge.
+diff --git a/osfmk/arm64/arm_vm_init.c b/osfmk/arm64/arm_vm_init.c
+--- a/osfmk/arm64/arm_vm_init.c
++++ b/osfmk/arm64/arm_vm_init.c
+@@ -375,6 +375,7 @@
+ SECURITY_READ_ONLY_LATE(struct pong_ram_range) pong_ram_ranges[PONG_RAM_RANGE_MAX];
+ SECURITY_READ_ONLY_LATE(unsigned) pong_ram_range_count;
+ SECURITY_READ_ONLY_LATE(uint64_t) pong_ram_bytes;
++extern void thor_modem_reserve_boot_dma(boot_args *);
+ 
+ bool
+ pmap_pong_pa_valid(uint64_t pa)
+@@ -2042,6 +2043,7 @@
+         if (!kept || pong_ram_ranges[0].end < args->topOfKernelData)
+             panic("Pong RAM: maxmem excludes the kernel");
+     }
++    thor_modem_reserve_boot_dma(args);
+     gPhysSize = real_phys_size = pong_ram_ranges[0].end - gPhysBase;
+     mem_size = pong_ram_bytes;
+ #endif

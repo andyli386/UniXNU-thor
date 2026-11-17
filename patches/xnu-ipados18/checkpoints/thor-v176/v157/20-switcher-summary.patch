@@ -1,0 +1,362 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -74,10 +74,21 @@
+ static constexpr uint64_t kSlowDisplayUs = 100000;
+ static constexpr uint32_t kDisplayReceiptLimit = 48;
+ 
+-/* A boot-wide bounded trace. Rendering only appends to memory. */
++/* Seal one boot-wide capture. The presenter appends records in memory and the
++ * low-priority reporter emits an aggregate, compact cues and at most 12 frames. */
++static constexpr unsigned kSwitcherFrameLimit = 1152;
++static constexpr unsigned kSwitcherCueLimit = 96;
++static constexpr unsigned kSwitcherWorstLimit = 4;
++static constexpr unsigned kSwitcherWindows = 8;
++static constexpr unsigned kSwitcherCuesPerLine = 8;
++static constexpr unsigned kSwitcherMsBins = 65;
++static constexpr unsigned kSwitcherTwoPeriodsUs = 16667;
++
+ struct ThorSwitcherFrame {
+-	uint64_t enqueued, dequeued, ready, shown, drawn, gpuWriter;
+-	uint32_t id;
++	uint64_t enqueued, dequeued, ready, shown, drawn;
++	MiniIOSurfaceReadTiming timing;
++	uint32_t id, surface;
++	bool gpuFrame;
+ };
+ 
+ struct ThorSwitcherCue {
+@@ -87,10 +98,10 @@
+ 
+ LCK_GRP_DECLARE(thor_switcher_trace_group, "thor-switcher-trace");
+ LCK_MTX_DECLARE(thor_switcher_trace_lock, &thor_switcher_trace_group);
+-static ThorSwitcherFrame gSwitcherFrames[1152];
+-static ThorSwitcherCue gSwitcherCues[96];
+-static unsigned gSwitcherFrameCount, gSwitcherCueCount;
+-static uint64_t gSwitcherTraceEnd, gSwitcherHardEnd;
++static ThorSwitcherFrame gSwitcherFrames[kSwitcherFrameLimit];
++static ThorSwitcherCue gSwitcherCues[kSwitcherCueLimit];
++static unsigned gSwitcherFrameCount, gSwitcherCueCount, gSwitcherLostFrames, gSwitcherLostCues;
++static uint64_t gSwitcherTraceStart, gSwitcherTraceEnd, gSwitcherHardEnd;
+ static bool gSwitcherTraceSealed;
+ static thread_call_t gSwitcherTraceCall;
+ 
+@@ -100,6 +111,129 @@
+ 	uint64_t ns = 0;
+ 	absolutetime_to_nanoseconds(timestamp, &ns);
+ 	return static_cast<unsigned long long>(ns / 1000);
++}
++
++static uint32_t
++thorSwitcherDuration(uint64_t ticks)
++{
++	const auto us = thorSwitcherMicros(ticks);
++	return us <= UINT32_MAX ? static_cast<uint32_t>(us) : UINT32_MAX;
++}
++
++struct ThorSwitcherMetric {
++	uint64_t total;
++	uint32_t count, max, overTwoPeriods;
++	uint16_t buckets[kSwitcherMsBins];
++
++	void add(uint32_t us)
++	{
++		++count;
++		total += us;
++		if (us > max) {
++			max = us;
++		}
++		overTwoPeriods += us > kSwitcherTwoPeriodsUs;
++		const unsigned ms = us / 1000;
++		++buckets[ms < kSwitcherMsBins ? ms : kSwitcherMsBins - 1];
++	}
++
++	uint32_t p95Upper() const
++	{
++		if (!count) {
++			return 0;
++		}
++		const unsigned rank = (count * 95 + 99) / 100;
++		unsigned seen = 0;
++		for (unsigned i = 0; i + 1 < kSwitcherMsBins; ++i) {
++			seen += buckets[i];
++			if (seen >= rank) {
++				const unsigned upper = (i + 1) * 1000 - 1;
++				return upper < max ? upper : max;
++			}
++		}
++		return max;
++	}
++
++	void report(const char *name) const
++	{
++		IOLog("PONG SWITCHER V157 METRIC: %s n=%u mean_us=%u p95_le_us=%u max_us=%u gt16667=%u\n",
++		    name, count, count ? static_cast<unsigned>(total / count) : 0u,
++		    p95Upper(), max, overTwoPeriods);
++	}
++};
++
++struct ThorSwitcherWindow {
++	unsigned completed, gaps, overTwoPeriods;
++	uint32_t maxGap, maxWriter;
++};
++
++struct ThorSwitcherWorst {
++	unsigned index;
++	uint32_t us;
++};
++
++static void
++thorSwitcherKeepWorst(ThorSwitcherWorst (&worst)[kSwitcherWorstLimit], unsigned index, uint32_t us)
++{
++	for (unsigned i = 0; i < kSwitcherWorstLimit; ++i) {
++		if (us > worst[i].us) {
++			for (unsigned j = kSwitcherWorstLimit - 1; j > i; --j) {
++				worst[j] = worst[j - 1];
++			}
++			worst[i] = { index, us };
++			return;
++		}
++	}
++}
++
++static void
++thorSwitcherReportCues()
++{
++	if (!gSwitcherCueCount) {
++		return;
++	}
++	uint64_t anchor = gSwitcherCues[0].user;
++	for (unsigned i = 1; i < gSwitcherCueCount; ++i) {
++		if (gSwitcherCues[i].user < anchor) {
++			anchor = gSwitcherCues[i].user;
++		}
++	}
++	IOLog("PONG SWITCHER V157 CUEBASE: anchor_us=%llu format=phase,user_delta_us,kernel_delta_us\n",
++	    thorSwitcherMicros(anchor));
++	for (unsigned i = 0; i < gSwitcherCueCount; i += kSwitcherCuesPerLine) {
++		// 8 times one phase digit, two 10-digit deltas and three separators.
++		char line[kSwitcherCuesPerLine * 24 + 1] = {};
++		size_t used = 0;
++		for (unsigned j = i; j < gSwitcherCueCount && j - i < kSwitcherCuesPerLine; ++j) {
++			const ThorSwitcherCue &cue = gSwitcherCues[j];
++			const int length = snprintf(line + used, sizeof(line) - used, "%u,%u,%u;", cue.phase,
++			    thorSwitcherDuration(cue.user - anchor), thorSwitcherDuration(cue.kernel - anchor));
++			if (length < 0 || static_cast<size_t>(length) >= sizeof(line) - used) {
++				break;
++			}
++			used += static_cast<size_t>(length);
++		}
++		IOLog("PONG SWITCHER V157 CUES: i=%u %s\n", i, line);
++	}
++}
++
++static void
++thorSwitcherReportFrame(const ThorSwitcherFrame &frame, unsigned reason, uint32_t previousSwap,
++    uint32_t gapUs)
++{
++	const auto &timing = frame.timing;
++	/* The serial console retains at most 255 bytes per log call. */
++	IOLog("PONG SWITCHER V157 FRAME: swap=%u sid=%u why=%u prev=%u gap=%u gpu=%u "
++	    "t=%llu/%llu/%llu/%llu/%llu\n", frame.id, frame.surface, reason, previousSwap, gapUs,
++	    frame.gpuFrame ? 1u : 0u, thorSwitcherMicros(frame.enqueued),
++	    thorSwitcherMicros(frame.dequeued), thorSwitcherMicros(frame.ready),
++	    thorSwitcherMicros(frame.shown), thorSwitcherMicros(frame.drawn));
++	IOLog("PONG SWITCHER V157 WRITER: swap=%u sid=%u w=%u/%u/%u base=%u/%u t=%llu/%llu/%llu\n",
++	    frame.id, frame.surface, thorSwitcherDuration(timing.lockTicks),
++	    thorSwitcherDuration(timing.writerTicks), thorSwitcherDuration(timing.resumeTicks),
++	    static_cast<unsigned>(timing.baseWriterState), timing.baseWritersAtLock,
++	    thorSwitcherMicros(timing.baseWriterLocked), thorSwitcherMicros(timing.baseWriterRelease),
++	    thorSwitcherMicros(timing.baseWriterResumed));
+ }
+ 
+ static void
+@@ -120,22 +254,108 @@
+ 	__atomic_store_n(&gSwitcherTraceEnd, 0, __ATOMIC_RELAXED);
+ 	lck_mtx_unlock(&thor_switcher_trace_lock);
+ 
+-	IOLog("PONG SWITCHER: capture cues=%u swaps=%u full=%u CPU writeback only\n",
+-	    gSwitcherCueCount, gSwitcherFrameCount,
+-	    gSwitcherFrameCount == sizeof(gSwitcherFrames) / sizeof(gSwitcherFrames[0]));
+-	for (unsigned index = 0; index < gSwitcherCueCount; ++index) {
+-		const ThorSwitcherCue &cue = gSwitcherCues[index];
+-		IOLog("PONG SWITCHER CUE: phase=%u user_us=%llu kernel_us=%llu\n",
+-		    cue.phase, thorSwitcherMicros(cue.user), thorSwitcherMicros(cue.kernel));
+-	}
+-	for (unsigned index = 0; index < gSwitcherFrameCount; ++index) {
+-		const ThorSwitcherFrame &frame = gSwitcherFrames[index];
+-		IOLog("PONG SWITCHER FRAME: swap=%u enqueue_us=%llu dequeue_us=%llu ready_us=%llu "
+-		    "start_us=%llu done_us=%llu writer_wait_us=%llu\n", frame.id, thorSwitcherMicros(frame.enqueued),
+-		    thorSwitcherMicros(frame.dequeued), thorSwitcherMicros(frame.ready),
+-		    thorSwitcherMicros(frame.shown), thorSwitcherMicros(frame.drawn),
+-		    thorSwitcherMicros(frame.gpuWriter));
+-	}
++	ThorSwitcherMetric queue{}, ready{}, lock{}, writer{}, resume{}, cpu{}, gpu{}, gap{};
++	ThorSwitcherWindow windows[kSwitcherWindows] = {};
++	ThorSwitcherWorst worstGap[kSwitcherWorstLimit] = {}, worstWriter[kSwitcherWorstLimit] = {};
++	unsigned notReady = 0, idHoles = 0, gpuFrames = 0, firstFailure = kSwitcherFrameLimit;
++	unsigned lastFailure = kSwitcherFrameLimit;
++	const ThorSwitcherFrame *previous = nullptr;
++	for (unsigned i = 0; i < gSwitcherFrameCount; ++i) {
++		const ThorSwitcherFrame &frame = gSwitcherFrames[i];
++		if (frame.enqueued && frame.dequeued >= frame.enqueued) {
++			queue.add(thorSwitcherDuration(frame.dequeued - frame.enqueued));
++		}
++		if (!frame.drawn) {
++			if (firstFailure == kSwitcherFrameLimit) {
++				firstFailure = i;
++			}
++			lastFailure = i;
++			++notReady;
++			continue;
++		}
++		const unsigned seconds = frame.drawn >= gSwitcherTraceStart ?
++		    thorSwitcherDuration(frame.drawn - gSwitcherTraceStart) / 1000000 : 0;
++		ThorSwitcherWindow &window = windows[seconds < kSwitcherWindows ? seconds : kSwitcherWindows - 1];
++		++window.completed;
++		gpuFrames += frame.gpuFrame;
++		if (frame.ready && frame.ready >= frame.dequeued) {
++			ready.add(thorSwitcherDuration(frame.ready - frame.dequeued));
++		}
++		if (frame.shown && frame.drawn >= frame.shown) {
++			(frame.gpuFrame ? gpu : cpu).add(thorSwitcherDuration(frame.drawn - frame.shown));
++		}
++		const uint32_t writerUs = thorSwitcherDuration(frame.timing.writerTicks);
++		lock.add(thorSwitcherDuration(frame.timing.lockTicks));
++		writer.add(writerUs);
++		resume.add(thorSwitcherDuration(frame.timing.resumeTicks));
++		thorSwitcherKeepWorst(worstWriter, i, writerUs);
++		if (writerUs > window.maxWriter) {
++			window.maxWriter = writerUs;
++		}
++		if (previous && frame.drawn >= previous->drawn) {
++			const uint32_t us = thorSwitcherDuration(frame.drawn - previous->drawn);
++			gap.add(us);
++			++window.gaps;
++			window.overTwoPeriods += us > kSwitcherTwoPeriodsUs;
++			idHoles += frame.id != previous->id + 1;
++			thorSwitcherKeepWorst(worstGap, i, us);
++			if (us > window.maxGap) {
++				window.maxGap = us;
++			}
++		}
++		previous = &frame;
++	}
++
++	IOLog("PONG SWITCHER V157 SUMMARY: start_us=%llu attempts=%u capture_lost=%u not_ready=%u "
++	    "gpu=%u cues=%u cue_lost=%u nonadjacent_ids=%u software_writeback\n",
++	    thorSwitcherMicros(gSwitcherTraceStart), gSwitcherFrameCount, gSwitcherLostFrames,
++	    notReady, gpuFrames, gSwitcherCueCount, gSwitcherLostCues, idHoles);
++	IOLog("PONG SWITCHER V157 SCHEMA: FRAME t=enqueue/dequeue/ready/start/done "
++	    "WRITER w=lock/wait/resume base=state/count t=lock/release/resume unit=us\n");
++	queue.report("enqueue_to_dequeue");
++	ready.report("dequeue_to_ready");
++	lock.report("surface_lock");
++	writer.report("writer_wait");
++	resume.report("reader_resume");
++	cpu.report("cpu_writeback");
++	gpu.report("gpu_present_span");
++	gap.report("completion_gap");
++	thorSwitcherReportCues();
++	for (unsigned i = 0; i < kSwitcherWindows; ++i) {
++		const ThorSwitcherWindow &window = windows[i];
++		if (window.completed) {
++			IOLog("PONG SWITCHER V157 WINDOW: s=%u done=%u gaps=%u gt16667=%u max_gap_us=%u max_writer_us=%u\n",
++			    i, window.completed, window.gaps, window.overTwoPeriods, window.maxGap, window.maxWriter);
++		}
++	}
++	previous = nullptr;
++	unsigned printed = 0;
++	for (unsigned i = 0; i < gSwitcherFrameCount; ++i) {
++		const ThorSwitcherFrame &frame = gSwitcherFrames[i];
++		unsigned reason = (i == 0 || i + 1 == gSwitcherFrameCount) ? 1u : 0u;
++		for (unsigned j = 0; j < kSwitcherWorstLimit; ++j) {
++			if (worstGap[j].us && worstGap[j].index == i) {
++				reason |= 2;
++			}
++			if (worstWriter[j].us && worstWriter[j].index == i) {
++				reason |= 4;
++			}
++		}
++		if (i == firstFailure || i == lastFailure) {
++			reason |= 8;
++		}
++		if (reason) {
++			const uint32_t us = previous && frame.drawn >= previous->drawn ?
++			    thorSwitcherDuration(frame.drawn - previous->drawn) : 0;
++			thorSwitcherReportFrame(frame, reason, previous ? previous->id : 0, us);
++			++printed;
++		}
++		if (frame.drawn) {
++			previous = &frame;
++		}
++	}
++	IOLog("PONG SWITCHER V157 END: attempts=%u details=%u cues=%u\n",
++	    gSwitcherFrameCount, printed, gSwitcherCueCount);
+ }
+ 
+ extern "C" int
+@@ -145,11 +365,11 @@
+ 	uint64_t quiet, window;
+ 	nanoseconds_to_absolutetime(950ull * NSEC_PER_MSEC, &quiet);
+ 	nanoseconds_to_absolutetime(8ull * NSEC_PER_SEC, &window);
+-	if (!user || user > now || now - user > quiet) {
++	if ((phase != 1 && phase != 2) || !user || user > now || now - user > quiet) {
+ 		return EINVAL;
+ 	}
+ 	lck_mtx_lock(&thor_switcher_trace_lock);
+-	if (gSwitcherTraceSealed) {
++	if (gSwitcherTraceSealed || (gSwitcherHardEnd && now >= gSwitcherHardEnd)) {
+ 		lck_mtx_unlock(&thor_switcher_trace_lock);
+ 		return 0;
+ 	}
+@@ -160,21 +380,27 @@
+ 			lck_mtx_unlock(&thor_switcher_trace_lock);
+ 			return ENOMEM;
+ 		}
++		gSwitcherTraceStart = now;
+ 		gSwitcherHardEnd = now + window;
+ 	}
+-	if (gSwitcherCueCount < sizeof(gSwitcherCues) / sizeof(gSwitcherCues[0])) {
++	if (gSwitcherCueCount < kSwitcherCueLimit) {
+ 		gSwitcherCues[gSwitcherCueCount++] = { user, now, phase };
++	} else {
++		++gSwitcherLostCues;
+ 	}
+ 	const uint64_t deadline = now + quiet < gSwitcherHardEnd ? now + quiet : gSwitcherHardEnd;
+-	__atomic_store_n(&gSwitcherTraceEnd, deadline, __ATOMIC_RELAXED);
+-	thread_call_enter_delayed(gSwitcherTraceCall, deadline);
++	if (deadline > __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED)) {
++		__atomic_store_n(&gSwitcherTraceEnd, deadline, __ATOMIC_RELAXED);
++		thread_call_enter_delayed(gSwitcherTraceCall, deadline);
++	}
+ 	lck_mtx_unlock(&thor_switcher_trace_lock);
+ 	return 0;
+ }
+ 
+ static void
+-thorSwitcherCapture(uint32_t swap, uint64_t enqueued, uint64_t dequeued,
+-    uint64_t ready, uint64_t shown, uint64_t drawn, uint64_t gpuWriter)
++thorSwitcherCapture(uint32_t swap, uint32_t surface, uint64_t enqueued, uint64_t dequeued,
++    uint64_t ready, uint64_t shown, uint64_t drawn, const MiniIOSurfaceReadTiming &timing,
++    bool gpuFrame)
+ {
+ 	const uint64_t now = drawn ? drawn : mach_absolute_time();
+ 	const uint64_t deadline = __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED);
+@@ -182,9 +408,14 @@
+ 		return;
+ 	}
+ 	lck_mtx_lock(&thor_switcher_trace_lock);
+-	if (!gSwitcherTraceSealed &&
+-	    gSwitcherFrameCount < sizeof(gSwitcherFrames) / sizeof(gSwitcherFrames[0])) {
+-		gSwitcherFrames[gSwitcherFrameCount++] = { enqueued, dequeued, ready, shown, drawn, gpuWriter, swap };
++	if (!gSwitcherTraceSealed) {
++		if (gSwitcherFrameCount < kSwitcherFrameLimit) {
++			gSwitcherFrames[gSwitcherFrameCount++] = {
++				enqueued, dequeued, ready, shown, drawn, timing, swap, surface, gpuFrame
++			};
++		} else {
++			++gSwitcherLostFrames;
++		}
+ 	}
+ 	lck_mtx_unlock(&thor_switcher_trace_lock);
+ }

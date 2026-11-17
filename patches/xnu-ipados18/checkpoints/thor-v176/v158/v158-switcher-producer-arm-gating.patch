@@ -1,0 +1,54 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+index bf4055d..e65ce3a 100644
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -129,13 +129,19 @@ thorSwitcherDuration(uint64_t ticks)
+ 	return us <= UINT32_MAX ? static_cast<uint32_t>(us) : UINT32_MAX;
+ }
+ 
+-/* The driver authenticates the submitting process. Only the quiet-window cue
+- * arms this bounded capture. Nothing logs or waits on the IOSurface path. */
++extern "C" bool
++thor_switcher_producer_active(uint64_t now)
++{
++	return now < __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED);
++}
++
++/* The driver accepts these records from backboardd. Only the quiet-window cue
++ * arms capture, and the IOSurface release never waits for telemetry. */
+ extern "C" void
+ thor_switcher_producer_record(const uint64_t *words)
+ {
+ 	const uint64_t now = mach_absolute_time();
+-	if (now >= __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED)) {
++	if (!thor_switcher_producer_active(now)) {
+ 		return;
+ 	}
+ 	ThorSwitcherProducer producer;
+diff --git a/iokit/Kernel/MiniIOSurface.cpp b/iokit/Kernel/MiniIOSurface.cpp
+index 1e7a4b5..3fd5516 100644
+--- a/iokit/Kernel/MiniIOSurface.cpp
++++ b/iokit/Kernel/MiniIOSurface.cpp
+@@ -44,6 +44,9 @@ extern "C" kern_return_t task_id_token_port_name_to_task(mach_port_name_t, task_
+ __XNU_INTERNAL(task_id_token_port_name_to_task);
+ /* vm_pageout.h supplies the prototype to C translation units. */
+ extern "C" kern_return_t mach_vm_pressure_level_monitor(boolean_t, unsigned int *);
++#if XNU_PONG_ADRENO_PLATFORM
++extern "C" bool thor_switcher_producer_active(uint64_t now);
++#endif
+ 
+ static_assert(sizeof(struct minisurf_plane) == 0x80, "plane layout");
+ static_assert(sizeof(struct minisurf_result) == 0x68, "result layout");
+@@ -2074,9 +2077,11 @@ IOReturn IOSurfaceRootUserClient::gpuHandoff(IOExternalMethodArguments *args)
+             --surface->gpuWriters;
+             if (!surface->gpuWriters && !surface->gpuFailed) {
+                 surface->lastGpuWriterRelease = mach_absolute_time();
+-                if (releaseReceipt) {
++#if XNU_PONG_ADRENO_PLATFORM
++                if (releaseReceipt && thor_switcher_producer_active(surface->lastGpuWriterRelease)) {
+                     *releaseReceipt = surface->lastGpuWriterRelease;
+                 }
++#endif
+             }
+             if(!--fGpuHolds[i].writers){fGpuHolds[i]={};surfaceUnhold(surface);}
+             IOLockWakeup(gSurfaceLock,surface,false);

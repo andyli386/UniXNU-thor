@@ -1,0 +1,91 @@
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -103,8 +103,28 @@
+ #define THOR_MODEM_DMA_SIZE (THOR_MODEM_METADATA_SIZE + THOR_MODEM_RMTFS_SIZE)
+ 
+ SECURITY_READ_ONLY_LATE(static uint64_t) thor_modem_dma_tail;
++SECURITY_READ_ONLY_LATE(static uint64_t) thor_modem_metadata_dma;
++SECURITY_READ_ONLY_LATE(static uint64_t) thor_modem_rmtfs_dma;
+ void thor_modem_reserve_boot_dma(boot_args *);
+ bool thor_modem_get_boot_dma_ranges(uint64_t ranges[4]);
++bool thor_modem_dma_lease(unsigned kind, uint64_t bytes, uint64_t *address);
++
++/* Publish only the exact leases accepted by the complete Thor boot validator.
++ * Kind 0 is PAS metadata, kind 1 is the RMTFS shared buffer. */
++bool
++thor_modem_dma_lease(unsigned kind, uint64_t bytes, uint64_t *address)
++{
++    if (address == NULL) {
++        return false;
++    }
++    *address = 0;
++    if (kind == 0 && bytes == THOR_MODEM_METADATA_SIZE) {
++        *address = thor_modem_metadata_dma;
++    } else if (kind == 1 && bytes == THOR_MODEM_RMTFS_SIZE) {
++        *address = thor_modem_rmtfs_dma;
++    }
++    return *address != 0;
++}
+ 
+ static bool
+ thor_modem_read_adt(DTEntry chosen, const char *name, void *result, size_t bytes, bool optional)
+@@ -340,6 +360,10 @@
+                 overlap |= 1u << i;
+             }
+         }
++    }
++    if (!invalid && !overlap && !(missing & 3)) {
++        thor_modem_metadata_dma = leases[0].base;
++        thor_modem_rmtfs_dma = leases[1].base;
+     }
+     if (invalid || overlap) {
+         printf("THOR MODEM V160: dma=rejected invalid_mask=0x%x overlap_mask=0x%x\n",
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -8330,17 +8330,13 @@
+ 
+ #if defined(PONG) && (DEVELOPMENT || DEBUG) && !SECURE_KERNEL && defined(XNU_OWNER_DATA_UFS) && XNU_OWNER_DATA_UFS
+ extern bool thor_modem_smem_admitted;
+-extern int pong_ufs_factory_nv(unsigned, uint64_t, void *, uint32_t, uint64_t *)
+-    __attribute__((weak_import));
++extern void pong_thor_rmtfs_preflight(void) __attribute__((weak_import));
+ 
+ static void
+ thor_rmtfs_nv_preflight(thread_call_param_t unused, thread_call_param_t handle)
+ {
+ 	(void)unused;
+-	uint64_t bytes = 0;
+-	const int error = pong_ufs_factory_nv(0, 0, NULL, 0, &bytes);
+-	printf("THOR RMTFS V161: live GPT metadata query status=%d slot0_bytes=%llu\n",
+-	    error, (unsigned long long)bytes);
++	pong_thor_rmtfs_preflight();
+ 	(void)thread_call_free((thread_call_t)handle);
+ }
+ 
+@@ -8350,13 +8346,13 @@
+ 	if (!thor_modem_smem_admitted) {
+ 		return;
+ 	}
+-	if (pong_ufs_factory_nv == NULL) {
+-		printf("THOR RMTFS V161: live GPT metadata query unavailable\n");
++	if (pong_thor_rmtfs_preflight == NULL) {
++		printf("THOR RMTFS V162: read-only preflight unavailable\n");
+ 		return;
+ 	}
+ 
+-	/* This size query transfers GPT metadata only. Keep the UFS
+-	 * transaction off the init task after the native Data mount. */
++	/* The read-only preflight shares the native UFS host. Keep its
++	 * bounded transfers off the init task after the Data mount. */
+ 	static bool scheduled;
+ 	if (__atomic_exchange_n(&scheduled, true, __ATOMIC_ACQ_REL)) {
+ 		return;
+@@ -8364,7 +8360,7 @@
+ 	thread_call_t call = thread_call_allocate_with_priority(thor_rmtfs_nv_preflight,
+ 	    NULL, THREAD_CALL_PRIORITY_LOW);
+ 	if (call == NULL) {
+-		printf("THOR RMTFS V161: live GPT metadata query allocation failed\n");
++		printf("THOR RMTFS V162: read-only preflight allocation failed\n");
+ 		return;
+ 	}
+ 	uint64_t deadline = 0;

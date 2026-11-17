@@ -1,0 +1,59 @@
+diff --git a/iokit/Kernel/IOStartIOKit.cpp b/iokit/Kernel/IOStartIOKit.cpp
+index 39e553d..9027e66 100644
+--- a/iokit/Kernel/IOStartIOKit.cpp
++++ b/iokit/Kernel/IOStartIOKit.cpp
+@@ -62,6 +62,11 @@ void IORecordProgressBackbuffer(void * buffer, size_t size, uint32_t theme);
+ 
+ extern void OSlibkernInit(void);
+ 
++#if defined(PONG)
++extern bool thor_modem_smem_admitted;
++extern void pong_thor_mss_probe(void) __attribute__((weak_import));
++#endif
++
+ void iokit_post_constructor_init(void);
+ 
+ SECURITY_READ_ONLY_LATE(static IOPlatformExpertDevice*) gRootNub;
+@@ -190,6 +195,16 @@ StartIOKitMatching(void)
+ 		panic("Failed to start IOService matching");
+ 	}
+ 
++#if defined(PONG)
++	if (thor_modem_smem_admitted) {
++		if (pong_thor_mss_probe) {
++			pong_thor_mss_probe();
++		} else {
++			IOLog("THOR MODEM V159: observation-only state=probe-unavailable\n");
++		}
++	}
++#endif
++
+ #if !NO_KEXTD
+ 	if (OSKext::iokitDaemonAvailable()) {
+ 		/* Add a busy count to keep the registry busy until the IOKit daemon has
+diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
+index eaf97be..373ef1c 100644
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -95,6 +95,10 @@
+ #include <arm64/pong_ramoops_console.h>
+ #endif
+ 
++#if defined(PONG)
++bool thor_modem_smem_admitted;
++#endif
++
+ extern void     patch_low_glo(void);
+ extern int      serial_init(void);
+ extern void sleep_token_buffer_init(void);
+@@ -673,6 +677,10 @@ arm_init(
+                                 modem[23] != 4 || modem[24] != 264 || modem[25] != cell[14]) {
+                                 printf("THOR MODEM V158: rejected ADT prerequisites\n");
+                             } else {
++                                /* Admit only Thor's fixed SMEM carveout and inbound edge.
++                                 * The late IOKit probe consumes this admission once. */
++                                thor_modem_smem_admitted = cell[4] == 0x80900000 &&
++                                    cell[5] == 0x200000 && cell[22] == 1 && cell[23] == 435;
+                                 printf("THOR MODEM V158: prereqs=fdt-verified crc=%08x hardware=unprobed\n",
+                                     modem[3]);
+                                 printf("THOR MODEM V158: mss=%x+%x mpss=%x+%x cma_request=%x align=%x rmtfs_request=%x\n",

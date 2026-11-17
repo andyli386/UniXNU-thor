@@ -1,0 +1,170 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+index 38bd350..bf4055d 100644
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -78,6 +78,7 @@ static constexpr uint32_t kDisplayReceiptLimit = 48;
+  * low-priority reporter emits an aggregate, compact cues and at most 12 frames. */
+ static constexpr unsigned kSwitcherFrameLimit = 1152;
+ static constexpr unsigned kSwitcherCueLimit = 96;
++static constexpr unsigned kSwitcherProducerLimit = 512;
+ static constexpr unsigned kSwitcherWorstLimit = 4;
+ static constexpr unsigned kSwitcherWindows = 8;
+ static constexpr unsigned kSwitcherCuesPerLine = 8;
+@@ -96,11 +97,19 @@ struct ThorSwitcherCue {
+ 	unsigned phase;
+ };
+ 
++struct ThorSwitcherProducer {
++	uint64_t surface, command, commit, writerBegin, submit, callback;
++	uint64_t syncDone, flushDone, releaseBegin, releaseEnd, flags, releaseTicks;
++};
++static_assert(sizeof(ThorSwitcherProducer) == 12 * sizeof(uint64_t), "producer trace ABI");
++
+ LCK_GRP_DECLARE(thor_switcher_trace_group, "thor-switcher-trace");
+ LCK_MTX_DECLARE(thor_switcher_trace_lock, &thor_switcher_trace_group);
+ static ThorSwitcherFrame gSwitcherFrames[kSwitcherFrameLimit];
+ static ThorSwitcherCue gSwitcherCues[kSwitcherCueLimit];
++static ThorSwitcherProducer gSwitcherProducers[kSwitcherProducerLimit];
+ static unsigned gSwitcherFrameCount, gSwitcherCueCount, gSwitcherLostFrames, gSwitcherLostCues;
++static unsigned gSwitcherProducerCount, gSwitcherProducerNext, gSwitcherLostProducers;
+ static uint64_t gSwitcherTraceStart, gSwitcherTraceEnd, gSwitcherHardEnd;
+ static bool gSwitcherTraceSealed;
+ static thread_call_t gSwitcherTraceCall;
+@@ -120,6 +129,64 @@ thorSwitcherDuration(uint64_t ticks)
+ 	return us <= UINT32_MAX ? static_cast<uint32_t>(us) : UINT32_MAX;
+ }
+ 
++/* The driver authenticates the submitting process. Only the quiet-window cue
++ * arms this bounded capture. Nothing logs or waits on the IOSurface path. */
++extern "C" void
++thor_switcher_producer_record(const uint64_t *words)
++{
++	const uint64_t now = mach_absolute_time();
++	if (now >= __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED)) {
++		return;
++	}
++	ThorSwitcherProducer producer;
++	memcpy(&producer, words, sizeof(producer));
++	if (!producer.surface || producer.surface > UINT32_MAX || !producer.command || producer.flags ||
++	    !producer.commit || producer.commit > producer.writerBegin || producer.writerBegin > producer.submit ||
++	    producer.submit > producer.callback || producer.callback > producer.syncDone ||
++	    producer.syncDone > producer.flushDone || producer.flushDone > producer.releaseBegin ||
++	    producer.releaseBegin > producer.releaseEnd || producer.releaseEnd > thorSwitcherMicros(now) ||
++	    !producer.releaseTicks || producer.releaseTicks > now) {
++		return;
++	}
++	const uint64_t releaseUs = thorSwitcherMicros(producer.releaseTicks);
++	if (releaseUs < producer.releaseBegin || releaseUs > producer.releaseEnd) {
++		return;
++	}
++	lck_mtx_lock(&thor_switcher_trace_lock);
++	if (!gSwitcherTraceSealed && producer.releaseTicks >= gSwitcherTraceStart) {
++		gSwitcherProducers[gSwitcherProducerNext] = producer;
++		gSwitcherProducerNext = (gSwitcherProducerNext + 1) % kSwitcherProducerLimit;
++		if (gSwitcherProducerCount < kSwitcherProducerLimit) {
++			++gSwitcherProducerCount;
++		} else {
++			++gSwitcherLostProducers;
++		}
++	}
++	lck_mtx_unlock(&thor_switcher_trace_lock);
++}
++
++static const ThorSwitcherProducer *
++thorSwitcherMatchProducer(const ThorSwitcherFrame &frame, bool &ambiguous)
++{
++	const auto &timing = frame.timing;
++	if (timing.baseWriterState != MiniIOSurfaceWriterState::Released ||
++	    timing.baseWritersAtLock != 1 || !timing.baseWriterRelease) {
++		return nullptr;
++	}
++	const ThorSwitcherProducer *match = nullptr;
++	for (unsigned i = 0; i < gSwitcherProducerCount; ++i) {
++		const ThorSwitcherProducer &producer = gSwitcherProducers[i];
++		if (producer.surface == frame.surface && producer.releaseTicks == timing.baseWriterRelease) {
++			if (match) {
++				ambiguous = true;
++				return nullptr;
++			}
++			match = &producer;
++		}
++	}
++	return match;
++}
++
+ struct ThorSwitcherMetric {
+ 	uint64_t total;
+ 	uint32_t count, max, overTwoPeriods;
+@@ -330,6 +397,7 @@ thorSwitcherReport(thread_call_param_t, thread_call_param_t)
+ 	}
+ 	previous = nullptr;
+ 	unsigned printed = 0;
++	unsigned selectedWriters = 0, matchedProducers = 0, ambiguousProducers = 0;
+ 	for (unsigned i = 0; i < gSwitcherFrameCount; ++i) {
+ 		const ThorSwitcherFrame &frame = gSwitcherFrames[i];
+ 		unsigned reason = (i == 0 || i + 1 == gSwitcherFrameCount) ? 1u : 0u;
+@@ -348,12 +416,31 @@ thorSwitcherReport(thread_call_param_t, thread_call_param_t)
+ 			const uint32_t us = previous && frame.drawn >= previous->drawn ?
+ 			    thorSwitcherDuration(frame.drawn - previous->drawn) : 0;
+ 			thorSwitcherReportFrame(frame, reason, previous ? previous->id : 0, us);
++			if (frame.timing.baseWriterState == MiniIOSurfaceWriterState::Released &&
++			    frame.timing.baseWritersAtLock == 1) {
++				++selectedWriters;
++				bool ambiguous = false;
++				const auto *producer = thorSwitcherMatchProducer(frame, ambiguous);
++				ambiguousProducers += ambiguous;
++				if (producer) {
++					++matchedProducers;
++					IOLog("PONG SWITCHER V158 PRODUCER: swap=%u sid=%u cmd=%llu t=%llu/%llu/%llu/%llu/%llu/%llu/%llu/%llu\n",
++					    frame.id, frame.surface, static_cast<unsigned long long>(producer->command),
++					    (unsigned long long)producer->commit, (unsigned long long)producer->writerBegin,
++					    (unsigned long long)producer->submit, (unsigned long long)producer->callback,
++					    (unsigned long long)producer->syncDone, (unsigned long long)producer->flushDone,
++					    (unsigned long long)producer->releaseBegin, (unsigned long long)producer->releaseEnd);
++				}
++			}
+ 			++printed;
+ 		}
+ 		if (frame.drawn) {
+ 			previous = &frame;
+ 		}
+ 	}
++	IOLog("PONG SWITCHER V158 PRODUCER SUMMARY: receipts=%u overwritten=%u selected=%u matched=%u ambiguous=%u "
++	    "t=commit/writer_begin/submit/callback/sync_done/flush_done/release_begin/release_end unit=us\n",
++	    gSwitcherProducerCount, gSwitcherLostProducers, selectedWriters, matchedProducers, ambiguousProducers);
+ 	IOLog("PONG SWITCHER V157 END: attempts=%u details=%u cues=%u\n",
+ 	    gSwitcherFrameCount, printed, gSwitcherCueCount);
+ }
+diff --git a/iokit/Kernel/MiniIOSurface.cpp b/iokit/Kernel/MiniIOSurface.cpp
+index 74c935b..1e7a4b5 100644
+--- a/iokit/Kernel/MiniIOSurface.cpp
++++ b/iokit/Kernel/MiniIOSurface.cpp
+@@ -2027,9 +2027,16 @@ void IOSurfaceRootUserClient::abandonGpuHolds(void)
+ }
+ IOReturn IOSurfaceRootUserClient::gpuHandoff(IOExternalMethodArguments *args)
+ {
+-    if(args->scalarInputCount!=3 || args->scalarInput[0]>UINT32_MAX || args->scalarOutputCount ||
++    if(args->scalarInputCount!=3 || !args->scalarInput || args->scalarInput[0]>UINT32_MAX ||
+        args->structureInputSize || args->structureOutputSize ||
+-       args->scalarInput[1]>1 || args->scalarInput[2]>1)return kIOReturnBadArgument;
++       args->scalarInput[1]>1 || args->scalarInput[2]>1 || args->scalarOutputCount>1 ||
++       (args->scalarOutputCount && (!args->scalarInput[1] || !args->scalarOutput)))return kIOReturnBadArgument;
++    /* The optional END receipt identifies exactly this authorized final
++     * release. Existing clients request zero outputs and retain their ABI. */
++    uint64_t *releaseReceipt = args->scalarOutputCount ? args->scalarOutput : nullptr;
++    if (releaseReceipt) {
++        *releaseReceipt = 0;
++    }
+     OSObject *object=nullptr;
+     IOReturn result=copyObjectForPortNameInTask(fTask,(mach_port_name_t)args->scalarInput[0],&object);
+     auto *right=OSDynamicCast(IOSurfaceSendRight,object);
+@@ -2067,6 +2074,9 @@ IOReturn IOSurfaceRootUserClient::gpuHandoff(IOExternalMethodArguments *args)
+             --surface->gpuWriters;
+             if (!surface->gpuWriters && !surface->gpuFailed) {
+                 surface->lastGpuWriterRelease = mach_absolute_time();
++                if (releaseReceipt) {
++                    *releaseReceipt = surface->lastGpuWriterRelease;
++                }
+             }
+             if(!--fGpuHolds[i].writers){fGpuHolds[i]={};surfaceUnhold(surface);}
+             IOLockWakeup(gSurfaceLock,surface,false);

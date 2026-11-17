@@ -1,0 +1,77 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -141,6 +141,10 @@
+ #include <kern/ipc_kobject.h>
+ #include <kern/task.h>
+ #include <kern/thread.h>
++#if defined(PONG) && (DEVELOPMENT || DEBUG) && !SECURE_KERNEL && defined(XNU_OWNER_DATA_UFS) && XNU_OWNER_DATA_UFS
++#include <kern/clock.h>
++#include <kern/thread_call.h>
++#endif
+ #include <kern/coalition.h>
+ #include <kern/policy_internal.h>
+ #include <kern/kalloc.h>
+@@ -8323,6 +8327,51 @@
+ #endif
+ 	"/sbin/launchd",
+ };
++
++#if defined(PONG) && (DEVELOPMENT || DEBUG) && !SECURE_KERNEL && defined(XNU_OWNER_DATA_UFS) && XNU_OWNER_DATA_UFS
++extern bool thor_modem_smem_admitted;
++extern int pong_ufs_factory_nv(unsigned, uint64_t, void *, uint32_t, uint64_t *)
++    __attribute__((weak_import));
++
++static void
++thor_rmtfs_nv_preflight(thread_call_param_t unused, thread_call_param_t handle)
++{
++	(void)unused;
++	uint64_t bytes = 0;
++	const int error = pong_ufs_factory_nv(0, 0, NULL, 0, &bytes);
++	printf("THOR RMTFS V161: live GPT metadata query status=%d slot0_bytes=%llu\n",
++	    error, (unsigned long long)bytes);
++	(void)thread_call_free((thread_call_t)handle);
++}
++
++static void
++thor_rmtfs_nv_schedule(void)
++{
++	if (!thor_modem_smem_admitted) {
++		return;
++	}
++	if (pong_ufs_factory_nv == NULL) {
++		printf("THOR RMTFS V161: live GPT metadata query unavailable\n");
++		return;
++	}
++
++	/* This size query transfers GPT metadata only. Keep the UFS
++	 * transaction off the init task after the native Data mount. */
++	static bool scheduled;
++	if (__atomic_exchange_n(&scheduled, true, __ATOMIC_ACQ_REL)) {
++		return;
++	}
++	thread_call_t call = thread_call_allocate_with_priority(thor_rmtfs_nv_preflight,
++	    NULL, THREAD_CALL_PRIORITY_LOW);
++	if (call == NULL) {
++		printf("THOR RMTFS V161: live GPT metadata query allocation failed\n");
++		return;
++	}
++	uint64_t deadline = 0;
++	clock_interval_to_deadline(2, NSEC_PER_SEC, &deadline);
++	(void)thread_call_enter1_delayed(call, (thread_call_param_t)call, deadline);
++}
++#endif
+ 
+ /*
+  * load_init_program
+@@ -8399,6 +8448,11 @@
+ 	else printf("PONG APFS: Data mount PASS path=/private/var device=%s rw=%d bytes=%llu\n",
+ 	    native_owner_data_device_path, !native_owner_data_readonly,
+ 	    (unsigned long long)native_owner_data_seed_size);
++#if defined(PONG) && (DEVELOPMENT || DEBUG) && !SECURE_KERNEL && defined(XNU_OWNER_DATA_UFS) && XNU_OWNER_DATA_UFS
++	if (!data_error) {
++		thor_rmtfs_nv_schedule();
++	}
++#endif
+ #if CONFIG_PERSONAS && defined(PONG) && (DEVELOPMENT || DEBUG) && !SECURE_KERNEL
+ 	if (!data_error) {
+ 		int persona_error = thor_restore_personal_persona(p);

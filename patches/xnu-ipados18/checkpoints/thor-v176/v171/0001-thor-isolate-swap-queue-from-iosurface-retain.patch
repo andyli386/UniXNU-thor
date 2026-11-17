@@ -1,0 +1,40 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -3277,6 +3277,14 @@
+ 	if (gTouchLat) {
+ 		IOLog("tl: s %u at %llu\n", swapWord(swap, SWAP_ID), micros(now));
+ 	}
++	/* Retaining a surface may wait behind unrelated IOSurface teardown.
++	 * Keep that wait out of the queue lock so the presenter can retire
++	 * queued work and other callers can observe its progress. */
++	MiniIOSurface *surfaces[SWAP_LAYERS];
++	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
++		const uint32_t sid = swapWord(swap, SWAP_SURFACE(layer));
++		surfaces[layer] = sid ? MiniIOSurfaceCopy(sid) : nullptr;
++	}
+ 	IOLockLock(fSwapLock);
+ 	fStatSwapsLate += fSwapTime != 0 && now - fSwapTime > period && now - fSwapTime < pause;
+ 	fSwapTime = now;
+@@ -3286,6 +3294,9 @@
+ 		    fSwapsWaiting >= swapQueue()) {
+ 			fStatLost++;                    /* (the GPU has stopped answering: the frame before is waiting for it) */
+ 			IOLockUnlock(fSwapLock);
++			for (auto *surface : surfaces) {
++				MiniIOSurfaceDrop(surface);
++			}
+ 			return kIOReturnTimeout;
+ 		}
+ 	}
+@@ -3294,11 +3305,7 @@
+ 	proc_selfname(fSwapWho[slot], sizeof(fSwapWho[slot]));
+ 	fSwapWhoPid[slot] = proc_selfpid();
+ 	memcpy(fSwap[slot], swap, SWAP_SIZE);
+-	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+-		uint32_t sid = swapWord(swap, SWAP_SURFACE(layer));
+-
+-		fSwapSurfaces[slot][layer] = sid != 0 ? MiniIOSurfaceCopy(sid) : NULL;
+-	}
++	memcpy(fSwapSurfaces[slot], surfaces, sizeof(surfaces));
+ 	fSwapEnqueued[slot] = mach_absolute_time();
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	if (fThorRetainedCadence && fSwapSurfaces[slot][0] && strcmp(fSwapWho[slot], "backboardd") == 0) {

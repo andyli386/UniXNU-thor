@@ -1,0 +1,42 @@
+diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -652,6 +652,38 @@
+                         cell[12], cell[13], cell[14], cell[15], cell[16], cell[17],
+                         cell[18], cell[19], cell[20], cell[21], cell[22], cell[23],
+                         cell[24], cell[25], cell[26], cell[27]);
++
++                    /* Host-validated FDT metadata only. No modem state is read. */
++                    if (SecureDTGetProperty(chosen, "thor-modem-prereqs", &property, &size) == kSuccess) {
++                        uint32_t modem[26];
++                        if (property == NULL || size != sizeof(modem)) {
++                            printf("THOR MODEM V158: rejected ADT size=%u\n", size);
++                        } else {
++                            memcpy(modem, property, sizeof(modem));
++                            if (modem[0] != 0x384d4854 || modem[1] != 1 || modem[2] != 26 ||
++                                modem[3] != cell[2] || invalid != 0 || overlap != 0 ||
++                                modem[4] != cell[12] || modem[5] != cell[13] ||
++                                modem[6] != cell[10] || modem[7] != cell[11] ||
++                                modem[8] != cell[4] || modem[9] != cell[5] ||
++                                modem[10] != 0x2000000 || modem[11] != 0x400000 ||
++                                modem[12] != cell[25] || modem[13] != cell[22] ||
++                                modem[14] != 0 || modem[15] != 2 || modem[16] != 1 ||
++                                modem[17] != 3 || modem[18] != 7 || modem[19] != 0 ||
++                                modem[20] != 2 || modem[21] != 0 || modem[22] != 2 ||
++                                modem[23] != 4 || modem[24] != 264 || modem[25] != cell[14]) {
++                                printf("THOR MODEM V158: rejected ADT prerequisites\n");
++                            } else {
++                                printf("THOR MODEM V158: prereqs=fdt-verified crc=%08x hardware=unprobed\n",
++                                    modem[3]);
++                                printf("THOR MODEM V158: mss=%x+%x mpss=%x+%x cma_request=%x align=%x rmtfs_request=%x\n",
++                                    modem[4], modem[5], modem[6], modem[7], modem[10], modem[11], modem[12]);
++                                printf("THOR MODEM V158: smp2p_ready_bit=%u stop_bit=%u ipcc_glink=%u/%u ipcc_smp2p=%u/%u\n",
++                                    modem[16], modem[19], modem[20], modem[21], modem[20], modem[22]);
++                                printf("THOR MODEM V158: downstream_mss_pas=%u downstream_firmware=modem.mdt firmware=unverified\n",
++                                    modem[23]);
++                            }
++                        }
++                    }
+                 }
+             }
+         }

@@ -1,0 +1,129 @@
+diff --git a/iokit/Kernel/MiniIOSurface.h b/iokit/Kernel/MiniIOSurface.h
+--- a/iokit/Kernel/MiniIOSurface.h
++++ b/iokit/Kernel/MiniIOSurface.h
+@@ -124,6 +124,7 @@
+ 	bool                            gpuFailed;
+ 	bool                            transferable;
+ 	bool                            ownershipAttempted;
++	uint8_t                         gpuPoisonReports; /* protected by gSurfaceLock */
+ 	uint32_t                        drawn;          /* nonzero means a submitted GPU fence; CPU surfaces use zero */
+ 	struct minisurf_result          info;           /* addresses not filled in */
+ 	struct minisurf_plane           planes[MINISURF_MAX_PLANES];
+diff --git a/iokit/Kernel/MiniIOSurface.cpp b/iokit/Kernel/MiniIOSurface.cpp
+--- a/iokit/Kernel/MiniIOSurface.cpp
++++ b/iokit/Kernel/MiniIOSurface.cpp
+@@ -714,6 +714,7 @@
+ 		*error = kIOReturnNoMemory;
+ 		return NULL;
+ 	}
++	s->gpuPoisonReports = 0;
+ 	info = &s->info;
+ 
+ 	planeInfo = OSDynamicCast(OSArray, props->getObject("IOSurfacePlaneInfo"));
+@@ -2016,11 +2017,39 @@
+ 	return __atomic_fetch_add(&count, 1, __ATOMIC_RELAXED) < 24;
+ }
+ 
++/* Separate failure budgets from ordinary transient display waits.
++ * Call with gSurfaceLock held. The retry flag is local to this surface. */
++enum GpuPoisonReport : uint8_t {
++    kGpuPoisonWriterRetry = 1,
++    kGpuPoisonDisplayRetry = 2,
++};
++
++static bool
++logGpuPoisonReceipt(unsigned &count)
++{
++    if (count >= 24) {
++        return false;
++    }
++    ++count;
++    return true;
++}
++
++static bool
++logGpuPoisonRetry(MiniIOSurface *surface, GpuPoisonReport flag, unsigned &count)
++{
++    if (surface->gpuPoisonReports & flag) {
++        return false;
++    }
++    surface->gpuPoisonReports |= flag;
++    return logGpuPoisonReceipt(count);
++}
++
+ void IOSurfaceRootUserClient::abandonGpuHolds(void)
+ {
++    static unsigned poisonCloseReceipts;
+     for(auto &hold:fGpuHolds)if(hold.surface) {
+         auto *surface=hold.surface;
+-        if (!surface->gpuFailed && logGpuSurfaceReceipt()) {
++        if (!surface->gpuFailed && logGpuPoisonReceipt(poisonCloseReceipts)) {
+             IOLog("PONG IOSURFACE: sid=%u poison=producer-close writers=%u abandoned=%u\n",
+                 surface->sid, surface->gpuWriters, hold.writers);
+         }
+@@ -2045,10 +2074,17 @@
+     auto *right=OSDynamicCast(IOSurfaceSendRight,object);
+     if(result || !right || !right->surface){OSSafeReleaseNULL(object);return kIOReturnNotPermitted;}
+     auto *surface=right->surface;
++    static unsigned poisonEndReceipts, poisonWriterRetryReceipts;
++    const char *poisonAction = nullptr;
+     IOLockLock(gSurfaceLock);
+     if(args->scalarInput[1]==0) {
+         if(surface->displayReaders)result=kIOReturnBusy;
+-        if(!result && surface->gpuFailed)result=kIOReturnNotReady;
++        if (!result && surface->gpuFailed) {
++            result = kIOReturnNotReady;
++            if (logGpuPoisonRetry(surface, kGpuPoisonWriterRetry, poisonWriterRetryReceipts)) {
++                poisonAction = "producer-begin-blocked";
++            }
++        }
+         if(!result) {
+             unsigned slot=256,empty=256;
+             for(unsigned i=0;i<256;i++) {
+@@ -2068,9 +2104,8 @@
+         if(i==256 || !fGpuHolds[i].writers)result=kIOReturnBadArgument;
+         else {
+             if (args->scalarInput[2]) {
+-                if (!surface->gpuFailed && logGpuSurfaceReceipt()) {
+-                    IOLog("PONG IOSURFACE: sid=%u poison=producer-end pid=%d writers=%u\n",
+-                        surface->sid, proc_selfpid(), surface->gpuWriters);
++                if (!surface->gpuFailed && logGpuPoisonReceipt(poisonEndReceipts)) {
++                    poisonAction = "producer-end";
+                 }
+                 surface->gpuFailed = true;
+             }
+@@ -2087,7 +2122,18 @@
+             IOLockWakeup(gSurfaceLock,surface,false);
+         }
+     }
+-    IOLockUnlock(gSurfaceLock);object->release();return result;
++    const uint32_t sid = poisonAction ? surface->sid : 0;
++    const uint32_t writers = poisonAction ? surface->gpuWriters : 0;
++    const uint64_t receiptAt = poisonAction ? mach_absolute_time() : 0;
++    IOLockUnlock(gSurfaceLock);
++    if (poisonAction) {
++        uint64_t nanos;
++        absolutetime_to_nanoseconds(receiptAt, &nanos);
++        IOLog("PONG IOSURFACE V160: at_us=%llu sid=%u poison=%s pid=%d writers=%u result=0x%x\n",
++            nanos / NSEC_PER_USEC, sid, poisonAction, proc_selfpid(), writers, result);
++    }
++    object->release();
++    return result;
+ }
+ 
+ IOReturn
+@@ -2548,9 +2594,12 @@
+ 			}
+ 		}
+ 	}
+-	const bool logFailure = !ready && logGpuSurfaceReceipt();
++	static unsigned poisonDisplayRetryReceipts;
++	const bool poison = surface->gpuFailed, drawn = surface->drawn;
++	const bool logFailure = !ready && (poison ?
++	    logGpuPoisonRetry(surface, kGpuPoisonDisplayRetry, poisonDisplayRetryReceipts) :
++	    logGpuSurfaceReceipt());
+ 	const uint32_t writers = surface->gpuWriters, readers = surface->displayReaders;
+-	const bool poison = surface->gpuFailed, drawn = surface->drawn;
+ 	IOLockUnlock(gSurfaceLock);
+ 	if (logFailure) {
+ 		uint64_t nanos;

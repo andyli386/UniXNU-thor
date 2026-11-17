@@ -1,0 +1,20 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -8348,12 +8348,16 @@
+ #if defined(PONG) && (DEVELOPMENT || DEBUG) && !SECURE_KERNEL && defined(XNU_OWNER_DATA_UFS) && XNU_OWNER_DATA_UFS
+ extern bool thor_modem_smem_admitted;
+ extern void pong_thor_rmtfs_preflight(void) __attribute__((weak_import));
++extern void pong_thor_modem_fw_preflight(void) __attribute__((weak_import));
+ 
+ static void
+ thor_rmtfs_nv_preflight(thread_call_param_t unused, thread_call_param_t handle)
+ {
+ 	(void)unused;
+ 	pong_thor_rmtfs_preflight();
++	if (pong_thor_modem_fw_preflight != NULL) {
++		pong_thor_modem_fw_preflight();
++	}
+ 	(void)thread_call_free((thread_call_t)handle);
+ }
+ 

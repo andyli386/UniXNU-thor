@@ -1,0 +1,45 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -2702,7 +2702,12 @@
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	const bool desktop = who && strcmp(who, "backboardd") == 0;
+ 	const uint64_t powerEpoch = __atomic_load_n(&fPowerRequestEpoch, __ATOMIC_ACQUIRE);
+-	pongDisplayTrace(20, swapID, 1, swapWord(swap, SWAP_SURFACE(0)));
++	const uint32_t baseSurface = swapWord(swap, SWAP_SURFACE(0));
++	const bool traceBaseWriter = desktop && fThorRetainedCadence && surfaces[0] &&
++	    __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED) > dequeued;
++	pongDisplayTrace(20, swapID, 1, baseSurface);
++#else
++	const bool traceBaseWriter = false;
+ #endif
+     struct Readers {
+         MiniIOSurface *held[SWAP_LAYERS]={};
+@@ -2726,7 +2731,8 @@
+ 		if (surfaces[layer] == NULL) {
+ 			continue;
+ 		}
+-		if (!MiniIOSurfaceDrawn(surfaces[layer], surfaceDeadline, swapID, timing)) {
++		if (!MiniIOSurfaceDrawn(surfaces[layer], surfaceDeadline, swapID, timing,
++		    traceBaseWriter && layer == 0)) {
+ 			if (timing) {
+ 				fReadiness.notReady++;
+ 			}
+@@ -2735,7 +2741,7 @@
+ #if XNU_PONG_ADRENO_PLATFORM
+ 			pongDisplayTrace(22, swapID, 3, swapWord(swap, SWAP_SURFACE(layer)), micros(mach_absolute_time() - began));
+ 			if (desktop && fThorRetainedCadence && surfaces[0]) {
+-				thorSwitcherCapture(swapID, enqueued, dequeued, 0, 0, 0, readTiming.writerTicks);
++				thorSwitcherCapture(swapID, baseSurface, enqueued, dequeued, 0, 0, 0, readTiming, false);
+ 			}
+ 			/* Arm once per completed desktop GPU frame, never per retry. */
+ 			if (desktop && fLastDesktopGpuFrame && !fGpuClearDeadline &&
+@@ -2947,7 +2953,7 @@
+ 	fLastWriteback = drawn;
+ 	if (fThorRetainedCadence && desktop && surfaces[0]) {
+ 		__atomic_fetch_add(&gThorFrameWritebacks, 1, __ATOMIC_RELAXED);
+-		thorSwitcherCapture(swapID, enqueued, dequeued, ready, shown, drawn, readTiming.writerTicks);
++		thorSwitcherCapture(swapID, baseSurface, enqueued, dequeued, ready, shown, drawn, readTiming, gpuFrame);
+ 	}
+ 	const uint64_t sampledTouch = interaction;
+ 	const bool traceWindow = drawn <= fInteractionTraceUntil;

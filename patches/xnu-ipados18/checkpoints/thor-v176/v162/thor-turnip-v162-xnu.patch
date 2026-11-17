@@ -1,0 +1,37 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -6286,6 +6286,9 @@
+ static unsigned thor_metal_pool_tried;
+ #define THOR_METAL_POOL_DIR "/private/var/" THOR_METAL_POOL_NAME
+ #define THOR_METAL_POOL_LIBRARY THOR_METAL_POOL_DIR "/PongMetalBridge.dylib"
++#ifdef THOR_TURNIP_V162_PAYLOAD_BYTES
++#define THOR_TURNIP_V162_LIBRARY THOR_METAL_POOL_DIR "/libvulkan_freedreno.dylib"
++#endif
+ 
+ static void
+ thor_stage_metal_pool_trial(proc_t p)
+@@ -6309,10 +6312,24 @@
+ 		error = thor_stage_data_payload(p, THOR_METAL_POOL_DIR, THOR_METAL_POOL_LIBRARY,
+ 		    thor_metal_pool_payload, THOR_METAL_POOL_PAYLOAD_BYTES, true);
+ 	}
++#ifdef THOR_TURNIP_V162_PAYLOAD_BYTES
++	/* Publish the library directory only after both signed images are verified. */
++	if (!error) {
++		error = thor_stage_data_payload(p, THOR_METAL_POOL_DIR, THOR_TURNIP_V162_LIBRARY,
++		    thor_turnip_v162_payload, THOR_TURNIP_V162_PAYLOAD_BYTES, true);
++	}
++	if (error) {
++		printf("THOR TURNIP V162: pair stage failed error=%d; stock lookup preserved\n", error);
++		return;
++	}
++	printf("THOR TURNIP V162: staged %s bytes=%u\n",
++	    THOR_TURNIP_V162_LIBRARY, THOR_TURNIP_V162_PAYLOAD_BYTES);
++#else
+ 	if (error) {
+ 		printf("THOR METAL POOL: stage failed error=%d; stock bridge retained\n", error);
+ 		return;
+ 	}
++#endif
+ 	__atomic_store_n(&thor_metal_pool_ready, 1, __ATOMIC_RELEASE);
+ 	printf("THOR METAL POOL: staged %s bytes=%u\n",
+ 	    THOR_METAL_POOL_LIBRARY, THOR_METAL_POOL_PAYLOAD_BYTES);

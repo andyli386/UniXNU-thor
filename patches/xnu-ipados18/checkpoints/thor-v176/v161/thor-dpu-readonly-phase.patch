@@ -1,0 +1,229 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -969,11 +969,11 @@
+ }
+ 
+ static bool
+-thorDpuClocksReady(const ThorDpuMappings &map)
++thorDpuClocksReady(const ThorDpuMappings &map, bool report = true)
+ {
+ 	const uint32_t gcc = thorDpuRead(map.gcc + (kThorGccDispAhb & 0xfff));
+ 	if (!thorDpuClockRunning(gcc)) {
+-		IOLog("THOR DPU PROBE: skip GCC DISP AHB cbcr=%#x\n", gcc);
++		if (report) IOLog("THOR DPU PROBE: skip GCC DISP AHB cbcr=%#x\n", gcc);
+ 		return false;
+ 	}
+ 	/* The exposed DISPCC range begins at its MDP/AHB/GDSC register page. */
+@@ -981,7 +981,7 @@
+ 	const uint32_t ahb = thorDpuRead(map.clocks + kThorDispCcAhb - 0x8000);
+ 	const uint32_t mdp = thorDpuRead(map.clocks + kThorDispCcMdp - 0x8000);
+ 	if ((gdsc & 0x80000001u) != 0x80000000u || !thorDpuClockRunning(ahb) || !thorDpuClockRunning(mdp)) {
+-		IOLog("THOR DPU PROBE: skip DISPCC gdsc=%#x ahb=%#x mdp=%#x\n", gdsc, ahb, mdp);
++		if (report) IOLog("THOR DPU PROBE: skip DISPCC gdsc=%#x ahb=%#x mdp=%#x\n", gdsc, ahb, mdp);
+ 		return false;
+ 	}
+ 	return true;
+@@ -994,9 +994,9 @@
+ static constexpr uint32_t kThorRefreshEachTe = 0x80000001;
+ 
+ static bool
+-thorDpuRefreshRouteMatches(const ThorDpuMappings &map, uint64_t framebuffer)
+-{
+-	if (framebuffer != 0xb8000000 || !thorDpuClocksReady(map)) return false;
++thorDpuRefreshRouteMatches(const ThorDpuMappings &map, uint64_t framebuffer, bool report = true)
++{
++	if (framebuffer != 0xb8000000 || !thorDpuClocksReady(map, report)) return false;
+ 
+ 	const vm_offset_t ctl = map.mdss + 0x16000;
+ 	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
+@@ -1005,7 +1005,7 @@
+ 	    thorDpuRead(ctl + 0x14) != 0xf0020000 ||
+ 	    thorDpuRead(ctl + 0x18) != 0 ||
+ 	    thorDpuRead(intf + kThorIntfTearCheck) != 1) {
+-		thorDpuMarker("THOR DPU REFRESH: skip unexpected CTL0 or INTF1 route\n");
++		if (report) thorDpuMarker("THOR DPU REFRESH: skip unexpected CTL0 or INTF1 route\n");
+ 		return false;
+ 	}
+ 	for (unsigned i = 0; i < 2; ++i) {
+@@ -1015,7 +1015,7 @@
+ 		    thorDpuRead(pipe + 0x0c) != 0x0c8002d0 ||
+ 		    thorDpuRead(pipe + 0x24) != 0x1680 ||
+ 		    thorDpuRead(pipe + 0x30) != 0x237ff) {
+-			thorDpuMarker("THOR DPU REFRESH: skip unexpected VIG0/VIG1 framebuffer\n");
++			if (report) thorDpuMarker("THOR DPU REFRESH: skip unexpected VIG0/VIG1 framebuffer\n");
+ 			return false;
+ 		}
+ 	}
+@@ -1583,10 +1583,78 @@
+ 	    "FIFO 64 bytes, command DMA not qualified; no commands sent\n");
+ }
+ 
++struct ThorDpuPhaseAudit {
++	/* The probe owns the mappings. It publishes them to the presenter only
++	 * while the existing interaction window is armed, under fLock. */
++	static constexpr unsigned Limit = 12;
++	struct Phase {
++		uint32_t frame, read, writeLine;
++	};
++	struct Sample {
++		uint64_t start, finish;
++		uint32_t swap;
++		Phase before, after;
++	};
++	const ThorDpuMappings *map;
++	uint64_t framebuffer, next;
++	unsigned count, missed;
++	Sample samples[Limit];
++
++	bool readPhase(Phase &phase) const {
++		if (!thorDpuRefreshRouteMatches(*map, framebuffer, false)) return false;
++		const vm_offset_t intf = map->mdss + kThorIntfOffset[0];
++		if (thorDpuRead(intf + kThorIntfAutorefresh) != kThorRefreshEachTe) return false;
++		/* The TE read pointer packs frame and line into one word. The
++		 * write pointer is separate. Keep both when the outer frame agrees. */
++		phase.frame = thorDpuRead(intf + kThorIntfFrameCount);
++		phase.read = thorDpuRead(intf + 0x298);
++		phase.writeLine = thorDpuRead(intf + 0x2b0) & 0xffff;
++		return phase.frame == thorDpuRead(intf + kThorIntfFrameCount);
++	}
++
++	bool begin(uint32_t swap) {
++		if (!map || count + missed >= Limit || mach_absolute_time() < next) return false;
++		clock_interval_to_deadline(40, kMillisecondScale, &next);
++		Sample &sample = samples[count];
++		if (!readPhase(sample.before)) {
++			++missed;
++			return false;
++		}
++		sample.swap = swap;
++		sample.start = mach_absolute_time();
++		return true;
++	}
++
++	void end(bool samePower) {
++		Sample &sample = samples[count];
++		sample.finish = mach_absolute_time();
++		if (samePower && readPhase(sample.after)) ++count;
++		else ++missed;
++	}
++
++	void report(unsigned window) const {
++		for (unsigned i = 0; i < count; ++i) {
++			const Sample &sample = samples[i];
++			uint64_t startNs, copyNs;
++			absolutetime_to_nanoseconds(sample.start, &startNs);
++			absolutetime_to_nanoseconds(sample.finish - sample.start, &copyNs);
++			IOLog("THOR DPU PHASE: window=%u swap=%u start_us=%llu copy_us=%llu "
++			    "intf=%u/%u te_frame=%u/%u te_line=%u/%u write_line=%u/%u\n",
++			    window, sample.swap, startNs / 1000, copyNs / 1000,
++			    sample.before.frame, sample.after.frame,
++			    sample.before.read >> 16, sample.after.read >> 16,
++			    sample.before.read & 0xffff, sample.after.read & 0xffff,
++			    sample.before.writeLine, sample.after.writeLine);
++		}
++		IOLog("THOR DPU PHASE: window=%u samples=%u rejected=%u\n", window, count, missed);
++	}
++};
++
+ /* Sample hardware during real interaction as well as at startup. The worker
+  * sleeps outside the presenter and reads only the already-qualified route. */
+ static void
+-thorDpuInteractionAudit(const ThorDpuMappings &map, uint64_t framebuffer)
++thorDpuInteractionAudit(const ThorDpuMappings &map, uint64_t framebuffer,
++    IOLock *lock, ThorDpuPhaseAudit *phase)
+ {
+ 	uint32_t enabled = 1;
+ 	(void) PE_parse_boot_argn("thor_dpu_interaction", &enabled, sizeof(enabled));
+@@ -1614,7 +1682,21 @@
+ 		const uint64_t enqueues = __atomic_load_n(&gThorFrameEnqueues, __ATOMIC_RELAXED);
+ 		const uint64_t writebacks = __atomic_load_n(&gThorFrameWritebacks, __ATOMIC_RELAXED);
+ 		const uint64_t start = mach_absolute_time();
++		const bool measurePhase = phase && configStart == kThorRefreshEachTe;
++		if (measurePhase) {
++			IOLockLock(lock);
++			phase->framebuffer = framebuffer;
++			phase->count = phase->missed = 0;
++			phase->next = 0;
++			phase->map = &map;
++			IOLockUnlock(lock);
++		}
+ 		IOSleep(750);
++		if (measurePhase) {
++			IOLockLock(lock);
++			phase->map = nullptr;
++			IOLockUnlock(lock);
++		}
+ 		if (!thorDpuRefreshRouteMatches(map, framebuffer)) {
+ 			IOLog("THOR DPU INTERACTION: sample=%u skip route or clocks changed\n", samples);
+ 			continue;
+@@ -1632,6 +1714,7 @@
+ 		    "frames=%u delta=%u enqueued=%llu written=%llu auto_before=%#x auto_after=%#x\n",
+ 		    samples, touchNs / 1000, startNs / 1000, elapsedNs / 1000,
+ 		    countEnd, countEnd - countStart, enqueueDelta, writebackDelta, configStart, configEnd);
++		if (measurePhase) phase->report(samples);
+ 	}
+ }
+ 
+@@ -1913,7 +1996,7 @@
+ }
+ 
+ static void
+-thorDpuProbe(uint64_t framebuffer, const uint8_t *source, IOLock *lock)
++thorDpuProbe(uint64_t framebuffer, const uint8_t *source, IOLock *lock, ThorDpuPhaseAudit *phase)
+ {
+ 	ThorDpuMappings map = {};
+ 	map.gcc = io_map(kThorGccDispAhb & ~0xffful, 0x1000, VM_WIMG_IO, VM_PROT_READ, true);
+@@ -2025,7 +2108,7 @@
+ 	uint32_t trial = 1;
+ 	(void)PE_parse_boot_argn("thor_flip_trial", &trial, sizeof(trial));
+ 	if (trial && panel120 && source) thorDpuScratchTrial(map, framebuffer, source, lock);
+-	thorDpuInteractionAudit(map, framebuffer);
++	thorDpuInteractionAudit(map, framebuffer, lock, panel120 && source ? phase : nullptr);
+ }
+ 
+ #endif
+@@ -2301,6 +2384,7 @@
+ 	bool            fGpuOnly;              /* explicit bring-up policy, never the default */
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	bool            fThorDpuProbePending;
++	ThorDpuPhaseAudit fThorDpuPhase = {};
+ 	bool            fGpuColorReceipt;
+ 	bool            fThorRetainedCadence;
+ 	bool            fThorAreaScaling;
+@@ -3238,7 +3322,7 @@
+ {
+ 	auto *fb = static_cast<IOMobileFramebuffer *>(self);
+ 	const uint8_t *source = fb->fThorNativeCpuCopy ? fb->fBase : nullptr;
+-	thorDpuProbe(vinfo.v_physaddr, source, fb->fLock);
++	thorDpuProbe(vinfo.v_physaddr, source, fb->fLock, &fb->fThorDpuPhase);
+ 	fb->release();
+ 	(void)thread_terminate(current_thread());
+ }
+@@ -3656,7 +3740,26 @@
+ 		}
+ #endif
+ 		if (s->info.bytesPerElement == 4 && s->info.planeCount == 0) {
+-			if (!gpuFrame) drawLayer(s, src, dst);
++			if (!gpuFrame) {
++#if XNU_PONG_ADRENO_PLATFORM
++				const bool measurePhase = fThorDpuPhase.map && desktop && layer == 0 &&
++				    fGraphics && !fDiff && !swapWord(swap, SWAP_SURFACE(1)) &&
++				    !swapWord(swap, SWAP_SURFACE(2)) && !swapWord(swap, SWAP_SURFACE(3)) &&
++				    canDrawLinearBGRA(s) && s->info.width >= fPanelWidth &&
++				    s->info.height >= fPanelHeight &&
++				    !src[0] && !src[1] && !dst[0] && !dst[1] &&
++				    src[2] == static_cast<int32_t>(fPanelWidth) &&
++				    src[3] == static_cast<int32_t>(fPanelHeight) &&
++				    dst[2] == src[2] && dst[3] == src[3] && fThorDpuPhase.begin(swapID);
++#endif
++				drawLayer(s, src, dst);
++#if XNU_PONG_ADRENO_PLATFORM
++				if (measurePhase) {
++					fThorDpuPhase.end(powerEpoch ==
++					    __atomic_load_n(&fPowerRequestEpoch, __ATOMIC_ACQUIRE));
++				}
++#endif
++			}
+ 		}
+ 	}
+ #if XNU_PONG_ADRENO_PLATFORM

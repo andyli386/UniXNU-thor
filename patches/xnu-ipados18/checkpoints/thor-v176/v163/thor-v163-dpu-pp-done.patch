@@ -1,0 +1,72 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -1589,6 +1589,7 @@
+ 	static constexpr unsigned Limit = 12;
+ 	struct Phase {
+ 		uint32_t frame, read, writeLine;
++		uint32_t revision, mux, doneBank, doneMask, doneLevel, doneEnable;
+ 	};
+ 	struct Sample {
+ 		uint64_t start, finish;
+@@ -1600,6 +1601,39 @@
+ 	unsigned count, missed;
+ 	Sample samples[Limit];
+ 
++	void readPpDone(vm_offset_t intf, Phase &phase) const {
++		// The vendor revision register is relative to MDSS; its SDE
++		// TOP interrupt bank starts at MDP (+0x1000), not MDSS +0.
++		const vm_offset_t mdp = map->mdss + 0x1000;
++		constexpr unsigned IntfMux = 0x25c;
++		phase.revision = thorDpuRead(map->mdss);
++		phase.mux = thorDpuRead(intf + IntfMux);
++		phase.doneBank = phase.doneMask = phase.doneLevel = phase.doneEnable = 0;
++		if ((phase.revision & 0xffff0000u) != 0x80010000u) return;
++
++		// Cape's vendor INTF_MUX selects a primary PP in bits 3:0
++		// and uses 0x10000 for split-link PP0/PP1. Read only when
++		// the second selector repeats the primary or is disconnected.
++		constexpr uint32_t Selectors = 0x000f000fu;
++		const unsigned primary = phase.mux & 0xf;
++		const unsigned secondary = (phase.mux >> 16) & 0xf;
++		if ((phase.mux & ~Selectors) || primary >= 6 ||
++		    (secondary != primary && secondary != 0xf)) return;
++
++		// PP0..3 are in INTR bits 8..11; PP4..5 are in INTR2 bits
++		// 30..31. A latched level is only a snapshot. Neither register
++		// is acknowledged, and no level authorizes buffer retirement.
++		const bool highBank = primary >= 4;
++		const uint32_t mask = 1u << (highBank ? 26 + primary : 8 + primary);
++		const uint32_t pending = thorDpuRead(mdp + (highBank ? 0x0c : 0x14));
++		const uint32_t enabled = thorDpuRead(mdp + (highBank ? 0x08 : 0x10));
++		if (thorDpuRead(intf + IntfMux) != phase.mux) return;
++		phase.doneBank = highBank ? 2 : 1;
++		phase.doneMask = mask;
++		phase.doneLevel = pending & mask;
++		phase.doneEnable = enabled & mask;
++	}
++
+ 	bool readPhase(Phase &phase) const {
+ 		if (!thorDpuRefreshRouteMatches(*map, framebuffer, false)) return false;
+ 		const vm_offset_t intf = map->mdss + kThorIntfOffset[0];
+@@ -1609,6 +1643,7 @@
+ 		phase.frame = thorDpuRead(intf + kThorIntfFrameCount);
+ 		phase.read = thorDpuRead(intf + 0x298);
+ 		phase.writeLine = thorDpuRead(intf + 0x2b0) & 0xffff;
++		readPpDone(intf, phase);
+ 		return phase.frame == thorDpuRead(intf + kThorIntfFrameCount);
+ 	}
+ 
+@@ -1645,6 +1680,13 @@
+ 			    sample.before.read >> 16, sample.after.read >> 16,
+ 			    sample.before.read & 0xffff, sample.after.read & 0xffff,
+ 			    sample.before.writeLine, sample.after.writeLine);
++			IOLog("THOR DPU V163 PP_DONE: window=%u swap=%u mode=level-only qualified=0 "
++			    "rev=%#x/%#x mux=%#x/%#x bank=%u/%u mask=%#x/%#x pending=%#x/%#x enabled=%#x/%#x\n",
++			    window, sample.swap, sample.before.revision, sample.after.revision,
++			    sample.before.mux, sample.after.mux, sample.before.doneBank,
++			    sample.after.doneBank, sample.before.doneMask, sample.after.doneMask,
++			    sample.before.doneLevel, sample.after.doneLevel, sample.before.doneEnable,
++			    sample.after.doneEnable);
+ 		}
+ 		IOLog("THOR DPU PHASE: window=%u samples=%u rejected=%u\n", window, count, missed);
+ 	}

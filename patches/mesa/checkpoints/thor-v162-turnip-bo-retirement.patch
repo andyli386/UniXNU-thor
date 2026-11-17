@@ -1,0 +1,87 @@
+--- a/src/freedreno/vulkan/tu_knl_darwin.cc
++++ b/src/freedreno/vulkan/tu_knl_darwin.cc
+@@ -11,6 +11,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <sys/mman.h>
++#include <sys/sysctl.h>
+ #include <unistd.h>
+ 
+ #include <IOKit/IOKitLib.h>
+@@ -1157,21 +1158,35 @@
+                                bo->darwin_token, fence, bo->darwin_alloc_size != 0, bo->darwin_read_only};
+       ++retire->count;
+       ++retire->enqueued;
+-      darwin_reap_locked(dev, retire);
+    } else if (retire->failure == VK_SUCCESS) {
+       /* No reusable range is reported on error. The kernel still owns the handle
+        * and view; connection teardown must drain them, even if this record cannot fit. */
+       retire->failure = vk_device_set_lost(&dev->vk, "deferred BO queue cannot grow; retaining native allocation");
+    }
++
++   /* Cache hits look up the same sparse record by native handle. Clear it
++    * before the reap can publish that handle for reuse under this lock. */
++   memset(bo, 0, sizeof(*bo));
++   darwin_reap_locked(dev, retire);
+    pthread_mutex_unlock(&retire->lock);
+ 
+-   /* The BO structs live in a sparse array: zero the entry to mark it free. */
+-   memset(bo, 0, sizeof(*bo));
+-
+    u_rwlock_rdunlock(&dev->dma_bo_lock);
+ }
+ 
+ /* ---- submissions ---- */
++
++static bool
++darwin_backboardd(void)
++{
++   static const bool enabled = getprogname() && !strcmp(getprogname(), "backboardd");
++   return enabled;
++}
++
++static void
++darwin_backboardd_report(const char *message)
++{
++   (void)sysctlbyname("kern.pong_diagnostic", NULL, NULL, (void *)message, strlen(message));
++}
+ 
+ struct tu_darwin_queue_submit {
+    struct util_dynarray commands; /* NativeAdrenoAbiSubmitBuffer */
+@@ -1458,6 +1473,23 @@
+    if (total) {
+       const NativeAdrenoAbiSubmitBuffer *all =
+          util_dynarray_element(&submit->commands, NativeAdrenoAbiSubmitBuffer, 0);
++      /* A zero handle has no mapping in the native client. Detect it across
++       * the whole Vulkan submit before the first chunk reaches the GPU. */
++      for (unsigned i = 0; i < total; ++i) {
++         if (likely(all[i].handle))
++            continue;
++         if (darwin_backboardd()) {
++            static unsigned reports;
++            if (__atomic_fetch_add(&reports, 1, __ATOMIC_RELAXED) < 8) {
++               char message[192];
++               snprintf(message, sizeof(message),
++                        "Pong Metal: handoff Turnip V162 invalid-IB index=%u total=%u bytes=%llu",
++                        i, total, (unsigned long long)all[i].bytes);
++               darwin_backboardd_report(message);
++            }
++         }
++         return vk_device_set_lost(&dev->vk, "submit: IB %u of %u missing native BO handle", i, total);
++      }
+       const unsigned batch = (dw.params.flags & NativeAdrenoParamsSubmitBatch) ?
+                              NativeAdrenoAbiMaxBatchBuffers : NativeAdrenoAbiMaxBuffers;
+       for (unsigned at = 0; at < total; at += batch) {
+@@ -1514,6 +1546,12 @@
+    darwin_stats_state = retire;
+    darwin_watch_memory_pressure();
+    retire->pressure_seen = p_atomic_read(&darwin_memory_pressure);
++   if (darwin_backboardd()) {
++      static pthread_once_t receipt = PTHREAD_ONCE_INIT;
++      pthread_once(&receipt, [] {
++         darwin_backboardd_report("Pong Metal: handoff Turnip V162 active");
++      });
++   }
+    return VK_SUCCESS;
+ }
+ 
