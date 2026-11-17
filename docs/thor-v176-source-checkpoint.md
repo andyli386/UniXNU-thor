@@ -33,9 +33,18 @@ reproduced the deployed library and C header by SHA-256.
     install -m 0644 "$LOCAL_OUTPUTS/thor_console_v172_payload.h" \
       "$XNU_WORK/bsd/kern/thor_console_v172_payload.h"
 
-The console injection also needs the matching signed Thor UI adapter and
-its loader configuration. Keep restore inputs, generated storage bindings,
-signed libraries, firmware and other local build products in local paths.
+The console injection also needs the matching signed v158 Thor UI adapter
+and its loader configuration. The checkpoint keeps the exact staged UI
+source, app launch header and both timing sources in
+[userland/checkpoints/thor-v158-ui](../userland/checkpoints/thor-v158-ui).
+Its [recipe](../userland/checkpoints/thor-v158-ui/recipe.json) records the
+compiler arguments, signing procedure and shipped library identity. Supply
+the exact shared userland inputs through COMMON_USERLAND and the historical
+v119 touch source, v134 settings watchdog stack source and v98 Metal smoke
+object through LOCAL_ARCHIVES. An independent rebuild of this UI adapter
+could not be verified with the available copies. Keep restore inputs,
+generated storage bindings, signed libraries, firmware and other local
+build products in local paths.
 
 For Turnip, prepare the pinned Mesa source with the existing Pong Darwin24
 parity patch, then apply the separate checkpoint

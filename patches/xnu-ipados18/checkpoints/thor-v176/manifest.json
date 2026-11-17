@@ -207,5 +207,6 @@
     "patch": "patches/mesa/checkpoints/thor-v162-turnip-bo-retirement.patch",
     "patch_sha256": "6d378f0787f91c0075f64ed70d4f9e576bb80f3a186c4f9872d76e348e7dbf94",
     "observed_binary_sha256": "88a3c53f1973a6be6dd244e76b3947e375e5680a80e7cd762b58ac9f3f752fe0"
-  }
+  },
+  "ui_adapter_recipe": "userland/checkpoints/thor-v158-ui/recipe.json"
 }

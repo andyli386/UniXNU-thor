@@ -482,3 +482,18 @@ completion = ["Build and boot from the consolidated device and component branche
 limits = ["This branch is a source checkpoint. The linked-kernel check used the retained v156 build. Full independent build and on-device verification are pending."]
 next_action = ["Reconcile the board, driver, installer and firmware refs and reproduce all phases with a fresh build tree"]
 evidence = [{kind = "source", reference = "docs/thor-v156-build-recipe.md", result = "Input contract and commands for the retained local recipe"}, {kind = "source", reference = "scripts/verify-thor-v156-kernel.py", result = "Linked v156 scheduler, GPU and sandbox checks"}]
+
+
+[[area]]
+id = "thor-v176-source-checkpoint"
+status = "implemented"
+components = ["PongPlatform24", "PongAdreno", "PongPower", "NativeUfs", "PongMetal"]
+paths = ["docs/thor-v176-source-checkpoint.md", "patches/xnu-ipados18/checkpoints/thor-v176/**", "patches/mesa/checkpoints/thor-v162-turnip-bo-retirement.patch", "scripts/replay-thor-v176-xnu.py", "scripts/build-thor-v172-console.py", "userland/checkpoints/**"]
+inputs = ["Prepared Thor v156 XNU tree", "iPhoneOS SDK 27.0 for the exact console payload", "Matching driver refs and local firmware, storage, UI and Metal inputs"]
+configuration = ["iPadOS 18.7.10 / 22H374 on Thor SM8475"]
+procedure = ["Replay checkpoint patches on an isolated source tree and build the console using the documented recipe."]
+findings = ["Host replay verified twelve overlay stages in both directions over eight XNU source files. The rebuilt ad-hoc signed console and generated header match the shipped sources and payload."]
+completion = ["Check required source and runtime inputs against the checkpoint manifests before an independent build."]
+limits = ["A full new image was not built from this checkpoint. The exact v158 UI library requires historical local build inputs."]
+next_action = ["Recover or independently reproduce the required historical UI inputs for a fresh build."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "docs/thor-v176-source-checkpoint.md", result = "Isolated reverse and forward source replay and exact signed console rebuild passed."}, {kind = "source", reported_kind = "device-boot", reference = "docs/thor-v176-source-checkpoint.md", result = "The original v176 image was accepted for temporary Fastboot boot. This records only the handoff."}]
