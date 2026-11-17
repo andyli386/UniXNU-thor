@@ -1,0 +1,207 @@
+{
+  "payload": {
+    "path": "runtime/libpong-settings-v180.dylib",
+    "bytes": 88400,
+    "sha256": "c14438e275398b925ef5134ccdc295b8315ea125252bc790ab70c455f0722f00"
+  },
+  "native_build": "22H374",
+  "images": [
+    {
+      "name": "UIKitCore",
+      "path": "/System/Library/PrivateFrameworks/UIKitCore.framework/UIKitCore",
+      "uuid": "150B91D9-F37E-359F-AD9D-9526A43B81AA"
+    },
+    {
+      "name": "GeneralSettingsUI",
+      "path": "/System/Library/PrivateFrameworks/Settings/GeneralSettingsUI.framework/GeneralSettingsUI",
+      "uuid": "248262D0-70ED-3ED5-BF6F-4C4C8F8DECFB"
+    },
+    {
+      "name": "StorageSettings",
+      "path": "/System/Library/PreferenceBundles/StorageSettings.bundle/StorageSettings",
+      "uuid": "703A55A7-C3A8-380A-9C03-1A820728CF34"
+    },
+    {
+      "name": "StorageSettingsUI",
+      "path": "/System/Library/PreferenceBundles/StorageSettingsUI.bundle/StorageSettingsUI",
+      "uuid": "49C0999D-07E6-304B-84F1-0AF3C28E70C1"
+    },
+    {
+      "name": "StorageData",
+      "path": "/System/Library/PrivateFrameworks/StorageData.framework/StorageData",
+      "uuid": "6245E8CE-A753-3277-ACF8-EB78D48CF210"
+    }
+  ],
+  "methods": [
+    {
+      "class": "UINavigationController",
+      "selector": "pushViewController:animated:",
+      "signature": "VOID_OBJECT_BOOL",
+      "image_group": "UIKIT_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "UINavigationController",
+      "selector": "popViewControllerAnimated:",
+      "signature": "OBJECT_BOOL",
+      "image_group": "UIKIT_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "PSGAboutDataSource",
+      "selector": "init",
+      "signature": "RETURNS_OBJECT",
+      "image_group": "ABOUT_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "PSGAboutDataSource",
+      "selector": "loadSpecifiers",
+      "signature": "RETURNS_VOID",
+      "image_group": "ABOUT_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "PSGAboutDataSource",
+      "selector": "_loadValues",
+      "signature": "RETURNS_VOID",
+      "image_group": "ABOUT_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "PSGAboutController",
+      "selector": "viewWillAppear:",
+      "signature": "VOID_BOOL",
+      "image_group": "ABOUT_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "PSGAboutController",
+      "selector": "viewDidDisappear:",
+      "signature": "VOID_BOOL",
+      "image_group": "ABOUT_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "STStorageController",
+      "selector": "viewDidLoad",
+      "signature": "RETURNS_VOID",
+      "image_group": "STORAGE_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "STStorageController",
+      "selector": "startMonitor",
+      "signature": "RETURNS_VOID",
+      "image_group": "STORAGE_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "STStorageController",
+      "selector": "specifiers",
+      "signature": "RETURNS_OBJECT",
+      "image_group": "STORAGE_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "STStorageController",
+      "selector": "viewWillAppear:",
+      "signature": "VOID_BOOL",
+      "image_group": "STORAGE_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "STStorageController",
+      "selector": "viewDidDisappear:",
+      "signature": "VOID_BOOL",
+      "image_group": "STORAGE_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "StorageSettingsUIWrapper",
+      "selector": "viewDidLoad",
+      "signature": "RETURNS_VOID",
+      "image_group": "STORAGE_UI_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "StorageSettingsUIWrapper",
+      "selector": "viewWillAppear:",
+      "signature": "VOID_BOOL",
+      "image_group": "STORAGE_UI_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "StorageSettingsUIWrapper",
+      "selector": "viewDidDisappear:",
+      "signature": "VOID_BOOL",
+      "image_group": "STORAGE_UI_IMAGE",
+      "class_method": false,
+      "worker_tracked": false
+    },
+    {
+      "class": "STStorageDataInterface",
+      "selector": "storageInfoDict_Remote",
+      "signature": "RETURNS_OBJECT",
+      "image_group": "STORAGE_DATA_IMAGE",
+      "class_method": true,
+      "worker_tracked": true
+    },
+    {
+      "class": "STStorageAppsMonitor",
+      "selector": "sync",
+      "signature": "RETURNS_VOID",
+      "image_group": "STORAGE_DATA_IMAGE",
+      "class_method": false,
+      "worker_tracked": true
+    },
+    {
+      "class": "STStorageDiskMonitor",
+      "selector": "sync",
+      "signature": "RETURNS_VOID",
+      "image_group": "STORAGE_DATA_IMAGE",
+      "class_method": false,
+      "worker_tracked": true
+    }
+  ],
+  "diagnostics": {
+    "prefix": "Pong Settings: Trace ",
+    "timeout_ms": 1500,
+    "navigation_span_limit": 32,
+    "data_span_limit": 64,
+    "maximum_frames_per_thread": 18,
+    "maximum_stack_lines_per_thread": 3,
+    "main_queue_ack": true,
+    "request_thread_stack_when_worker_blocked": true,
+    "source_thread_right_release": "single timeout callback, including canceled samples",
+    "loader_lookup_on_timeout_queue": false,
+    "main_thread_disk_or_sysctl": false
+  },
+  "verification": {
+    "strict_codesign": true,
+    "arm64_ios18": true,
+    "reproducible": true,
+    "actual_body_host_harness": "settings-trace-test.log",
+    "tested": "18 typed forwarding paths; nav wrapper composition; native/main-queue/worker timeouts; right release; 128 concurrent reservations; worst-case log fields",
+    "device_hook_installation": "pending native phone trial"
+  },
+  "sources": {
+    "settings_trace18.c": "d1188e5a3d06e1c9483efba5c570b60392ad8bc6bfdc65d959e86caedb46e565",
+    "build-settings-trace.sh": "3b53b95faf6ee2e337c3b65fe6200f70d2cdd051f7e0b59df1a18d9ca8a51f89",
+    "settings-trace-test.c": "4b2f5e9f7c279c9774d72cf07b3310d7fc3877dd1cf2c96655376ab0e62efa71"
+  }
+}
