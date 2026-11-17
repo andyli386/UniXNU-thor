@@ -1,0 +1,83 @@
+{
+  "payload": {
+    "path": "runtime/libpong-about-v179.dylib",
+    "sha256": "9173974ada6b4e39dcaca88b7a07d4a578de14091f49b15db3fc81d061a431cd",
+    "bytes": 87584
+  },
+  "native_image": {
+    "path": "/System/Library/PrivateFrameworks/Settings/GeneralSettingsUI.framework/GeneralSettingsUI",
+    "uuid": "248262D0-70ED-3ED5-BF6F-4C4C8F8DECFB",
+    "build": "22H374"
+  },
+  "methods": [
+    {
+      "class": "PSGAboutDataSource",
+      "method": "init",
+      "result": "id",
+      "arguments": [],
+      "imp": "0x23088d050"
+    },
+    {
+      "class": "PSGAboutDataSource",
+      "method": "loadSpecifiers",
+      "result": "void",
+      "arguments": [],
+      "imp": "0x2308897e4"
+    },
+    {
+      "class": "PSGAboutDataSource",
+      "method": "_loadValues",
+      "result": "void",
+      "arguments": [],
+      "imp": "0x230888adc"
+    },
+    {
+      "class": "PSGAboutController",
+      "method": "viewWillAppear:",
+      "result": "void",
+      "arguments": [
+        "BOOL"
+      ],
+      "imp": "0x23088e8ec"
+    },
+    {
+      "class": "PSGAboutController",
+      "method": "viewDidDisappear:",
+      "result": "void",
+      "arguments": [
+        "BOOL"
+      ],
+      "imp": "0x23088ec5c"
+    }
+  ],
+  "diagnostics": {
+    "prefix": "Pong Settings: About ",
+    "timeout_ms": 1500,
+    "max_spans": 48,
+    "trace_scope": "main-thread calls",
+    "maximum_frames": 18,
+    "maximum_stack_lines_per_timeout": 3,
+    "main_queue_ack": true,
+    "source_lifetime": "one retained main thread send right through process exit"
+  },
+  "verification": {
+    "arm64_ios18_signed": true,
+    "reproducible": true,
+    "actual_body_host_harness_passed": true,
+    "target_execution_verified": false,
+    "harness_cases": [
+      "exact native method forwarding",
+      "return and object identity",
+      "background reporting",
+      "normal main queue acknowledgement",
+      "native method timeout",
+      "main queue timeout",
+      "completed timeout cancellation",
+      "48-operation bound"
+    ]
+  },
+  "sources": {
+    "about_trace18.c": "575454e05c2c62c9be040589da02abf9fbddb2b486f4878ae4a79a9c7eec7b05",
+    "build-about-trace18.sh": "7d3e17532c36af85db61ce070e5e2e95440a9b7f193396a54b604697a2e06ae4"
+  }
+}
