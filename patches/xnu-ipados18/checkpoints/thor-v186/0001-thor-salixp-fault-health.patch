@@ -32,15 +32,16 @@
  			touch_post(PONG_TOUCH_UP, id, contact[id].x, contact[id].y);
  		}
  	}
-@@ -934,6 +945,7 @@
+@@ -934,6 +945,8 @@
  	uint32_t paired_mask;
  	uint8_t last_event_header;
  	bool empty;
 +	bool discard_batch;
++	bool scan_sent_during_batch;
  };
  
  static uint64_t
-@@ -1040,6 +1052,11 @@
+@@ -1040,6 +1053,11 @@
  	pong_touch_activity++;
  	if (!contact[id].down) {
  		seen.downs++;
@@ -52,7 +53,7 @@
  		touch_post(PONG_TOUCH_DOWN, id, x, y);
  		if (timing) {
  			timing->down_mask |= 1u << id;
-@@ -1063,6 +1080,19 @@
+@@ -1063,6 +1081,19 @@
  		type = (type & 0xf0) | 3;
  	}
  	seen.events++;
@@ -64,7 +65,7 @@
 +		}
 +		/* The controller echoes the command bytes after the status subtype. */
 +		if (event[1] == SALIXP_STATUS_ECHO && event[2] == SALIXP_OP_SCAN_MODE &&
-+		    event[3] == 0 && event[4] == 1 && timing) {
++		    event[3] == 0 && event[4] == 1 && timing && !timing->scan_sent_during_batch) {
 +			salixp_scan_echo_us = timing->observed_us;
 +		}
 +		return true;
@@ -72,12 +73,17 @@
  	switch (type) {
  	case FTS_EVENT_ENTER:
  	case FTS_EVENT_MOTION:
-@@ -1074,18 +1104,52 @@
+@@ -1074,18 +1105,57 @@
  		if (timing) {
  			timing->down_mask = 0;
  		}
 +		if (thor_salixp) {
 +			salixp_scan_echo_us = 0;
++			/* Every event in this burst was read before the new scan command.
++			 * Later contacts still count, but its echo must come in a new read. */
++			if (timing) {
++				timing->scan_sent_during_batch = true;
++			}
 +		}
  		return fts_scan_on();
  	case FTS_EVENT_ERROR:
@@ -126,18 +132,18 @@
  		}
  		break;
  	default:
-@@ -1124,6 +1188,10 @@
- 		timing->last_event_header = events[index][0];
+@@ -1125,6 +1195,10 @@
  		if (!fts_dispatch(events[index], timing)) {
  			return false;
-+		}
+ 		}
 +		/* Further entries in this SPI burst are from before recovery. */
 +		if (timing->discard_batch) {
 +			break;
- 		}
++		}
  	}
  	return read_all;
-@@ -1325,12 +1393,28 @@
+ }
+@@ -1325,12 +1399,28 @@
  			/* GPIO returns success when the transfer finishes, even if the FIFO data is empty or invalid. */
  			if (sample_us - last_health_report_us >= health_report_interval_us) {
  				last_health_report_us = sample_us;
