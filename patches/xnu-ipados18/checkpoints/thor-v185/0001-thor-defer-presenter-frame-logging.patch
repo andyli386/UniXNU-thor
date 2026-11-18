@@ -1,0 +1,114 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -2399,6 +2399,68 @@
+ 	absolutetime_to_nanoseconds(absolute, &ns);
+ 	return ns / 1000;
+ }
++
++
++#if XNU_PONG_ADRENO_PLATFORM
++struct ThorFrameReceipt {
++	uint32_t swap;
++	uint64_t touch, enqueued, ready, shown, drawn, fingerprint;
++	unsigned white, black, samples;
++	uint64_t sampleUs;
++	int cpuStart, cpuEnd;
++};
++
++static void
++thorPrintFrameReceipt(const ThorFrameReceipt &r)
++{
++	IOLog("PONG TOUCH FRAME: swap=%u touch_us=%llu enqueue_us=%llu ready_us=%llu "
++	    "start_us=%llu done_us=%llu fp=%016llx white=%u dark=%u samples=%u sample_us=%llu cpu=%d/%d\n",
++	    r.swap, micros(r.touch), micros(r.enqueued), micros(r.ready), micros(r.shown), micros(r.drawn),
++	    r.fingerprint, r.white, r.black, r.samples, r.sampleUs, r.cpuStart, r.cpuEnd);
++}
++
++// The boot-lifetime presenter is the sole producer. ONCE serializes drain callbacks.
++// Only copied timestamps and counts cross the thread boundary.
++struct ThorFrameReceiptQueue {
++	static constexpr unsigned capacity = 64;
++	ThorFrameReceipt records[capacity];
++	uint32_t head, tail, dropped;
++	thread_call_t call;
++
++	void push(const ThorFrameReceipt &r)
++	{
++		const uint32_t h = __atomic_load_n(&head, __ATOMIC_RELAXED);
++		if (h - __atomic_load_n(&tail, __ATOMIC_ACQUIRE) < capacity) {
++			records[h % capacity] = r;
++			__atomic_store_n(&head, h + 1, __ATOMIC_RELEASE);
++		} else {
++			__atomic_fetch_add(&dropped, 1u, __ATOMIC_RELAXED);
++		}
++		thread_call_enter(call);
++	}
++
++	static void drain(thread_call_param_t param, thread_call_param_t)
++	{
++		auto *q = static_cast<ThorFrameReceiptQueue *>(param);
++		uint32_t t = __atomic_load_n(&q->tail, __ATOMIC_RELAXED);
++		for (unsigned i = 0; i < 16; ++i) {
++			if (t == __atomic_load_n(&q->head, __ATOMIC_ACQUIRE)) {
++				break;
++			}
++			const ThorFrameReceipt r = q->records[t % capacity];
++			__atomic_store_n(&q->tail, ++t, __ATOMIC_RELEASE);
++			thorPrintFrameReceipt(r);
++		}
++		const uint32_t lost = __atomic_exchange_n(&q->dropped, 0u, __ATOMIC_RELAXED);
++		if (lost) {
++			IOLog("THOR FRAME TRACE V185: dropped=%u\n", lost);
++		}
++		if (t != __atomic_load_n(&q->head, __ATOMIC_ACQUIRE)) {
++			thread_call_enter(q->call);
++		}
++	}
++};
++#endif
+ 
+ static uint32_t
+ swapWord(const uint8_t * swap, unsigned offset)
+@@ -2546,6 +2608,7 @@
+ 	ThorDpuPhaseAudit fThorDpuPhase = {};
+ 	bool            fGpuColorReceipt;
+ 	bool            fThorRetainedCadence;
++	ThorFrameReceiptQueue *fThorFrameReceiptQueue;
+ 	bool            fThorAreaScaling;
+ 	bool            fThorNativeCpuCopy;
+ 	bool            fReportedRetainedCadence;
+@@ -3582,6 +3645,15 @@
+ 
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	if (fThorRetainedCadence) {
++		fThorFrameReceiptQueue = IONewZero(ThorFrameReceiptQueue, 1);
++		if (fThorFrameReceiptQueue) {
++			fThorFrameReceiptQueue->call = thread_call_allocate_with_options(ThorFrameReceiptQueue::drain,
++			    fThorFrameReceiptQueue, THREAD_CALL_PRIORITY_LOW, THREAD_CALL_OPTIONS_ONCE);
++			if (!fThorFrameReceiptQueue->call) {
++				IODelete(fThorFrameReceiptQueue, ThorFrameReceiptQueue, 1);
++				fThorFrameReceiptQueue = nullptr;
++			}
++		}
+ 		gThorPresentWatchCall = thread_call_allocate_with_priority(thorPresentWatch,
+ 		    nullptr, THREAD_CALL_PRIORITY_LOW);
+ 		if (gThorPresentWatchCall) {
+@@ -4182,11 +4254,13 @@
+ 	readers.release();
+ 	thorPresentStage(ThorPresentPhase::Finish);
+ 	if (cadenceReceipt) {
+-		IOLog("PONG TOUCH FRAME: swap=%u touch_us=%llu enqueue_us=%llu ready_us=%llu "
+-		    "start_us=%llu done_us=%llu fp=%016llx white=%u dark=%u samples=%u sample_us=%llu cpu=%d/%d\n",
+-		    swapID, micros(sampledTouch), micros(enqueued), micros(ready), micros(shown),
+-		    micros(drawn), frameFingerprint, nearWhite, nearBlack, samples, sampleUs,
+-		    presenterCPUStart, presenterCPUEnd);
++		const ThorFrameReceipt record{swapID, sampledTouch, enqueued, ready, shown, drawn,
++		    frameFingerprint, nearWhite, nearBlack, samples, sampleUs, presenterCPUStart, presenterCPUEnd};
++		if (fThorFrameReceiptQueue) {
++			fThorFrameReceiptQueue->push(record);
++		} else {
++			thorPrintFrameReceipt(record);
++		}
+ 	}
+ 	if (touchGapUs &&
+ 	    __atomic_fetch_add(&gTouchFrameGapReceipts, 1, __ATOMIC_RELAXED) < kDisplayReceiptLimit) {
