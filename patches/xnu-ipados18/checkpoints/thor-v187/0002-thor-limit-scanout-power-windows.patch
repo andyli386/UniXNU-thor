@@ -1,0 +1,106 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -1830,23 +1830,46 @@
+ 	return "sampled";
+ }
+ 
++struct ThorScanoutRuntime {
++	IOService &display;
++	const uint64_t &powerEpoch;
++};
++
+ static void
+-thorObserveScanout(const ThorDpuMappings &map, IOService *display)
++thorObserveScanout(const ThorDpuMappings &map, const ThorScanoutRuntime &runtime)
+ {
+ 	uint64_t last = 0;
+-	while (!display->isInactive()) {
++	uint64_t previousWritten = __atomic_load_n(&gThorFrameWritebacks, __ATOMIC_RELAXED);
++	uint64_t previousPower = __atomic_load_n(&runtime.powerEpoch, __ATOMIC_ACQUIRE);
++	while (!runtime.display.isInactive()) {
+ 		const uint64_t now = mach_absolute_time();
+ 		const uint64_t touch = pong_touch_last_event_time();
+ 		const bool recent = touch && touch <= now && thorSwitcherMicros(now - touch) < 3000000;
++		const uint64_t power = __atomic_load_n(&runtime.powerEpoch, __ATOMIC_ACQUIRE);
++		const uint64_t written = __atomic_load_n(&gThorFrameWritebacks, __ATOMIC_RELAXED);
+ 		if (!last || recent || thorSwitcherMicros(now - last) >= 10000000) {
+ 			last = now;
+ 			ThorScanoutSnapshot sample = {};
+-			const char *state = thorScanoutSnapshot(map, sample);
++			const char *state = "idle-software";
++			// Continuous scanout has no runtime PM lease. Only touch the
++			// qualified hardware after recent input and new software writeback
++			// in the same power epoch. Idle or stopped writers need no MMIO.
++			if (recent) {
++				if (power != previousPower) {
++					state = "power-change";
++				} else if (written == previousWritten) {
++					state = "no-new-write";
++				} else {
++					state = thorScanoutSnapshot(map, sample);
++					if (power != __atomic_load_n(&runtime.powerEpoch, __ATOMIC_ACQUIRE)) {
++						sample = {};
++						state = "power-raced";
++					}
++				}
++			}
+ 			const uint64_t presenter = __atomic_load_n(&gThorPresentStamp, __ATOMIC_ACQUIRE);
+ 			const uint64_t enqueued = __atomic_load_n(&gThorFrameEnqueues, __ATOMIC_RELAXED);
+-			const uint64_t written = __atomic_load_n(&gThorFrameWritebacks, __ATOMIC_RELAXED);
+-			// Counters are raw hardware observations. Neither the INTF counter
+-			// nor the programmed VIG addresses acknowledge an individual swap.
++			// Neither the INTF counter nor VIG addresses acknowledge a swap.
+ 			IOLog("THOR SCANOUT V187: at_us=%llu touch_us=%llu state=%s "
+ 			    "active=%#x fetch=%#x flush=%#x src=%#x/%#x auto=%#x frame=%u te=%#x "
+ 			    "swap=%u phase=%u enqueued=%llu written=%llu\n",
+@@ -1856,6 +1879,8 @@
+ 			    static_cast<unsigned>(presenter & 0xffu), static_cast<unsigned long long>(enqueued),
+ 			    static_cast<unsigned long long>(written));
+ 		}
++		previousWritten = written;
++		previousPower = power;
+ 		IOSleep(500);
+ 	}
+ }
+@@ -1865,12 +1890,12 @@
+  * interaction MMIO. */
+ static void
+ thorDpuInteractionAudit(const ThorDpuMappings &map, uint64_t framebuffer,
+-    IOLock *lock, ThorDpuPhaseAudit *phase, IOService *display)
++    IOLock *lock, ThorDpuPhaseAudit *phase, const ThorScanoutRuntime &runtime)
+ {
+ 	uint32_t enabled = 2;
+ 	(void) PE_parse_boot_argn("thor_dpu_interaction", &enabled, sizeof(enabled));
+ 	if (enabled == 2) {
+-		if (phase) thorObserveScanout(map, display);
++		if (phase) thorObserveScanout(map, runtime);
+ 		else thorDpuMarker("THOR SCANOUT V187: skipped unqualified panel or copy path\n");
+ 		return;
+ 	}
+@@ -2215,7 +2240,7 @@
+ }
+ 
+ static void
+-thorDpuProbe(uint64_t framebuffer, const uint8_t *source, IOLock *lock, ThorDpuPhaseAudit *phase, IOService *display)
++thorDpuProbe(uint64_t framebuffer, const uint8_t *source, IOLock *lock, ThorDpuPhaseAudit *phase, const ThorScanoutRuntime &runtime)
+ {
+ 	ThorDpuMappings map = {};
+ 	map.gcc = io_map(kThorGccDispAhb & ~0xffful, 0x1000, VM_WIMG_IO, VM_PROT_READ, true);
+@@ -2327,7 +2352,7 @@
+ 	uint32_t trial = 1;
+ 	(void)PE_parse_boot_argn("thor_flip_trial", &trial, sizeof(trial));
+ 	if (trial && panel120 && source) thorDpuScratchTrial(map, framebuffer, source, lock);
+-	thorDpuInteractionAudit(map, framebuffer, lock, panel120 && source ? phase : nullptr, display);
++	thorDpuInteractionAudit(map, framebuffer, lock, panel120 && source ? phase : nullptr, runtime);
+ }
+ 
+ #endif
+@@ -3637,7 +3662,7 @@
+ {
+ 	auto *fb = static_cast<IOMobileFramebuffer *>(self);
+ 	const uint8_t *source = fb->fThorNativeCpuCopy ? fb->fBase : nullptr;
+-	thorDpuProbe(vinfo.v_physaddr, source, fb->fLock, &fb->fThorDpuPhase, fb);
++	thorDpuProbe(vinfo.v_physaddr, source, fb->fLock, &fb->fThorDpuPhase, {*fb, fb->fPowerRequestEpoch});
+ 	fb->release();
+ 	(void)thread_terminate(current_thread());
+ }
