@@ -1,0 +1,170 @@
+--- a/bsd/dev/pong_fts.c
++++ b/bsd/dev/pong_fts.c
+@@ -710,6 +710,10 @@
+ #define FTS_EVENT_LEAVE         0x33
+ #define FTS_EVENT_ERROR         0xf3
+ #define SALIXP_TOUCH_TYPE_HOVER  5
++#define SALIXP_EVENT_STATUS     0x43
++#define SALIXP_STATUS_ECHO      0x01
++#define SALIXP_ERROR_WATCHDOG   0x06
++#define SALIXP_ERROR_ESD        0xf0
+ #define FTS_MAX_TOUCHES         10
+ #define FTS_MAX_READ            256
+ 
+@@ -891,6 +895,10 @@
+ };
+ static struct salixp_contact_trace salixp_trace[FTS_MAX_TOUCHES];
+ static uint32_t salixp_empty_reads;
++static uint64_t salixp_scan_echo_us, salixp_status_us;
++static uint8_t salixp_status, salixp_status_detail;
++static unsigned salixp_fault_attempts;
++static bool salixp_fault_limit_reported;
+ 
+ static bool
+ fts_has_contact(void)
+@@ -921,6 +929,9 @@
+ 	for (uint32_t id = 0; id < FTS_MAX_TOUCHES; id++) {
+ 		if (contact[id].down) {
+ 			contact[id].down = false;
++			if (thor_salixp) {
++				seen.releases++;
++			}
+ 			touch_post(PONG_TOUCH_UP, id, contact[id].x, contact[id].y);
+ 		}
+ 	}
+@@ -934,6 +945,7 @@
+ 	uint32_t paired_mask;
+ 	uint8_t last_event_header;
+ 	bool empty;
++	bool discard_batch;
+ };
+ 
+ static uint64_t
+@@ -1040,6 +1052,11 @@
+ 	pong_touch_activity++;
+ 	if (!contact[id].down) {
+ 		seen.downs++;
++		if (thor_salixp) {
++			/* A real new contact establishes that scanning resumed. */
++			salixp_fault_attempts = 0;
++			salixp_fault_limit_reported = false;
++		}
+ 		touch_post(PONG_TOUCH_DOWN, id, x, y);
+ 		if (timing) {
+ 			timing->down_mask |= 1u << id;
+@@ -1063,6 +1080,19 @@
+ 		type = (type & 0xf0) | 3;
+ 	}
+ 	seen.events++;
++	if (thor_salixp && type == SALIXP_EVENT_STATUS) {
++		salixp_status = event[1];
++		salixp_status_detail = event[2];
++		if (timing) {
++			salixp_status_us = timing->observed_us;
++		}
++		/* The controller echoes the command bytes after the status subtype. */
++		if (event[1] == SALIXP_STATUS_ECHO && event[2] == SALIXP_OP_SCAN_MODE &&
++		    event[3] == 0 && event[4] == 1 && timing) {
++			salixp_scan_echo_us = timing->observed_us;
++		}
++		return true;
++	}
+ 	switch (type) {
+ 	case FTS_EVENT_ENTER:
+ 	case FTS_EVENT_MOTION:
+@@ -1074,18 +1104,52 @@
+ 		if (timing) {
+ 			timing->down_mask = 0;
+ 		}
++		if (thor_salixp) {
++			salixp_scan_echo_us = 0;
++		}
+ 		return fts_scan_on();
+ 	case FTS_EVENT_ERROR:
+ 		seen.errors++;
+ 		if (seen.errors <= 8) {
+ 			printf("Pong FTS: FIFO error %02x\n", event[1]);
++		}
++		if (thor_salixp) {
++			/* FTm5 SALIXP and FST2 use different error subtypes. Only a
++			 * reported watchdog/ESD fault authorizes a SALIXP reset. */
++			if (event[1] != SALIXP_ERROR_WATCHDOG && event[1] != SALIXP_ERROR_ESD) {
++				break;
++			}
++			fts_release_all();
++			salixp_scan_echo_us = 0;
++			if (timing) {
++				timing->down_mask = 0;
++				timing->discard_batch = true;
++			}
++			/* Use the dedicated reset pin. The shared regulator votes
++			 * cannot be dropped to replicate the vendor ESD power cycle. */
++			while (salixp_fault_attempts < 3) {
++				++salixp_fault_attempts;
++				const bool ready = fts_system_reset();
++				const bool sent = ready && fts_scan_on();
++				printf("Pong FTS RECOVERY V186: fault=%#x attempt=%u reset_ready=%u scan_sent=%u\n",
++				    event[1], salixp_fault_attempts, ready, sent);
++				if (sent) {
++					return true;
++				}
++			}
++			if (!salixp_fault_limit_reported) {
++				salixp_fault_limit_reported = true;
++				printf("Pong FTS RECOVERY V186: fault=%#x reset budget exhausted; polling continues\n",
++				    event[1]);
++			}
++			return true;
+ 		}
+ 		if (event[1] == 0x01 || event[1] == 0x05) {
+ 			fts_release_all();
+ 			if (timing) {
+ 				timing->down_mask = 0;
+ 			}
+-			return (thor_salixp ? seen.errors <= 3 : true) && fts_system_reset() && fts_scan_on();
++			return fts_system_reset() && fts_scan_on();
+ 		}
+ 		break;
+ 	default:
+@@ -1124,6 +1188,10 @@
+ 		timing->last_event_header = events[index][0];
+ 		if (!fts_dispatch(events[index], timing)) {
+ 			return false;
++		}
++		/* Further entries in this SPI burst are from before recovery. */
++		if (timing->discard_batch) {
++			break;
+ 		}
+ 	}
+ 	return read_all;
+@@ -1325,12 +1393,28 @@
+ 			/* GPIO returns success when the transfer finishes, even if the FIFO data is empty or invalid. */
+ 			if (sample_us - last_health_report_us >= health_report_interval_us) {
+ 				last_health_report_us = sample_us;
++				/* A GPIO transfer can return all zero bytes and still succeed.
++				 * Read the same ID used at probe without consuming the FIFO.
++				 * Stay off the SPI bus while contacts or a report are pending. */
++				const bool irq_low = !gpio_get(PIN_INT);
++				uint16_t chip_id = 0;
++				const char *chip_probe = "busy";
++				if (!irq_low && !fts_has_contact()) {
++					if (!salixp_identify(&chip_id)) {
++						chip_probe = "io-error";
++					} else {
++						chip_probe = chip_id == SALIXP_CHIP_ID ? "match" : "mismatch";
++					}
++				}
+ 				printf("Pong FTS HEALTH V171: transport=%s irq_low_polls=%u irq_high_fallback_polls=%u "
+ 				    "empty_polls=%u unknown_events=%u down=%u up=%u last_poll_done_us=%llu "
+-				    "last_poll_ok_us=%llu last_nonempty_poll_done_us=%llu last_header=%#x\n",
++				    "last_poll_ok_us=%llu last_nonempty_poll_done_us=%llu last_header=%#x "
++				    "chip_probe=%s chip_id=%#x irq_low=%u scan_echo_us=%llu last_status=%#x/%#x status_us=%llu\n",
+ 				    spi_transfer == bitbang_transfer ? "gpio" : "geni", seen.polls - fallback_polls,
+ 				    fallback_polls, empty_polls, seen.unknown_events, seen.downs, seen.releases,
+-				    last_poll_done_us, last_poll_ok_us, last_nonempty_poll_done_us, last_event_header);
++				    last_poll_done_us, last_poll_ok_us, last_nonempty_poll_done_us, last_event_header,
++				    chip_probe, chip_id, irq_low, salixp_scan_echo_us, salixp_status,
++				    salixp_status_detail, salixp_status_us);
+ 			}
+ 		}
+ 		const uint64_t sleep_start_us = thor_salixp ? fts_monotonic_us() : 0;
