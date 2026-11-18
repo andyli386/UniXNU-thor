@@ -2,7 +2,8 @@
   "payload": {
     "path": "runtime/libpong-settings-v180.dylib",
     "bytes": 88400,
-    "sha256": "c14438e275398b925ef5134ccdc295b8315ea125252bc790ab70c455f0722f00"
+    "sha256": "faeae42edb7e73da8ed7eb784f1ccd67b3c6d54710093d17b100dcfa9619747e",
+    "uuid": "68C2860F-C88C-3277-9166-E4E00B0BB683"
   },
   "native_build": "22H374",
   "images": [
@@ -195,13 +196,16 @@
     "strict_codesign": true,
     "arm64_ios18": true,
     "reproducible": true,
-    "actual_body_host_harness": "settings-trace-test.log",
+    "actual_body_host_harness": "unchanged source; inherited v180 settings-trace-test.log",
     "tested": "18 typed forwarding paths; nav wrapper composition; native/main-queue/worker timeouts; right release; 128 concurrent reservations; worst-case log fields",
-    "device_hook_installation": "pending native phone trial"
+    "device_hook_installation": "pending native phone trial after Mach-O UUID fix",
+    "dyld_validate_only": true,
+    "constructor_fixup": "__DATA_CONST,__mod_init_func rebase to _start_trace at 0x4000",
+    "format_regression": "Prior no-UUID payload failed dyld_info -validate_only with exit1; corrected signed payload passes with exit0"
   },
   "sources": {
     "settings_trace18.c": "d1188e5a3d06e1c9483efba5c570b60392ad8bc6bfdc65d959e86caedb46e565",
-    "build-settings-trace.sh": "3b53b95faf6ee2e337c3b65fe6200f70d2cdd051f7e0b59df1a18d9ca8a51f89",
+    "build-settings-trace.sh": "1bc4fdb0db0168215a123a124f04d362725b63130fbbeaa319fe578002095545",
     "settings-trace-test.c": "4b2f5e9f7c279c9774d72cf07b3310d7fc3877dd1cf2c96655376ab0e62efa71"
   }
 }
