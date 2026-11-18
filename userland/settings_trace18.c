@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <mach/arm/thread_status.h>
 #include <mach/mach.h>
+#include <mach/mach_time.h>
+#include "navigation_completion185.h"
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <objc/runtime.h>
@@ -86,12 +88,22 @@ struct trace_span {
     bool main;
     bool owns_thread;
     thread_t source_thread;
+    uint64_t nav_started_us, nav_native_end_us;
+    _Atomic(uint64_t) nav_result;
+    unsigned nav_printed; /* accessed only by trace_queue */
+    _Atomic(bool) watchdog_ran;
     _Atomic(bool) completed;
     _Atomic(bool) main_ack;
     _Atomic(uint64_t) finished_ms;
 };
 
 static thread_t main_thread;
+static uint64_t main_tid;
+static mach_timebase_info_data_t timebase;
+static uint64_t uptime_us(void)
+{
+    return (uint64_t)((__uint128_t)mach_absolute_time() * timebase.numer / timebase.denom / 1000);
+}
 static dispatch_queue_t trace_queue;
 static struct trace_span spans[TRACE_SPANS];
 static _Atomic(unsigned) nav_used, data_used;
@@ -111,9 +123,14 @@ static void report(char *line, int length)
 {
     if (length <= 0 || length >= 255)
         return;
-    int mib[CTL_MAXNAME];
-    size_t count = CTL_MAXNAME;
-    if (sysctlnametomib("kern.pong_diagnostic", mib, &count) == 0 &&
+    static int mib[CTL_MAXNAME];
+    static size_t count;
+    if (!count) {
+        size_t n = CTL_MAXNAME;
+        if (sysctlnametomib("kern.pong_diagnostic", mib, &n) == 0)
+            count = n;
+    }
+    if (count &&
         sysctl(mib, (u_int)count, NULL, NULL, line, (size_t)length) == 0)
         return;
     line[length] = '\n';
@@ -196,9 +213,50 @@ static void report_thread_stack(const struct trace_span *span, thread_t thread, 
     }
 }
 
+/* Fast pushes/pops share their existing watchdog wakeup with receipt delivery.
+ * A late completion can add a follow-up after the watchdog sampled the method. */
+static void report_navigation(void *context)
+{
+    struct trace_span *span = context;
+    if (!atomic_load_explicit(&span->completed, memory_order_seq_cst))
+        return;
+    uint64_t result = atomic_load_explicit(&span->nav_result, memory_order_seq_cst);
+    unsigned outcome = result ? (unsigned)(result & 7u) : NAV_WAITING;
+    if (span->nav_printed == outcome)
+        return;
+    span->nav_printed = outcome;
+    static const char *const names[] = {"-", "waiting", "not-animated", "no-coordinator",
+        "other-target", "declined", "finished", "cancelled"};
+    char line[256];
+    int n = snprintf(line, sizeof(line), TRACE_PREFIX
+        "nav185 id=%u op=%s start_us=%" PRIu64 " native_end_us=%" PRIu64
+        " transition_end_us=%" PRIu64 " result=%s tid=%" PRIu64 " target=%.40s",
+        span->sequence, span->method == NAV_PUSH ? "push" : "pop", span->nav_started_us,
+        span->nav_native_end_us, result >> 3, names[outcome], span->thread_id, span->target_class);
+    report(line, n);
+}
+
+static void navigation_finished(void *context, enum navigation_outcome outcome)
+{
+    struct trace_span *span = context;
+    uint64_t expected = 0;
+    uint64_t ended = outcome == NAV_FINISHED || outcome == NAV_CANCELLED ? uptime_us() : 0;
+    /* UIKit can call the completion inline, before reporting registration status. */
+    if (atomic_compare_exchange_strong_explicit(&span->nav_result, &expected, (ended << 3) | outcome,
+            memory_order_seq_cst, memory_order_relaxed) &&
+        atomic_load_explicit(&span->watchdog_ran, memory_order_seq_cst))
+        dispatch_async_f(trace_queue, span, report_navigation);
+}
+
 static void capture_timeout(void *context)
 {
     struct trace_span *span = context;
+    if (span->method <= NAV_POP) {
+        atomic_store_explicit(&span->watchdog_ran, true, memory_order_seq_cst);
+        if (span_pending(span))
+            begin_report(span);
+        report_navigation(span);
+    }
     if (span_pending(span)) {
         report_thread_stack(span, main_thread, "main");
         if (!span->main && MACH_PORT_VALID(span->source_thread))
@@ -238,12 +296,18 @@ static struct trace_span *begin_span(id object, enum trace_method method, id tar
     span->object = (uintptr_t)object;
     span->object_class = object ? class_getName(object_getClass(object)) : "nil";
     span->target_class = target ? class_getName(object_getClass(target)) : "-";
-    (void)pthread_threadid_np(NULL, &span->thread_id);
+    if (on_main)
+        span->thread_id = main_tid;
+    else
+        (void)pthread_threadid_np(NULL, &span->thread_id);
+    if (navigation)
+        span->nav_started_us = uptime_us();
     span->started_ms = monotonic_ms();
     span->main = on_main;
     span->source_thread = on_main ? main_thread : mach_thread_self();
     span->owns_thread = !on_main && MACH_PORT_VALID(span->source_thread);
-    dispatch_async_f(trace_queue, span, begin_report);
+    if (!navigation)
+        dispatch_async_f(trace_queue, span, begin_report);
     dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, TRACE_TIMEOUT_MS * NSEC_PER_MSEC),
                      trace_queue, span, capture_timeout);
     return span;
@@ -259,9 +323,14 @@ static void end_span(struct trace_span *span)
 {
     if (!span)
         return;
+    if (span->method <= NAV_POP)
+        span->nav_native_end_us = uptime_us();
     atomic_store_explicit(&span->finished_ms, monotonic_ms(), memory_order_release);
-    atomic_store_explicit(&span->completed, true, memory_order_release);
-    dispatch_async_f(trace_queue, span, end_report);
+    atomic_store_explicit(&span->completed, true, memory_order_seq_cst);
+    if (span->method > NAV_POP)
+        dispatch_async_f(trace_queue, span, end_report);
+    else if (atomic_load_explicit(&span->watchdog_ran, memory_order_seq_cst))
+        dispatch_async_f(trace_queue, span, report_navigation);
     if (span->main)
         dispatch_async_f(dispatch_get_main_queue(), span, main_queue_ack);
 }
@@ -292,6 +361,8 @@ static void observe_push(id self, SEL selector, id controller, BOOL animated)
     IMP original = atomic_load_explicit(&originals[NAV_PUSH], memory_order_acquire);
     ((void (*)(id, SEL, id, BOOL))original)(self, selector, controller, animated);
     end_span(span);
+    if (span)
+        observe_navigation_completion(self, controller, true, animated, span, navigation_finished);
 }
 static id observe_pop(id self, SEL selector, BOOL animated)
 {
@@ -299,6 +370,8 @@ static id observe_pop(id self, SEL selector, BOOL animated)
     IMP original = atomic_load_explicit(&originals[NAV_POP], memory_order_acquire);
     id result = ((id (*)(id, SEL, BOOL))original)(self, selector, animated);
     end_span(span);
+    if (span)
+        observe_navigation_completion(self, result, false, animated, span, navigation_finished);
     return result;
 }
 OBJECT_OBSERVER(observe_about_init, ABOUT_INIT)
@@ -424,7 +497,7 @@ static void started_report(void *unused)
     (void)unused;
     char line[256];
     int n = snprintf(line, sizeof(line), TRACE_PREFIX
-        "loaded v180 timeout_ms=%d nav_limit=%d data_limit=%d",
+        "loaded v185 timeout_ms=%d nav_limit=%d data_limit=%d",
         TRACE_TIMEOUT_MS, TRACE_NAV_SPANS, TRACE_DATA_SPANS);
     report(line, n);
 }
@@ -434,6 +507,9 @@ static void start_trace(void)
 {
     const char *process = getprogname();
     if (!process || strcmp(process, "Preferences") || !pthread_main_np())
+        return;
+    if (mach_timebase_info(&timebase) != KERN_SUCCESS || !timebase.denom ||
+        pthread_threadid_np(NULL, &main_tid) != 0)
         return;
     main_thread = mach_thread_self();
     if (!MACH_PORT_VALID(main_thread))

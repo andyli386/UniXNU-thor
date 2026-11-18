@@ -1,9 +1,9 @@
 {
   "payload": {
-    "path": "runtime/libpong-settings-v180.dylib",
-    "bytes": 88400,
-    "sha256": "faeae42edb7e73da8ed7eb784f1ccd67b3c6d54710093d17b100dcfa9619747e",
-    "uuid": "68C2860F-C88C-3277-9166-E4E00B0BB683"
+    "path": "runtime/libpong-settings-v185.dylib",
+    "bytes": 89696,
+    "sha256": "22f0923beca55a3cf8703a6670c80f67629cde4c8ded05fb839d1492a55fe983",
+    "uuid": "14449125-2047-39AF-AFB7-56AFB87E3C3E"
   },
   "native_build": "22H374",
   "images": [
@@ -190,22 +190,28 @@
     "request_thread_stack_when_worker_blocked": true,
     "source_thread_right_release": "single timeout callback, including canceled samples",
     "loader_lookup_on_timeout_queue": false,
-    "main_thread_disk_or_sysctl": false
+    "main_thread_disk_or_sysctl": false,
+    "normal_navigation": "one deferred nav185 row per native transition",
+    "navigation_times": "absolute uptime_us at entry, native return and matching UIKit completion",
+    "late_navigation": "pending result followed by terminal result when the coordinator completes after timeout"
   },
   "verification": {
     "strict_codesign": true,
     "arm64_ios18": true,
-    "reproducible": true,
-    "actual_body_host_harness": "unchanged source; inherited v180 settings-trace-test.log",
-    "tested": "18 typed forwarding paths; nav wrapper composition; native/main-queue/worker timeouts; right release; 128 concurrent reservations; worst-case log fields",
-    "device_hook_installation": "pending native phone trial after Mach-O UUID fix",
     "dyld_validate_only": true,
-    "constructor_fixup": "__DATA_CONST,__mod_init_func rebase to _start_trace at 0x4000",
-    "format_regression": "Prior no-UUID payload failed dyld_info -validate_only with exit1; corrected signed payload passes with exit0"
+    "reproducible": true,
+    "actual_body_host_harness": "tests/settings-navigation/run.sh",
+    "tested": "typed observers, main/worker stalls, asynchronous, inline and cancelled completions, target matching, limits and delayed receipt deduplication",
+    "device_hook_installation": "pending v185 native trial"
   },
   "sources": {
-    "settings_trace18.c": "d1188e5a3d06e1c9483efba5c570b60392ad8bc6bfdc65d959e86caedb46e565",
-    "build-settings-trace.sh": "1bc4fdb0db0168215a123a124f04d362725b63130fbbeaa319fe578002095545",
-    "settings-trace-test.c": "4b2f5e9f7c279c9774d72cf07b3310d7fc3877dd1cf2c96655376ab0e62efa71"
+    "settings_trace18.c": "c456daa2a146df87cdc396c5d144a0727176f0f32c0d42967858881bf95e56fb",
+    "build-settings-trace18.sh": "0adca4ed0a70a8cb322c88e3e104d21868b00f9f48ced5f031fd6229a072ab38",
+    "navigation_completion185.h": "8ac94c8f8ed7618481fc027355797106bca144e6b06ca3abdaef0a1daaf0958d",
+    "navigation_completion185.m": "3da5639142e71aa21540ea7f46991bb49191105ef7640d9152936bf0efcc8b1c",
+    "tests/settings-navigation/test-spans.c": "2af7d5ae16a7d412e2c47ee21f030e9acee792a0bc4dc6797d9ced949fbe02a8",
+    "tests/settings-navigation/test-coordinator.m": "ede0098baac45886160078891e0f8959bb2f917d60c071761228c85b378c6ea3",
+    "tests/settings-navigation/UIKit/UIKit.h": "d1f375e04bcb3332dd02f2ab6f9da195aed7dd7a97845abfaae486b2f64ccbf2",
+    "tests/settings-navigation/run.sh": "2615f4acd2ed1bec3964dbada338d57aba376cdb23f6b2746e2e3565f9f5f846"
   }
 }
