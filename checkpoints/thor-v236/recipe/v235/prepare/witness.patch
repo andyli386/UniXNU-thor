@@ -1,0 +1,1857 @@
+--- a/build-tree/.cache/xnu-work/osfmk/kern/debug.c
++++ b/build-tree/.cache/xnu-work/osfmk/kern/debug.c
+@@ -2469,5 +2469,5 @@
+ 
+ /* THOR WITNESS V233: panel text, hang report and panic screen (after debug_buf_* above). */
+ #if defined(ARM64_BOARD_CONFIG_PONG)
+-#include "thor_witness_v234.h"
++#include "thor_witness_v235.h"
+ #endif
+--- a/build-tree/.cache/xnu-work/bsd/kern/kern_exec.c
++++ b/build-tree/.cache/xnu-work/bsd/kern/kern_exec.c
+@@ -6485,7 +6485,7 @@
+  * copies the console itself every 250 ms (from the oldest byte still buffered when this thread
+  * starts) and appends each report of the monitor thread
+  * (osfmk/kern/thor_witness_v233.h).  Storage is the one thing this thread may wait for. */
+-#define THOR_WITNESS_MIRROR_PATH    "/private/var/logs/PongConsole-kernel-v234.txt"
++#define THOR_WITNESS_MIRROR_PATH    "/private/var/logs/PongConsole-kernel-v235.txt"
+ #define THOR_WITNESS_MIRROR_CHUNK   32768u
+ #define THOR_WITNESS_MIRROR_REPORT  65536u
+ #define THOR_WITNESS_MIRROR_LIMIT   (24u * 1024u * 1024u)
+@@ -6496,22 +6496,42 @@
+ extern size_t thor_witness_report_fetch(char *out, size_t capacity, unsigned *seen, unsigned *lines)
+     __attribute__((weak_import));
+ 
+-/* THOR WITNESS V234: the panic record slot.  A panicking kernel cannot write a file, so the
+- * record goes to blocks that APFS has already given to one.  /private/var/logs/PongPanic-v234-N.bin
++/* THOR WITNESS V235: the panic record slot.  A panicking kernel cannot write a file, so the
++ * record goes to blocks that APFS has already given to one.  /private/var/logs/PongPanic-v235-N.bin
+  * is pre-allocated to 256 KiB, the device offset of every 4 KiB block of it is read with
+  * VNOP_BLOCKMAP, and the mapping is proven by reading blocks back through the UFS driver and
+  * comparing them with the file.  Only a proven slot is written at panic time.  A slot that
+- * holds a record is never reused, so records accumulate over boots. */
++ * holds a record is never reused, so records accumulate over boots.
++ *
++ * THOR WITNESS V235: where those block numbers count from.  The only v234 boot proved nothing:
++ * "panic record slot 0 block 0 does not match its file (error 5)", so no record was stored.  A
++ * read-only check from TWRP the same evening showed the Data window holding a GPT whose single
++ * APFS partition begins 1 MiB into the window, and all 64 blocks of the slot file exactly at
++ * partition start + block * 4096, while window start + block * 4096 is zeros.  VNOP_BLOCKMAP
++ * counts from the container device, which is that partition, not from the window.  The origin
++ * now comes from the device stack (window plus the partitions below the file system's device);
++ * the bare window and the volume's own base are tried as well; each candidate has to prove
++ * every block; and when none does, the window itself is searched for the blocks (every block
++ * carries the slot number, its own number and a nonce drawn at this start). */
+ #define THOR_WITNESS_SLOT_BYTES    (256u * 1024u)
+ #define THOR_WITNESS_SLOT_BLOCKS   (THOR_WITNESS_SLOT_BYTES / 4096u)
+ #define THOR_WITNESS_SLOTS         12
+ #define THOR_WITNESS_RECORD_MAGIC  "THORPAN1"
+-static uint64_t thor_witness_slot_block[THOR_WITNESS_SLOT_BLOCKS];
++#define THOR_WITNESS_SLOT_MARK     256u                   /* each block's own mark starts here */
++#define THOR_WITNESS_SCAN_BYTES    (128u * 1024u)         /* one raw read: the transport's payload size */
++#define THOR_WITNESS_SCAN_SECONDS  30ull
++struct thor_ufs_device_place {
++	uint64_t window_base;   /* first byte of the storage window inside the UFS LUN */
++	uint64_t window_bytes;  /* its size */
++	uint64_t stack_offset;  /* bytes between the window start and the outermost IOMedia below the device */
++	uint64_t own_base;      /* the file system device's own IOMedia base, 0 for a whole disk */
++};
++static uint64_t thor_witness_slot_block[THOR_WITNESS_SLOT_BLOCKS];   /* the numbers VNOP_BLOCKMAP reports */
++static uint64_t thor_witness_slot_where[THOR_WITNESS_SLOT_BLOCKS];   /* proven: each block's first byte in the UFS LUN */
+ static unsigned thor_witness_slot_state;          /* 0 not prepared, 1 proven, 2 unavailable */
+-static uint64_t thor_witness_slot_base;           /* the container device's first byte inside the UFS LUN */
+ static char thor_witness_slot_path[72];
+ static uint8_t thor_witness_slot_image[THOR_WITNESS_SLOT_BYTES];
+-extern uint64_t thor_ufs_window_of_bsd(int major, int minor);
++extern int thor_ufs_container_of_bsd(int major, int minor, struct thor_ufs_device_place *place);
+ extern int thor_ufs_raw_read(uint64_t byte, void *data, uint32_t blocks);
+ extern int thor_ufs_raw_write(uint64_t byte, const void *data, uint32_t blocks, int panic);
+ 
+@@ -6529,6 +6549,115 @@
+ thor_witness_slot_put(void *at, uint32_t value)
+ {
+ 	memcpy(at, &value, sizeof value);
++}
++
++static uint64_t
++thor_witness_slot_word(const void *at)
++{
++	uint64_t value;
++	memcpy(&value, at, sizeof value);
++	return value;
++}
++
++/* The first byte in the UFS LUN of every block, for one origin of the block numbers and one
++ * bytes-per-block scale: false when a block would not start on a 4 KiB boundary. */
++static bool
++thor_witness_slot_locate(uint64_t origin, uint64_t scale)
++{
++	unsigned n;
++	for (n = 0; n < THOR_WITNESS_SLOT_BLOCKS; n++) {
++		const uint64_t byte = origin + thor_witness_slot_block[n] * scale;
++		if ((byte & 4095) || byte < origin) {
++			return false;
++		}
++		thor_witness_slot_where[n] = byte;
++	}
++	return true;
++}
++
++/* Every block read through the raw channel: 0 when each equals what the file holds, otherwise
++ * the error.  `which` and `saw` tell where it stopped and the first eight bytes of the medium there. */
++static int
++thor_witness_slot_proof(const uint8_t *content, uint8_t *block, unsigned *which, uint64_t *saw)
++{
++	unsigned n;
++	int error = 0;
++	for (n = 0; n < THOR_WITNESS_SLOT_BLOCKS; n++) {
++		memset(block, 0, 4096);
++		error = thor_ufs_raw_read(thor_witness_slot_where[n], block, 1);
++		if (!error && memcmp(block, content + (size_t)n * 4096, 4096)) {
++			error = EIO;
++		}
++		if (error) {
++			*which = n;
++			*saw = thor_witness_slot_word(block);
++			return error;
++		}
++	}
++	return 0;
++}
++
++/* Last resort: find the blocks themselves in the window.  256 bytes into block n of the file
++ * stand "THORSLOT", the slot number, n and a nonce drawn at this start.  A 4 KiB block of the
++ * window with that mark whose whole content equals the file's block n is that block.  Bounded
++ * by the size of the window and by THOR_WITNESS_SCAN_SECONDS; nothing is written. */
++static int
++thor_witness_slot_scan(const struct thor_ufs_device_place *place, const uint8_t *content, unsigned index,
++    unsigned *found_count)
++{
++	const uint8_t *mark = content + THOR_WITNESS_SLOT_MARK;
++	uint8_t *buffer;
++	uint64_t at, left, now, limit;
++	unsigned blocks, i, n, found = 0;
++	int error = 0;
++
++	buffer = kalloc_data(THOR_WITNESS_SCAN_BYTES, Z_WAITOK | Z_ZERO);
++	if (!buffer) {
++		return ENOMEM;
++	}
++	absolutetime_to_nanoseconds(mach_absolute_time(), &limit);
++	limit += THOR_WITNESS_SCAN_SECONDS * 1000000000ull;
++	for (at = 0; at < place->window_bytes && found < THOR_WITNESS_SLOT_BLOCKS; at += left) {
++		left = place->window_bytes - at;
++		if (left > THOR_WITNESS_SCAN_BYTES) {
++			left = THOR_WITNESS_SCAN_BYTES;
++		}
++		blocks = (unsigned)(left / 4096);
++		if (!blocks) {
++			break;
++		}
++		error = thor_ufs_raw_read(place->window_base + at, buffer, blocks);
++		if (error) {
++			break;
++		}
++		for (i = 0; i < blocks; i++) {
++			const uint8_t *candidate = buffer + (size_t)i * 4096 + THOR_WITNESS_SLOT_MARK;
++			if (memcmp(candidate, "THORSLOT", 8) ||
++			    (uint32_t)thor_witness_slot_word(candidate + 8) != index ||
++			    (uint32_t)(thor_witness_slot_word(candidate + 8) >> 32) >= THOR_WITNESS_SLOT_BLOCKS ||
++			    memcmp(candidate + 16, mark + 16, 8)) {
++				continue;
++			}
++			n = (unsigned)(thor_witness_slot_word(candidate + 8) >> 32);
++			if (thor_witness_slot_where[n] ||
++			    memcmp(buffer + (size_t)i * 4096, content + (size_t)n * 4096, 4096)) {
++				continue;
++			}
++			thor_witness_slot_where[n] = place->window_base + at + (uint64_t)i * 4096;
++			found++;
++		}
++		absolutetime_to_nanoseconds(mach_absolute_time(), &now);
++		if (now > limit) {
++			error = ETIMEDOUT;
++			break;
++		}
++	}
++	if (!error && found < THOR_WITNESS_SLOT_BLOCKS) {
++		error = ENOENT;
++	}
++	kfree_data(buffer, THOR_WITNESS_SCAN_BYTES);
++	*found_count = found;
++	return error;
+ }
+ 
+ static void
+@@ -6538,10 +6667,12 @@
+ 	vnode_t file = NULLVP;
+ 	char path[sizeof thor_witness_slot_path];
+ 	struct vnode_attr attributes;
++	struct thor_ufs_device_place place;
+ 	daddr64_t bn = 0;
+ 	size_t run = 0;
+-	uint64_t base = 0, nonce = 0;
+-	unsigned index, b, n, last;
++	uint64_t nonce = 0, saw = 0, origins[3], scales[3];
++	unsigned index, b, n, last, which = 0, found = 0, norigins, nscales;
++	dev_t device = 0;
+ 	int error, unit;
+ 
+ 	thor_witness_slot_state = 2;
+@@ -6553,7 +6684,7 @@
+ 	}
+ 	/* 1. the first slot that does not hold a record of an earlier boot */
+ 	for (index = 0; index < THOR_WITNESS_SLOTS; index++) {
+-		snprintf(path, sizeof path, "/private/var/logs/PongPanic-v234-%u.bin", index);
++		snprintf(path, sizeof path, "/private/var/logs/PongPanic-v235-%u.bin", index);
+ 		error = vnode_open(path, O_CREAT | O_RDWR, 0600, VNODE_LOOKUP_NOFOLLOW_ANY, &file, context);
+ 		if (error) {
+ 			goto out;
+@@ -6582,13 +6713,13 @@
+ 	if (error) {
+ 		goto out;
+ 	}
+-	snprintf((char *)content, 256, "THOR WITNESS V234 panic record slot %u; a record starts with %s\n",
++	snprintf((char *)content, 256, "THOR WITNESS V235 panic record slot %u; a record starts with %s\n",
+ 	    index, THOR_WITNESS_RECORD_MAGIC);
+ 	/* Every 4 KiB block carries its own mark (slot, block, a per-boot nonce), so that a block
+ 	 * map that points anywhere else is caught by the comparison below. */
+ 	read_frandom(&nonce, sizeof nonce);
+ 	for (n = 0; n < THOR_WITNESS_SLOT_BLOCKS; n++) {
+-		uint8_t *mark = content + (size_t)n * 4096 + 256;
++		uint8_t *mark = content + (size_t)n * 4096 + THOR_WITNESS_SLOT_MARK;
+ 		memcpy(mark, "THORSLOT", 8);
+ 		thor_witness_slot_put(mark + 8, index);
+ 		thor_witness_slot_put(mark + 12, n);
+@@ -6602,17 +6733,13 @@
+ 	if (error) {
+ 		goto out;
+ 	}
+-	/* 2. the device offset of every block */
++	/* 2. the block numbers of every block, as the file system reports them */
+ 	unit = vfs_devblocksize(vnode_mount(file));
+-	if (unit != 4096) {
+-		error = ENOTSUP;
+-		goto out;
+-	}
+ 	for (b = 0; b < THOR_WITNESS_SLOT_BLOCKS && !error; b += n) {
+ 		n = 0;
+ 		error = VNOP_BLOCKMAP(file, (off_t)(b * 4096), THOR_WITNESS_SLOT_BYTES - b * 4096, &bn, &run, NULL, 0, context);
+ 		for (n = 0; !error && n * 4096 < run && b + n < THOR_WITNESS_SLOT_BLOCKS; n++) {
+-			thor_witness_slot_block[b + n] = (uint64_t)bn * (uint64_t)unit + (uint64_t)n * (uint64_t)unit;
++			thor_witness_slot_block[b + n] = (uint64_t)bn + (uint64_t)n;
+ 		}
+ 		if (!error && (n == 0 || bn == -1)) {
+ 			error = bn == -1 ? ENXIO : EIO;
+@@ -6622,7 +6749,7 @@
+ 		error = error ? error : EIO;
+ 		goto out;
+ 	}
+-	/* 3. where the container device starts inside the UFS LUN */
++	/* 3. candidates for the first byte, in the UFS LUN, that the block numbers count from */
+ 	VATTR_INIT(&attributes);
+ 	VATTR_WANTED(&attributes, va_rdev);
+ 	error = vnode_getattr(vfs_devvp(vnode_mount(file)), &attributes, context);
+@@ -6630,59 +6757,104 @@
+ 		error = error ? error : ENODEV;
+ 		goto out;
+ 	}
+-	base = thor_ufs_window_of_bsd(major(attributes.va_rdev), minor(attributes.va_rdev));
+-	if (!base) {
++	device = attributes.va_rdev;
++	memset(&place, 0, sizeof place);
++	if (!thor_ufs_container_of_bsd(major(device), minor(device), &place) || !place.window_base ||
++	    place.window_bytes < THOR_WITNESS_SLOT_BYTES) {
+ 		error = ENODEV;
++		printf("THOR WITNESS V235: panic record slot %u: device %d,%d is not backed by a storage window\n",
++		    index, major(device), minor(device));
+ 		goto out;
+ 	}
+-	/* 4. prove the mapping: every block read through the raw channel must equal what the file holds */
+-	for (n = 0; n < THOR_WITNESS_SLOT_BLOCKS; n++) {
+-		const unsigned which = n;
+-		error = thor_ufs_raw_read(base + thor_witness_slot_block[which], block, 1);
+-		if (!error && memcmp(block, content + (size_t)which * 4096, 4096)) {
+-			error = EIO;
+-		}
+-		if (error) {
+-			printf("THOR WITNESS V234: panic record slot %u block %u does not match its file (error %d)\n",
+-			    index, which, error);
+-			goto out;
++	printf("THOR WITNESS V235: panic record slot %u: block numbers %llx..%llx, unit %d, device %d,%d, "
++	    "window %#llx + %#llx, media below the device start %#llx into it, own base %#llx\n",
++	    index, (unsigned long long)(thor_witness_slot_block[0]), (unsigned long long)(thor_witness_slot_block[THOR_WITNESS_SLOT_BLOCKS - 1]), unit,
++	    major(device), minor(device), (unsigned long long)(place.window_base), (unsigned long long)(place.window_bytes), (unsigned long long)(place.stack_offset), (unsigned long long)(place.own_base));
++	norigins = 0;
++	origins[norigins++] = place.window_base + place.stack_offset;              /* the device stack */
++	if (place.own_base) {
++		origins[norigins++] = place.window_base + place.stack_offset + place.own_base;
++	}
++	if (place.stack_offset) {
++		origins[norigins++] = place.window_base;                               /* what v234 used */
++	}
++	nscales = 0;
++	scales[nscales++] = (uint64_t)unit;
++	if (unit != 4096) {
++		scales[nscales++] = 4096;
++	}
++	if (unit != 512) {
++		scales[nscales++] = 512;
++	}
++	/* 4. prove the mapping: the first origin and scale under which every block read through the
++	 * raw channel equals what the file holds */
++	error = ENOENT;
++	for (n = 0; n < norigins && error; n++) {
++		unsigned s;
++		for (s = 0; s < nscales && error; s++) {
++			if (!thor_witness_slot_locate(origins[n], scales[s])) {
++				continue;
++			}
++			error = thor_witness_slot_proof(content, block, &which, &saw);
++			if (error) {
++				printf("THOR WITNESS V235: panic record slot %u: origin %#llx, %llu bytes per block: "
++				    "block %u (number %llx, LUN byte %#llx) differs: %s, the medium holds %016llx "
++				    "where the file holds %016llx\n",
++				    index, (unsigned long long)(origins[n]), (unsigned long long)(scales[s]), which, (unsigned long long)(thor_witness_slot_block[which]),
++				    (unsigned long long)(thor_witness_slot_where[which]), error == EIO ? "other data" : "read error", (unsigned long long)(saw),
++				    (unsigned long long)(thor_witness_slot_word(content + (size_t)which * 4096)));
++			} else {
++				printf("THOR WITNESS V235: panic record slot %u: origin %#llx, %llu bytes per block: "
++				    "every block matches\n", index, (unsigned long long)(origins[n]), (unsigned long long)(scales[s]));
++			}
+ 		}
+ 	}
++	if (error) {
++		/* 4b. nothing computed matched: look for the blocks themselves */
++		memset(thor_witness_slot_where, 0, sizeof thor_witness_slot_where);
++		error = thor_witness_slot_scan(&place, content, index, &found);
++		printf("THOR WITNESS V235: panic record slot %u: the window was searched for the blocks: "
++		    "%u of %u found (error %d)\n", index, found, THOR_WITNESS_SLOT_BLOCKS, error);
++	}
++	if (error) {
++		goto out;
++	}
+ 	/* 5. the write path: one byte of the last block is changed on the medium, read back through
+ 	 * the raw channel and restored.  The file's cached pages never see this. */
+ 	last = THOR_WITNESS_SLOT_BLOCKS - 1;
+ 	memcpy(block, content + (size_t)last * 4096, 4096);
+ 	block[4095] ^= 0xa5;
+-	error = thor_ufs_raw_write(base + thor_witness_slot_block[last], block, 1, 0);
+-	if (!error) {
+-		memset(block, 0, 4096);
+-		error = thor_ufs_raw_read(base + thor_witness_slot_block[last], block, 1);
+-	}
+-	if (!error && memcmp(block, content + (size_t)last * 4096, 4095)) {
+-		error = EIO;
+-	}
+-	if (!error && block[4095] != (content[(size_t)last * 4096 + 4095] ^ 0xa5)) {
+-		error = EIO;
+-	}
++	error = thor_ufs_raw_write(thor_witness_slot_where[last], block, 1, 0);
+ 	if (!error) {
++		memset(block, 0, 4096);
++		error = thor_ufs_raw_read(thor_witness_slot_where[last], block, 1);
++		if (!error && memcmp(block, content + (size_t)last * 4096, 4095)) {
++			error = EIO;
++		}
++		if (!error && block[4095] != (content[(size_t)last * 4096 + 4095] ^ 0xa5)) {
++			error = EIO;
++		}
++		/* Whatever the outcome, the medium gets the file's content back. */
+ 		memcpy(block, content + (size_t)last * 4096, 4096);
+-		error = thor_ufs_raw_write(base + thor_witness_slot_block[last], block, 1, 0);
++		if (thor_ufs_raw_write(thor_witness_slot_where[last], block, 1, 0) && !error) {
++			error = EIO;
++		}
+ 	}
+ 	if (error) {
+-		printf("THOR WITNESS V234: panic record slot %u: the raw write did not read back (error %d)\n",
++		printf("THOR WITNESS V235: panic record slot %u: the raw write did not read back (error %d)\n",
+ 		    index, error);
+ 		goto out;
+ 	}
+ 	strlcpy(thor_witness_slot_path, path, sizeof thor_witness_slot_path);
+-	thor_witness_slot_base = base;
+ 	thor_witness_slot_state = 1;
+ 	error = 0;
+-	printf("THOR WITNESS V234: panic record slot %s proven: %u blocks, container at byte %#llx of the UFS LUN\n",
+-	    path, THOR_WITNESS_SLOT_BLOCKS, (unsigned long long)base);
++	printf("THOR WITNESS V235: panic record slot %s proven: %u blocks, LUN bytes %#llx..%#llx, "
++	    "write-read-restore done\n", path, THOR_WITNESS_SLOT_BLOCKS, (unsigned long long)(thor_witness_slot_where[0]),
++	    (unsigned long long)(thor_witness_slot_where[THOR_WITNESS_SLOT_BLOCKS - 1]));
+ 
+ out:
+ 	if (thor_witness_slot_state != 1) {
+-		printf("THOR WITNESS V234: no panic record slot (error %d): a panic will only be shown on the panel\n",
++		printf("THOR WITNESS V235: no panic record slot (error %d): a panic will only be shown on the panel\n",
+ 		    error);
+ 	}
+ 	if (file != NULLVP) {
+@@ -6726,7 +6898,7 @@
+ 	memcpy(thor_witness_slot_image + 64, stock, stock_bytes);
+ 	memcpy(thor_witness_slot_image + 64 + stock_bytes, extra, extra_bytes);
+ 	for (b = 0; b < THOR_WITNESS_SLOT_BLOCKS; b++) {
+-		error = thor_ufs_raw_write(thor_witness_slot_base + thor_witness_slot_block[b],
++		error = thor_ufs_raw_write(thor_witness_slot_where[b],
+ 		    thor_witness_slot_image + (size_t)b * 4096, 1, 1);
+ 		if (error) {
+ 			break;
+@@ -6778,7 +6950,7 @@
+ 				retry = nanos + 2000000000ull;
+ 				failures++;
+ 				if (failures == 20 || failures == 600) {
+-					printf("THOR WITNESS V234: cannot open %s (error %d)\n", THOR_WITNESS_MIRROR_PATH, error);
++					printf("THOR WITNESS V235: cannot open %s (error %d)\n", THOR_WITNESS_MIRROR_PATH, error);
+ 				}
+ 			}
+ 		}
+@@ -6816,14 +6988,14 @@
+ 				retry = nanos + 2000000000ull;
+ 				failures++;
+ 				if (failures == 20 || failures == 600) {
+-					printf("THOR WITNESS V234: writing %s failed (error %d)\n", THOR_WITNESS_MIRROR_PATH, error);
++					printf("THOR WITNESS V235: writing %s failed (error %d)\n", THOR_WITNESS_MIRROR_PATH, error);
+ 				}
+ 			} else if (written) {
+ 				/* What was written reaches the storage now; a forced reboot keeps it. */
+ 				error = VNOP_FSYNC(file, MNT_WAIT, context);
+ 				if (!quiet) {
+ 					quiet = 1;
+-					printf("THOR WITNESS V234: console mirror %s open\n", THOR_WITNESS_MIRROR_PATH);
++					printf("THOR WITNESS V235: console mirror %s open\n", THOR_WITNESS_MIRROR_PATH);
+ 				}
+ 			}
+ 			if (!slot_prepared) {
+--- a/build-tree/.cache/xnu-work/osfmk/kern/thor_witness_v235.h
++++ b/build-tree/.cache/xnu-work/osfmk/kern/thor_witness_v235.h
+@@ -0,0 +1,1353 @@
++/*
++ * THOR WITNESS V235 (Thor port only; included once, at the end of osfmk/kern/debug.c).
++ *
++ * v233 made a freeze leave evidence that does not depend on the UI: the panic log on the panel,
++ * a kernel-side hang report, and a kernel-side console mirror.  The first v233 run then showed
++ * what the "画面定格" is: a kernel panic ("Kernel Instruction fetch abort", backboardd, after 100
++ * minutes).  A photographed panic log leaves the decisive questions open: who called the bad
++ * address, what the thread was doing, and what the driver did just before.  So v234:
++ *
++ *   1. keeps the panic log and the hang report on the panel;
++ *   2. adds panic extras to the panel and to a record: the faulting pc/lr with their
++ *      translation, the bytes around them, the user registers of the thread, every kernel-text
++ *      word on the thread's kernel stack with its symbol, and the tail of the GPU trace ring;
++ *   3. stores the panic log and the extras in a pre-allocated file, written straight to the
++ *      storage blocks through the UFS driver (bsd/kern/kern_exec.c owns the slot).
++ *
++ * The only v234 run (2026-11-25, six minutes) lost the record twice over: the slot was never
++ * proven (kern_exec.c: the block numbers count from a partition 1 MiB into the window), and the
++ * GPU trace was read into a 24-byte object and ran 19 KiB past it into other kernel data.  Of the
++ * panel only one page was photographed: a list of kernel-text words, which cannot tell a live
++ * frame from a stale one.  So v235:
++ *
++ *   1. fixes both (the slot origin in kern_exec.c; one buffer for the GPU trace here);
++ *   2. adds two real backtraces to the extras: the frame records from the faulting code's frame
++ *      pointer (who leads to the fault), and the frame records at the panic call (who panicked).
++ *
++ * The monitor thread never waits for a contended lock and never touches storage; only the
++ * console mirror thread (kern_exec.c) does I/O while the system runs.
++ */
++#ifndef _KERN_THOR_WITNESS_V235_H_
++#define _KERN_THOR_WITNESS_V235_H_
++
++#define _KERN_THOR_WITNESS_V233_H_
++#define _KERN_THOR_WITNESS_V234_H_
++
++#include <console/video_console.h>
++#include <kern/processor.h>
++#include <kern/sched.h>
++#include <kern/task_ref.h>
++#include <mach/vm_param.h>
++#include <mach-o/loader.h>
++#include <mach-o/nlist.h>
++#include <arm/cpu_internal.h>
++#include <arm/cpu_data_internal.h>
++
++extern struct vc_info vinfo;                            /* osfmk/console/video_console.c */
++extern unsigned char iso_font[256 * 16];               /* osfmk/console/iso_font.c: 16 rows per glyph, low bit = left pixel */
++extern uint64_t pong_touch_last_event_time(void);      /* bsd/dev/pong_fts.c */
++extern int strncmp(const char *, const char *, size_t);
++extern uint64_t thor_witness_writer_abs, thor_witness_writer_file;   /* the console mirror, kern_exec.c */
++extern int thor_witness_slot_store(const void *stock, unsigned stock_bytes, const void *extra,
++    unsigned extra_bytes);                                          /* the panic record slot, kern_exec.c */
++
++/* The kernel's own symbol table, indexed once so that a panic can print names. */
++#define THOR_WITNESS_SYMBOLS_MAX   131072u
++struct thor_witness_symbol {
++	uint64_t    address;
++	const char  *name;
++};
++static struct thor_witness_symbol *thor_witness_symbols;
++static unsigned thor_witness_symbol_count;
++/* The first byte of every function in the kernel image (LC_FUNCTION_STARTS). */
++#define THOR_WITNESS_FUNCTIONS_MAX   65536u
++static uint64_t thor_witness_function_start[THOR_WITNESS_FUNCTIONS_MAX];
++static unsigned thor_witness_function_count;
++
++/* What the panicking thread was doing when the exception was taken (sleh.c hands it over). */
++static uint64_t thor_witness_fault_pc, thor_witness_fault_lr, thor_witness_fault_sp, thor_witness_fault_fp;
++/* v235: return addresses read from frame records, newest first.  The fault chain starts at the
++ * faulting code's frame pointer and leads to whoever called it; the panic chain starts at this
++ * code's own frame in PE_panic_hook and leads to whoever called panic(). */
++#define THOR_WITNESS_CHAIN_MAX     64u
++static uint64_t thor_witness_fault_chain[THOR_WITNESS_CHAIN_MAX];
++static unsigned thor_witness_fault_chain_count;
++static uint64_t thor_witness_panic_chain[THOR_WITNESS_CHAIN_MAX];
++static unsigned thor_witness_panic_chain_count;
++
++/* Panic extras and the document shown after the panic log. */
++#define THOR_WITNESS_EXTRA_BYTES   (80u * 1024u)
++#define THOR_WITNESS_DOC_BYTES     (256u * 1024u)
++#define THOR_WITNESS_TRACE_RECORDS 160u
++#define THOR_WITNESS_STACK_LINES   420u
++static char thor_witness_extra[THOR_WITNESS_EXTRA_BYTES];
++static size_t thor_witness_extra_length;
++static char thor_witness_panic_doc[THOR_WITNESS_DOC_BYTES];
++static size_t thor_witness_panic_doc_length;
++
++#define THOR_WITNESS_MIN(a, b) ((a) < (b) ? (a) : (b))
++#define THOR_WITNESS_PERIOD_MS      250u
++#define THOR_WITNESS_GRACE_US       75000000ull     /* let the boot finish before anything is called a hang */
++#define THOR_WITNESS_STALL_US       3000000ull      /* user space has not read the console, or no frame, for this long */
++#define THOR_WITNESS_INPUT_US       20000000ull     /* ... and the touch is younger than this */
++#define THOR_WITNESS_REPORT_GAP_US  15000000ull
++#define THOR_WITNESS_PAGE_US        8000000ull
++#define THOR_WITNESS_THREADS_MAX    2048u
++#define THOR_WITNESS_TASKS_MAX      1024u
++#define THOR_WITNESS_FRAMES         10u
++#define THOR_WITNESS_TASK_THREADS   24u
++#define THOR_WITNESS_LINE           400u
++#define THOR_WITNESS_REPORT_BYTES   65536u
++#define THOR_WITNESS_SCALE          2u
++#define THOR_WITNESS_NAMELEN        20u
++#define THOR_WITNESS_PANIC_PAGE_US  15000000ull
++#define THOR_WITNESS_FILE           "/private/var/logs/PongConsole-kernel-v235.txt"
++
++/* ---- inputs: plain stores from hooks, relaxed loads here ---- */
++static uint64_t thor_witness_reader_abs, thor_witness_reader_pid;
++static uint64_t thor_witness_frame_abs, thor_witness_storage_abs, thor_witness_storage_ops;
++static uint64_t thor_witness_storage_status;
++static uint64_t thor_witness_monitor_abs;
++static uint64_t thor_witness_role_abs, thor_witness_role_pid, thor_witness_role_fg;
++static char thor_witness_role_name[32];
++static unsigned thor_witness_start_state;
++
++/* ---- report hand-off: the monitor writes, the mirror reads ---- */
++static char thor_witness_report[THOR_WITNESS_REPORT_BYTES];
++static size_t thor_witness_report_length;
++static volatile unsigned thor_witness_report_number, thor_witness_report_lines;
++static char thor_witness_reason[48];
++
++/* ---- scan scratch (monitor only) ---- */
++struct thor_witness_thread {
++	uint64_t    tid;
++	event64_t   wait_event;
++	int         state;
++	int16_t     base_pri;
++	int16_t     sched_pri;
++	unsigned    task_index;
++	uint64_t    frames[THOR_WITNESS_FRAMES];
++	uint64_t    user_pc, user_lr;
++	uint8_t     frame_count;
++};
++
++struct thor_witness_task {
++	task_t      task;
++	int         pid;
++	unsigned    threads, running, waiting, uninterruptible, shown;
++	bool        lock_busy;
++	bool        key;
++	char        name[THOR_WITNESS_NAMELEN];
++};
++
++static struct thor_witness_task thor_witness_tasks[THOR_WITNESS_TASKS_MAX];
++static struct thor_witness_thread thor_witness_threads[THOR_WITNESS_THREADS_MAX];
++static unsigned thor_witness_task_count, thor_witness_thread_count;
++static uint64_t thor_witness_xcall_time[MAX_CPUS];
++static unsigned thor_witness_list_busy;
++static void thor_witness_describe(uint64_t address, char *out, size_t capacity);
++
++static const char *const thor_witness_named[] = { "SpringBoard", "backboardd", "runningboardd", "notifyd", "launchd" };
++
++static uint64_t
++thor_witness_micros(uint64_t absolute)
++{
++	uint64_t nanos = 0;
++	absolutetime_to_nanoseconds(absolute, &nanos);
++	return nanos / 1000ull;
++}
++
++/* "123.456" for an age in microseconds, "-" when there is none. */
++static const char *
++thor_witness_age(char *out, size_t capacity, bool known, int64_t microseconds)
++{
++	if (!known) {
++		snprintf(out, capacity, "-");
++	} else if (microseconds < 0) {
++		snprintf(out, capacity, "0.000");
++	} else {
++		snprintf(out, capacity, "%llu.%03llu", (unsigned long long)(microseconds / 1000000),
++		    (unsigned long long)((microseconds % 1000000) / 1000));
++	}
++	return out;
++}
++
++/* ======================= hooks (called from anywhere) ======================= */
++
++void thor_witness_read(int pid);
++void thor_witness_frame(void);
++void thor_witness_storage(int status);
++void thor_witness_role(int pid, int foreground, const char *name);
++
++void
++thor_witness_read(int pid)
++{
++	__atomic_store_n(&thor_witness_reader_abs, mach_absolute_time(), __ATOMIC_RELAXED);
++	__atomic_store_n(&thor_witness_reader_pid, (uint64_t)pid, __ATOMIC_RELAXED);
++}
++
++void
++thor_witness_frame(void)
++{
++	__atomic_store_n(&thor_witness_frame_abs, mach_absolute_time(), __ATOMIC_RELAXED);
++}
++
++/* status is the storage command's result: 0 completed, otherwise the error that stopped it. */
++void
++thor_witness_storage(int status)
++{
++	__atomic_store_n(&thor_witness_storage_abs, mach_absolute_time(), __ATOMIC_RELAXED);
++	__atomic_store_n(&thor_witness_storage_status, (uint64_t)status, __ATOMIC_RELAXED);
++	__atomic_add_fetch(&thor_witness_storage_ops, 1, __ATOMIC_RELAXED);
++}
++
++void
++thor_witness_role(int pid, int foreground, const char *name)
++{
++	size_t i;
++	for (i = 0; name && i < sizeof(thor_witness_role_name) - 1 && name[i]; i++) {
++		thor_witness_role_name[i] = name[i] >= 32 && name[i] < 127 ? name[i] : '?';
++	}
++	thor_witness_role_name[i] = 0;
++	__atomic_store_n(&thor_witness_role_pid, (uint64_t)pid, __ATOMIC_RELAXED);
++	__atomic_store_n(&thor_witness_role_fg, foreground ? 1ull : 0ull, __ATOMIC_RELAXED);
++	__atomic_store_n(&thor_witness_role_abs, mach_absolute_time(), __ATOMIC_RELAXED);
++}
++
++/* ======================= panel text ======================= */
++
++#define THOR_WITNESS_CW (8u * THOR_WITNESS_SCALE)
++#define THOR_WITNESS_CH (16u * THOR_WITNESS_SCALE)
++#define THOR_WITNESS_WHITE 0xffffffffu
++#define THOR_WITNESS_BLACK 0xff000000u
++
++static bool
++thor_witness_panel(uint32_t **base, unsigned *columns, unsigned *rows, unsigned *rowpixels)
++{
++	const unsigned long address = vinfo.v_baseaddr;
++	if (!address || vinfo.v_depth != 32 || vinfo.v_width < 640 || vinfo.v_height < 640 ||
++	    vinfo.v_rowbytes < vinfo.v_width * 4 || (vinfo.v_rowbytes & 3)) {
++		return false;
++	}
++	*base = (uint32_t *)(uintptr_t)address;
++	*columns = (unsigned)vinfo.v_width / THOR_WITNESS_CW;
++	*rows = (unsigned)vinfo.v_height / THOR_WITNESS_CH;
++	*rowpixels = (unsigned)vinfo.v_rowbytes / 4;
++	return *columns >= 40 && *rows >= 10;
++}
++
++static void
++thor_witness_glyph(uint32_t *base, unsigned rowpixels, unsigned x, unsigned y, unsigned char ch,
++    uint32_t fore, uint32_t back)
++{
++	const unsigned char *bits = iso_font + (ch & 0xffu) * 16u;
++	unsigned r, s, c, t;
++	if (x + THOR_WITNESS_CW > vinfo.v_width || y + THOR_WITNESS_CH > vinfo.v_height) {
++		return;
++	}
++	for (r = 0; r < 16u; r++) {
++		const unsigned char row = bits[r];
++		uint32_t *line = base + (size_t)(y + r * THOR_WITNESS_SCALE) * rowpixels + x;
++		for (s = 0; s < THOR_WITNESS_SCALE; s++, line += rowpixels) {
++			for (c = 0; c < 8u; c++) {
++				const uint32_t value = (row >> c) & 1u ? fore : back;
++				for (t = 0; t < THOR_WITNESS_SCALE; t++) {
++					line[c * THOR_WITNESS_SCALE + t] = value;
++				}
++			}
++		}
++	}
++}
++
++/* One screen row starting at `column`: `length` characters, then padding up to `columns`. */
++static void
++thor_witness_row(uint32_t *base, unsigned rowpixels, unsigned column, unsigned row, unsigned columns,
++    const char *text, size_t length, uint32_t fore, uint32_t back)
++{
++	size_t i = 0;
++	while (column < columns) {
++		unsigned char ch = ' ';
++		if (i < length) {
++			ch = (unsigned char)text[i++];
++			if (ch < 0x20 || ch > 0x7e) {
++				ch = '?';
++			}
++		}
++		thor_witness_glyph(base, rowpixels, column * THOR_WITNESS_CW, row * THOR_WITNESS_CH, ch, fore, back);
++		column++;
++	}
++}
++
++/* Rows of `width` cells that `text` needs when wrapped. */
++static unsigned
++thor_witness_rows(const char *text, size_t length, unsigned width)
++{
++	unsigned rows = 0;
++	size_t i, start = 0;
++	for (i = 0; i <= length; i++) {
++		if (i == length || text[i] == '\n') {
++			const size_t n = i - start;
++			rows += n ? (unsigned)((n + width - 1) / width) : 1;
++			start = i + 1;
++		}
++	}
++	return rows;
++}
++
++/* Draw rows [first, first + count) of `text` wrapped to `width` cells, beginning at screen row `top`. */
++static void
++thor_witness_text(uint32_t *base, unsigned rowpixels, unsigned columns, unsigned top, unsigned first,
++    unsigned count, const char *text, size_t length, unsigned width)
++{
++	unsigned row = 0, drawn = 0;
++	size_t i, start = 0;
++	for (i = 0; i <= length && drawn < count; i++) {
++		size_t at;
++		if (i < length && text[i] != '\n') {
++			continue;
++		}
++		at = start;
++		do {
++			const size_t n = THOR_WITNESS_MIN((size_t)width, i - at);
++			if (row >= first) {
++				thor_witness_row(base, rowpixels, 1, top + drawn, columns, text + at, n, THOR_WITNESS_WHITE,
++				    THOR_WITNESS_BLACK);
++				drawn++;
++			}
++			row++;
++			at += n;
++		} while (at < i && drawn < count);
++		start = i + 1;
++	}
++}
++
++/* A titled page of `text` over the top of the panel: title row (inverted), body, white rule. */
++static void
++thor_witness_page(const char *title, const char *text, size_t length, unsigned first, unsigned count,
++    unsigned number, unsigned pages)
++{
++	uint32_t *base;
++	unsigned columns, rows, rowpixels;
++	char line[160];
++	if (!thor_witness_panel(&base, &columns, &rows, &rowpixels)) {
++		return;
++	}
++	if (count > rows - 4) {
++		count = rows - 4;
++	}
++	snprintf(line, sizeof line, " %s  PAGE %u/%u  KERNEL ALIVE ", title, number + 1, pages);
++	thor_witness_row(base, rowpixels, 0, 0, columns, line, strlen(line), THOR_WITNESS_BLACK, THOR_WITNESS_WHITE);
++	thor_witness_row(base, rowpixels, 0, 1, columns, "", 0, THOR_WITNESS_BLACK, THOR_WITNESS_BLACK);
++	thor_witness_text(base, rowpixels, columns, 2, first, count, text, length, columns - 2);
++	thor_witness_row(base, rowpixels, 0, 2 + count, columns, "", 0, THOR_WITNESS_WHITE, THOR_WITNESS_WHITE);
++}
++
++/* ======================= report text ======================= */
++
++static size_t thor_witness_line(const char *format, ...) __printflike(1, 2);
++
++static size_t
++thor_witness_line(const char *format, ...)
++{
++	va_list args;
++	size_t used = 0;
++	int n;
++	if (thor_witness_report_length + THOR_WITNESS_LINE > sizeof(thor_witness_report)) {
++		return 0;
++	}
++	va_start(args, format);
++	n = vsnprintf(thor_witness_report + thor_witness_report_length, THOR_WITNESS_LINE, format, args);
++	va_end(args);
++	if (n > 0) {
++		used = (size_t)n < THOR_WITNESS_LINE ? (size_t)n : THOR_WITNESS_LINE - 1;
++		thor_witness_report_length += used;
++		thor_witness_report_lines++;
++	}
++	return used;
++}
++
++static void
++thor_witness_hex(char *out, size_t capacity, const uint64_t *values, unsigned count)
++{
++	size_t used = 0;
++	unsigned i;
++	out[0] = 0;
++	for (i = 0; i < count && used + 20 < capacity; i++) {
++		const int n = snprintf(out + used, capacity - used, "%s%llx", i ? "," : "",
++		    (unsigned long long)values[i]);
++		if (n <= 0) {
++			break;
++		}
++		used += (size_t)n;
++	}
++}
++
++static bool
++thor_witness_named_task(const char *name)
++{
++	unsigned i;
++	for (i = 0; i < sizeof thor_witness_named / sizeof thor_witness_named[0]; i++) {
++		if (!strncmp(name, thor_witness_named[i], THOR_WITNESS_NAMELEN)) {
++			return true;
++		}
++	}
++	return false;
++}
++
++/* Kernel frames of a thread that is blocked (not on a CPU): its context was saved at its last
++ * switch into the state at the top of its kernel stack.  Every address read is checked against
++ * that stack first; a thread without a stack (finishing) has no frames. */
++static unsigned
++thor_witness_kernel_frames(thread_t thread, uint64_t *frames, unsigned capacity)
++{
++	const thread_kernel_state_t state = (thread_kernel_state_t)thread->machine.kstackptr;
++	const uint64_t low = (uint64_t)thread->kernel_stack;
++	const uint64_t top = (uint64_t)state;
++	uint64_t fp, lr;
++	unsigned count = 0;
++	if (!state || !low || top < low || top - low > kernel_stack_size) {
++		return 0;
++	}
++	fp = state->machine.ss.fp;
++	lr = state->machine.ss.lr;
++	while (count < capacity && lr >= vm_kernel_stext && lr < vm_kernel_etext) {
++		const uint64_t *record;
++		uint64_t next, caller;
++		frames[count++] = lr;
++		if (fp < low || fp + 32 > top || (fp & 15)) {
++			break;
++		}
++		record = (const uint64_t *)(uintptr_t)fp;
++		next = record[0];
++		caller = record[1];
++		if (next <= fp || next + 32 > top) {
++			break;
++		}
++		fp = next;
++		lr = caller;
++	}
++	return count;
++}
++
++/* Snapshot of every task and thread.  Locks are only tried, never waited for: a thread that
++ * stopped inside a task lock is itself a finding, and the monitor must survive it. */
++static void
++thor_witness_scan(void)
++{
++	task_t task;
++	unsigned t;
++	thor_witness_task_count = thor_witness_thread_count = 0;
++	/* Lock order is task lock before tasks_threads_lock, so the list is only snapshotted here. */
++	if (!lck_mtx_try_lock(&tasks_threads_lock)) {
++		thor_witness_list_busy = 1;
++		return;
++	}
++	queue_iterate(&tasks, task, task_t, tasks) {
++		if (thor_witness_task_count == THOR_WITNESS_TASKS_MAX) {
++			break;
++		}
++		task_reference(task);
++		thor_witness_tasks[thor_witness_task_count++].task = task;
++	}
++	lck_mtx_unlock(&tasks_threads_lock);
++
++	for (t = 0; t < thor_witness_task_count; t++) {
++		struct thor_witness_task *row = &thor_witness_tasks[t];
++		thread_t thread;
++		row->pid = task_pid(row->task);
++		row->name[0] = 0;
++		task_procname(row->task, row->name, (int)sizeof row->name);
++		row->name[sizeof row->name - 1] = 0;
++		row->threads = row->running = row->waiting = row->uninterruptible = row->shown = 0;
++		row->lock_busy = false;
++		row->key = thor_witness_named_task(row->name) ||
++		    (*thor_witness_role_name && !strncmp(row->name, thor_witness_role_name, THOR_WITNESS_NAMELEN));
++		{
++			unsigned attempt;
++			for (attempt = 0; attempt < 50 && !task_lock_try(row->task); attempt++) {
++				delay_for_interval(200, NSEC_PER_USEC);
++			}
++			if (attempt == 50) {
++				row->lock_busy = true;      /* still taken after 10 ms: a thread stopped inside it */
++				continue;
++			}
++		}
++		queue_iterate(&row->task->threads, thread, thread_t, task_threads) {
++			struct thor_witness_thread *tr;
++			if (thor_witness_thread_count == THOR_WITNESS_THREADS_MAX) {
++				break;
++			}
++			tr = &thor_witness_threads[thor_witness_thread_count++];
++			tr->tid = thread_tid(thread);
++			tr->wait_event = thread->wait_event;
++			tr->state = thread->state;
++			tr->base_pri = thread->base_pri;
++			tr->sched_pri = thread->sched_pri;
++			tr->task_index = t;
++			tr->frame_count = 0;
++			tr->user_pc = tr->user_lr = 0;
++			if (thread->machine.upcb) {          /* the trap frame of a user thread; NULL for kernel threads */
++				tr->user_pc = thread->machine.upcb->ss_64.pc;
++				tr->user_lr = thread->machine.upcb->ss_64.lr;
++			}
++			row->threads++;
++			if (thread->state & TH_RUN) {
++				row->running++;
++			} else if (thread->state & TH_WAIT) {
++				row->waiting++;
++				if (thread->state & TH_UNINT) {
++					row->uninterruptible++;
++				}
++			}
++			if (row->key && (thread->state & TH_WAIT) && !(thread->state & TH_RUN)) {
++				tr->frame_count = (uint8_t)thor_witness_kernel_frames(thread, tr->frames, THOR_WITNESS_FRAMES);
++			}
++		}
++		task_unlock(row->task);
++	}
++}
++
++static void
++thor_witness_release(void)
++{
++	unsigned t;
++	for (t = 0; t < thor_witness_task_count; t++) {
++		task_deallocate(thor_witness_tasks[t].task);
++		thor_witness_tasks[t].task = TASK_NULL;
++	}
++	thor_witness_task_count = thor_witness_thread_count = 0;
++}
++
++static const char *
++thor_witness_state(int state)
++{
++	static char text[8];
++	unsigned n = 0;
++	if (state & TH_RUN) {
++		text[n++] = 'R';
++	}
++	if (state & TH_WAIT) {
++		text[n++] = 'W';
++	}
++	if (state & TH_UNINT) {
++		text[n++] = 'U';
++	}
++	if (state & TH_SUSP) {
++		text[n++] = 'S';
++	}
++	if (state & TH_TERMINATE) {
++		text[n++] = 'T';
++	}
++	if (state & TH_IDLE) {
++		text[n++] = 'I';
++	}
++	text[n] = 0;
++	return text;
++}
++
++static void
++thor_witness_xcall(void *parameter)
++{
++	__atomic_store_n((uint64_t *)parameter, mach_absolute_time(), __ATOMIC_RELAXED);
++}
++
++/* Cross-call every CPU last: a CPU that does not answer is stuck with interrupts masked. */
++static void
++thor_witness_ping(void)
++{
++	processor_t processor;
++	uint64_t answer[MAX_CPUS];
++	char value[256];
++	unsigned cpu;
++	for (cpu = 0; cpu < MAX_CPUS; cpu++) {
++		__atomic_store_n(&thor_witness_xcall_time[cpu], 0, __ATOMIC_RELAXED);
++		answer[cpu] = 0;
++	}
++	for (processor = processor_list; processor; processor = processor->processor_list) {
++		cpu_data_t *data;
++		if (processor->cpu_id < 0 || (unsigned)processor->cpu_id >= MAX_CPUS) {
++			continue;
++		}
++		data = cpu_datap(processor->cpu_id);
++		if (data) {
++			(void)cpu_signal(data, SIGPxcall, (void *)thor_witness_xcall,
++			    &thor_witness_xcall_time[processor->cpu_id]);
++		}
++	}
++	delay_for_interval(40, NSEC_PER_MSEC);
++	for (cpu = 0; cpu < MAX_CPUS; cpu++) {
++		answer[cpu] = __atomic_load_n(&thor_witness_xcall_time[cpu], __ATOMIC_RELAXED) ? 1 : 0;
++	}
++	thor_witness_hex(value, sizeof value, answer, 8);
++	thor_witness_line("cpu answered cross-call (1 yes, 0 no): %s", value);
++}
++
++static void
++thor_witness_cpu_lines(void)
++{
++	processor_t processor;
++	for (processor = processor_list; processor; processor = processor->processor_list) {
++		const thread_t thread = processor->active_thread;
++		task_t task = thread ? get_threadtask(thread) : TASK_NULL;
++		char name[THOR_WITNESS_NAMELEN] = { 0 };
++		int pid = -1;
++		if (task) {
++			pid = task_pid(task);
++			task_procname(task, name, (int)sizeof name);
++			name[sizeof name - 1] = 0;
++		}
++		thor_witness_line("cpu%u st=%u %s pid=%d %s pri=%d/%d", processor->cpu_id, processor->state,
++		    thread == processor->idle_thread ? "idle" : "on-cpu", pid, pid > 0 ? name : "kernel",
++		    thread ? thread->base_pri : -1, thread ? thread->sched_pri : -1);
++	}
++}
++
++/* The ten wait events most threads are blocked on (space-saving count: a new event replaces
++ * an entry that was seen once, so rare events can be undercounted, common ones are exact). */
++static void
++thor_witness_wait_events(void)
++{
++	uint64_t table[10];
++	unsigned total[10];
++	unsigned entries = 0, i, k;
++	for (i = 0; i < thor_witness_thread_count; i++) {
++		const struct thor_witness_thread *tr = &thor_witness_threads[i];
++		unsigned j;
++		if (!(tr->state & TH_WAIT)) {
++			continue;
++		}
++		for (j = 0; j < entries && table[j] != tr->wait_event; j++) {
++		}
++		if (j < entries) {
++			total[j]++;
++		} else if (entries < 10) {
++			table[entries] = tr->wait_event;
++			total[entries++] = 1;
++		} else {
++			unsigned smallest = 0;
++			for (j = 1; j < entries; j++) {
++				if (total[j] < total[smallest]) {
++					smallest = j;
++				}
++			}
++			if (total[smallest] == 1) {
++				table[smallest] = tr->wait_event;
++			}
++		}
++	}
++	for (k = 0; k < entries; k++) {
++		unsigned biggest = k, m;
++		for (m = k + 1; m < entries; m++) {
++			if (total[m] > total[biggest]) {
++				biggest = m;
++			}
++		}
++		if (biggest != k) {
++			const uint64_t value = table[k];
++			const unsigned c = total[k];
++			table[k] = table[biggest];
++			total[k] = total[biggest];
++			table[biggest] = value;
++			total[biggest] = c;
++		}
++	}
++	for (k = 0; k < entries; k++) {
++		thor_witness_line("wait event %llx: %u threads", (unsigned long long)table[k], total[k]);
++	}
++}
++
++/* The UI processes first, then the app of the last role change, each with its threads. */
++static void
++thor_witness_task_lines(void)
++{
++	unsigned o, t, i;
++	for (o = 0; o <= sizeof thor_witness_named / sizeof thor_witness_named[0]; o++) {
++		for (t = 0; t < thor_witness_task_count; t++) {
++			struct thor_witness_task *row = &thor_witness_tasks[t];
++			const bool wanted = o < sizeof thor_witness_named / sizeof thor_witness_named[0] ?
++			    !strncmp(row->name, thor_witness_named[o], THOR_WITNESS_NAMELEN) : row->key;
++			unsigned shown = 0;
++			if (!wanted || row->shown) {
++				continue;
++			}
++			row->shown = 1;
++			if (row->lock_busy) {
++				thor_witness_line("pid=%d %s: TASK LOCK STAYED TAKEN FOR 10 MS (a thread stopped inside it)", row->pid, row->name);
++				continue;
++			}
++			thor_witness_line("pid=%d %s threads=%u run=%u wait=%u unint=%u", row->pid, row->name, row->threads,
++			    row->running, row->waiting, row->uninterruptible);
++			for (i = 0; i < thor_witness_thread_count && shown < THOR_WITNESS_TASK_THREADS; i++) {
++				const struct thor_witness_thread *tr = &thor_witness_threads[i];
++				char value[256];
++				if (tr->task_index != t) {
++					continue;
++				}
++				char text[THOR_WITNESS_LINE];
++				size_t used;
++				shown++;
++				thor_witness_hex(value, sizeof value, tr->frames, tr->frame_count);
++				thor_witness_line(" t%llu %s pri=%d/%d u=%llx,%llx we=%llx k=%s", (unsigned long long)tr->tid,
++				    thor_witness_state(tr->state), tr->base_pri, tr->sched_pri,
++				    (unsigned long long)tr->user_pc, (unsigned long long)tr->user_lr,
++				    (unsigned long long)tr->wait_event, tr->frame_count ? value : "-");
++				if (tr->frame_count) {          /* the same frames by name, innermost first */
++					used = thor_witness_line("   k:");
++					for (unsigned f = 0; f < tr->frame_count && used + 60 < sizeof text; f++) {
++						thor_witness_describe(tr->frames[f], text, sizeof text);
++						used += thor_witness_line("%s%s", f ? " <- " : " ", text);
++					}
++					thor_witness_line("\n");
++				}
++			}
++		}
++	}
++}
++
++static void
++thor_witness_build(const char *reason, uint64_t uptime)
++{
++	unsigned total = 0, running = 0, waiting = 0, uninterruptible = 0, i;
++	const uint64_t writer = __atomic_load_n(&thor_witness_writer_abs, __ATOMIC_RELAXED);
++	const uint64_t storage = __atomic_load_n(&thor_witness_storage_abs, __ATOMIC_RELAXED);
++	const uint64_t reader = __atomic_load_n(&thor_witness_reader_abs, __ATOMIC_RELAXED);
++	const uint64_t frame = __atomic_load_n(&thor_witness_frame_abs, __ATOMIC_RELAXED);
++	const uint64_t touch = pong_touch_last_event_time();
++	char a[24], b[24];
++	thor_witness_report_length = 0;
++	thor_witness_report_lines = 0;
++	thor_witness_line("THOR WITNESS V233: %s at T=%s s", reason,
++	    thor_witness_age(a, sizeof a, true, (int64_t)uptime));
++	thor_witness_line(" last console read by pid %llu: %s s ago", (unsigned long long)thor_witness_reader_pid,
++	    thor_witness_age(a, sizeof a, reader != 0, (int64_t)uptime - (int64_t)thor_witness_micros(reader)));
++	thor_witness_line(" last frame to the panel: %s s ago; last touch: %s s ago",
++	    thor_witness_age(a, sizeof a, frame != 0, (int64_t)uptime - (int64_t)thor_witness_micros(frame)),
++	    thor_witness_age(b, sizeof b, touch != 0, (int64_t)uptime - (int64_t)touch));
++	thor_witness_line(" kernel text %#llx..%#llx, panic_spin_forever at %#llx (slide reference)",
++	    (unsigned long long)vm_kernel_stext, (unsigned long long)vm_kernel_etext,
++	    (unsigned long long)(uintptr_t)&panic_spin_forever);
++	thor_witness_line(" kernel console mirror thread: %s; %s holds %llu bytes", writer ? "alive" : "not running",
++	    THOR_WITNESS_FILE,
++	    (unsigned long long)__atomic_load_n(&thor_witness_writer_file, __ATOMIC_RELAXED));
++	thor_witness_line(" storage: last command %s s ago, %llu commands, last status %llu",
++	    thor_witness_age(a, sizeof a, storage != 0, (int64_t)uptime - (int64_t)thor_witness_micros(storage)),
++	    (unsigned long long)__atomic_load_n(&thor_witness_storage_ops, __ATOMIC_RELAXED),
++	    (unsigned long long)__atomic_load_n(&thor_witness_storage_status, __ATOMIC_RELAXED));
++	if (thor_witness_role_name[0]) {
++		thor_witness_line(" last role change %s s ago: pid %llu %s %s",
++		    thor_witness_age(a, sizeof a, true,
++		    (int64_t)uptime - (int64_t)thor_witness_micros(__atomic_load_n(&thor_witness_role_abs, __ATOMIC_RELAXED))),
++		    (unsigned long long)__atomic_load_n(&thor_witness_role_pid, __ATOMIC_RELAXED), thor_witness_role_name,
++		    __atomic_load_n(&thor_witness_role_fg, __ATOMIC_RELAXED) ? "foreground" : "background");
++	}
++	thor_witness_list_busy = 0;
++	thor_witness_scan();
++	for (i = 0; i < thor_witness_thread_count; i++) {
++		const int state = thor_witness_threads[i].state;
++		total++;
++		if (state & TH_IDLE) {
++			continue;
++		}
++		if (state & TH_RUN) {
++			running++;
++		} else if (state & TH_WAIT) {
++			waiting++;
++			if (state & TH_UNINT) {
++				uninterruptible++;
++			}
++		}
++	}
++	thor_witness_line(" threads: %u scanned, %u runnable, %u waiting (%u uninterruptible)%s", total, running,
++	    waiting, uninterruptible, thor_witness_list_busy ? "; TASK LIST LOCK IS HELD" : "");
++	thor_witness_cpu_lines();
++	thor_witness_wait_events();
++	thor_witness_task_lines();
++	thor_witness_release();
++}
++
++/* ======================= monitor ======================= */
++
++/* The report on the panel: `page` 0..pages-1. */
++static void
++thor_witness_show(unsigned number, unsigned page)
++{
++	uint32_t *base;
++	unsigned columns, rows, rowpixels, body, pages;
++	char title[96];
++	if (!thor_witness_panel(&base, &columns, &rows, &rowpixels)) {
++		return;
++	}
++	body = rows - 4;
++	pages = (thor_witness_rows(thor_witness_report, thor_witness_report_length, columns - 2) + body - 1) / body;
++	if (!pages) {
++		pages = 1;
++	}
++	if (page >= pages) {
++		page = pages - 1;
++	}
++	snprintf(title, sizeof title, "HANG %u: %s", number, thor_witness_reason);
++	thor_witness_page(title, thor_witness_report, thor_witness_report_length, page * body, body, page, pages);
++}
++
++static unsigned
++thor_witness_pages(void)
++{
++	uint32_t *base;
++	unsigned columns, rows, rowpixels, pages;
++	if (!thor_witness_panel(&base, &columns, &rows, &rowpixels)) {
++		return 1;
++	}
++	pages = (thor_witness_rows(thor_witness_report, thor_witness_report_length, columns - 2) + rows - 5) / (rows - 4);
++	return pages ? pages : 1;
++}
++
++static void __attribute__((noreturn))
++thor_witness_monitor(void *parameter __unused, wait_result_t result __unused)
++{
++	uint64_t next_report = 0, next_draw = 0;
++	unsigned number = 0;
++	for (;;) {
++		const uint64_t now = mach_absolute_time();
++		const uint64_t uptime = thor_witness_micros(now);
++		const uint64_t reader_raw = __atomic_load_n(&thor_witness_reader_abs, __ATOMIC_RELAXED);
++		const uint64_t frame_raw = __atomic_load_n(&thor_witness_frame_abs, __ATOMIC_RELAXED);
++		const uint64_t reader = reader_raw ? thor_witness_micros(reader_raw) : 0;
++		const uint64_t frame = frame_raw ? thor_witness_micros(frame_raw) : 0;
++		const uint64_t touch = pong_touch_last_event_time();
++		const bool reader_stalled = reader && uptime > reader && uptime - reader > THOR_WITNESS_STALL_US;
++		const bool input_stalled = frame && touch > frame && uptime > frame &&
++		    uptime - frame > THOR_WITNESS_STALL_US && uptime > touch && uptime - touch < THOR_WITNESS_INPUT_US;
++		__atomic_store_n(&thor_witness_monitor_abs, now, __ATOMIC_RELAXED);
++		if (uptime >= THOR_WITNESS_GRACE_US) {
++			if (reader_stalled || input_stalled) {
++				if (uptime >= next_report) {
++					number++;
++					snprintf(thor_witness_reason, sizeof thor_witness_reason, "%s",
++					    reader_stalled && input_stalled ? "CONSOLE READER AND FRAMES STOPPED" :
++					    reader_stalled ? "CONSOLE READER STOPPED" : "TOUCHES WITHOUT FRAMES");
++					thor_witness_build(thor_witness_reason, uptime);
++					thor_witness_show(number, 0);
++					/* The kernel panics when a cross-call is not taken over: this comes last. */
++					thor_witness_ping();
++					__atomic_store_n(&thor_witness_report_number, number, __ATOMIC_RELAXED);
++					next_report = uptime + THOR_WITNESS_REPORT_GAP_US;
++					next_draw = uptime + THOR_WITNESS_PAGE_US;
++				} else if (uptime >= next_draw) {
++					const unsigned pages = thor_witness_pages();
++					thor_witness_show(number, (unsigned)((uptime / THOR_WITNESS_PAGE_US) % pages));
++					next_draw = uptime + THOR_WITNESS_PAGE_US;
++				}
++			} else {
++				next_report = 0;
++			}
++		}
++		delay_for_interval(THOR_WITNESS_PERIOD_MS, NSEC_PER_MSEC);
++	}
++}
++
++/* ======================= start, hand-off and panic ======================= */
++
++void thor_witness_start(void);
++size_t thor_witness_report_fetch(char *out, size_t capacity, unsigned *seen, unsigned *lines);
++void thor_witness_panic_note(const char *str);
++void thor_witness_panic_screen(void) __attribute__((noreturn));
++void thor_witness_fault_state(const void *state);
++static void thor_witness_symbols_load(void);
++static bool thor_witness_fetch(void *out, uint64_t address, size_t bytes);
++extern void qsort(void *base, size_t, size_t, int (*)(const void *, const void *));
++extern vm_size_t ml_nofault_copy(vm_offset_t virtsrc, vm_offset_t virtdst, vm_size_t size);
++extern uint32_t native_gpu_trace_snapshot(void *out, uint32_t bytes) __attribute__((weak_import));
++extern void native_gpu_trace_arm(void) __attribute__((weak_import));
++
++void
++thor_witness_start(void)
++{
++	thread_t thread = THREAD_NULL;
++	if (__atomic_fetch_or(&thor_witness_start_state, 1u, __ATOMIC_ACQ_REL) & 1u) {
++		return;
++	}
++	if (kernel_thread_start_priority(thor_witness_monitor, NULL, MAXPRI_KERNEL, &thread) == KERN_SUCCESS) {
++		thread_deallocate(thread);
++	}
++	thor_witness_symbols_load();
++	if (&native_gpu_trace_arm) {
++		native_gpu_trace_arm();          /* the GPU driver's ring, read into the panic record */
++	}
++	printf("THOR WITNESS V235: monitor started, %u functions, %u symbols%s\n",
++	    thor_witness_function_count, thor_witness_symbol_count,
++	    thor_witness_symbol_count ? "" : " (no kernel symbol index)");
++}
++
++/* ======================= symbols ======================= */
++
++static int
++thor_witness_symbol_order(const void *a, const void *b)
++{
++	const uint64_t x = ((const struct thor_witness_symbol *)a)->address, y = ((const struct thor_witness_symbol *)b)->address;
++	return x < y ? -1 : x > y;
++}
++
++/* The stripped image that boots keeps LC_SYMTAB in __LINKEDIT.  Index every named symbol by address. */
++static void
++thor_witness_symbols_load(void)
++{
++	const struct mach_header_64 *header = (const struct mach_header_64 *)&_mh_execute_header;
++	const struct load_command *command = (const struct load_command *)(const void *)(header + 1);
++	const struct segment_command_64 *linkedit = NULL;
++	const struct symtab_command *symtab = NULL;
++	const struct nlist_64 *entries;
++	const char *strings;
++	struct thor_witness_symbol *table;
++	uint64_t delta;
++	uint32_t i;
++	if (header->magic != MH_MAGIC_64) {
++		return;
++	}
++	for (i = 0; i < header->ncmds; i++, command = (const struct load_command *)(const void *)((const char *)command + command->cmdsize)) {
++		if (command->cmd == LC_SEGMENT_64 && !strncmp(((const struct segment_command_64 *)(const void *)command)->segname, SEG_LINKEDIT, 16)) {
++			linkedit = (const struct segment_command_64 *)(const void *)command;
++		} else if (command->cmd == LC_SYMTAB) {
++			symtab = (const struct symtab_command *)(const void *)command;
++		}
++	}
++	if (!linkedit) {
++		return;
++	}
++	delta = linkedit->vmaddr - linkedit->fileoff;
++	/* Function starts: ULEB128 distances from the first byte of __TEXT. */
++	command = (const struct load_command *)(const void *)(header + 1);
++	for (i = 0; i < header->ncmds && !thor_witness_function_count; i++, command = (const struct load_command *)(const void *)((const char *)command + command->cmdsize)) {
++		if (command->cmd != LC_FUNCTION_STARTS) {
++			continue;
++		}
++		{
++			const struct linkedit_data_command *starts = (const struct linkedit_data_command *)(const void *)command;
++			const uint8_t *at = (const uint8_t *)(uintptr_t)(starts->dataoff + delta), *end = at + starts->datasize;
++			uint64_t address = (uint64_t)(const void *)header;   /* the distances count from the first byte of __TEXT */
++			while (at < end && *at && thor_witness_function_count < THOR_WITNESS_FUNCTIONS_MAX) {
++				uint64_t value = 0;
++				unsigned shift = 0, done;
++				do {
++					const uint8_t byte = *at++;
++					value |= (uint64_t)(byte & 0x7f) << shift;
++					shift += 7;
++					done = !(byte & 0x80);
++				} while (!done);
++				address += value;
++				thor_witness_function_start[thor_witness_function_count++] = address;
++			}
++		}
++	}
++	if (!symtab || !symtab->nsyms) {
++		return;
++	}
++	entries = (const struct nlist_64 *)(uintptr_t)(symtab->symoff + delta);
++	strings = (const char *)(uintptr_t)(symtab->stroff + delta);
++	if (!kvtophys((vm_offset_t)entries) || !kvtophys((vm_offset_t)strings)) {
++		printf("THOR WITNESS V235: the kernel symbol table is not mapped\n");
++		return;
++	}
++	table = kalloc_data(THOR_WITNESS_SYMBOLS_MAX * sizeof *table, Z_WAITOK | Z_ZERO);
++	if (!table) {
++		return;
++	}
++	for (i = 0; i < symtab->nsyms && thor_witness_symbol_count < THOR_WITNESS_SYMBOLS_MAX; i++) {
++		const struct nlist_64 *entry = &entries[i];
++		const uint8_t kind = entry->n_type & N_TYPE;
++		if ((kind != N_SECT && kind != N_ABS) || !entry->n_value || !entry->n_un.n_strx ||
++		    entry->n_un.n_strx >= symtab->strsize) {
++			continue;
++		}
++		table[thor_witness_symbol_count].address = entry->n_value;
++		table[thor_witness_symbol_count].name = strings + entry->n_un.n_strx;
++		thor_witness_symbol_count++;
++	}
++	qsort(table, thor_witness_symbol_count, sizeof *table, thor_witness_symbol_order);
++	thor_witness_symbols = table;
++}
++
++/* The first byte of the function that contains `address` (0 when unknown), and the distance. */
++static uint64_t
++thor_witness_function(uint64_t address, uint64_t *offset)
++{
++	size_t low = 0, high = thor_witness_function_count;
++	while (low < high) {                    /* after the loop `low` is the first start above `address` */
++		const size_t middle = low + (high - low) / 2;
++		if (thor_witness_function_start[middle] <= address) {
++			low = middle + 1;
++		} else {
++			high = middle;
++		}
++	}
++	if (!low) {
++		return 0;
++	}
++	*offset = address - thor_witness_function_start[low - 1];
++	return thor_witness_function_start[low - 1];
++}
++
++/* The name of the symbol that sits exactly at `start`; NULL when it has none. */
++static const char *
++thor_witness_symbol_at(uint64_t start)
++{
++	size_t low = 0, high = thor_witness_symbol_count;
++	while (low < high) {
++		const size_t middle = low + (high - low) / 2;
++		if (thor_witness_symbols[middle].address < start) {
++			low = middle + 1;
++		} else {
++			high = middle;
++		}
++	}
++	if (low < thor_witness_symbol_count && thor_witness_symbols[low].address == start) {
++		return thor_witness_symbols[low].name;
++	}
++	return NULL;
++}
++
++/* "name+0x278" for an address inside a function whose first byte has a symbol, otherwise
++ * "sub_<function start>+0x278".  Without the function table it falls back to the nearest symbol. */
++static void
++thor_witness_describe(uint64_t address, char *out, size_t capacity)
++{
++	uint64_t offset = 0;
++	const char *name = NULL;
++	if (address < vm_kernel_stext || address >= vm_kernel_etext) {
++		snprintf(out, capacity, "%llx (outside the kernel text %llx..%llx)", (unsigned long long)address,
++		    (unsigned long long)vm_kernel_stext, (unsigned long long)vm_kernel_etext);
++		return;
++	}
++	if (thor_witness_function_count) {
++		const uint64_t start = thor_witness_function(address, &offset);
++		if (!start) {
++			snprintf(out, capacity, "%llx (before the first function)", (unsigned long long)address);
++			return;
++		}
++		name = thor_witness_symbol_at(start);
++		if (name) {
++			snprintf(out, capacity, "%s+%llx", name, (unsigned long long)offset);
++		} else {
++			snprintf(out, capacity, "sub_%llx+%llx", (unsigned long long)start, (unsigned long long)offset);
++		}
++	} else if (thor_witness_symbols) {
++		size_t low = 0, high = thor_witness_symbol_count;
++		while (low < high) {
++			const size_t middle = low + (high - low) / 2;
++			if (thor_witness_symbols[middle].address <= address) {
++				low = middle + 1;
++			} else {
++				high = middle;
++			}
++		}
++		if (low) {
++			snprintf(out, capacity, "%s?+%llx", thor_witness_symbols[low - 1].name,
++			    (unsigned long long)(address - thor_witness_symbols[low - 1].address));
++			return;
++		}
++		snprintf(out, capacity, "%llx (no symbol)", (unsigned long long)address);
++		return;
++	} else {
++		snprintf(out, capacity, "%llx (no symbol index)", (unsigned long long)address);
++	}
++}
++
++/* ======================= panic extras ======================= */
++
++static void
++thor_witness_extra_line(const char *format, ...) __printflike(1, 2);
++
++static void
++thor_witness_extra_line(const char *format, ...)
++{
++	va_list args;
++	size_t room = sizeof(thor_witness_extra) - thor_witness_extra_length;
++	int n;
++	if (room < THOR_WITNESS_LINE) {
++		return;
++	}
++	va_start(args, format);
++	n = vsnprintf(thor_witness_extra + thor_witness_extra_length, room, format, args);
++	va_end(args);
++	if (n > 0) {
++		thor_witness_extra_length += (size_t)n < room ? (size_t)n : room - 1;
++	}
++}
++
++/* Copy from any kernel address without taking a fault: returns false when it is not translated. */
++static bool
++thor_witness_fetch(void *out, uint64_t address, size_t bytes)
++{
++	return ml_nofault_copy((vm_offset_t)address, (vm_offset_t)out, bytes) == bytes;
++}
++
++static void
++thor_witness_extra_symbol(const char *label, uint64_t address)
++{
++	char text[160];
++	thor_witness_describe(address, text, sizeof text);
++	thor_witness_extra_line(" %s=%llx %s\n", label, address, text);
++}
++
++/* Sixteen bytes per line around an address that is translated; nothing when it is not. */
++static void
++thor_witness_extra_bytes(const char *label, uint64_t address)
++{
++	uint8_t bytes[128];
++	unsigned i;
++	if ((address & 3) || !thor_witness_fetch(bytes, address, sizeof bytes)) {
++		thor_witness_extra_line(" %s: %#llx is not readable\n", label, address);
++		return;
++	}
++	for (i = 0; i < sizeof bytes; i += 16) {
++		unsigned j;
++		thor_witness_extra_line(" %s %#llx:", i ? "" : label, address + i);
++		for (j = 0; j < 16; j++) {
++			thor_witness_extra_line(" %02x", bytes[i + j]);
++		}
++		thor_witness_extra_line("\n");
++	}
++}
++
++/* Return addresses on the frame-pointer chain that starts at frame record `fp`: each record holds
++ * the caller's frame pointer and the return address into that caller.  The chain has to stay
++ * inside [low, top) and to climb; the walk stops at the first record that does not.  No fault is
++ * taken, so this runs both while the system is up and in the panic path. */
++static unsigned
++thor_witness_chain(uint64_t low, uint64_t top, uint64_t fp, uint64_t *frames, unsigned capacity)
++{
++	uint64_t record[2];
++	unsigned count = 0;
++	while (count < capacity && !(fp & 15) && fp >= low && fp + sizeof record <= top &&
++	    thor_witness_fetch(record, fp, sizeof record)) {
++		frames[count++] = record[1];
++		if (record[0] < fp + sizeof record || record[0] + sizeof record > top) {
++			break;
++		}
++		fp = record[0];
++	}
++	return count;
++}
++
++/* Called by sleh.c with the kernel state of the first exception that ends in a panic. */
++void
++thor_witness_fault_state(const void *state)
++{
++	const arm_saved_state_t *saved = state;
++	if (saved && !thor_witness_fault_pc) {
++		thor_witness_fault_pc = saved->ss_64.pc;
++		thor_witness_fault_lr = saved->ss_64.lr;
++		thor_witness_fault_sp = saved->ss_64.sp;
++		thor_witness_fault_fp = saved->ss_64.fp;
++	}
++}
++
++/* Text only the panicking kernel can give.  Interrupts are masked and the other CPUs are
++ * halted: no lock, no allocation, no fault is taken here. */
++static void
++thor_witness_panic_extras(void)
++{
++	const thread_t thread = current_thread();
++	const task_t task = get_threadtask(thread);
++	const arm_saved_state_t *user = thread->machine.upcb;
++	const uint64_t low = (uint64_t)thread->kernel_stack;
++	const uint64_t top = low ? low + kernel_stack_size : 0;
++	char name[THOR_WITNESS_NAMELEN] = { 0 };
++	const uint64_t pc = thor_witness_fault_pc, lr = thor_witness_fault_lr;
++	uint64_t word;
++	unsigned i, c, lines = 0;
++	thor_witness_extra_length = 0;
++	thor_witness_extra_line("THOR WITNESS V235 PANIC EXTRAS (kernel time %llu us)\n",
++	    (unsigned long long)thor_witness_micros(mach_absolute_time()));
++	if (task) {
++		task_procname(task, name, (int)sizeof name);
++		name[sizeof name - 1] = 0;
++	}
++	thor_witness_extra_line(" thread %p tid %llu of pid %d %s; kernel stack %llx..%llx\n", thread,
++	    (unsigned long long)thread_tid(thread), task ? task_pid(task) : -1, name, low, top);
++	if (pc) {
++		thor_witness_extra_line(" fault: pc=%llx lr=%llx sp=%llx fp=%llx\n", pc, lr,
++		    thor_witness_fault_sp, thor_witness_fault_fp);
++		thor_witness_extra_line(" fault: pc translated=%d (pa %llx), lr translated=%d (pa %llx)\n",
++		    kvtophys((vm_offset_t)pc) != 0, (unsigned long long)kvtophys((vm_offset_t)pc),
++		    kvtophys((vm_offset_t)lr) != 0, (unsigned long long)kvtophys((vm_offset_t)lr));
++		thor_witness_extra_symbol("pc symbol", pc);
++		thor_witness_extra_symbol("lr symbol", lr);
++		/* What ran just before the fault: the words around the return address and at the fault. */
++		thor_witness_extra_bytes("bytes at lr-0x40", (lr - 0x40) & ~0xfULL);
++		thor_witness_extra_bytes("bytes at pc-0x40", (pc - 0x40) & ~0xfULL);
++		/* v235: who leads to the fault.  The frame record of the faulting code (or, for a leaf
++		 * without one, of its caller) starts the chain. */
++		thor_witness_fault_chain_count = top && thor_witness_fault_fp >= low &&
++		    thor_witness_fault_fp < top ? thor_witness_chain(low, top, thor_witness_fault_fp,
++		    thor_witness_fault_chain, THOR_WITNESS_CHAIN_MAX) : 0;
++		thor_witness_extra_line(" frame records from the fault, newest first (%u):\n",
++		    thor_witness_fault_chain_count);
++		for (c = 0; c < thor_witness_fault_chain_count; c++) {
++			char text[160];
++			thor_witness_describe(thor_witness_fault_chain[c], text, sizeof text);
++			thor_witness_extra_line("  fault caller %u: %llx %s\n", c, thor_witness_fault_chain[c], text);
++		}
++	}
++	/* v235: who called panic().  The chain was read while the panic was announced (PE_panic_hook). */
++	thor_witness_extra_line(" frame records at the panic call, newest first (%u):\n",
++	    thor_witness_panic_chain_count);
++	for (c = 0; c < thor_witness_panic_chain_count; c++) {
++		char text[160];
++		thor_witness_describe(thor_witness_panic_chain[c], text, sizeof text);
++		thor_witness_extra_line("  panic caller %u: %llx %s\n", c, thor_witness_panic_chain[c], text);
++	}
++	if (user) {
++		thor_witness_extra_line(" user: pc=%llx lr=%llx sp=%llx fp=%llx x0=%llx x1=%llx x2=%llx x3=%llx x16=%llx\n",
++		    user->ss_64.pc, user->ss_64.lr, user->ss_64.sp, user->ss_64.fp, user->ss_64.x[0],
++		    user->ss_64.x[1], user->ss_64.x[2], user->ss_64.x[3], user->ss_64.x[16]);
++	}
++	/* Every kernel-text word left on this thread's kernel stack, newest first; one that is on one
++	 * of the two chains above is marked.  The frame-pointer chain of the panic log is not reliable
++	 * once the thread ran off into foreign memory. */
++	thor_witness_extra_line(" kernel-text words on the stack (offset: address symbol; * on a chain)\n");
++	if (low) {
++		for (i = (unsigned)kernel_stack_size; i >= 8 && lines < THOR_WITNESS_STACK_LINES; i -= 8) {
++			char text[160];
++			int on_chain = 0;
++			if (!thor_witness_fetch(&word, low + i - 8, sizeof word)) {
++				continue;
++			}
++			if (word < vm_kernel_stext || word >= vm_kernel_etext) {
++				continue;
++			}
++			for (c = 0; c < thor_witness_fault_chain_count && !on_chain; c++) {
++				on_chain = thor_witness_fault_chain[c] == word;
++			}
++			for (c = 0; c < thor_witness_panic_chain_count && !on_chain; c++) {
++				on_chain = thor_witness_panic_chain[c] == word;
++			}
++			thor_witness_describe(word, text, sizeof text);
++			thor_witness_extra_line(" %s+%#06x: %llx %s\n", on_chain ? "*" : " ", i - 8, word, text);
++			lines++;
++		}
++	}
++	/* The GPU driver's trace ring: submits, retires, imports and surface events before the fault. */
++	if (&native_gpu_trace_snapshot) {
++		/* One buffer: the driver writes the records straight after the header.  (Two separate
++		 * static objects made it run past the header and the records read back as zeros.) */
++		static struct {
++			uint32_t magic, version, record_bytes, count;
++			uint64_t issued, dropped;
++			struct {
++				uint64_t sequence, us;
++				uint32_t event, pid;
++				uint64_t value[12];
++			} records[THOR_WITNESS_TRACE_RECORDS];
++		} trace;
++		const uint32_t bytes = native_gpu_trace_snapshot(&trace, sizeof trace);
++		unsigned first;
++		if (bytes < sizeof(trace) - sizeof trace.records || trace.record_bytes != sizeof trace.records[0]) {
++			thor_witness_extra_line(" gpu trace: unavailable (error %x)\n", bytes);
++		} else {
++			thor_witness_extra_line(" gpu trace: issued %llu, dropped %llu, last %u records\n",
++			    (unsigned long long)trace.issued, (unsigned long long)trace.dropped, trace.count);
++			/* The snapshot lists the oldest kept record first; show the newest, within the line budget. */
++			first = trace.count > 72 ? trace.count - 72 : 0;
++			for (i = first; i < trace.count && thor_witness_extra_length + 400 < sizeof thor_witness_extra; i++) {
++				thor_witness_extra_line("  gpu %llu us=%llu event=%u pid=%u %llx %llx %llx %llx %llx %llx\n",
++				    (unsigned long long)trace.records[i].sequence, (unsigned long long)trace.records[i].us,
++				    trace.records[i].event, trace.records[i].pid, (unsigned long long)trace.records[i].value[0],
++				    (unsigned long long)trace.records[i].value[1], (unsigned long long)trace.records[i].value[2],
++				    (unsigned long long)trace.records[i].value[3], (unsigned long long)trace.records[i].value[4],
++				    (unsigned long long)trace.records[i].value[5]);
++			}
++		}
++	}
++	thor_witness_extra[thor_witness_extra_length] = 0;
++}
++
++/* For the console mirror (kern_exec.c): the newest report when `*seen` is older; 0 otherwise. */
++size_t
++thor_witness_report_fetch(char *out, size_t capacity, unsigned *seen, unsigned *lines)
++{
++	const unsigned number = thor_witness_report_number;
++	size_t length;
++	if (number == *seen || !capacity) {
++		return 0;
++	}
++	length = thor_witness_report_length < capacity ? thor_witness_report_length : capacity - 1;
++	memcpy(out, thor_witness_report, length);
++	out[length] = 0;
++	*seen = number;
++	*lines = thor_witness_report_lines;
++	return length;
++}
++
++/* Called from PE_panic_hook: the panic string is known, the log is not written yet.  This is the
++ * first code of ours that runs on the panicking thread's stack inside the panic, so the frame
++ * records from here lead straight to whoever called panic(); they are read now. */
++void
++thor_witness_panic_note(const char *str)
++{
++	static char note[128];
++	const uint64_t low = (uint64_t)current_thread()->kernel_stack;
++	size_t i;
++	if (!str) {
++		return;
++	}
++	if (low && !thor_witness_panic_chain_count) {
++		thor_witness_panic_chain_count = thor_witness_chain(low, low + kernel_stack_size,
++		    (uint64_t)__builtin_frame_address(0), thor_witness_panic_chain, THOR_WITNESS_CHAIN_MAX);
++	}
++	for (i = 0; i < sizeof note - 1 && str[i] && str[i] != '\n'; i++) {
++		note[i] = str[i] >= 32 && str[i] < 127 ? str[i] : '?';
++	}
++	note[i] = 0;
++	thor_witness_page("KERNEL PANIC", note, i, 0, 2, 0, 1);
++}
++
++/* Called from panic_spin_forever(): the panic log is complete.  Store it with the extras, then
++ * show it on the panel, page by page, until the phone is reset. */
++void
++thor_witness_panic_screen(void)
++{
++	const size_t length = debug_buf_base && debug_buf_ptr && debug_buf_ptr > debug_buf_base ?
++	    THOR_WITNESS_MIN((size_t)(debug_buf_ptr - debug_buf_base), (size_t)debug_buf_size) : 0;
++	const char text[] = "The panic log buffer is empty.";
++	const char *const stock = length ? debug_buf_base : text;
++	const size_t stock_length = length ? length : sizeof text - 1;
++	const uint64_t start = mach_absolute_time();
++	uint32_t *base;
++	unsigned columns, rows, rowpixels, pages, page;
++	thor_witness_panic_extras();
++	/* One document: the panic log, the outcome of the store, the extras. */
++	thor_witness_panic_doc_length = 0;
++	if (stock_length + thor_witness_extra_length + 96 < sizeof thor_witness_panic_doc) {
++		const int stored = thor_witness_slot_store(stock, (unsigned)stock_length, thor_witness_extra,
++		    (unsigned)thor_witness_extra_length);
++		memcpy(thor_witness_panic_doc, stock, stock_length);
++		thor_witness_panic_doc_length = stock_length;
++		thor_witness_panic_doc_length += (size_t)snprintf(thor_witness_panic_doc + thor_witness_panic_doc_length,
++		    sizeof thor_witness_panic_doc - thor_witness_panic_doc_length,
++		    "\n===== THOR WITNESS V235: panic record %s (blocks written: %d) =====\n",
++		    stored > 0 ? "STORED" : "NOT stored (no proven slot or the storage was busy)", stored);
++		memcpy(thor_witness_panic_doc + thor_witness_panic_doc_length, thor_witness_extra, thor_witness_extra_length);
++		thor_witness_panic_doc_length += thor_witness_extra_length;
++		thor_witness_panic_doc[thor_witness_panic_doc_length] = 0;
++	}
++	while (!thor_witness_panel(&base, &columns, &rows, &rowpixels)) {
++		__asm__ volatile("" ::: "memory");        /* no panel geometry: nothing can be shown, stay here */
++	}
++	pages = (thor_witness_rows(thor_witness_panic_doc, thor_witness_panic_doc_length, columns - 2) + rows - 5) / (rows - 4);
++	if (!pages) {
++		pages = 1;
++	}
++	for (page = 0;; page = (page + 1) % pages) {
++		thor_witness_page("KERNEL PANIC LOG", thor_witness_panic_doc, thor_witness_panic_doc_length,
++		    page * (rows - 4), rows - 4, page, pages);
++		for (;;) {
++			const uint64_t elapsed = thor_witness_micros(mach_absolute_time()) - thor_witness_micros(start);
++			if (elapsed >= (uint64_t)(page + 1) * THOR_WITNESS_PANIC_PAGE_US) {
++				break;
++			}
++			__asm__ volatile("" ::: "memory");
++		}
++	}
++}
++
++#endif /* _KERN_THOR_WITNESS_V235_H_ */
+--- a/device/drivers/NativeUfs/PongUfsTransport.cpp
++++ b/device/drivers/NativeUfs/PongUfsTransport.cpp
+@@ -275,6 +275,7 @@
+   IOReturn doSynchronizeCache() override { return hostSyncCache(); }
+   IOReturn doSynchronize(UInt64, UInt64, IOOptionBits) override { return doSynchronizeCache(); }
+   uint64_t windowBase() const { return window.baseByte; }  // THOR WITNESS V234: the slot's block map
++  uint64_t windowBytes() const { return window.size; }     // THOR WITNESS V235: bounds of the fallback scan
+   IOReturn getWriteCacheState(bool *v) override { *v = false; return kIOReturnSuccess; }
+   IOReturn setWriteCacheState(bool) override { return kIOReturnNotWritable; }
+   IOReturn doAsyncReadWrite(IOMemoryDescriptor *, UInt64, UInt64, IOStorageAttributes *, IOStorageCompletion *) override;
+@@ -583,25 +584,59 @@
+ // calls take the controller lock.  The panic-context write takes none: every other CPU is
+ // halted, and the write is refused unless the controller is idle, so a CPU that was halted
+ // inside the driver keeps its command and its buffer.
+-extern "C" uint64_t thor_ufs_window_of_bsd (int major, int minor) {
+-  // The first byte (inside the UFS LUN) of the SHNGROOT window behind a block device, else 0.
++// THOR WITNESS V235: where the device behind a file system starts inside the UFS LUN.
++//
++// v234 took the window's first byte (thor_ufs_window_of_bsd) as the origin of the file system's
++// blocks and every proof failed ("block 0 does not match its file").  A read-only check from TWRP
++// on 2026-11-25 showed why: the Data window holds a GPT whose single APFS partition begins 1 MiB
++// into the window, and the slot file's blocks sit exactly at partition start + block * 4096.
++// VNOP_BLOCKMAP counts from the container device, which is that partition, not the window.
++// Here the origin is the window start plus the "Base" of every IOMedia between the file system's
++// own device and the window.  The caller still proves the result block by block (the volume's own
++// base and the bare window are kept as alternatives), so nothing is trusted blindly.
++struct thor_ufs_device_place {
++  uint64_t window_base;   /* first byte of the SHNGROOT window inside the UFS LUN */
++  uint64_t window_bytes;  /* its size */
++  uint64_t stack_offset;  /* bytes between the window start and the outermost IOMedia below the device */
++  uint64_t own_base;      /* the device's own IOMedia base, 0 for a whole disk */
++};
++extern "C" int thor_ufs_container_of_bsd (int major, int minor, struct thor_ufs_device_place *place) {
++  // 1 when a SHNGROOT window backs the block device, and *place describes it; 0 otherwise.
++  // IOStorageFamily is a kext loaded at start, so its class is not linked here: an IOMedia in the
++  // chain is recognised by its "Base" and "Size" properties, not by OSDynamicCast.
++  static const auto media_base = [](IOService *service) -> uint64_t {
++    if (!service || !OSDynamicCast (OSNumber, service->getProperty ("Size")))
++      return 0;
++    OSNumber *base = OSDynamicCast (OSNumber, service->getProperty ("Base")    /* kIOMediaBaseKey */);
++    return base ? base->unsigned64BitValue () : 0;
++  };
+   OSDictionary *matching = IOService::serviceMatching ("IOMedia");
+   OSIterator *iterator = matching ? IOService::getMatchingServices (matching) : nullptr;
+-  uint64_t base = 0;
+-  while (iterator && !base) {
++  int found = 0;
++  while (iterator && !found) {
+     IOService *media = OSDynamicCast (IOService, iterator->getNextObject ());
+     if (!media) break;
+     OSNumber *maj = OSDynamicCast (OSNumber, media->getProperty (kIOBSDMajorKey));
+     OSNumber *min = OSDynamicCast (OSNumber, media->getProperty (kIOBSDMinorKey));
+     if (!maj || !min || maj->unsigned32BitValue () != uint32_t (major) ||
+         min->unsigned32BitValue () != uint32_t (minor)) continue;
+-    for (IOService *provider = media; provider; provider = provider->getProvider ()) {
++    uint64_t offset = 0;
++    const uint64_t own = media_base (media);
++    for (IOService *provider = media->getProvider (); provider; provider = provider->getProvider ()) {
++      offset += media_base (provider);
+       PongUfsBlock *block = OSDynamicCast (PongUfsBlock, provider);
+-      if (block) { base = block->windowBase (); break; }
++      if (block) {
++        place->window_base = block->windowBase ();
++        place->window_bytes = block->windowBytes ();
++        place->stack_offset = offset;
++        place->own_base = own;
++        found = 1;
++        break;
++      }
+     }
+   }
+   if (iterator) iterator->release ();
+-  return base;
++  return found;
+ }
+ 
+ extern "C" int thor_ufs_raw_read (uint64_t byte, void *data, uint32_t blocks) {

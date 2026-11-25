@@ -1,0 +1,11 @@
+[package]
+name = "thor-unified-dump"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+macos-unifiedlogs = { path = "~/projects/thor-unixnu1030/thor-out/recovery-v203-display-20261123T054437Z.OIoOnZ/app-supplement/unified/unified-review/reference" }
+
+[profile.release]
+opt-level = 3
+debug = false

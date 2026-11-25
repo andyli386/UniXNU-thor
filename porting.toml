@@ -696,3 +696,17 @@ completion = ["Every file is text; none holds a local path, a device identifier 
 limits = ["The repository's 41 local commits and these changes exist only on this machine."]
 next_action = ["Reconcile the Pong device tree with this fork so that one series and one set of build scripts is maintained."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v236/pong-device/manifest.json", result = "19 tracked files in the patch, 27 untracked files copied, one Thor 18 file."}]
+
+[[area]]
+id = "thor-v236-records-tools-recipe"
+status = "implemented"
+components = ["PongPlatform24"]
+paths = ["checkpoints/thor-v236/records/**", "checkpoints/thor-v236/tools/**", "checkpoints/thor-v236/recipe/**"]
+inputs = ["The thor-out working directory of the port: per-version analyses, evidence tools, recipe and intake scripts"]
+configuration = ["As used for the v228 to v236 images"]
+procedure = ["Read the records; run the tools and scripts with THOR_ROOT, THOR_TOOLS and THOR_SERIAL set in the environment."]
+findings = ["72 text files. The records are the per-version analyses v228 to v236, the v230 boot-panic study, the two upstream GPU assessments, the HakiOS umi reference notes and the Rust crash assessment. The tools read the phone's storage regions, panic records and hang reports without writing. The recipe directory holds the clone, build and package scripts of v235 and v236, the intake scripts and the v227 history capture. Home directory paths and the phone's fastboot serial were replaced by environment variables; logs, panic records, photographs and compiled tools are not included."]
+completion = ["Every shell script parses and every Python file compiles after the rewriting; every file is UTF-8 text."]
+limits = ["The compiled helpers fbprobe and usbreset are recorded as C sources only. The scripts need the local layout described in docs/thor-v236-source-checkpoint.md."]
+next_action = ["Use these tools unchanged for the v236 device result."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v236/manifest.json", result = "72 files indexed with SHA-256."}]

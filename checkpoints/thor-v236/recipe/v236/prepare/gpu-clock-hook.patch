@@ -1,0 +1,59 @@
+--- a/device/drivers/PongAdreno/submit/NativeAdrenoUserClient.cpp
++++ b/device/drivers/PongAdreno/submit/NativeAdrenoUserClient.cpp
+@@ -28,6 +28,23 @@
+ extern "C" volatile uint32_t native_adreno_io_coherent;
+ /* Per kernel method: [method][0] calls, [1] calls that returned non-zero, [2] last status, [3] total time (us, 32-bit). Method numbers are the ABI's (1..16). */
+ extern "C" {extern uint64_t (*native_adreno_vm_now_us)(void);volatile uint32_t native_adreno_method_stats[20][4];volatile uint32_t native_adreno_map_fail[7][2];}
++/* THOR V236: the two words of the clock behind native_adreno_vm_now_us (see dispatch()), and how
++ * many times the hook found a target outside the kernel text and did not jump.  Each word is read
++ * and written on its own: dispatch() runs under the driver's lock, the hook runs from any thread. */
++extern "C" {void *volatile native_adreno_vm_clock_cookie=nullptr;
++uint64_t (*volatile native_adreno_vm_clock_now)(void *)=nullptr;
++volatile uint64_t native_adreno_vm_clock_refusals=0;}
++extern "C" vm_offset_t vm_kernel_stext, vm_kernel_etext;
++extern "C" uint64_t native_adreno_vm_now_hook(void)
++{
++    uint64_t (*now)(void *)=native_adreno_vm_clock_now;
++    if(!now)return 0;
++    if((uint64_t)now<(uint64_t)vm_kernel_stext||(uint64_t)now>=(uint64_t)vm_kernel_etext) {
++        __atomic_add_fetch(&native_adreno_vm_clock_refusals,1,__ATOMIC_RELAXED);
++        return 0;
++    }
++    return now(native_adreno_vm_clock_cookie);
++}
+ static void noteImport(IOReturn status,uint32_t stage,uint64_t bytes,uint64_t address)
+ {
+     if(!status)return;
+@@ -782,10 +799,28 @@
+             native_adreno_method_stats[method][3]=native_adreno_method_stats[method][3]+(uint32_t)(now-began);
+         }
+     };
+-    /* The same clock times the VM's table transactions (the board service's probe never ran on this path, so nothing else installed it). */
+-    static const NativeAdrenoRingClock *vm_clock=nullptr;
+-    vm_clock=clock;
+-    native_adreno_vm_now_us=[]()->uint64_t{return vm_clock && vm_clock->now_us?vm_clock->now_us(vm_clock->cookie):0;};
++    /* The same clock times the VM's table transactions (the board service's probe never ran on this path, so nothing else installed it).
++     *
++     * THOR V236: the hook keeps a COPY of the clock's two words, never the caller's pointer.  Until
++     * v235 it was a lambda that read the clock of the last dispatch() through a static pointer.
++     * With fence-wait tracing on (desktop timing for backboardd, or one of the switcher's
++     * animations) the fence wait hands dispatch() a copy of the clock that lives on the calling
++     * thread's kernel stack (NativeAdrenoPublish.cpp, traced_clock).  Once that call returned the
++     * pointer was dangling, and every thread that called the hook afterwards read a dead frame as
++     * {cookie, now_us} and jumped to whatever it held.  That was the "画面定格": v233 and v235 died
++     * with "Kernel instruction fetch abort" in backboardd, NativeAdrenoSubmit::release -> hook ->
++     * br, and the v235 panic record shows the pointer into another thread's stack, the two words
++     * read from it and the jump.  The hook also refuses any target outside the kernel text. */
++    if(clock && clock->now_us) {
++        native_adreno_vm_clock_cookie=clock->cookie;
++        native_adreno_vm_clock_now=clock->now_us;
++    }
++    native_adreno_vm_now_us=native_adreno_vm_now_hook;
++    static bool hook_logged=false;
++    if(!hook_logged) {
++        hook_logged=true;
++        IOLog("THOR GPU V236: the VM timing hook keeps a copy of the ring clock; a clock left on a thread's stack no longer dangles in it\n");
++    }
+     IOReturn tally_result=kIOReturnSuccess;
+     Tally tally(method,&tally_result,clock);
+     const size_t expected_in=inputSize(method),expected_out=outputSize(method);
