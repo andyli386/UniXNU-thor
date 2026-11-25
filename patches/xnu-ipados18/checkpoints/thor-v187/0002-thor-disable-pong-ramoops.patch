@@ -1,0 +1,50 @@
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -91,8 +91,26 @@
+ #include <IOKit/IOPlatformExpert.h>
+ #endif /* HIBERNATION */
+ 
+-#if defined(PONG) && defined(XNU_PONG_RAMOOPS_CONSOLE) && XNU_PONG_RAMOOPS_CONSOLE
+-#include <arm64/pong_ramoops_console.h>
++#if defined(PONG)
++/* The Thor kernel shares console and diagnostic callers with Pong. The Pong
++ * recorder maps 0x85200000 in Thor's PIL reserve. The Recovery ramoops range
++ * also overlaps our UEFI FD, so this board has no leased persistent sink. */
++void pong_ramoops_console_write(const char *, int);
++void pong_ramoops_diagnostic_write(const char *, int);
++
++void
++pong_ramoops_console_write(const char *text, int length)
++{
++	(void)text;
++	(void)length;
++}
++
++void
++pong_ramoops_diagnostic_write(const char *text, int length)
++{
++	(void)text;
++	(void)length;
++}
+ #endif
+ 
+ #if defined(PONG)
+@@ -863,10 +881,6 @@
+ 	pmap_first_pnum = (ppnum_t)atop(gDramBase);
+ 
+ 	arm_vm_init(xmaxmem, args);
+-
+-#if defined(PONG) && defined(XNU_PONG_RAMOOPS_CONSOLE) && XNU_PONG_RAMOOPS_CONSOLE
+-	(void)pong_ramoops_console_init();
+-#endif
+ 
+ 	if (debug_boot_arg) {
+ 		patch_low_glo();
+@@ -883,6 +897,7 @@
+ 	kernel_startup_initialize_upto(STARTUP_SUB_KPRINTF);
+ 	kprintf("kprintf initialized\n");
+ #if defined(PONG)
++    printf("THOR RAMOOPS: SKIP no persistent RAM lease\n");
+     printf("Pong RAM: %u owned banks, %llu MiB managed before kernel reservations, 4 KiB pages\n",
+         pong_ram_range_count, pong_ram_bytes >> 20);
+     /* THOR v76: name each accepted bank so the DarwinBoot handoff is
