@@ -1,0 +1,35 @@
+--- a/iokit/Kernel/PongNearestThreeToTwo.h
++++ b/iokit/Kernel/PongNearestThreeToTwo.h
+@@ -16,7 +16,31 @@
+ static inline void
+ pongNearestThreeToTwoRow(const uint32_t *source, uint32_t *panel, uint32_t sourceWidth)
+ {
+-	for (uint32_t x = 0; x < sourceWidth; x += 2) {
++	uint32_t x = 0;
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++	/* Read four pixels in two aligned words and expand them to three
++	 * aligned words in the write-combined framebuffer. */
++	const uintptr_t alignment = reinterpret_cast<uintptr_t>(source) |
++	    reinterpret_cast<uintptr_t>(panel);
++	if ((alignment & (alignof(uint64_t) - 1)) == 0) {
++		typedef uint64_t PackedPixels __attribute__((__may_alias__));
++		const auto *from = reinterpret_cast<const PackedPixels *>(source);
++		auto *to = reinterpret_cast<PackedPixels *>(panel);
++		const uint32_t pairedWidth = sourceWidth & ~3u;
++		constexpr uint64_t alpha = 0xff000000ff000000ull;
++		for (; x < pairedWidth; x += 4) {
++			const uint64_t ab = from[0] | alpha;
++			const uint64_t cd = from[1] | alpha;
++			to[0] = (ab & 0xffffffffull) | (ab << 32);
++			to[1] = (ab >> 32) | (cd << 32);
++			to[2] = cd;
++			from += 2;
++			to += 3;
++		}
++		panel = reinterpret_cast<uint32_t *>(to);
++	}
++#endif
++	for (; x < sourceWidth; x += 2) {
+ 		const uint32_t a = source[x] | 0xff000000u;
+ 		const uint32_t b = source[x + 1] | 0xff000000u;
+ 		panel[0] = a;

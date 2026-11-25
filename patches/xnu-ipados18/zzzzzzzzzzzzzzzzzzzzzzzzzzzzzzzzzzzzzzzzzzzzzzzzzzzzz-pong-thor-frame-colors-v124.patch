@@ -1,0 +1,29 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -1941,4 +1941,5 @@
+ 	const uint32_t traceLimit = traceWindow ? 1536 : 2048;
+ 	uint64_t frameFingerprint = 0;
++	unsigned nearWhite = 0, nearBlack = 0;
+ 	bool cadenceReceipt = false;
+ 	if (fThorRetainedCadence && desktop && layers && !gpuFrame &&
+@@ -1954,6 +1955,9 @@
+ 			    fBase + (size_t) (fPanelHeight * y / 24) * fRowBytes);
+ 			for (unsigned x = 1; x < 12; ++x) {
+-				frameFingerprint ^= row[fPanelWidth * x / 12];
++				const uint32_t rgb = row[fPanelWidth * x / 12] & 0xffffffu;
++				frameFingerprint ^= rgb;
+ 				frameFingerprint *= 1099511628211ull;
++				nearWhite += (rgb & 0x00f8f8f8u) == 0x00f8f8f8u;
++				nearBlack += (rgb & 0x00f8f8f8u) == 0;
+ 			}
+ 		}
+@@ -2093,6 +2097,7 @@
+ 	if (cadenceReceipt) {
+ 		IOLog("PONG TOUCH FRAME: swap=%u touch_us=%llu enqueue_us=%llu ready_us=%llu "
+-		    "start_us=%llu done_us=%llu fp=%016llx\n", swapID, micros(sampledTouch),
+-		    micros(enqueued), micros(ready), micros(shown), micros(drawn), frameFingerprint);
++		    "start_us=%llu done_us=%llu fp=%016llx white=%u dark=%u samples=253\n",
++		    swapID, micros(sampledTouch), micros(enqueued), micros(ready), micros(shown),
++		    micros(drawn), frameFingerprint, nearWhite, nearBlack);
+ 	}
+ 	if (touchGapUs &&

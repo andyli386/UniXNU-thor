@@ -1,0 +1,23 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -5032,7 +5032,8 @@
+ 		task_clear_return_wait(get_threadtask(imgp->ip_new_thread), clearwait_flags);
+ #if defined(ARM64_BOARD_CONFIG_PONG) && (DEVELOPMENT || DEBUG)
+ 
+-		if (error == 0 && exec_done && !spawn_no_exec && p != PROC_NULL &&
++		/* The normal child spawn sets spawn_no_exec, but still activates its image. */
++		if (error == 0 && exec_done && spawn_no_exec && p != PROC_NULL &&
+ 		    strcmp(proc_best_name(p), "Preferences") == 0) {
+ 			thor_launch_sample_arm(imgp->ip_new_thread, proc_getpid(p));
+ 		}
+--- a/osfmk/kern/thread.c
++++ b/osfmk/kern/thread.c
+@@ -2346,6 +2346,8 @@
+ 		clock_interval_to_absolutetime_interval(sample->delay_ms, NSEC_PER_MSEC, &delay);
+ 		thread_call_enter_delayed(&sample->call, began + delay);
+ 	}
++	printf("PONG LAUNCH SCHED ARMED: Preferences pid=%d start_us=%llu\n",
++	    pid, (unsigned long long)thor_launch_ticks_to_us(began));
+ }
+ #endif
+ 

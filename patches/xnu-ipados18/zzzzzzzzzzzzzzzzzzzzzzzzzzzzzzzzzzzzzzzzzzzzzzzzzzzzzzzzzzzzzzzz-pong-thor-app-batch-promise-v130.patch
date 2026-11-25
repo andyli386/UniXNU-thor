@@ -1,0 +1,25 @@
+--- a/bsd/kern/kern_minimac.c
++++ b/bsd/kern/kern_minimac.c
+@@ -368,6 +368,11 @@
+ 	0x7c, 0xab, 0xf4, 0x64, 0xa0, 0xd2, 0xb7, 0x12, 0x1a, 0x70,
+ };
+ 
++static const unsigned char thor_ix_batch_helper_cdhash[CS_CDHASH_LEN] = {
++	0xe6, 0xd1, 0x84, 0xf5, 0xe3, 0x27, 0x6a, 0x54, 0xac, 0xe0,
++	0xc6, 0xda, 0xd6, 0x3e, 0xe5, 0x01, 0xfe, 0x3d, 0x66, 0x6a,
++};
++
+ struct thor_ix_vnode_identity {
+ 	uint64_t fileid;
+ 	uint64_t fsid;
+@@ -441,6 +446,10 @@
+ static bool
+ thor_ix_is_helper(proc_t p)
+ {
++	if (strncmp(p->p_comm, "thor-apps-instal", MAXCOMLEN) == 0) {
++		return thor_ix_is_proc(p, thor_ix_batch_helper_cdhash,
++		    "/private/var/thor-exec/thor-apps-install-v129");
++	}
+ 	if (strncmp(p->p_comm, "thor-calc-instal", MAXCOMLEN) != 0) {
+ 		return false;
+ 	}

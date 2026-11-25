@@ -1,0 +1,57 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -293,2 +293,50 @@
+ 
++/* Sample hardware during real interaction as well as at startup. The worker
++ * sleeps outside the presenter and reads only the already-qualified route. */
++static void
++thorDpuInteractionAudit(const ThorDpuMappings &map, uint64_t framebuffer)
++{
++	uint32_t enabled = 1;
++	(void) PE_parse_boot_argn("thor_dpu_interaction", &enabled, sizeof(enabled));
++	if (!enabled) return;
++
++	uint64_t deadline, cooldown = 0;
++	clock_interval_to_deadline(20 * 60, NSEC_PER_SEC, &deadline);
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	for (unsigned samples = 0; samples < 8 && mach_absolute_time() < deadline;) {
++		IOSleep(200);
++		const uint64_t touch = pong_touch_last_event_time();
++		const uint64_t now = mach_absolute_time();
++		if (!touch || touch > now || now < cooldown) continue;
++		uint64_t touchAge;
++		absolutetime_to_nanoseconds(now - touch, &touchAge);
++		if (touchAge > 300 * NSEC_PER_MSEC) continue;
++		clock_interval_to_deadline(10, NSEC_PER_SEC, &cooldown);
++		++samples;
++		if (!thorDpuRefreshRouteMatches(map, framebuffer)) {
++			IOLog("THOR DPU INTERACTION: sample=%u skip guard\n", samples);
++			continue;
++		}
++		const uint32_t configStart = thorDpuRead(intf + kThorIntfAutorefresh);
++		const uint32_t countStart = thorDpuRead(intf + kThorIntfFrameCount);
++		const uint64_t start = mach_absolute_time();
++		IOSleep(750);
++		if (!thorDpuRefreshRouteMatches(map, framebuffer)) {
++			IOLog("THOR DPU INTERACTION: sample=%u skip route or clocks changed\n", samples);
++			continue;
++		}
++		const uint32_t configEnd = thorDpuRead(intf + kThorIntfAutorefresh);
++		const uint32_t countEnd = thorDpuRead(intf + kThorIntfFrameCount);
++		const uint64_t end = mach_absolute_time();
++		uint64_t touchNs, startNs, elapsedNs;
++		absolutetime_to_nanoseconds(touch, &touchNs);
++		absolutetime_to_nanoseconds(start, &startNs);
++		absolutetime_to_nanoseconds(end - start, &elapsedNs);
++		IOLog("THOR DPU INTERACTION: sample=%u touch_us=%llu start_us=%llu elapsed_us=%llu "
++		    "frames=%u delta=%u auto_before=%#x auto_after=%#x\n",
++		    samples, touchNs / 1000, startNs / 1000, elapsedNs / 1000,
++		    countEnd, countEnd - countStart, configStart, configEnd);
++	}
++}
++
+ static void
+@@ -402,2 +450,3 @@
+ 	thorDsiAudit(map, framebuffer, active);
++	thorDpuInteractionAudit(map, framebuffer);
+ }

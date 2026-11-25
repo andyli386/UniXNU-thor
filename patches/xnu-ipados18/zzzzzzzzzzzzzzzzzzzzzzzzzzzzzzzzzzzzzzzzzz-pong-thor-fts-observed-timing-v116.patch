@@ -1,0 +1,226 @@
+--- a/bsd/dev/pong_fts.c
++++ b/bsd/dev/pong_fts.c
+@@ -915,8 +915,24 @@
+ 	}
+ }
+ 
+-static void
+-fts_touch(const uint8_t *e, uint8_t type)
++/* Local to one FIFO read/dispatch. The controller reports no edge time here. */
++struct salixp_poll_timing {
++	uint64_t read_us;
++	unsigned events;
++	uint32_t down_mask;
++	uint32_t paired_mask;
++};
++
++static uint64_t
++fts_monotonic_us(void)
++{
++	uint64_t ns;
++	absolutetime_to_nanoseconds(mach_absolute_time(), &ns);
++	return ns / 1000;
++}
++
++static void
++fts_touch(const uint8_t *e, uint8_t type, struct salixp_poll_timing *timing)
+ {
+ 	static unsigned shown;
+ 	uint32_t id = e[1] >> 4, kind = e[1] & 0xf;
+@@ -930,6 +946,11 @@
+ 			contact[id].down = false;
+ 			seen.releases++;
+ 			touch_post(PONG_TOUCH_UP, id, contact[id].x, contact[id].y);
++			if (timing) {
++				const uint32_t bit = 1u << id;
++				timing->paired_mask |= timing->down_mask & bit;
++				timing->down_mask &= ~bit;
++			}
+ 		}
+ 		return;
+ 	}
+@@ -966,6 +987,9 @@
+ 	pong_touch_activity++;
+ 	if (!contact[id].down) {
+ 		touch_post(PONG_TOUCH_DOWN, id, x, y);
++		if (timing) {
++			timing->down_mask |= 1u << id;
++		}
+ 	} else if (contact[id].x != x || contact[id].y != y) {
+ 		touch_post(PONG_TOUCH_MOVE, id, x, y);
+ 	}
+@@ -975,7 +999,7 @@
+ }
+ 
+ static bool
+-fts_dispatch(const uint8_t *event)
++fts_dispatch(const uint8_t *event, struct salixp_poll_timing *timing)
+ {
+ 	static unsigned logged;
+ 	uint8_t type = event[0];
+@@ -989,10 +1013,13 @@
+ 	case FTS_EVENT_ENTER:
+ 	case FTS_EVENT_MOTION:
+ 	case FTS_EVENT_LEAVE:
+-		fts_touch(event, type);
++		fts_touch(event, type, timing);
+ 		break;
+ 	case FTS_EVENT_READY:
+ 		fts_release_all();
++		if (timing) {
++			timing->down_mask = 0;
++		}
+ 		return fts_scan_on();
+ 	case FTS_EVENT_ERROR:
+ 		seen.errors++;
+@@ -1001,6 +1028,9 @@
+ 		}
+ 		if (event[1] == 0x01 || event[1] == 0x05) {
+ 			fts_release_all();
++			if (timing) {
++				timing->down_mask = 0;
++			}
+ 			return (thor_salixp ? seen.errors <= 3 : true) && fts_system_reset() && fts_scan_on();
+ 		}
+ 		break;
+@@ -1015,22 +1045,26 @@
+ 
+ /* SALIXP reports the number of queued frames in the low five bits of byte 7. */
+ static bool
+-salixp_poll(void)
++salixp_poll(struct salixp_poll_timing *timing)
+ {
+ 	uint8_t events[SALIXP_FIFO_DEPTH][FTS_EVENT_SIZE];
+-
+-	if (!fts_read_event(events[0])) {
++	const uint64_t read_start_us = fts_monotonic_us();
++	const bool first_read = fts_read_event(events[0]);
++
++	if (!first_read || events[0][0] == 0) {
++		timing->read_us = fts_monotonic_us() - read_start_us;
++		return first_read;
++	}
++	const unsigned remaining = events[0][7] & SALIXP_EVENTS_REMAINING;
++	const bool read_all = !remaining ||
++	    fts_read(SALIXP_OP_FIFO, 0, 0, events[1], remaining * FTS_EVENT_SIZE);
++	timing->read_us = fts_monotonic_us() - read_start_us;
++	if (!read_all) {
+ 		return false;
+ 	}
+-	if (events[0][0] == 0) {
+-		return true;
+-	}
+-	unsigned remaining = events[0][7] & SALIXP_EVENTS_REMAINING;
+-	if (remaining && !fts_read(SALIXP_OP_FIFO, 0, 0, events[1], remaining * FTS_EVENT_SIZE)) {
+-		return false;
+-	}
+ 	for (unsigned index = 0; index <= remaining && events[index][0]; index++) {
+-		if (!fts_dispatch(events[index])) {
++		timing->events++;
++		if (!fts_dispatch(events[index], timing)) {
+ 			return false;
+ 		}
+ 	}
+@@ -1038,12 +1072,12 @@
+ }
+ 
+ static bool
+-fts_poll(void)
++fts_poll(struct salixp_poll_timing *timing)
+ {
+ 	uint8_t event[FTS_EVENT_SIZE];
+ 	seen.polls++;
+ 	if (thor_salixp) {
+-		return salixp_poll();
++		return salixp_poll(timing);
+ 	}
+ 	for (int index = 0; index < 100; index++) {
+ 		if (!fts_read_event(event)) {
+@@ -1052,7 +1086,7 @@
+ 		if (!event[0]) {
+ 			break;
+ 		}
+-		if (!fts_dispatch(event)) {
++		if (!fts_dispatch(event, NULL)) {
+ 			return false;
+ 		}
+ 	}
+@@ -1144,15 +1178,27 @@
+ 	const unsigned salixp_idle_ticks = 5, salixp_contact_ticks = 2;
+ 	unsigned idle = 0, iterations = 0, failures = 0;
+ 	unsigned fallback_polls = 0, fallback_contacts = 0, fallback_releases = 0;
++	const uint64_t slow_loop_us = 50000, report_interval_us = 2000000;
++	uint64_t previous_sample_us = 0, previous_sleep_us = 0, previous_poll_us = 0;
++	uint64_t last_slow_report_us = 0, last_pair_report_us = 0, max_loop_us = 0;
++	unsigned slow_loops = 0, paired_batches = 0;
+ 	for (;;) {
++		const uint64_t sample_us = thor_salixp ? fts_monotonic_us() : 0;
+ 		const bool irq = !gpio_get(PIN_INT);
+ 		const unsigned fallback_ticks = thor_salixp ?
+ 		    (fts_has_contact() ? salixp_contact_ticks : salixp_idle_ticks) : 10;
+-		if (irq || ++idle >= fallback_ticks) {
++		const bool poll_fifo = irq || ++idle >= fallback_ticks;
++		struct salixp_poll_timing timing = {0};
++		uint64_t poll_us = 0;
++		if (poll_fifo) {
+ 			idle = 0;
+ 			const uint32_t contacts_before = seen.touches;
+ 			const uint32_t releases_before = seen.releases;
+-			const bool polled = fts_poll();
++			const uint64_t poll_start_us = thor_salixp ? fts_monotonic_us() : 0;
++			const bool polled = fts_poll(&timing);
++			if (thor_salixp) {
++				poll_us = fts_monotonic_us() - poll_start_us;
++			}
+ 			if (thor_salixp && !irq) {
+ 				fallback_polls++;
+ 				fallback_contacts += seen.touches - contacts_before;
+@@ -1170,7 +1216,39 @@
+ 				}
+ 			}
+ 		}
++		if (thor_salixp) {
++			const uint64_t loop_us = previous_sample_us ? sample_us - previous_sample_us : 0;
++			const bool slow = loop_us > slow_loop_us;
++			const bool paired = timing.paired_mask != 0;
++			slow_loops += slow;
++			paired_batches += paired;
++			if (loop_us > max_loop_us) {
++				max_loop_us = loop_us;
++			}
++			const bool report_slow = slow && (!last_slow_report_us ||
++			    sample_us - last_slow_report_us >= report_interval_us);
++			const bool report_pair = paired && (!last_pair_report_us ||
++			    sample_us - last_pair_report_us >= report_interval_us);
++			if (report_slow || report_pair) {
++				printf("Pong FTS: timing sample_us=%llu loop_us=%llu prev_sleep_us=%llu prev_poll_us=%llu "
++				    "irq=%u polled=%u poll_us=%llu read_us=%llu batch=%u paired_mask=%#x\n",
++				    sample_us, loop_us, previous_sleep_us, previous_poll_us, irq, poll_fifo,
++				    poll_us, timing.read_us, timing.events, timing.paired_mask);
++				if (report_slow) {
++					last_slow_report_us = sample_us;
++				}
++				if (report_pair) {
++					last_pair_report_us = sample_us;
++				}
++			}
++			previous_sample_us = sample_us;
++			previous_poll_us = poll_us;
++		}
++		const uint64_t sleep_start_us = thor_salixp ? fts_monotonic_us() : 0;
+ 		sleep_ms(8);
++		if (thor_salixp) {
++			previous_sleep_us = fts_monotonic_us() - sleep_start_us;
++		}
+ 		if (++iterations >= 7500) {
+ 			iterations = 0;
+ 			printf("Pong FTS: polls=%u events=%u touches=%u raw=%u,%u errors=%u io_failures=%u\n",
+@@ -1178,6 +1256,8 @@
+ 			if (thor_salixp) {
+ 				printf("Pong FTS: IRQ-high fallback polls=%u contacts=%u releases=%u intervals=%u/%u\n",
+ 				    fallback_polls, fallback_contacts, fallback_releases, salixp_idle_ticks, salixp_contact_ticks);
++				printf("Pong FTS: timing slow_loops=%u max_loop_us=%llu paired_batches=%u\n",
++				    slow_loops, max_loop_us, paired_batches);
+ 			}
+ 		}
+ 	}

@@ -1,0 +1,97 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -56,6 +56,7 @@
+ extern "C" void pong_scanout_idle(void);
+ extern "C" uint64_t pong_touch_last_event_time(void);
+ static uint32_t gSlowSwapWaitReceipts, gTouchFrameGapReceipts;
++static uint32_t gCadenceFrameReceipts;
+ static constexpr uint64_t kSlowDisplayUs = 100000;
+ static constexpr uint32_t kDisplayReceiptLimit = 48;
+ #endif
+@@ -326,8 +327,8 @@
+ 	bool            fGpuOnly;              /* explicit bring-up policy, never the default */
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	bool            fGpuColorReceipt;
+-	bool            fPresentWhenReady;
+-	bool            fReportedReadyPresent;
++	bool            fThorRetainedCadence;
++	bool            fReportedRetainedCadence;
+ #endif
+ 	uint64_t        fDiffPixels;
+ 	uint32_t        fDiffLeft, fDiffTop, fDiffRight, fDiffBottom;
+@@ -534,11 +535,11 @@
+ 	const bool nativeScanout = PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) && scanout == 1;
+ 	fGpuColorReceipt = nativeScanout && PE_parse_boot_argn("memlog", &memlog, sizeof(memlog)) && memlog == 1;
+ 	uint32_t metal = 0, beatOverride = 0;
+-	fPresentWhenReady = nativeScanout && !fGpuOnly && !gFilter &&
++	fThorRetainedCadence = nativeScanout && !fGpuOnly && !gFilter &&
+ 	    fWidth == 960 && fHeight == 2133 && fPanelWidth == 1440 && fPanelHeight == 3200 &&
+ 	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
+ 	    !PE_parse_boot_argn("fb_beat", &beatOverride, sizeof(beatOverride));
+-	fReportedReadyPresent = false;
++	fReportedRetainedCadence = false;
+ 	/* The direct presenter accepts panel-sized frames only. When the
+ 	 * workspace needs scaling, keep Metal rendering available while the
+ 	 * CPU multiplies the workspace to the retained panel framebuffer. */
+@@ -1271,14 +1272,12 @@
+ 	began = ready = mach_absolute_time();
+ 	bool pace = gOnTheBeat != 0;
+ #if XNU_PONG_ADRENO_PLATFORM
+-	if (pace && fPresentWhenReady && desktop && surfaces[0] != NULL) {
+-		/* Every source reader is held. Skip only the software timer,
+-		 * and start a new cadence if a later swap needs the old path. */
+-		pace = false;
+-		fBeat = fReady = 0;
+-		if (!fReportedReadyPresent) {
+-			fReportedReadyPresent = true;
+-			IOLog("PONG FB PACE: Thor desktop presents after IOSurface ready; synthetic wait skipped\n");
++	if (pace && fThorRetainedCadence && desktop && surfaces[0] != NULL) {
++		/* The retained framebuffer is updated in place. Use the existing
++		 * software cadence to avoid closely spaced consecutive updates. */
++		if (!fReportedRetainedCadence) {
++			fReportedRetainedCadence = true;
++			IOLog("PONG FB PACE: Thor retained framebuffer uses software refresh pacing\n");
+ 		}
+ 	}
+ #endif
+@@ -1444,6 +1443,28 @@
+ 	}
+ #endif
+ 	drawn = mach_absolute_time();
++#if XNU_PONG_ADRENO_PLATFORM
++	const uint64_t sampledTouch = pong_touch_last_event_time();
++	uint64_t frameFingerprint = 0;
++	bool cadenceReceipt = false;
++	if (fThorRetainedCadence && desktop && layers && !gpuFrame &&
++	    sampledTouch && sampledTouch <= drawn && micros(drawn - sampledTouch) <= 90000 &&
++	    __atomic_load_n(&gCadenceFrameReceipts, __ATOMIC_RELAXED) < 2048 &&
++	    __atomic_fetch_add(&gCadenceFrameReceipts, 1, __ATOMIC_RELAXED) < 2048) {
++		// Sparse samples indicate changes to framebuffer contents, including the keypad.
++		const volatile uint32_t *row;
++		frameFingerprint = 14695981039346656037ull;
++		for (unsigned y = 1; y < 24; ++y) {
++			row = reinterpret_cast<const volatile uint32_t *>(
++			    fBase + (size_t) (fPanelHeight * y / 24) * fRowBytes);
++			for (unsigned x = 1; x < 12; ++x) {
++				frameFingerprint ^= row[fPanelWidth * x / 12];
++				frameFingerprint *= 1099511628211ull;
++			}
++		}
++		cadenceReceipt = true;
++	}
++#endif
+ 	fSwapsShown++;
+ 	if (gTouchLat) {
+ 		IOLog("tl: v %u ready %llu shown %llu done %llu\n", swapWord(swap, SWAP_ID), micros(ready), micros(shown),
+@@ -1574,6 +1595,11 @@
+ 	}
+ 	IOLockUnlock(fLock);
+ #if XNU_PONG_ADRENO_PLATFORM
++	if (cadenceReceipt) {
++		IOLog("PONG TOUCH FRAME: swap=%u touch_us=%llu enqueue_us=%llu ready_us=%llu "
++		    "start_us=%llu done_us=%llu fp=%016llx\n", swapID, micros(sampledTouch),
++		    micros(enqueued), micros(ready), micros(shown), micros(drawn), frameFingerprint);
++	}
+ 	if (touchGapUs &&
+ 	    __atomic_fetch_add(&gTouchFrameGapReceipts, 1, __ATOMIC_RELAXED) < kDisplayReceiptLimit) {
+ 		IOLog("PONG TOUCH FRAME GAP: swap=%u gap_us=%llu previous_us=%llu touch_us=%llu "

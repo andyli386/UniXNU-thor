@@ -1,0 +1,264 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -418,7 +418,55 @@
+ constexpr uint32_t kThorDsiIrqEnables = (1u << 1) | (1u << 9) | (1u << 11) | (1u << 13) |
+     (1u << 15) | (1u << 17) | (1u << 21) | (1u << 25) | (1u << 29) | (1u << 31);
+ static constexpr uint8_t kThorDsiNop[] = { 0x00, 0x00, 0x05, 0x80 };
++
++static constexpr uint64_t kThorScratchLeaseBytes = 18ull << 20;
++static constexpr IOByteCount kThorScratchBytes = 5760ull * 3200;
++constexpr IOByteCount kThorDsiCommandPageBytes = 4096;
++static_assert(kThorScratchBytes <= kThorScratchLeaseBytes - kThorDsiCommandPageBytes);
++static_assert(sizeof(kThorDsiWqhd120) == sizeof(kThorDsiWqhd60));
++static_assert(sizeof(kThorDsiWqhd120) <= kThorDsiCommandPageBytes);
+ 
++extern "C" bool pmap_pong_pa_valid(uint64_t);
++
++static uint64_t
++thorDpuReservedScratch()
++{
++	IORegistryEntry *chosen = IORegistryEntry::fromPath("/chosen", gIODTPlane);
++	if (!chosen) return 0;
++	auto *data = OSDynamicCast(OSData, chosen->getProperty("thor-native-scanout"));
++	uint64_t range[2] = {};
++	if (data && data->getLength() == sizeof(range)) memcpy(range, data->getBytesNoCopy(), sizeof(range));
++	chosen->release();
++
++	const uint64_t physical = range[0];
++	if (range[1] != kThorScratchLeaseBytes || physical < 0xf8000000 || physical > 0xffc00000 - kThorScratchLeaseBytes ||
++	    (physical & 4095) || !pmap_pong_pa_valid(physical + kThorScratchLeaseBytes)) return 0;
++	for (uint64_t page = physical; page < physical + kThorScratchLeaseBytes; page += 4096) {
++		if (pmap_pong_pa_valid(page)) return 0;
++	}
++	return physical;
++}
++
++struct ThorDsiCommandBuffer {
++	IOBufferMemoryDescriptor *allocated = nullptr;
++	IOMemoryDescriptor *reserved = nullptr;
++	IOMemoryMap *mapping = nullptr;
++	void *cpu = nullptr;
++	uint32_t physical = 0;
++	bool retainForDma = false;
++
++	~ThorDsiCommandBuffer()
++	{
++		if (retainForDma) return;
++		if (mapping) mapping->release();
++		if (reserved) reserved->release();
++		if (allocated) {
++			(void) allocated->complete();
++			allocated->release();
++		}
++	}
++};
++
+ enum ThorDsiTransfer { ThorDsiNotStarted, ThorDsiComplete, ThorDsiFailedIdle, ThorDsiRetain };
+ 
+ static void
+@@ -430,7 +478,7 @@
+ 
+ static ThorDsiTransfer
+ thorDsiTransferBatch(const ThorDpuMappings &map, const ThorDsiInstance &dsi, uint64_t framebuffer,
+-    vm_offset_t regs, IOBufferMemoryDescriptor *memory, uint32_t physical,
++    vm_offset_t regs, const ThorDsiCommandBuffer &memory,
+     const uint8_t *program, size_t bytes, const char *tag)
+ {
+ 	if (!thorDsiDomainAudit(map, dsi) || !thorDpuRefreshRouteMatches(map, framebuffer) ||
+@@ -440,9 +488,14 @@
+ 		IOLog("THOR DSI 120: %s skipped; controller or context changed\n", tag);
+ 		return ThorDsiNotStarted;
+ 	}
+-	memcpy(memory->getBytesNoCopy(), program, bytes);
+-	/* Use explicit cache maintenance for this board's identity DMA path. */
+-	flush_dcache64(physical, static_cast<unsigned>(bytes), 1);
++	const uint32_t physical = memory.physical;
++	memcpy(memory.cpu, program, bytes);
++	/* Firmware-reserved memory has a cacheable CPU alias outside the direct map. */
++	if (memory.mapping) {
++		flush_dcache64(reinterpret_cast<addr64_t>(memory.cpu), static_cast<unsigned>(bytes), 0);
++	} else {
++		flush_dcache64(physical, static_cast<unsigned>(bytes), 1);
++	}
+ 	__asm__ volatile("dsb sy" ::: "memory");
+ 
+ 	char receipt[140];
+@@ -517,31 +570,32 @@
+ }
+ 
+ static bool
+-thorDsiTry120(const ThorDpuMappings &map, const ThorDsiInstance &dsi, uint64_t framebuffer)
++thorDsiPrepareCommandBuffer(ThorDsiCommandBuffer &buffer)
+ {
+-	bool qualified = false;
+-	uint32_t enabled = 1;
+-	(void) PE_parse_boot_argn("thor_dsi_120", &enabled, sizeof(enabled));
+-	if (!enabled || !thorDsiDomainAudit(map, dsi)) {
+-		thorDpuMarker("THOR DSI 120: skipped; fixed display identity context was not qualified\n");
+-		return false;
+-	}
+-	const uint32_t initial = thorDsiMeasurePanel(map, dsi);
+-	if (initial < 550 || initial > 650) {
+-		IOLog("THOR DSI 120: skipped; initial hardware frequency out of range (%u)\n", initial);
+-		return false;
++	const uint64_t lease = thorDpuReservedScratch();
++	if (lease) {
++		/* This last page is outside the DPU scratch pixels and OS-managed RAM. */
++		const uint64_t address = lease + kThorScratchLeaseBytes - kThorDsiCommandPageBytes;
++		auto *memory = IOMemoryDescriptor::withPhysicalAddress(address, kThorDsiCommandPageBytes, kIODirectionInOut);
++		auto *mapping = memory ? memory->createMappingInTask(kernel_task, 0,
++		    kIOMapAnywhere | kIOMapCopybackCache) : nullptr;
++		if (mapping && mapping->getLength() == kThorDsiCommandPageBytes && mapping->getAddress()) {
++			buffer.reserved = memory;
++			buffer.mapping = mapping;
++			buffer.cpu = reinterpret_cast<void *>(mapping->getAddress());
++			buffer.physical = static_cast<uint32_t>(address);
++			IOLog("THOR DSI 120: dedicated firmware command page pa=%#llx\n", address);
++			return true;
++		}
++		if (mapping) mapping->release();
++		if (memory) memory->release();
++		thorDpuMarker("THOR DSI 120: firmware command page map failed; try low contiguous pages\n");
+ 	}
+ 
+-	constexpr IOByteCount commandBytes = sizeof(kThorDsiWqhd120);
+-	constexpr IOByteCount allocationBytes = 8192;
++	constexpr IOByteCount allocationBytes = 2 * kThorDsiCommandPageBytes;
+ 	constexpr uint64_t dmaLimit = 1ull << 32;
+-	static_assert(commandBytes == sizeof(kThorDsiWqhd60) && commandBytes <= allocationBytes);
+ 	/* IOMallocContiguous will bypass the physical ceiling for a single
+ 	 * page on ARM64. Two pages take the bounded contiguous VM path. */
+-	if (page_size != 4096) {
+-		thorDpuMarker("THOR DSI 120: skipped; unexpected ARM64 VM page size\n");
+-		return false;
+-	}
+ 	IOBufferMemoryDescriptor *memory = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task,
+ 	    static_cast<IOOptionBits>(kIODirectionInOut) | static_cast<IOOptionBits>(kIOMemoryMapperNone) |
+ 	    kIOMemoryPhysicallyContiguous, allocationBytes, dmaLimit - page_size);
+@@ -559,7 +613,8 @@
+ 	const uint64_t address = memory->getPhysicalSegment(0, &segment, kIOMemoryMapperNone);
+ 	const uint64_t last = memory->getPhysicalSegment(allocationBytes - 1, &tail, kIOMemoryMapperNone);
+ 	const uint64_t descriptorBytes = memory->getLength();
+-	const bool hasBuffer = memory->getBytesNoCopy() != nullptr;
++	void *const cpu = memory->getBytesNoCopy();
++	const bool hasBuffer = cpu != nullptr;
+ 	IOLog("THOR DSI 120: low contiguous pages pa=%#llx seg=%llu last=%#llx tail=%llu descriptor=%llu kva=%u\n",
+ 	    address, static_cast<uint64_t>(segment), last, static_cast<uint64_t>(tail), descriptorBytes, hasBuffer ? 1u : 0u);
+ 	if (!address || (address & (page_size - 1)) || address > dmaLimit - allocationBytes ||
+@@ -568,20 +623,46 @@
+ 		thorDpuMarker("THOR DSI 120: skipped; fresh DMA pages failed physical range validation\n");
+ 		(void) memory->complete();
+ 		memory->release();
++		return false;
++	}
++	buffer.allocated = memory;
++	buffer.cpu = cpu;
++	buffer.physical = static_cast<uint32_t>(address);
++	return true;
++}
++
++static bool
++thorDsiTry120(const ThorDpuMappings &map, const ThorDsiInstance &dsi, uint64_t framebuffer)
++{
++	bool qualified = false;
++	uint32_t enabled = 1;
++	(void) PE_parse_boot_argn("thor_dsi_120", &enabled, sizeof(enabled));
++	if (!enabled || !thorDsiDomainAudit(map, dsi)) {
++		thorDpuMarker("THOR DSI 120: skipped; fixed display identity context was not qualified\n");
++		return false;
++	}
++	const uint32_t initial = thorDsiMeasurePanel(map, dsi);
++	if (initial < 550 || initial > 650) {
++		IOLog("THOR DSI 120: skipped; initial hardware frequency out of range (%u)\n", initial);
++		return false;
++	}
++
++	if (page_size != kThorDsiCommandPageBytes) {
++		thorDpuMarker("THOR DSI 120: skipped; unexpected ARM64 VM page size\n");
+ 		return false;
+ 	}
++	ThorDsiCommandBuffer memory;
++	if (!thorDsiPrepareCommandBuffer(memory)) return false;
++
+ 	const vm_offset_t regs = io_map(dsi.address, 0x1000, VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
+ 	if (!regs) {
+ 		thorDpuMarker("THOR DSI 120: skipped; no command controller write mapping\n");
+-		(void) memory->complete();
+-		memory->release();
+ 		return false;
+ 	}
+-	const uint32_t physical = static_cast<uint32_t>(address);
+-	ThorDsiTransfer result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
++	ThorDsiTransfer result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory,
+ 	    kThorDsiNop, sizeof(kThorDsiNop), "NOP");
+ 	if (result == ThorDsiComplete) {
+-		result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
++		result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory,
+ 		    kThorDsiWqhd120, sizeof(kThorDsiWqhd120), "switch120");
+ 		if (result == ThorDsiComplete) {
+ 			/* The first rate window can straddle the 60/120 timing
+@@ -597,22 +678,19 @@
+ 				thorDpuMarker("THOR DSI 120: PASS actual ~120 Hz hardware scanout measured\n");
+ 			} else {
+ 				thorDpuMarker("THOR DSI 120: hardware rate not qualified, try stock 60 Hz rollback\n");
+-				result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
++				result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory,
+ 				    kThorDsiWqhd60, sizeof(kThorDsiWqhd60), "restore60");
+ 				if (result == ThorDsiComplete) (void) thorDsiMeasurePanel(map, dsi);
+ 			}
+ 		} else if (result == ThorDsiFailedIdle) {
+ 			thorDpuMarker("THOR DSI 120: incomplete switch while idle, try stock 60 Hz rollback\n");
+-			result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
++			result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory,
+ 			    kThorDsiWqhd60, sizeof(kThorDsiWqhd60), "restore60");
+ 			if (result == ThorDsiComplete) (void) thorDsiMeasurePanel(map, dsi);
+ 		}
+ 	}
+ 	ml_io_unmap(regs, 0x1000);
+-	if (result != ThorDsiRetain) {
+-		(void) memory->complete();
+-		memory->release();
+-	}
++	memory.retainForDma = result == ThorDsiRetain;
+ 	return qualified;
+ }
+ 
+@@ -820,11 +898,9 @@
+ 	    te, sync, intCount, line, autorefresh, frames);
+ }
+ 
+-static constexpr IOByteCount kThorScratchBytes = 5760ull * 3200;
+ static constexpr uint32_t kThorFlipMask = (1u << 17) | 3u;
+ static constexpr unsigned kThorCtlFlush = 0x18;
+ static constexpr unsigned kThorSsppSource = 0x14;
+-extern "C" bool pmap_pong_pa_valid(uint64_t);
+ 
+ struct ThorDpuScratch {
+ 	IOMemoryDescriptor *memory = nullptr;
+@@ -915,26 +991,6 @@
+ 	return latched ? ThorDpuScratchLatched : ThorDpuScratchPending;
+ }
+ 
+-static uint64_t
+-thorDpuReservedScratch()
+-{
+-	IORegistryEntry *chosen = IORegistryEntry::fromPath("/chosen", gIODTPlane);
+-	if (!chosen) return 0;
+-	auto *data = OSDynamicCast(OSData, chosen->getProperty("thor-native-scanout"));
+-	uint64_t range[2] = {};
+-	if (data && data->getLength() == sizeof(range)) memcpy(range, data->getBytesNoCopy(), sizeof(range));
+-	chosen->release();
+-
+-	constexpr uint64_t leaseBytes = 18ull << 20;
+-	const uint64_t physical = range[0];
+-	if (range[1] != leaseBytes || physical < 0xf8000000 || physical > 0xffc00000 - leaseBytes ||
+-	    (physical & 4095) || !pmap_pong_pa_valid(physical + leaseBytes)) return 0;
+-	for (uint64_t page = physical; page < physical + leaseBytes; page += 4096) {
+-		if (pmap_pong_pa_valid(page)) return 0;
+-	}
+-	return physical;
+-}
+-
+ static void
+ thorDpuScratchTrial(const ThorDpuMappings &map, uint64_t framebuffer, const uint8_t *source, IOLock *lock)
+ {

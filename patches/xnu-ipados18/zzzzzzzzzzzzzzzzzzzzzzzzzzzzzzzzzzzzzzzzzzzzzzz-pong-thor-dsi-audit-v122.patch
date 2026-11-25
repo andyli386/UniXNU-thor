@@ -1,0 +1,93 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -212,4 +212,84 @@
+ }
+ 
++/*
++ * The Cape Android DT associates DSI0 (0x0ae94000) with INTF1 and
++ * DSI1 (0x0ae96000) with INTF2. The matching waipio DISPCC table
++ * provides the byte, byte-interface, pixel and escape-clock CBCRs.
++ * Only inspect a routed controller whose branch clocks are all running.
++ */
++struct ThorDsiInstance {
++	vm_offset_t address;
++	unsigned byteClock, byteInterfaceClock, pixelClock, escapeClock;
++	uint32_t route;
++};
++
++static constexpr ThorDsiInstance kThorDsi[] = {
++	{ 0x0ae94000, 0x8028, 0x802c, 0x8004, 0x8038, 1u << 1 },
++	{ 0x0ae96000, 0x8030, 0x8034, 0x8008, 0x803c, 1u << 2 },
++};
++
++static bool
++thorDsiClocksReady(const ThorDpuMappings &map, const ThorDsiInstance &dsi, unsigned index)
++{
++	if (!thorDpuClocksReady(map)) return false;
++	const uint32_t byte = thorDpuRead(map.clocks + dsi.byteClock - 0x8000);
++	const uint32_t byteInterface = thorDpuRead(map.clocks + dsi.byteInterfaceClock - 0x8000);
++	const uint32_t pixel = thorDpuRead(map.clocks + dsi.pixelClock - 0x8000);
++	const uint32_t escape = thorDpuRead(map.clocks + dsi.escapeClock - 0x8000);
++	if (thorDpuClockRunning(byte) && thorDpuClockRunning(byteInterface) &&
++	    thorDpuClockRunning(pixel) && thorDpuClockRunning(escape)) return true;
++
++	IOLog("THOR DSI AUDIT: id=%u skip branch clock byte=%#x byte_intf=%#x pixel=%#x esc=%#x\n",
++	    index, byte, byteInterface, pixel, escape);
++	return false;
++}
++
++static void
++thorDsiAudit(const ThorDpuMappings &map, uint64_t framebuffer, uint32_t active)
++{
++	uint32_t enabled = 1;
++	(void) PE_parse_boot_argn("thor_dsi_audit", &enabled, sizeof(enabled));
++	if (!enabled || !thorDpuRefreshRouteMatches(map, framebuffer)) return;
++
++	for (unsigned i = 0; i < sizeof(kThorDsi) / sizeof(kThorDsi[0]); ++i) {
++		const auto &dsi = kThorDsi[i];
++		if (!(active & dsi.route)) {
++			IOLog("THOR DSI AUDIT: id=%u skip no active INTF route (mask=%#x)\n", i, active);
++			continue;
++		}
++		if (!thorDsiClocksReady(map, dsi, i)) continue;
++		const vm_offset_t regs = io_map(dsi.address, 0x1000, VM_WIMG_IO, VM_PROT_READ, true);
++		if (!regs) {
++			IOLog("THOR DSI AUDIT: id=%u skip controller map unavailable\n", i);
++			continue;
++		}
++		if (thorDsiClocksReady(map, dsi, i) &&
++		    (thorDpuRead(map.mdss + 0x16000 + kThorCtlIntfActive) & dsi.route)) {
++			thorDpuMarker(i == 0 ? "THOR DSI AUDIT: DSI0 guards passed, before first controller read\n" :
++			    "THOR DSI AUDIT: DSI1 guards passed, before first controller read\n");
++			const uint32_t version = thorDpuRead(regs);
++			if (version == 0x20060000) {
++				const uint32_t control = thorDpuRead(regs + 0x04);
++				const uint32_t status = thorDpuRead(regs + 0x08);
++				IOLog("THOR DSI AUDIT: id=%u ver=%#x ctrl=%#x status=%#x cmd_enabled=%u "
++				    "video_enabled=%u dma_busy=%u mdp_busy=%u panel_identity=unmeasured\n",
++				    i, version, control, status, (control & 5u) == 5u, (control >> 1) & 1,
++				    (status >> 1) & 1, (status >> 2) & 1);
++				if ((control & 7u) == 5u) {
++					const vm_offset_t intf = map.mdss + kThorIntfOffset[i];
++					IOLog("THOR DSI AUDIT: id=%u intf=%u tear=%#x sync=%#x int_count=%#x line=%#x auto=%#x\n",
++					    i, i + 1, thorDpuRead(intf + kThorIntfTearCheck), thorDpuRead(intf + 0x288),
++					    thorDpuRead(intf + 0x298), thorDpuRead(intf + 0x2b0),
++					    thorDpuRead(intf + kThorIntfAutorefresh));
++				}
++			} else {
++				IOLog("THOR DSI AUDIT: id=%u skip unexpected version=%#x\n", i, version);
++			}
++		}
++		ml_io_unmap(regs, 0x1000);
++	}
++	thorDpuMarker("THOR DSI AUDIT: complete, no DSI writes or panel commands\n");
++}
++
+ static void
+ thorDpuProbe(uint64_t framebuffer)
+@@ -320,4 +400,5 @@
+ 		at = now;
+ 	}
++	thorDsiAudit(map, framebuffer, active);
+ }
+ 

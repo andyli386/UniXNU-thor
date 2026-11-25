@@ -1,0 +1,16 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -2265,4 +2265,6 @@
+ 	const uint64_t sampledTouch = interaction;
+ 	const bool traceWindow = drawn <= fInteractionTraceUntil;
++	// Retain launch detail while keeping panel reads out of most moving frames.
++	const bool sampleFrame = traceWindow || fSwapsShown % 4 == 0;
+ 	uint32_t *const traceBudget = traceWindow ? &gBurstFrameReceipts : &gCadenceFrameReceipts;
+ 	const uint32_t traceLimit = traceWindow ? 1536 : 2048;
+@@ -2270,5 +2272,5 @@
+ 	unsigned nearWhite = 0, nearBlack = 0;
+ 	bool cadenceReceipt = false;
+-	if (fThorRetainedCadence && desktop && layers && !gpuFrame &&
++	if (sampleFrame && fThorRetainedCadence && desktop && layers && !gpuFrame &&
+ 	    (traceWindow || (sampledTouch && sampledTouch <= drawn &&
+ 	        micros(drawn - sampledTouch) <= 90000)) &&

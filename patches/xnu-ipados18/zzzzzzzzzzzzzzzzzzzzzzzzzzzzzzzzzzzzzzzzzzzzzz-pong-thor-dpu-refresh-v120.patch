@@ -1,0 +1,133 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -142,4 +142,74 @@
+ }
+ 
++/* The Cape Android SDE driver writes BIT(31) | frame_count at 0x2b4.
++ * v119 measured firmware 0x8000003c and only one transfer in 753 ms.
++ * Do not change the panel mode, TE timing, route, or scanout addresses. */
++static constexpr uint32_t kThorFirmwareRefresh = 0x8000003c;
++static constexpr uint32_t kThorRefreshEachTe = 0x80000001;
++
++static bool
++thorDpuRefreshRouteMatches(const ThorDpuMappings &map, uint64_t framebuffer)
++{
++	if (framebuffer != 0xb8000000 || !thorDpuClocksReady(map)) return false;
++
++	const vm_offset_t ctl = map.mdss + 0x16000;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	if (thorDpuRead(ctl + kThorCtlIntfActive) != 0x2 ||
++	    thorDpuRead(ctl + kThorCtlFetchActive) != 0x30000 ||
++	    thorDpuRead(ctl + 0x14) != 0xf0020000 ||
++	    thorDpuRead(ctl + 0x18) != 0 ||
++	    thorDpuRead(intf + kThorIntfTearCheck) != 1) {
++		thorDpuMarker("THOR DPU REFRESH: skip unexpected CTL0 or INTF1 route\n");
++		return false;
++	}
++	for (unsigned i = 0; i < 2; ++i) {
++		const vm_offset_t pipe = map.mdss + kThorSsppOffset[i];
++		if (thorDpuRead(pipe + 0x14) != framebuffer ||
++		    thorDpuRead(pipe) != 0x0c8002d0 ||
++		    thorDpuRead(pipe + 0x0c) != 0x0c8002d0 ||
++		    thorDpuRead(pipe + 0x24) != 0x1680 ||
++		    thorDpuRead(pipe + 0x30) != 0x237ff) {
++			thorDpuMarker("THOR DPU REFRESH: skip unexpected VIG0/VIG1 framebuffer\n");
++			return false;
++		}
++	}
++	return true;
++}
++
++static bool
++thorDpuWriteRefresh(const ThorDpuMappings &map, uint64_t framebuffer, uint32_t expected, uint32_t desired)
++{
++	if (!thorDpuRefreshRouteMatches(map, framebuffer)) return false;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	if (thorDpuRead(intf + kThorIntfAutorefresh) != expected) {
++		thorDpuMarker("THOR DPU REFRESH: skip unexpected auto-refresh config\n");
++		return false;
++	}
++	const vm_offset_t writePage = io_map(kThorMdss + kThorIntfOffset[0], 0x1000,
++	    VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
++	if (!writePage) {
++		thorDpuMarker("THOR DPU REFRESH: skip INTF1 write map unavailable\n");
++		return false;
++	}
++
++	bool applied = false;
++	if (thorDpuRefreshRouteMatches(map, framebuffer) &&
++	    thorDpuRead(writePage + kThorIntfAutorefresh) == expected) {
++		thorDpuMarker(desired == kThorRefreshEachTe ?
++		    "THOR DPU REFRESH: write INTF1 auto-refresh 0x8000003c -> 0x80000001\n" :
++		    "THOR DPU REFRESH: restore INTF1 auto-refresh 0x80000001 -> 0x8000003c\n");
++		*reinterpret_cast<volatile uint32_t *>(writePage + kThorIntfAutorefresh) = desired;
++		__asm__ volatile("dsb sy" ::: "memory");
++		if (thorDpuClocksReady(map)) {
++			const uint32_t actual = thorDpuRead(intf + kThorIntfAutorefresh);
++			IOLog("THOR DPU REFRESH: readback=%#x expected=%#x\n", actual, desired);
++			applied = actual == desired;
++			if (!applied) thorDpuMarker("THOR DPU REFRESH: readback mismatch\n");
++		}
++	}
++	ml_io_unmap(writePage, 0x1000);
++	return applied;
++}
++
+ static void
+ thorDpuProbe(uint64_t framebuffer)
+@@ -191,4 +261,5 @@
+ 
+ 	uint32_t previous[2] = {};
++	uint32_t baselineFrames = 0;
+ 	uint64_t previousAt = 0;
+ 	for (unsigned sample = 0; sample < 4; ++sample) {
+@@ -205,9 +276,48 @@
+ 			    i + 1, sample, counter, sample ? counter - previous[i] : 0, elapsed / 1000,
+ 			    thorDpuRead(intf + kThorIntfTearCheck), thorDpuRead(intf + kThorIntfAutorefresh));
++			if (i == 0 && sample == 0) baselineFrames = counter;
+ 			previous[i] = counter;
+ 		}
+ 		previousAt = now;
+ 	}
+-	thorDpuMarker("THOR DPU PROBE: complete, no register writes\n");
++	thorDpuMarker("THOR DPU PROBE: read-only phase complete\n");
++	if (active != 0x2 || fetch != 0x30000 || previous[0] - baselineFrames > 3) {
++		thorDpuMarker("THOR DPU REFRESH: skip route or frame counter differs from v119\n");
++		return;
++	}
++	uint32_t enable = 1;
++	(void) PE_parse_boot_argn("thor_dpu_refresh", &enable, sizeof(enable));
++	if (enable != 1) {
++		thorDpuMarker("THOR DPU REFRESH: disabled by boot argument\n");
++		return;
++	}
++	if (!thorDpuWriteRefresh(map, framebuffer, kThorFirmwareRefresh, kThorRefreshEachTe)) return;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	if (!thorDpuClocksReady(map)) return;
++	uint32_t counter = thorDpuRead(intf + kThorIntfFrameCount);
++	const uint32_t firstCounter = counter;
++	uint64_t at = mach_absolute_time();
++	for (unsigned i = 0; i < 8; ++i) {
++		IOSleep(250);
++		if (!thorDpuClocksReady(map)) return;
++		const uint32_t next = thorDpuRead(intf + kThorIntfFrameCount);
++		const uint32_t refresh = thorDpuRead(intf + kThorIntfAutorefresh);
++		const uint64_t now = mach_absolute_time();
++		uint64_t elapsed = 0;
++		absolutetime_to_nanoseconds(now - at, &elapsed);
++		IOLog("THOR DPU REFRESH: sample=%u frames=%u delta=%u elapsed_us=%llu auto=%#x\n",
++		    i + 1, next, next - counter, elapsed / 1000, refresh);
++		if (refresh != kThorRefreshEachTe) {
++			thorDpuMarker("THOR DPU REFRESH: stopped after config changed\n");
++			return;
++		}
++		if (i == 2 && next - firstCounter <= 3) {
++			thorDpuMarker("THOR DPU REFRESH: frame count did not accelerate; restoring firmware\n");
++			(void) thorDpuWriteRefresh(map, framebuffer, kThorRefreshEachTe, kThorFirmwareRefresh);
++			return;
++		}
++		counter = next;
++		at = now;
++	}
+ }
+ 

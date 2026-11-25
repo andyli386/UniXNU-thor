@@ -1,0 +1,18 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -583,7 +583,14 @@
+ 		result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
+ 		    kThorDsiWqhd120, sizeof(kThorDsiWqhd120), "switch120");
+ 		if (result == ThorDsiComplete) {
+-			const uint32_t after = thorDsiMeasurePanel(map, dsi);
++			/* The first rate window can straddle the 60/120 timing
++			 * transition even after command DMA has completed. */
++			IOSleep(150);
++			uint32_t after = thorDsiMeasurePanel(map, dsi);
++			if (after < 1130 || after > 1270) {
++				thorDpuMarker("THOR DSI 120: first settled sample out of range, remeasure before rollback\n");
++				after = thorDsiMeasurePanel(map, dsi);
++			}
+ 			if (after >= 1130 && after <= 1270) {
+ 				thorDpuMarker("THOR DSI 120: PASS actual ~120 Hz hardware scanout measured\n");
+ 			} else {

@@ -1,0 +1,111 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -963,6 +963,9 @@
+  * panel is worked out from the four of the picture around where it falls (bilinear).
+  */
+ static TUNABLE(uint32_t, gFilter, "fb_filter", 1);
++#if XNU_PONG_ADRENO_PLATFORM
++static TUNABLE(uint32_t, gThorArea, "fb_area", 1);
++#endif
+ static TUNABLE(uint32_t, gRefreshHz, "fb_hz", 0);      /* defaults selected per display */
+ static TUNABLE(uint32_t, gOnTheBeat, "fb_beat", 1);
+ /*
+@@ -1140,6 +1143,7 @@
+ 	bool            fThorDpuProbePending;
+ 	bool            fGpuColorReceipt;
+ 	bool            fThorRetainedCadence;
++	bool            fThorAreaScaling;
+ 	bool            fReportedRetainedCadence;
+ #endif
+ 	uint64_t        fDiffPixels;
+@@ -1357,6 +1361,7 @@
+ 	    fWidth == 960 && fHeight == 2133 && fPanelWidth == 1440 && fPanelHeight == 3200 &&
+ 	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
+ 	    !PE_parse_boot_argn("fb_beat", &beatOverride, sizeof(beatOverride));
++	fThorAreaScaling = thor && fThorRetainedCadence && gThorArea != 0;
+ 	fReportedRetainedCadence = false;
+ 	fLastWriteback = fInteractionTraceUntil = 0;
+ 	/* The direct presenter accepts panel-sized frames only. When the
+@@ -1447,6 +1452,25 @@
+ 	return rb | ga;
+ }
+ 
++/* Exact 3:2 horizontal area coverage. Only the middle pixel straddles
++ * a source-pixel boundary, and carries half the weight of each pixel. */
++static inline void
++drawThorAreaRow(const uint32_t *top, const uint32_t *bottom, uint32_t weight,
++    uint32_t *panel, uint32_t width)
++{
++	constexpr uint32_t opaque = 0xff000000u;
++	for (uint32_t x = 0; x < width; x += 2) {
++		const uint32_t a = top[x] == bottom[x] ? top[x] : blend(top[x], bottom[x], weight);
++		const uint32_t b = top[x + 1] == bottom[x + 1] ? top[x + 1] :
++		    blend(top[x + 1], bottom[x + 1], weight);
++		const uint32_t middle = (a & b) + (((a ^ b) & 0xfefefefeu) >> 1);
++		panel[0] = a | opaque;
++		panel[1] = middle | opaque;
++		panel[2] = b | opaque;
++		panel += 3;
++	}
++}
++
+ /*
+  * Where the middle of the `i`th of `out` pixels falls among `in` of them, in 256ths of a pixel,
+  * kept within the first and the last.
+@@ -1468,7 +1492,7 @@
+ 	const uint8_t * pixels;
+ 	uint32_t        stride;
+ 	int32_t         sx, sy, sw, sh, px0, py0, px1, py1, cx0, cx1;
+-	bool            filter, unscaled, nearestThreeToTwo;
++	bool            filter, unscaled, nearestThreeToTwo, areaThreeToTwo;
+ };
+ 
+ void
+@@ -1484,6 +1508,26 @@
+ 	if (y0 < 0) y0 = 0;
+ 	if (y1 > (int32_t) fPanelHeight) y1 = (int32_t) fPanelHeight;
+ 	if (y0 >= y1 || cx0 >= cx1) return;
++
++	if (job->areaThreeToTwo) {
++		const uint32_t sourceHeight = static_cast<uint32_t>(sh);
++		const uint32_t panelHeight = fPanelHeight;
++		for (int32_t y = y0; y < y1; y++) {
++			/* Count source coverage in units of 1 / panelHeight.
++			 * This preserves the slight 2133:3200 ratio difference. */
++			const uint32_t first = static_cast<uint32_t>(y) * sourceHeight;
++			const uint32_t row = first / panelHeight;
++			const uint32_t remaining = panelHeight - first % panelHeight;
++			const uint32_t next = remaining < sourceHeight ? sourceHeight - remaining : 0;
++			const uint32_t weight = (next * 256 + sourceHeight / 2) / sourceHeight;
++			const auto *top = reinterpret_cast<const uint32_t *>(pixels + (size_t)row * stride);
++			const auto *bottom = weight ?
++			    reinterpret_cast<const uint32_t *>(pixels + (size_t)(row + 1) * stride) : top;
++			auto *panel = reinterpret_cast<uint32_t *>(fBase + (size_t)y * fRowBytes);
++			drawThorAreaRow(top, bottom, weight, panel, static_cast<uint32_t>(sw));
++		}
++		return;
++	}
+ 
+ 	for (int32_t y = y0; y < y1; y++) {
+ 		const uint32_t * from;
+@@ -1693,12 +1737,18 @@
+ 	}
+ 	filter = filter && fBlendRow != NULL && fBlendRowSize >= (uint32_t) sw;
+ 	job.nearestThreeToTwo = pongNearestThreeToTwo(filter, fDiff, sw, px0, px1, fPanelWidth);
++	job.areaThreeToTwo = false;
++#if XNU_PONG_ADRENO_PLATFORM
++	job.areaThreeToTwo = fThorAreaScaling && job.nearestThreeToTwo && sx == 0 && sy == 0 &&
++	    sw == 960 && sh == 2133 && px0 == 0 && py0 == 0 && py1 == 3200;
++#endif
+ 	if (job.nearestThreeToTwo) {
+ 		static unsigned reported;
+ 		if (!__atomic_load_n(&reported, __ATOMIC_RELAXED) &&
+ 		    !__atomic_exchange_n(&reported, 1u, __ATOMIC_RELAXED)) {
+-			IOLog("PONG SCANOUT: 3:2 CPU fast path source=%dx%d panel=%ux%u stride=%u panel_stride=%u\n",
+-			    sw, sh, fPanelWidth, fPanelHeight, s->info.bytesPerRow, fRowBytes);
++			IOLog("PONG SCANOUT: 3:2 CPU fast path source=%dx%d panel=%ux%u stride=%u panel_stride=%u filter=%s\n",
++			    sw, sh, fPanelWidth, fPanelHeight, s->info.bytesPerRow, fRowBytes,
++			    job.areaThreeToTwo ? "area" : "nearest");
+ 		}
+ 	}
+ 	/* Work out the generic source column once for each panel column. */

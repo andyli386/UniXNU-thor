@@ -1,0 +1,47 @@
+--- a/bsd/kern/kern_minimac.c
++++ b/bsd/kern/kern_minimac.c
+@@ -364,8 +364,8 @@
+ 	0xad, 0x92, 0x5f, 0xdf, 0xbe, 0x7c, 0xc6, 0xfa, 0x84, 0x66,
+ };
+ static const unsigned char thor_ix_helper_cdhash[CS_CDHASH_LEN] = {
+-	0xad, 0x15, 0x35, 0x57, 0x9c, 0x14, 0xb2, 0x59, 0x7e, 0x10,
+-	0xcd, 0xad, 0x20, 0x1e, 0x37, 0x19, 0xd4, 0xf7, 0xb5, 0x1b,
++	0x40, 0xa6, 0xc6, 0x1d, 0x91, 0xae, 0xee, 0xc4, 0x52, 0x63,
++	0x7c, 0xab, 0xf4, 0x64, 0xa0, 0xd2, 0xb7, 0x12, 0x1a, 0x70,
+ };
+ 
+ struct thor_ix_vnode_identity {
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -146,6 +146,7 @@
+ /* Give the Metal test a bounded number of records in PongConsole per boot. */
+ static unsigned pong_settings_receipt_count;
+ static unsigned pong_desktop_receipt_count;
++static unsigned pong_touch_receipt_count;
+ static unsigned pong_desktop_handoff_count;
+ 
+ static bool
+@@ -196,8 +197,11 @@
+ 	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
+ 	    (settings || (desktop && PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) &&
+ 	    scanout == 1));
+-	if (req->newlen < 256 && (settings_timing || metal_timing) &&
+-	    pong_metal_receipt_reserve(settings ? &pong_settings_receipt_count :
++	const bool touch_timing = desktop &&
++	    strncmp(text, "Pong Touch: ", sizeof("Pong Touch: ") - 1) == 0;
++	if (req->newlen < 256 && (settings_timing || metal_timing || touch_timing) &&
++	    pong_metal_receipt_reserve(touch_timing ? &pong_touch_receipt_count :
++	        settings ? &pong_settings_receipt_count :
+ 	        (handoff ? &pong_desktop_handoff_count : &pong_desktop_receipt_count))) {
+ 		size_t end = strnlen(text, req->newlen);
+ 		if (end && text[end - 1] == '\n') {
+@@ -210,7 +214,8 @@
+ 			}
+ 		}
+ 		text[end] = 0;
+-		printf("%s[%d]: %s\n", settings ? "PONG SETTINGS" : "PONG GPU", proc_getpid(process), text);
++		printf("%s[%d]: %s\n", touch_timing ? "PONG INPUT" :
++	        settings ? "PONG SETTINGS" : "PONG GPU", proc_getpid(process), text);
+ 	}
+ 	return 0;
+ }

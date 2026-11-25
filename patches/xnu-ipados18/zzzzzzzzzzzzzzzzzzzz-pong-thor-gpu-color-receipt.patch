@@ -1,0 +1,97 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -298,6 +298,9 @@
+ 	/* boot-arg fb_diff=1: which pixels of the panel each frame changed (it costs: the panel's memory is slow to read) */
+ 	bool            fDiff;
+ 	bool            fGpuOnly;              /* explicit bring-up policy, never the default */
++#if XNU_PONG_ADRENO_PLATFORM
++	bool            fGpuColorReceipt;
++#endif
+ 	uint64_t        fDiffPixels;
+ 	uint32_t        fDiffLeft, fDiffTop, fDiffRight, fDiffBottom;
+ 	/* the screen recording, if one was asked for */
+@@ -486,17 +489,17 @@
+ 		}
+ 	}
+ #if XNU_PONG_ADRENO_PLATFORM
++	uint32_t scanout = 0, memlog = 0;
++	const bool nativeScanout = PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) && scanout == 1;
++	fGpuColorReceipt = nativeScanout && PE_parse_boot_argn("memlog", &memlog, sizeof(memlog)) && memlog == 1;
+ 	/* The direct presenter accepts panel-sized frames only. When the
+ 	 * workspace needs scaling, keep Metal rendering available while the
+ 	 * CPU multiplies the workspace to the retained panel framebuffer. */
+ 	if (fGpuOnly || (fWidth == fPanelWidth && fHeight == fPanelHeight)) {
+ 		pong_scanout_initialize((uint64_t) fBase, (size_t) fRowBytes * fPanelHeight,
+ 		    fRowBytes, fPanelWidth, fPanelHeight);
+-	} else {
+-		uint32_t scanout = 0;
+-		if (PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) && scanout == 1) {
+-			IOLog("MiniIOMobileFramebuffer: scaled workspace; direct GPU scanout skipped\n");
+-		}
++	} else if (nativeScanout) {
++		IOLog("MiniIOMobileFramebuffer: scaled workspace; direct GPU scanout skipped\n");
+ 	}
+ #endif
+ 	fDiff = gDiff != 0;
+@@ -1077,6 +1080,48 @@
+ 	}
+ }
+ 
++#if XNU_PONG_ADRENO_PLATFORM
++/* Only the presenter calls this, with the display-reader reference held.
++ * Report color counts, not pixel data, from the source before CPU scaling. */
++static void
++reportGpuSourceColor(MiniIOSurface *surface, uint32_t swapID)
++{
++	static unsigned initial, notable, invalid;
++	if (!canDrawLinearBGRA(surface)) {
++		if (invalid < 8) {
++			invalid++;
++			IOLog("PONG GPU COLOR: swap=%u sid=%u linear=0 format=%#x row=%u\n",
++			    swapID, surface->sid, surface->info.pixelFormat, surface->info.bytesPerRow);
++		}
++		return;
++	}
++
++	const uint8_t *pixels = surface->pixels();
++	const size_t stride = surface->info.bytesPerRow;
++	unsigned purple = 0, white = 0, translucent = 0, freshPattern = 0;
++	for (unsigned y = 1; y < 5; y++) {
++		const uint8_t *row = pixels + (size_t)surface->info.height * y / 5 * stride;
++		for (unsigned x = 1; x < 5; x++) {
++			const uint8_t *pixel = row + (size_t)surface->info.width * x / 5 * 4;
++			const unsigned b = pixel[0], g = pixel[1], r = pixel[2];
++			purple += r > 96 && b > 96 && r > g + 40 && b > g + 40;
++			white += r > 230 && g > 230 && b > 230;
++			translucent += pixel[3] != 255;
++			freshPattern += b == 255 && g == 0 && r == 255 && pixel[3] == 255;
++		}
++	}
++	if (initial < 8) {
++		initial++;
++	} else if (purple != 0 && notable < 12) {
++		notable++;
++	} else {
++		return;
++	}
++	IOLog("PONG GPU COLOR: swap=%u sid=%u linear=1 purple=%u white=%u translucent=%u fresh_pattern=%u samples=16\n",
++	    swapID, surface->sid, purple, white, translucent, freshPattern);
++}
++#endif
++
+ /* A swap's surfaces onto the panel, once the GPU is done with them. */
+ IOReturn
+ IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces, const char * who, int whoPid)
+@@ -1247,6 +1292,11 @@
+ 		if (s == NULL) {
+ 			continue;
+ 		}
++#if XNU_PONG_ADRENO_PLATFORM
++		if (fGpuColorReceipt && desktop && !gpuFrame && layer == 0) {
++			reportGpuSourceColor(s, swapID);
++		}
++#endif
+ 		if (s->info.bytesPerElement == 4 && s->info.planeCount == 0) {
+ 			if (!gpuFrame) drawLayer(s, src, dst);
+ 		}

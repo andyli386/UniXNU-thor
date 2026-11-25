@@ -1,0 +1,138 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -102,7 +102,8 @@
+ 
+ #define kFBNotifyVSync          5
+ #define kFBNotifyTypes          8
+-#define kFBRefreshHz            120                     /* Pong NT37705; fb_hz may select a lower mode */
++#define kFBRefreshHz            120                     /* Existing non-Thor default */
++#define kFBThorRefreshHz        60                      /* Thor software rendering cadence */
+ 
+ #define FRAME_TIMES             64                      /* milliseconds told apart between two frames */
+ #define FRAME_PAUSE             90                      /* from so many on, nothing was moving: not a slow frame */
+@@ -147,7 +148,7 @@
+  * panel is worked out from the four of the picture around where it falls (bilinear).
+  */
+ static TUNABLE(uint32_t, gFilter, "fb_filter", 1);
+-static TUNABLE(uint32_t, gRefreshHz, "fb_hz", kFBRefreshHz);
++static TUNABLE(uint32_t, gRefreshHz, "fb_hz", 0);      /* defaults selected per display */
+ static TUNABLE(uint32_t, gOnTheBeat, "fb_beat", 1);
+ /*
+  * Boot-arg fb_threads=N (1 to 8): so many processors scale a frame onto the panel together (see
+@@ -179,11 +180,6 @@
+ 	return ns / 1000;
+ }
+ 
+-static inline uint32_t
+-refreshHz(void)
+-{
+-	return gRefreshHz == 60 || gRefreshHz == 90 || gRefreshHz == 120 ? gRefreshHz : kFBRefreshHz;
+-}
+ static uint32_t
+ swapWord(const uint8_t * swap, unsigned offset)
+ {
+@@ -245,6 +241,7 @@
+ 	uint8_t *       fBase;                  /* the boot framebuffer: the panel */
+ 	uint32_t        fPanelWidth, fPanelHeight, fRowBytes;
+ 	uint32_t        fWidth, fHeight;        /* the display as user space sees it */
++	uint32_t        fRefreshHz;             /* software cadence shared with the user client */
+ 	MiniIOSurface * fDefaultSurface;
+ 	IORegistryEntry * fStartingDisplayNode; /* retained only until startup commits */
+ 	uint32_t        fSwapID;
+@@ -372,9 +369,9 @@
+ 
+ /*
+  * The modes of the display, the way CoreAnimation reads them (the properties TimingElements
+- * and ColorElements; without a mode it draws nothing). One timing, the panel's size at
+- * 60 Hz (boot-arg fb_hz=N: at N), with one colour mode, 8-bit RGB. The identifiers are what "the current mode"
+- * (block 0x40) answers with.
++ * and ColorElements; without a mode it draws nothing). One timing covers the logical
++ * workspace at the software refresh rate, with one colour mode, 8-bit RGB. The identifiers
++ * are what "the current mode" (block 0x40) answers with.
+  */
+ #define kFBTimingID     1
+ #define kFBColorID      1
+@@ -388,7 +385,7 @@
+ 	OSDictionary * color = OSDictionary::withCapacity(8);
+ 	OSArray * timings = OSArray::withCapacity(1);
+ 	OSArray * colors = OSArray::withCapacity(1);
+-	const uint32_t rate = refreshHz() << 16;                /* 16.16 fixed point */
++	const uint32_t rate = fRefreshHz << 16;                /* 16.16 fixed point */
+ 	bool success = false;
+ 
+ 	if (timing == NULL || horizontal == NULL || vertical == NULL || color == NULL || timings == NULL || colors == NULL) {
+@@ -468,6 +465,18 @@
+ 	fPanelWidth = vinfo.v_width;
+ 	fPanelHeight = vinfo.v_height;
+ 	fRowBytes = vinfo.v_rowbytes;
++	/* arp0 is also how the native Adreno platform selects the Thor OPPs.
++	 * The scaled desktop commonly spends more than an 8.33 ms budget
++	 * between rendering, IOSurface readiness and copying to the panel.
++	 * Advertise a 60 Hz software deadline on Thor. Firmware retains panel
++	 * timing, and an explicit supported fb_hz still selects the cadence. */
++	char board[16] = {};
++	const bool thor = PE_parse_boot_argn("arp0", board, sizeof(board)) &&
++	    strncmp(board, "thor", sizeof(board)) == 0;
++	fRefreshHz = thor ? kFBThorRefreshHz : kFBRefreshHz;
++	if (gRefreshHz == 60 || gRefreshHz == 90 || gRefreshHz == 120) {
++		fRefreshHz = gRefreshHz;
++	}
+ 	fLock = IOLockAlloc();
+ 	fSwapLock = IOLockAlloc();
+ 	fHelperLock = IOLockAlloc();
+@@ -542,13 +551,11 @@
+ 		IOLog("MiniIOMobileFramebuffer: incomplete display mode; service not published\n");
+ 		return failStart(provider);
+ 	}
+-	/* Pong REC DRM and its selected NT37705 timing expose 1080x2412 at
+-	 * 120/90/60 Hz. Publish the native CoreAnimation heartbeat contract as
+-	 * well as IOMFB mode timing; without it AppleDisplay retains its 60 Hz
+-	 * minimum despite a faster synthetic vsync timer. A fixed step does not
+-	 * claim APT/VRR that this framebuffer does not implement. */
++	/* Match the IOMFB mode and the software notification clock. AppleDisplay
++	 * reads this fixed-point interval for its CoreAnimation heartbeat.
++	 * Panel timing remains owned by the firmware display path. */
+ 	OSDictionary *refresh = OSDictionary::withCapacity(2);
+-	OSNumber *interval = OSNumber::withNumber((1ULL << 32) / refreshHz(), 32);
++	OSNumber *interval = OSNumber::withNumber((1ULL << 32) / fRefreshHz, 32);
+ 	OSNumber *step = OSNumber::withNumber(0ULL, 32);
+ 	if (!refresh || !interval || !step) {
+ 		OSSafeReleaseNULL(interval); OSSafeReleaseNULL(step); OSSafeReleaseNULL(refresh);
+@@ -558,7 +565,8 @@
+ 	refresh->setObject("displayRefreshStepMachTime", step);
+ 	setProperty("IOMFBDisplayRefresh", refresh);
+ 	OSSafeReleaseNULL(interval); OSSafeReleaseNULL(step); OSSafeReleaseNULL(refresh);
+-	IOLog("MiniIOMobileFramebuffer: Pong fixed refresh %u Hz, 1080x2412 NT37705 mode; GPU frame rate observed separately\n", refreshHz());
++	IOLog("MiniIOMobileFramebuffer: software refresh %u Hz, workspace=%ux%u retained panel=%ux%u; physical refresh unmeasured\n",
++	    fRefreshHz, fWidth, fHeight, fPanelWidth, fPanelHeight);
+ 	fStartingDisplayNode = createDisplayNode();
+ 	if (fStartingDisplayNode == NULL) {
+ 		IOLog("MiniIOMobileFramebuffer: incomplete display DT node; service not published\n");
+@@ -963,7 +971,7 @@
+ 	uint64_t now = mach_absolute_time(), period, pause;
+ 
+ 	/* (a frame that is late on the panel was late here already, or it was not: for telling whose it is) */
+-	nanoseconds_to_absolutetime(NSEC_PER_SEC / refreshHz() * 5 / 4, &period);
++	nanoseconds_to_absolutetime(NSEC_PER_SEC / fRefreshHz * 5 / 4, &period);
+ 	nanoseconds_to_absolutetime(FRAME_PAUSE * NSEC_PER_MSEC, &pause);
+ 	clock_interval_to_deadline(SWAP_HELD_MS, kMillisecondScale, &deadline);
+ 	if (gTouchLat) {
+@@ -1241,7 +1249,7 @@
+ 	if (pace) {
+ 		uint64_t period, aim, next;
+ 
+-		nanoseconds_to_absolutetime(NSEC_PER_SEC / refreshHz(), &period);
++		nanoseconds_to_absolutetime(NSEC_PER_SEC / fRefreshHz, &period);
+ 		aim = period * 3 / 8;
+ 		next = fReady;
+ 		fReady = began;
+@@ -1649,7 +1657,7 @@
+ 	uint64_t period, now = mach_absolute_time();
+ 
+ 	/* one refresh after the last, not after whenever we got round to this: the rate does not drift */
+-	nanoseconds_to_absolutetime(NSEC_PER_SEC / refreshHz(), &period);
++	nanoseconds_to_absolutetime(NSEC_PER_SEC / fOwner->fRefreshHz, &period);
+ 	fVSyncTime += period;
+ 	if (fVSyncTime <= now || fVSyncTime > now + 2 * period) {
+ 		fVSyncTime = now + period;

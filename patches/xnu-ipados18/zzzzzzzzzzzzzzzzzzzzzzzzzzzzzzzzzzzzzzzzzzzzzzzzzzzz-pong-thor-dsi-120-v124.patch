@@ -1,0 +1,335 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -253,2 +253,328 @@
+  */
++/*
++ * CAPE Android display binds APPS SMMU SID 0x2800, mask 0x402.
++ * Use the same fixed SMR3/CB3 read-only layout qualified on MIX Fold 2.
++ * No scan of other stream slots, SMMU writes or DMA memory allocations.
++ */
++static bool
++thorDsiDomainAudit(const ThorDpuMappings &map, const ThorDsiInstance &dsi)
++{
++	uint32_t enabled = 1;
++	(void) PE_parse_boot_argn("thor_dsi_domain_audit", &enabled, sizeof(enabled));
++	if (!enabled || !thorDsiClocksReady(map, dsi, 0)) return false;
++
++	constexpr vm_offset_t appsSmmu = 0x15000000;
++	constexpr unsigned idr0Offset = 0x20, idr1Offset = 0x24;
++	constexpr unsigned smr3Offset = 0x80c, s2cr3Offset = 0xc0c, cba2r3Offset = 0x180c;
++	constexpr uint32_t expectedSmr = 0x84022800;
++	const vm_offset_t regs = io_map(appsSmmu, 0x2000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!regs) {
++		thorDpuMarker("THOR DSI DOMAIN: skip APPS SMMU global page map unavailable\n");
++		return false;
++	}
++	thorDpuMarker("THOR DSI DOMAIN: before fixed APPS SMMU identification read\n");
++	const uint32_t idr0 = thorDpuRead(regs + idr0Offset);
++	const uint32_t idr1 = thorDpuRead(regs + idr1Offset);
++	if (!(idr0 & (1u << 27)) || (idr0 & (1u << 8)) || (idr0 & 0xffu) <= 3 ||
++	    (idr1 & 0xf0000000u) != 0x60000000u || (idr1 & 0xffu) <= 3) {
++		IOLog("THOR DSI DOMAIN: skip unsupported layout idr0=%#x idr1=%#x\n", idr0, idr1);
++		ml_io_unmap(regs, 0x2000);
++		return false;
++	}
++	const uint32_t smr = thorDpuRead(regs + smr3Offset);
++	const uint32_t s2cr = thorDpuRead(regs + s2cr3Offset);
++	IOLog("THOR DSI DOMAIN: idr0=%#x idr1=%#x smr3=%#x s2cr3=%#x\n", idr0, idr1, smr, s2cr);
++	if (smr != expectedSmr || (s2cr & 0x300ffu) != 3) {
++		thorDpuMarker("THOR DSI DOMAIN: skip fixed stream or context differs\n");
++		ml_io_unmap(regs, 0x2000);
++		return false;
++	}
++	const uint32_t cba2r = thorDpuRead(regs + cba2r3Offset);
++	if (cba2r != 1) {
++		IOLog("THOR DSI DOMAIN: skip CB3 cba2r=%#x\n", cba2r);
++		ml_io_unmap(regs, 0x2000);
++		return false;
++	}
++
++	const vm_offset_t cb = io_map(appsSmmu + 0x83000, 0x1000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!cb) {
++		thorDpuMarker("THOR DSI DOMAIN: skip CB3 page map unavailable\n");
++		ml_io_unmap(regs, 0x2000);
++		return false;
++	}
++	bool identity = false;
++	if (thorDsiClocksReady(map, dsi, 0)) {
++		thorDpuMarker("THOR DSI DOMAIN: before fixed CB3 read\n");
++		const uint32_t sctlr = thorDpuRead(cb);
++		const uint32_t fsr = thorDpuRead(cb + 0x58);
++		const bool stable = thorDpuRead(regs + smr3Offset) == smr &&
++		    thorDpuRead(regs + s2cr3Offset) == s2cr &&
++		    thorDpuRead(regs + cba2r3Offset) == cba2r && thorDpuRead(cb) == sctlr;
++		identity = stable && !(fsr & 0xc00001feu) && !(sctlr & 1u);
++		const char *observed = !stable ? "changed" :
++		    (fsr & 0xc00001feu) ? "faulted" : (sctlr & 1u) ? "translation-active" : "identity-observed";
++		IOLog("THOR DSI DOMAIN: cb3 cba2r=%#x sctlr=%#x fsr=%#x state=%s "
++		    "snapshot_only=1 dma_unqualified=1\n", cba2r, sctlr, fsr, observed);
++	}
++	ml_io_unmap(cb, 0x1000);
++	ml_io_unmap(regs, 0x2000);
++	return identity;
++}
++
++/* Exact L1 WQHD batches from LineageOS devicetrees 096f783227ec. */
++static constexpr uint8_t kThorDsiWqhd60[] = {
++	0x05, 0x00, 0x39, 0x40, 0x2a, 0x00, 0x00, 0x05, 0x9f, 0xff, 0xff, 0xff,
++	0x05, 0x00, 0x39, 0x40, 0x2b, 0x00, 0x00, 0x0c, 0x7f, 0xff, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xc3, 0x0c, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0xa5, 0xa5, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0xb9, 0x00, 0x15, 0x00,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x06, 0xb9,
++	0x07, 0x00, 0x39, 0x40, 0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xf7, 0x0f, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0xa5, 0xa5, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x08, 0xcb,
++	0x02, 0x00, 0x39, 0x40, 0xcb, 0x27, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xbd, 0x21, 0x82, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x10, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x00, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x21, 0xbd,
++	0x0f, 0x00, 0x39, 0x40, 0xbd, 0x03, 0x00, 0x06, 0x00, 0x09, 0x00, 0x0c, 0x00, 0x0f, 0x00, 0x15, 0x00, 0x21, 0x00, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x61, 0xbd,
++	0x0a, 0x00, 0x39, 0x40, 0xbd, 0x04, 0x00, 0x08, 0x00, 0x0c, 0x00, 0x10, 0x00, 0x74, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x12, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x01, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x16, 0xbd,
++	0x03, 0x00, 0x39, 0x40, 0xbd, 0x00, 0x00, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x21, 0xff, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0x60, 0x01, 0xff, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xf7, 0x0f, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0xc0, 0xf0, 0xa5, 0xa5, 0xff,
++};
++static constexpr uint8_t kThorDsiWqhd120[] = {
++	0x05, 0x00, 0x39, 0x40, 0x2a, 0x00, 0x00, 0x05, 0x9f, 0xff, 0xff, 0xff,
++	0x05, 0x00, 0x39, 0x40, 0x2b, 0x00, 0x00, 0x0c, 0x7f, 0xff, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xc3, 0x0c, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0xa5, 0xa5, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0xb9, 0x41, 0x15, 0x00,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x06, 0xb9,
++	0x07, 0x00, 0x39, 0x40, 0xb9, 0x0c, 0x9e, 0x0c, 0x9e, 0x00, 0x1d, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xf7, 0x0f, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0xa5, 0xa5, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xf0, 0x5a, 0x5a, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x08, 0xcb,
++	0x02, 0x00, 0x39, 0x40, 0xcb, 0x27, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0x40, 0xbd, 0x23, 0x02, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x10, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x00, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x21, 0xbd,
++	0x0f, 0x00, 0x39, 0x40, 0xbd, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x07, 0x00, 0x0b, 0x00, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x61, 0xbd,
++	0x0a, 0x00, 0x39, 0x40, 0xbd, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x1d, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x12, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x00, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x14, 0xbd,
++	0x02, 0x00, 0x39, 0x40, 0xbd, 0x01, 0xff, 0xff,
++	0x04, 0x00, 0x39, 0x40, 0xb0, 0x00, 0x16, 0xbd,
++	0x03, 0x00, 0x39, 0x40, 0xbd, 0x00, 0x00, 0xff,
++	0x02, 0x00, 0x39, 0x40, 0xf7, 0x0f, 0xff, 0xff,
++	0x03, 0x00, 0x39, 0xc0, 0xf0, 0xa5, 0xa5, 0xff,
++};
++
++/*
++ * Thor L1 timing programs contain one exact 260-byte embedded DMA batch
++ * per mode. Landings with an unproven APPS SMMU context must not allocate
++ * or start a command. A successful standard DCS NOP precedes the timing
++ * commands, using the same fresh physical page and DMA settings.
++ */
++constexpr uint32_t kThorDsiControl = 0x04;
++constexpr uint32_t kThorDsiStatus = 0x08;
++constexpr uint32_t kThorDsiDmaControl = 0x3c;
++constexpr uint32_t kThorDsiDmaOffset = 0x48;
++constexpr uint32_t kThorDsiDmaLength = 0x4c;
++constexpr uint32_t kThorDsiFifo = 0x50;
++constexpr uint32_t kThorDsiTriggerControl = 0x84;
++constexpr uint32_t kThorDsiDmaTrigger = 0x90;
++constexpr uint32_t kThorDsiIrq = 0x110;
++constexpr uint32_t kThorDsiPattern = 0x15c;
++constexpr uint32_t kThorDsiBusy = 6;
++constexpr uint32_t kThorDsiDmaDone = 1;
++constexpr uint32_t kThorDsiError = 1u << 24;
++constexpr uint32_t kThorDsiIrqEnables = (1u << 1) | (1u << 9) | (1u << 11) | (1u << 13) |
++    (1u << 15) | (1u << 17) | (1u << 21) | (1u << 25) | (1u << 29) | (1u << 31);
++static constexpr uint8_t kThorDsiNop[] = { 0x00, 0x00, 0x05, 0x80 };
++
++enum ThorDsiTransfer { ThorDsiNotStarted, ThorDsiComplete, ThorDsiFailedIdle, ThorDsiRetain };
++
++static void
++thorDsiWrite(vm_offset_t regs, uint32_t offset, uint32_t value)
++{
++	*reinterpret_cast<volatile uint32_t *>(regs + offset) = value;
++	__asm__ volatile("dsb sy" ::: "memory");
++}
++
++static ThorDsiTransfer
++thorDsiTransferBatch(const ThorDpuMappings &map, const ThorDsiInstance &dsi, uint64_t framebuffer,
++    vm_offset_t regs, IOBufferMemoryDescriptor *memory, uint32_t physical,
++    const uint8_t *program, size_t bytes, const char *tag)
++{
++	if (!thorDsiDomainAudit(map, dsi) || !thorDpuRefreshRouteMatches(map, framebuffer) ||
++	    !thorDsiClocksReady(map, dsi, 0) || thorDpuRead(regs) != 0x20060000 ||
++	    thorDpuRead(regs + kThorDsiControl) != 0x1f5 ||
++	    (thorDpuRead(regs + kThorDsiPattern) & 7u) || (thorDpuRead(regs + kThorDsiIrq) & kThorDsiError)) {
++		IOLog("THOR DSI 120: %s skipped; controller or context changed\n", tag);
++		return ThorDsiNotStarted;
++	}
++	memcpy(memory->getBytesNoCopy(), program, bytes);
++	if (memory->performOperation(kIOMemoryIncoherentIOFlush, 0, bytes) != kIOReturnSuccess) {
++		IOLog("THOR DSI 120: %s command buffer cache flush failed\n", tag);
++		return ThorDsiNotStarted;
++	}
++
++	char receipt[140];
++	snprintf(receipt, sizeof(receipt), "THOR DSI 120: %s awaiting command window pa=%#x bytes=%zu\n", tag, physical, bytes);
++	thorDpuMarker(receipt);
++	for (unsigned i = 0; i < 1250 && (thorDpuRead(regs + kThorDsiStatus) & kThorDsiBusy); ++i) {
++		IODelay(20);
++	}
++	if (!thorDsiClocksReady(map, dsi, 0) || (thorDpuRead(regs + kThorDsiStatus) & kThorDsiBusy) ||
++	    (thorDpuRead(regs + kThorDsiIrq) & kThorDsiError)) return ThorDsiNotStarted;
++	const uint32_t ctrl = thorDpuRead(regs + kThorDsiDmaControl);
++	const uint32_t offset = thorDpuRead(regs + kThorDsiDmaOffset);
++	const uint32_t length = thorDpuRead(regs + kThorDsiDmaLength);
++	const uint32_t fifo = thorDpuRead(regs + kThorDsiFifo);
++	const uint32_t trigger = thorDpuRead(regs + kThorDsiTriggerControl);
++	if (ctrl != 0x14000000 || trigger != 0x80000004) {
++		IOLog("THOR DSI 120: %s unexpected retained DMA ctrl=%#x trigger=%#x\n", tag, ctrl, trigger);
++		return ThorDsiNotStarted;
++	}
++
++	/* Vendor embedded HS mode. Leave unrelated interrupt state intact. */
++	thorDsiWrite(regs, kThorDsiIrq, (thorDpuRead(regs + kThorDsiIrq) & kThorDsiIrqEnables) | kThorDsiDmaDone);
++	if (thorDpuRead(regs + kThorDsiIrq) & (kThorDsiDmaDone | kThorDsiError)) return ThorDsiNotStarted;
++	thorDsiWrite(regs, kThorDsiDmaControl, ctrl & ~(1u << 26));
++	thorDsiWrite(regs, kThorDsiFifo, fifo | (1u << 20) | (1u << 16));
++	thorDsiWrite(regs, kThorDsiDmaOffset, physical);
++	thorDsiWrite(regs, kThorDsiDmaLength, static_cast<uint32_t>(bytes));
++	thorDsiWrite(regs, kThorDsiDmaTrigger, 1);
++
++	uint32_t irq = 0, status = 0;
++	bool complete = false;
++	for (unsigned i = 0; i < 1250; ++i) {
++		irq = thorDpuRead(regs + kThorDsiIrq);
++		status = thorDpuRead(regs + kThorDsiStatus);
++		complete = (irq & kThorDsiDmaDone) && !(status & (1u << 1));
++		if (complete || (irq & kThorDsiError)) break;
++		IODelay(20);
++	}
++	if (!thorDsiClocksReady(map, dsi, 0)) return ThorDsiRetain;
++	if (thorDpuRead(regs + kThorDsiStatus) & (1u << 1)) {
++		thorDpuMarker("THOR DSI 120: DMA still busy; retain fresh command page and do not touch controller\n");
++		return ThorDsiRetain;
++	}
++	thorDsiWrite(regs, kThorDsiIrq, (thorDpuRead(regs + kThorDsiIrq) & kThorDsiIrqEnables) | kThorDsiDmaDone);
++	thorDsiWrite(regs, kThorDsiDmaOffset, offset);
++	thorDsiWrite(regs, kThorDsiDmaLength, length);
++	thorDsiWrite(regs, kThorDsiFifo, fifo);
++	thorDsiWrite(regs, kThorDsiDmaControl, ctrl);
++	const bool pass = complete && !(irq & kThorDsiError);
++	IOLog("THOR DSI 120: %s result=%s status=%#x irq=%#x\n", tag, pass ? "done" : "failed", status, irq);
++	return pass ? ThorDsiComplete : ThorDsiFailedIdle;
++}
++
++static uint32_t
++thorDsiMeasurePanel(const ThorDpuMappings &map, const ThorDsiInstance &dsi)
++{
++	if (!thorDsiClocksReady(map, dsi, 0)) return 0;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	const uint32_t frames = thorDpuRead(intf + kThorIntfFrameCount);
++	const uint64_t began = mach_absolute_time();
++	IOSleep(300);
++	if (!thorDsiClocksReady(map, dsi, 0) ||
++	    thorDpuRead(intf + kThorIntfAutorefresh) != kThorRefreshEachTe) return 0;
++	const uint32_t delta = thorDpuRead(intf + kThorIntfFrameCount) - frames;
++	uint64_t elapsed = 0;
++	absolutetime_to_nanoseconds(mach_absolute_time() - began, &elapsed);
++	if (!elapsed || delta > 100) return 0;
++	const uint32_t tenths = static_cast<uint32_t>(delta * 10000000000ull / elapsed);
++	IOLog("THOR DSI 120: hardware frames=%u elapsed_us=%llu refresh_tenths=%u\n",
++	    delta, elapsed / 1000, tenths);
++	return tenths;
++}
++
++static void
++thorDsiTry120(const ThorDpuMappings &map, const ThorDsiInstance &dsi, uint64_t framebuffer)
++{
++	uint32_t enabled = 1;
++	(void) PE_parse_boot_argn("thor_dsi_120", &enabled, sizeof(enabled));
++	if (!enabled || !thorDsiDomainAudit(map, dsi)) {
++		thorDpuMarker("THOR DSI 120: skipped; fixed display identity context was not qualified\n");
++		return;
++	}
++	const uint32_t initial = thorDsiMeasurePanel(map, dsi);
++	if (initial < 550 || initial > 650) {
++		IOLog("THOR DSI 120: skipped; initial hardware frequency out of range (%u)\n", initial);
++		return;
++	}
++
++	IOBufferMemoryDescriptor *memory = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task,
++	    static_cast<IOOptionBits>(kIODirectionOut) | kIOMemoryMapperNone | kIOMemoryPhysicallyContiguous,
++	    4096, 0xfffff000ull);
++	if (!memory) {
++		thorDpuMarker("THOR DSI 120: skipped; no fresh low command page\n");
++		return;
++	}
++	if (memory->prepare() != kIOReturnSuccess) {
++		memory->release();
++		return;
++	}
++	IOByteCount size = 0;
++	const uint64_t address = memory->getPhysicalSegment(0, &size, kIOMemoryMapperNone);
++	if (!address || (address & 4095) || address > 0xfffff000ull || size < 4096 ||
++	    memory->getLength() != 4096 || !memory->getBytesNoCopy()) {
++		(void) memory->complete();
++		memory->release();
++		return;
++	}
++	const vm_offset_t regs = io_map(dsi.address, 0x1000, VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
++	if (!regs) {
++		thorDpuMarker("THOR DSI 120: skipped; no command controller write mapping\n");
++		(void) memory->complete();
++		memory->release();
++		return;
++	}
++	const uint32_t physical = static_cast<uint32_t>(address);
++	ThorDsiTransfer result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
++	    kThorDsiNop, sizeof(kThorDsiNop), "NOP");
++	if (result == ThorDsiComplete) {
++		result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
++		    kThorDsiWqhd120, sizeof(kThorDsiWqhd120), "switch120");
++		if (result == ThorDsiComplete) {
++			const uint32_t after = thorDsiMeasurePanel(map, dsi);
++			if (after >= 1130 && after <= 1270) {
++				thorDpuMarker("THOR DSI 120: PASS actual ~120 Hz hardware scanout measured\n");
++			} else {
++				thorDpuMarker("THOR DSI 120: hardware rate not qualified, try stock 60 Hz rollback\n");
++				result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
++				    kThorDsiWqhd60, sizeof(kThorDsiWqhd60), "restore60");
++				if (result == ThorDsiComplete) (void) thorDsiMeasurePanel(map, dsi);
++			}
++		} else if (result == ThorDsiFailedIdle) {
++			thorDpuMarker("THOR DSI 120: incomplete switch while idle, try stock 60 Hz rollback\n");
++			result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
++			    kThorDsiWqhd60, sizeof(kThorDsiWqhd60), "restore60");
++			if (result == ThorDsiComplete) (void) thorDsiMeasurePanel(map, dsi);
++		}
++	}
++	ml_io_unmap(regs, 0x1000);
++	if (result != ThorDsiRetain) {
++		(void) memory->complete();
++		memory->release();
++	}
++}
++
+ static void
+@@ -391,2 +717,3 @@
+ 					thorDsiTimingPreflight(map, regs, dsi, i, control);
++					if (i == 0 && control == 0x1f5) thorDsiTry120(map, dsi, framebuffer);
+ 				}

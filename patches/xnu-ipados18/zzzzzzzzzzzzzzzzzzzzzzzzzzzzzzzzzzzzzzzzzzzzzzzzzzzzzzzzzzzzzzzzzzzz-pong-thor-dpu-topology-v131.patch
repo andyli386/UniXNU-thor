@@ -1,0 +1,66 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -751,6 +751,55 @@
+ 	thorDpuMarker("THOR DSI AUDIT: complete\n");
+ }
+ 
++/* The live Cape DT advertises QSEED3 at VIG + 0xa00. Qualcomm's
++ * QSEED3_HW_VERSION register is the first word of that sub-block.
++ * Read only the qualified CTL0, VIG0/1 and INTF1 register blocks. */
++static void
++thorDpuFlipAudit(const ThorDpuMappings &map, uint64_t framebuffer)
++{
++	if (!thorDpuRefreshRouteMatches(map, framebuffer)) return;
++	const vm_offset_t ctl = map.mdss + 0x16000;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	if (thorDpuRead(intf + kThorIntfAutorefresh) != kThorRefreshEachTe) return;
++
++	thorDpuMarker("THOR DPU FLIP AUDIT: CTL0 VIG0/1 INTF1 read-only snapshot\n");
++	const uint32_t layer0 = thorDpuRead(ctl + 0x00);
++	const uint32_t layer1 = thorDpuRead(ctl + 0x04);
++	const uint32_t top = thorDpuRead(ctl + 0x14);
++	const uint32_t flush = thorDpuRead(ctl + 0x18);
++	const uint32_t interfaces = thorDpuRead(ctl + kThorCtlIntfActive);
++	const uint32_t pipes = thorDpuRead(ctl + kThorCtlFetchActive);
++	struct PipeState {
++		uint32_t srcXY, outXY, unpack, opMode, qseedVersion;
++	} state[2];
++	for (unsigned i = 0; i < 2; ++i) {
++		if (!thorDpuClocksReady(map)) return;
++		const vm_offset_t pipe = map.mdss + kThorSsppOffset[i];
++		state[i] = {thorDpuRead(pipe + 0x08), thorDpuRead(pipe + 0x10),
++		    thorDpuRead(pipe + 0x34), thorDpuRead(pipe + 0x38),
++		    thorDpuRead(pipe + 0xa00)};
++	}
++	if (!thorDpuClocksReady(map)) return;
++	const uint32_t te = thorDpuRead(intf + kThorIntfTearCheck);
++	const uint32_t sync = thorDpuRead(intf + 0x288);
++	const uint32_t intCount = thorDpuRead(intf + 0x298);
++	const uint32_t line = thorDpuRead(intf + 0x2b0);
++	const uint32_t autorefresh = thorDpuRead(intf + kThorIntfAutorefresh);
++	const uint32_t frames = thorDpuRead(intf + kThorIntfFrameCount);
++	if (!thorDpuRefreshRouteMatches(map, framebuffer) || autorefresh != kThorRefreshEachTe ||
++	    layer0 != thorDpuRead(ctl + 0x00) || layer1 != thorDpuRead(ctl + 0x04)) return;
++
++	IOLog("THOR DPU FLIP AUDIT: ctl0 lm0=%#x lm1=%#x top=%#x flush=%#x intf=%#x fetch=%#x\n",
++	    layer0, layer1, top, flush, interfaces, pipes);
++	for (unsigned i = 0; i < 2; ++i) {
++		IOLog("THOR DPU FLIP AUDIT: vig%u src_xy=%#x out_xy=%#x unpack=%#x op=%#x qseed_ver=%#x\n",
++		    i, state[i].srcXY, state[i].outXY, state[i].unpack,
++		    state[i].opMode, state[i].qseedVersion);
++	}
++	IOLog("THOR DPU FLIP AUDIT: intf1 te=%#x sync=%#x int_count=%#x line=%#x auto=%#x frames=%u\n",
++	    te, sync, intCount, line, autorefresh, frames);
++}
++
+ static void
+ thorDpuProbe(uint64_t framebuffer)
+ {
+@@ -860,6 +909,7 @@
+ 		at = now;
+ 	}
+ 	thorDsiAudit(map, framebuffer, active);
++	thorDpuFlipAudit(map, framebuffer);
+ 	thorDpuInteractionAudit(map, framebuffer);
+ }
+ 

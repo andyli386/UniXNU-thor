@@ -1,0 +1,199 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -827,15 +827,13 @@
+ extern "C" bool pmap_pong_pa_valid(uint64_t);
+ 
+ struct ThorDpuScratch {
+-	IOBufferMemoryDescriptor *memory = nullptr;
+-	bool prepared = false;
++	IOMemoryDescriptor *memory = nullptr;
++	IOMemoryMap *mapping = nullptr;
+ 
+ 	~ThorDpuScratch()
+ 	{
+-		if (memory) {
+-			if (prepared) (void) memory->complete();
+-			memory->release();
+-		}
++		if (mapping) mapping->release();
++		if (memory) memory->release();
+ 	}
+ };
+ 
+@@ -853,7 +851,7 @@
+ };
+ 
+ static bool
+-thorDpuScratchRoute(const ThorDpuMappings &map, uint32_t address, uint32_t &pending)
++thorDpuScratchRoute(const ThorDpuMappings &map, uint32_t address, uint32_t &pending, uint32_t alternate = 0)
+ {
+ 	if (!thorDpuClocksReady(map)) return false;
+ 	const vm_offset_t ctl = map.mdss + 0x16000;
+@@ -869,9 +867,10 @@
+ 	for (unsigned i = 0; i < 2; ++i) {
+ 		const vm_offset_t pipe = map.mdss + kThorSsppOffset[i];
+ 		const uint32_t x = i * 720;
++		const uint32_t source = thorDpuRead(pipe + kThorSsppSource);
+ 		if (thorDpuRead(pipe) != 0x0c8002d0 || thorDpuRead(pipe + 0x0c) != 0x0c8002d0 ||
+ 		    thorDpuRead(pipe + 0x08) != x || thorDpuRead(pipe + 0x10) != x ||
+-		    thorDpuRead(pipe + kThorSsppSource) != address ||
++		    (source != address && (!alternate || source != alternate)) ||
+ 		    thorDpuRead(pipe + 0x24) != 0x1680 || thorDpuRead(pipe + 0x30) != 0x237ff ||
+ 		    thorDpuRead(pipe + 0x34) != 0x3020001 || thorDpuRead(pipe + 0x38) != 0x80000000) return false;
+ 	}
+@@ -901,10 +900,11 @@
+ 	bool sawPending = false, latched = false;
+ 	uint32_t scans = 0;
+ 	for (unsigned attempt = 0; attempt < 160; ++attempt) {
+-		if (!thorDpuScratchRoute(map, address, pending)) break;
++		if (!thorDpuScratchRoute(map, address, pending, original)) break;
+ 		sawPending |= pending != 0;
+ 		scans = thorDpuRead(intf + kThorIntfFrameCount) - before;
+-		if (sawPending && !pending && scans >= 2 && scans <= 8) {
++		if (sawPending && !pending && scans >= 2 && scans <= 8 &&
++		    thorDpuScratchRoute(map, address, pending) && !pending) {
+ 			latched = true;
+ 			break;
+ 		}
+@@ -915,53 +915,32 @@
+ 	return latched ? ThorDpuScratchLatched : ThorDpuScratchPending;
+ }
+ 
++static uint64_t
++thorDpuReservedScratch()
++{
++	IORegistryEntry *chosen = IORegistryEntry::fromPath("/chosen", gIODTPlane);
++	if (!chosen) return 0;
++	auto *data = OSDynamicCast(OSData, chosen->getProperty("thor-native-scanout"));
++	uint64_t range[2] = {};
++	if (data && data->getLength() == sizeof(range)) memcpy(range, data->getBytesNoCopy(), sizeof(range));
++	chosen->release();
++
++	constexpr uint64_t leaseBytes = 18ull << 20;
++	const uint64_t physical = range[0];
++	if (range[1] != leaseBytes || physical < 0xf8000000 || physical > 0xffc00000 - leaseBytes ||
++	    (physical & 4095) || !pmap_pong_pa_valid(physical + leaseBytes)) return 0;
++	for (uint64_t page = physical; page < physical + leaseBytes; page += 4096) {
++		if (pmap_pong_pa_valid(page)) return 0;
++	}
++	return physical;
++}
++
+ static void
+ thorDpuScratchTrial(const ThorDpuMappings &map, uint64_t framebuffer, const uint8_t *source, IOLock *lock)
+ {
+ 	if (page_size != 4096 || !source || !lock || !thorDpuRefreshRouteMatches(map, framebuffer) ||
+ 	    !thorDsiDomainAudit(map, kThorDsi[0])) return;
+ 
+-	ThorDpuScratch scratch;
+-	constexpr uint64_t dmaLimit = 1ull << 32;
+-	scratch.memory = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task,
+-	    static_cast<IOOptionBits>(kIODirectionInOut) | static_cast<IOOptionBits>(kIOMemoryMapperNone) |
+-	    kIOMemoryPhysicallyContiguous, kThorScratchBytes, dmaLimit - page_size);
+-	if (!scratch.memory || scratch.memory->prepare() != kIOReturnSuccess) {
+-		thorDpuMarker("THOR DPU SCRATCH: SKIP no prepared native contiguous buffer\n");
+-		return;
+-	}
+-	scratch.prepared = true;
+-	IOByteCount segment = 0, tail = 0;
+-	const uint64_t physical = scratch.memory->getPhysicalSegment(0, &segment, kIOMemoryMapperNone);
+-	const uint64_t last = scratch.memory->getPhysicalSegment(kThorScratchBytes - 1, &tail, kIOMemoryMapperNone);
+-	void *pixels = scratch.memory->getBytesNoCopy();
+-	if (!physical || (physical & (page_size - 1)) || physical > dmaLimit - kThorScratchBytes ||
+-	    segment < kThorScratchBytes || !tail || last != physical + kThorScratchBytes - 1 ||
+-	    scratch.memory->getLength() != kThorScratchBytes || !pixels ||
+-	    (physical < framebuffer + kThorScratchBytes && framebuffer < physical + kThorScratchBytes)) {
+-		thorDpuMarker("THOR DPU SCRATCH: SKIP invalid native DMA descriptor\n");
+-		return;
+-	}
+-	for (uint64_t page = physical; page <= last; page += 4096) {
+-		if (!pmap_pong_pa_valid(page)) {
+-			thorDpuMarker("THOR DPU SCRATCH: SKIP buffer outside XNU RAM ledger\n");
+-			return;
+-		}
+-	}
+-	IOLog("THOR DPU SCRATCH: owned contiguous pa=%#llx bytes=%llu pitch=5760\n",
+-	    physical, static_cast<uint64_t>(kThorScratchBytes));
+-	if (!IOLockTryLock(lock)) {
+-		thorDpuMarker("THOR DPU SCRATCH: SKIP presenter busy at snapshot\n");
+-		return;
+-	}
+-	memcpy(pixels, source, kThorScratchBytes);
+-	IOLockUnlock(lock);
+-
+-	constexpr unsigned chunk = 64 * 1024;
+-	for (IOByteCount offset = 0; offset < kThorScratchBytes; offset += chunk) {
+-		const IOByteCount left = kThorScratchBytes - offset;
+-		flush_dcache64(physical + offset, static_cast<unsigned>(left < chunk ? left : chunk), 1);
+-	}
+ 	ThorDpuFlipMaps write;
+ 	write.ctl = io_map(kThorMdss + 0x16000, 0x1000, VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
+ 	for (unsigned i = 0; i < 2; ++i) {
+@@ -974,16 +953,61 @@
+ 	}
+ 
+ 	const uint32_t original = static_cast<uint32_t>(framebuffer);
++	if (thorDpuScratchSubmit(map, write, original, original, "same-address") != ThorDpuScratchLatched) return;
++
++	const uint64_t physical = thorDpuReservedScratch();
++	if (!physical) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP no separate firmware lease\n");
++		return;
++	}
++	ThorDpuScratch scratch;
++	scratch.memory = IOMemoryDescriptor::withPhysicalAddress(physical, kThorScratchBytes, kIODirectionInOut);
++	if (scratch.memory) {
++		scratch.mapping = scratch.memory->createMappingInTask(kernel_task, 0,
++		    kIOMapAnywhere | kIOMapCopybackCache);
++	}
++	if (!scratch.mapping || scratch.mapping->getLength() != kThorScratchBytes ||
++	    !scratch.mapping->getAddress()) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP dedicated buffer mapping failed\n");
++		return;
++	}
++	const vm_offset_t pixels = scratch.mapping->getAddress();
++	IOLog("THOR DPU SCRATCH: dedicated firmware buffer pa=%#llx bytes=%llu pitch=5760\n",
++	    physical, static_cast<uint64_t>(kThorScratchBytes));
++	if (!IOLockTryLock(lock)) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP presenter busy at snapshot\n");
++		return;
++	}
++	memcpy(reinterpret_cast<void *>(pixels), source, kThorScratchBytes);
++	IOLockUnlock(lock);
++
++	constexpr unsigned chunk = 64 * 1024;
++	for (IOByteCount offset = 0; offset < kThorScratchBytes; offset += chunk) {
++		const IOByteCount left = kThorScratchBytes - offset;
++		flush_dcache64(pixels + offset, static_cast<unsigned>(left < chunk ? left : chunk), 0);
++	}
++	if (!IOLockTryLock(lock)) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP presenter busy at switch\n");
++		return;
++	}
++
+ 	const uint32_t address = static_cast<uint32_t>(physical);
+-	if (thorDpuScratchSubmit(map, write, original, original, "same-address") != ThorDpuScratchLatched) return;
+ 	thorDpuMarker("THOR DPU SCRATCH: before fresh source submission\n");
+ 	const auto submitted = thorDpuScratchSubmit(map, write, original, address, "fresh-buffer");
+-	if (submitted == ThorDpuScratchSkipped) return;
+-
+-	/* Restore only when the controller confirms an idle, expected route.
+-	 * A possibly scanned buffer must stay pinned until rollback is proven. */
+-	const auto restored = thorDpuScratchSubmit(map, write, address, original, "restore");
++	if (submitted == ThorDpuScratchSkipped) {
++		IOLockUnlock(lock);
++		return;
++	}
++
++	/* Restore only from an idle, precisely recognized controller route.
++	 * Keep the mapping and backing pinned if restore cannot be confirmed. */
++	auto restored = thorDpuScratchSubmit(map, write, address, original, "restore");
++	if (restored == ThorDpuScratchSkipped) {
++		restored = thorDpuScratchSubmit(map, write, original, original, "restore-original-route");
++	}
++	IOLockUnlock(lock);
+ 	if (restored != ThorDpuScratchLatched) {
++		scratch.mapping = nullptr;
+ 		scratch.memory = nullptr;
+ 		thorDpuMarker("THOR DPU SCRATCH: UNCERTAIN restore, keep fresh backing pinned\n");
+ 		return;

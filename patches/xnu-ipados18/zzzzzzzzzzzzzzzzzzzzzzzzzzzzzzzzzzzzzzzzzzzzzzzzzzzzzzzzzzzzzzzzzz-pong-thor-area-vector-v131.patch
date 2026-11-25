@@ -1,0 +1,96 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -46,6 +46,14 @@
+ 
+ #include "MiniIOSurface.h"
+ #include "PongNearestThreeToTwo.h"
++#if defined(__aarch64__) && defined(__ARM_NEON)
++/* XNU thread_status.h declares these names with different vector types. */
++#define uint32x4_t ThorNeonU32x4
++#define uint64x2_t ThorNeonU64x2
++#include <arm_neon.h>
++#undef uint64x2_t
++#undef uint32x4_t
++#endif
+ 
+ #if XNU_PONG_ADRENO_PLATFORM
+ extern "C" void pong_scanout_initialize(uint64_t,size_t,uint32_t,uint32_t,uint32_t);
+@@ -1455,7 +1463,7 @@
+ /* Exact 3:2 horizontal area coverage. Only the middle pixel straddles
+  * a source-pixel boundary, and carries half the weight of each pixel. */
+ static inline void
+-drawThorAreaRow(const uint32_t *top, const uint32_t *bottom, uint32_t weight,
++drawThorAreaRowScalar(const uint32_t *top, const uint32_t *bottom, uint32_t weight,
+     uint32_t *panel, uint32_t width)
+ {
+ 	constexpr uint32_t opaque = 0xff000000u;
+@@ -1469,6 +1477,69 @@
+ 		panel[2] = b | opaque;
+ 		panel += 3;
+ 	}
++}
++
++#if defined(__aarch64__) && defined(__ARM_NEON)
++static inline ThorNeonU32x4
++thorAreaBlendRows(ThorNeonU32x4 top, ThorNeonU32x4 bottom, uint8x8_t rest, uint8x8_t next)
++{
++	const uint8x16_t a = vreinterpretq_u8_u32(top);
++	const uint8x16_t b = vreinterpretq_u8_u32(bottom);
++	const uint16x8_t lo = vmlal_u8(vmull_u8(vget_low_u8(a), rest), vget_low_u8(b), next);
++	const uint16x8_t hi = vmlal_u8(vmull_u8(vget_high_u8(a), rest), vget_high_u8(b), next);
++	return vreinterpretq_u32_u8(vcombine_u8(vshrn_n_u16(lo, 8), vshrn_n_u16(hi, 8)));
++}
++
++template <bool overlap>
++static inline void
++drawThorAreaRowVectors(const uint32_t *top, const uint32_t *bottom, uint32_t weight,
++    uint32_t *panel, uint32_t width)
++{
++	const ThorNeonU32x4 opaque = vdupq_n_u32(0xff000000u);
++	const uint8x8_t rest = vdup_n_u8(static_cast<uint8_t>(256 - weight));
++	const uint8x8_t next = vdup_n_u8(static_cast<uint8_t>(weight));
++	for (uint32_t x = 0; x < width; x += 8) {
++		auto pixels = vld2q_u32(top + x);
++		if constexpr (overlap) {
++			const auto below = vld2q_u32(bottom + x);
++			pixels.val[0] = thorAreaBlendRows(pixels.val[0], below.val[0], rest, next);
++			pixels.val[1] = thorAreaBlendRows(pixels.val[1], below.val[1], rest, next);
++		}
++		const ThorNeonU32x4 middle = vreinterpretq_u32_u8(
++		    vhaddq_u8(vreinterpretq_u8_u32(pixels.val[0]), vreinterpretq_u8_u32(pixels.val[1])));
++		const uint32x4x3_t output = {{
++			vorrq_u32(pixels.val[0], opaque), vorrq_u32(middle, opaque), vorrq_u32(pixels.val[1], opaque),
++		}};
++		vst3q_u32(panel, output);
++		panel += 12;
++	}
++}
++#endif
++
++static inline void
++drawThorAreaRow(const uint32_t *top, const uint32_t *bottom, uint32_t weight,
++    uint32_t *panel, uint32_t width)
++{
++#if defined(__aarch64__) && defined(__ARM_NEON)
++	/* The 8-bit vector weights represent all mixed rows. A fully
++	 * covered row uses the single-input path, including when rounded
++	 * coverage selects the entire bottom row. */
++	if (weight == 256) {
++		top = bottom;
++		weight = 0;
++	}
++	const uint32_t vectors = width & ~7u;
++	if (weight != 0) {
++		drawThorAreaRowVectors<true>(top, bottom, weight, panel, vectors);
++	} else {
++		drawThorAreaRowVectors<false>(top, bottom, weight, panel, vectors);
++	}
++	top += vectors;
++	bottom += vectors;
++	panel += vectors * 3 / 2;
++	width -= vectors;
++#endif
++	drawThorAreaRowScalar(top, bottom, weight, panel, width);
+ }
+ 
+ /*

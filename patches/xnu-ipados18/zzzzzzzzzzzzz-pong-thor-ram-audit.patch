@@ -1,0 +1,36 @@
+diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -618,6 +618,32 @@
+                                 &property, &diag_len) == kSuccess &&
+             property != NULL && diag_len == 4096) {
+             const volatile uint8_t *diag = property;
++            const size_t audit_offset = 32 + 120 * 32;
++            uint64_t audit[28];
++            for (unsigned i = 0; i < sizeof(audit); i++) {
++                ((uint8_t *)audit)[i] = diag[audit_offset + i];
++            }
++            if (audit[0] == 0x000000014d415254ULL) {
++                printf("THOR MEM: candidate=0x%llx +0x%llx flags=0x%llx EFI WB=%llu other=%llu bytes\n",
++                    (unsigned long long)audit[2], (unsigned long long)audit[3],
++                    (unsigned long long)audit[1], (unsigned long long)audit[22], (unsigned long long)audit[23]);
++                printf("THOR MEM: ABL FDT source=0x%llx bytes=%u status=0x%x CRC=%08x banks=%u candidate hits=%u reservation overlaps=%u\n",
++                    (unsigned long long)audit[4], (uint32_t)audit[5], (uint32_t)(audit[5] >> 32),
++                    (uint32_t)audit[6], (uint32_t)(audit[6] >> 32), (uint32_t)audit[7], (uint32_t)(audit[7] >> 32));
++                printf("THOR MEM: GCD status=0x%llx type=%u base=0x%llx length=0x%llx attributes=0x%llx capabilities=0x%llx\n",
++                    (unsigned long long)audit[8], (uint32_t)audit[9], (unsigned long long)audit[10],
++                    (unsigned long long)audit[11], (unsigned long long)audit[12], (unsigned long long)audit[13]);
++                printf("THOR MEM: SMEM402 status=0x%llx bytes=%u version=%u entries=%u system RAM matches=%u\n",
++                    (unsigned long long)audit[14], (uint32_t)audit[15], (uint32_t)(audit[15] >> 32),
++                    (uint32_t)audit[16], (uint32_t)(audit[16] >> 32));
++                if (audit[16] >> 32) {
++                    printf("THOR MEM: SMEM402 start=0x%llx length=0x%llx available=0x%llx attr=%u category=%u domain=%u type=%u\n",
++                        (unsigned long long)audit[17], (unsigned long long)audit[18], (unsigned long long)audit[19],
++                        (uint32_t)audit[20], (uint32_t)(audit[20] >> 32), (uint32_t)audit[21], (uint32_t)(audit[21] >> 32));
++                }
++            } else if (audit[0] != 0) {
++                printf("THOR MEM: invalid ownership audit version\n");
++            }
+             uint64_t header[4];
+             for (unsigned i = 0; i < sizeof(header); i++) {
+                 ((uint8_t *)header)[i] = diag[i];

@@ -1,0 +1,76 @@
+--- a/bsd/dev/pong_fts.c
++++ b/bsd/dev/pong_fts.c
+@@ -873,13 +873,24 @@
+ }
+ 
+ static struct {
+-	uint32_t polls, events, touches, errors, io_failures, last_x, last_y;
++	uint32_t polls, events, touches, releases, errors, io_failures, last_x, last_y;
+ } seen;
+ 
+ static struct {
+ 	bool down;
+ 	uint32_t x, y;
+ } contact[FTS_MAX_TOUCHES];
++
++static bool
++fts_has_contact(void)
++{
++	for (unsigned id = 0; id < FTS_MAX_TOUCHES; id++) {
++		if (contact[id].down) {
++			return true;
++		}
++	}
++	return false;
++}
+ 
+ /*
+  * boot-arg touch_flip: bit 0 mirrors the screen's x, bit 1 its y, bit 2 keeps the controller's axes unswapped.
+@@ -917,6 +928,7 @@
+ 	if (type == FTS_EVENT_LEAVE) {
+ 		if (contact[id].down) {
+ 			contact[id].down = false;
++			seen.releases++;
+ 			touch_post(PONG_TOUCH_UP, id, contact[id].x, contact[id].y);
+ 		}
+ 		return;
+@@ -1127,11 +1139,26 @@
+ 	}
+ 	printf("Pong FTS: PASS %s scan configured, /dev/pong-touch ready; SPI 0x%llx reset=%u irq=%u axes=%ux%u flip=%u\n",
+ 	    thor_salixp ? "SALIXP" : "FST2", se_phys, PIN_RESET, PIN_INT, max_x, max_y, flip);
++	// SALIXP can queue a contact before a low IRQ is sampled. Probe its
++	// FIFO sooner with IRQ high, especially while waiting for a release.
++	const unsigned salixp_idle_ticks = 5, salixp_contact_ticks = 2;
+ 	unsigned idle = 0, iterations = 0, failures = 0;
++	unsigned fallback_polls = 0, fallback_contacts = 0, fallback_releases = 0;
+ 	for (;;) {
+-		if (!gpio_get(PIN_INT) || ++idle >= (thor_salixp ? 25 : 10)) {
++		const bool irq = !gpio_get(PIN_INT);
++		const unsigned fallback_ticks = thor_salixp ?
++		    (fts_has_contact() ? salixp_contact_ticks : salixp_idle_ticks) : 10;
++		if (irq || ++idle >= fallback_ticks) {
+ 			idle = 0;
+-			if (fts_poll()) {
++			const uint32_t contacts_before = seen.touches;
++			const uint32_t releases_before = seen.releases;
++			const bool polled = fts_poll();
++			if (thor_salixp && !irq) {
++				fallback_polls++;
++				fallback_contacts += seen.touches - contacts_before;
++				fallback_releases += seen.releases - releases_before;
++			}
++			if (polled) {
+ 				failures = 0;
+ 			} else {
+ 				seen.io_failures++;
+@@ -1148,6 +1175,10 @@
+ 			iterations = 0;
+ 			printf("Pong FTS: polls=%u events=%u touches=%u raw=%u,%u errors=%u io_failures=%u\n",
+ 			    seen.polls, seen.events, seen.touches, seen.last_x, seen.last_y, seen.errors, seen.io_failures);
++			if (thor_salixp) {
++				printf("Pong FTS: IRQ-high fallback polls=%u contacts=%u releases=%u intervals=%u/%u\n",
++				    fallback_polls, fallback_contacts, fallback_releases, salixp_idle_ticks, salixp_contact_ticks);
++			}
+ 		}
+ 	}
+ }

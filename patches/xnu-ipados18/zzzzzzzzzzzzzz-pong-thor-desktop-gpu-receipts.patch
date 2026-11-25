@@ -1,0 +1,62 @@
+diff --git a/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -144,14 +144,15 @@
+ extern void pong_ramoops_diagnostic_write(const char *, int);
+ 
+ /* Give the Metal test a bounded number of records in PongConsole per boot. */
+-static unsigned pong_metal_receipt_count;
++static unsigned pong_settings_receipt_count;
++static unsigned pong_desktop_receipt_count;
+ 
+ static bool
+-pong_metal_receipt_reserve(void)
+-{
+-	unsigned count = __atomic_load_n(&pong_metal_receipt_count, __ATOMIC_RELAXED);
++pong_metal_receipt_reserve(unsigned *counter)
++{
++	unsigned count = __atomic_load_n(counter, __ATOMIC_RELAXED);
+ 	while (count < 48) {
+-		if (__atomic_compare_exchange_n(&pong_metal_receipt_count, &count,
++		if (__atomic_compare_exchange_n(counter, &count,
+ 		    count + 1, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+ 			return true;
+ 		}
+@@ -170,8 +171,8 @@
+ 	proc_t process = current_proc();
+ 	if (!process) return EPERM;
+ 	bool settings = strcmp(process->p_comm, "Preferences") == 0;
+-	bool renderer = strcmp(process->p_comm, "backboardd") == 0 ||
+-	    strcmp(process->p_comm, "SpringBoard") == 0;
++	bool desktop = strcmp(process->p_comm, "backboardd") == 0;
++	bool renderer = desktop || strcmp(process->p_comm, "SpringBoard") == 0;
+ 	if (!settings && !renderer) return EPERM;
+ 	if (!req->newptr || !req->newlen || req->newlen >= sizeof(text)) return EINVAL;
+ 	int error = SYSCTL_IN(req, text, req->newlen);
+@@ -182,12 +183,13 @@
+ 	if (length > 0) pong_ramoops_diagnostic_write(line,
+ 	    length < (int)sizeof(line) ? length : (int)sizeof(line)-1);
+ 
+-	/* Preferences' stderr and ramoops are separate from the kernel msgbuf. */
+-	unsigned metal = 0;
+-	if (settings && req->newlen < 256 &&
++	/* Keep each client in its own bounded console budget. */
++	unsigned metal = 0, scanout = 0;
++	if ((settings || (desktop && PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) &&
++	    scanout == 1)) && req->newlen < 256 &&
+ 	    strncmp(text, "Pong Metal: ", sizeof("Pong Metal: ") - 1) == 0 &&
+ 	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
+-	    pong_metal_receipt_reserve()) {
++	    pong_metal_receipt_reserve(settings ? &pong_settings_receipt_count : &pong_desktop_receipt_count)) {
+ 		size_t end = strnlen(text, req->newlen);
+ 		if (end && text[end - 1] == '\n') {
+ 			end--;
+@@ -199,7 +201,7 @@
+ 			}
+ 		}
+ 		text[end] = 0;
+-		printf("PONG SETTINGS[%d]: %s\n", proc_getpid(process), text);
++		printf("%s[%d]: %s\n", settings ? "PONG SETTINGS" : "PONG GPU", proc_getpid(process), text);
+ 	}
+ 	return 0;
+ }

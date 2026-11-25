@@ -1,0 +1,15 @@
+diff --git a/osfmk/arm/arm_init.c b/osfmk/arm/arm_init.c
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -636,6 +636,11 @@
+                 printf("THOR MEM: SMEM402 status=0x%llx bytes=%u version=%u entries=%u system RAM matches=%u\n",
+                     (unsigned long long)audit[14], (uint32_t)audit[15], (uint32_t)(audit[15] >> 32),
+                     (uint32_t)audit[16], (uint32_t)(audit[16] >> 32));
++                if (audit[24] || audit[25] || audit[26] || audit[27] || (audit[1] & 0x3800ULL)) {
++                    printf("THOR MEM: SMEM402 transport protocol_status=0x%llx FDT SMEM=0x%llx+0x%llx raw_layout=%llu\n",
++                        (unsigned long long)audit[24], (unsigned long long)audit[25],
++                        (unsigned long long)audit[26], (unsigned long long)audit[27]);
++                }
+                 if (audit[16] >> 32) {
+                     printf("THOR MEM: SMEM402 start=0x%llx length=0x%llx available=0x%llx attr=%u category=%u domain=%u type=%u\n",
+                         (unsigned long long)audit[17], (unsigned long long)audit[18], (unsigned long long)audit[19],

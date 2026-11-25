@@ -1,0 +1,239 @@
+diff --git a/iokit/Kernel/MiniIOSurface.h b/iokit/Kernel/MiniIOSurface.h
+--- a/iokit/Kernel/MiniIOSurface.h
++++ b/iokit/Kernel/MiniIOSurface.h
+@@ -120,6 +120,7 @@
+ 	mach_vm_address_t               clientAddress;  /* ... and where it is there */
+ 	uint8_t *                       kpixels;        /* where the pixel memory starts in the kernel, either way */
+ 	uint32_t                        gpuWriters, displayReaders;
++	uint64_t                        lastGpuWriterRelease; /* protected by gSurfaceLock */
+ 	bool                            gpuFailed;
+ 	bool                            transferable;
+ 	bool                            ownershipAttempted;
+@@ -169,8 +170,15 @@
+ void            MiniIOSurfaceCost(uint32_t * made, uint64_t * making, uint32_t * freed, uint64_t * freeing, uint32_t * again);
+ /* Clear the memory that is kept of surfaces that are gone, for the next ones: when the caller has a moment. */
+ void            MiniIOSurfaceClearKept(void);
+-/* True only when the surface has no pending GPU fence in this CPU backend. */
+-bool            MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID);
++struct MiniIOSurfaceReadTiming {
++	uint64_t lockTicks;
++	uint64_t writerTicks;
++	uint64_t resumeTicks;
++	bool waitedForWriter;
++};
++/* Acquires a display reader once GPU writers have released the surface. */
++bool            MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID,
++                    MiniIOSurfaceReadTiming *timing);
+ void            MiniIOSurfaceDisplayDone(MiniIOSurface * surface);
+ MiniIOSurface * MiniIOSurfaceCreateSimple(uint32_t width, uint32_t height, uint32_t pixelFormat);
+ void            MiniIOSurfaceDrop(MiniIOSurface * surface);
+diff --git a/iokit/Kernel/MiniIOSurface.cpp b/iokit/Kernel/MiniIOSurface.cpp
+--- a/iokit/Kernel/MiniIOSurface.cpp
++++ b/iokit/Kernel/MiniIOSurface.cpp
+@@ -2065,6 +2065,9 @@
+                 surface->gpuFailed = true;
+             }
+             --surface->gpuWriters;
++            if (!surface->gpuWriters && !surface->gpuFailed) {
++                surface->lastGpuWriterRelease = mach_absolute_time();
++            }
+             if(!--fGpuHolds[i].writers){fGpuHolds[i]={};surfaceUnhold(surface);}
+             IOLockWakeup(gSurfaceLock,surface,false);
+         }
+@@ -2472,7 +2475,8 @@
+  * rights. Reading starts only after those GPU jobs and cache acquisition
+  * completed; subsequent writers wait until the display finishes copying. */
+ bool
+-MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID)
++MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID,
++    MiniIOSurfaceReadTiming *timing)
+ {
+ 	if (surface == NULL) {
+ 		return false;
+@@ -2480,6 +2484,8 @@
+ 	const uint64_t began = mach_absolute_time();
+ 	wait_result_t waitResult = THREAD_AWAKENED;
+ 	IOLockLock(gSurfaceLock);
++	const uint64_t locked = timing ? mach_absolute_time() : 0;
++	const bool waitedForWriter = timing && surface->gpuWriters && !surface->gpuFailed;
+ 	while (surface->gpuWriters && !surface->gpuFailed && waitResult == THREAD_AWAKENED) {
+ 		/* Only the dedicated presenter enters here. The absolute deadline
+ 		 * bounds the wait, independent of transient thread aborts. */
+@@ -2488,6 +2494,22 @@
+ 	const bool ready = !surface->gpuWriters && !surface->gpuFailed && !surface->drawn;
+ 	if (ready) {
+ 		surface->displayReaders++;
++		if (timing) {
++			timing->lockTicks += locked - began;
++			if (waitedForWriter) {
++				const uint64_t resumed = mach_absolute_time();
++				const uint64_t released = surface->lastGpuWriterRelease;
++				timing->waitedForWriter = true;
++				/* A successful wait can only end after the final writer
++				 * publishes release under this same lock. */
++				if (released >= locked && released <= resumed) {
++					timing->writerTicks += released - locked;
++					timing->resumeTicks += resumed - released;
++				} else {
++					timing->writerTicks += resumed - locked;
++				}
++			}
++		}
+ 	}
+ 	const bool logFailure = !ready && logGpuSurfaceReceipt();
+ 	const uint32_t writers = surface->gpuWriters, readers = surface->displayReaders;
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -216,6 +216,24 @@
+ 
+ struct RowJob;
+ 
++struct FramePhaseTiming {
++	uint64_t total;
++	uint64_t maximum;
++
++	void add(uint64_t ticks)
++	{
++		total += ticks;
++		if (ticks > maximum) {
++			maximum = ticks;
++		}
++	}
++};
++
++struct FrameReadinessTiming {
++	FramePhaseTiming queued, lock, writer, resume, refresh, panel;
++	uint32_t frames, waitedForWriter, notReady;
++};
++
+ static IORegistryEntry * createDisplayNode(void);
+ 
+ class IOMobileFramebuffer : public IOService
+@@ -266,6 +284,7 @@
+ 	 * presenter workloop (kernel_task pid=0), which answers nothing. */
+ 	char            fSwapWho[SWAP_QUEUE][20];
+ 	int             fSwapWhoPid[SWAP_QUEUE];
++	uint64_t        fSwapEnqueued[SWAP_QUEUE];  /* published under fSwapLock */
+ 	IOReturn waitSwap(uint32_t id,uint32_t flags,uint64_t timeout);
+ 	/*
+ 	 * ... and not whenever the GPU happens to be done, but on a beat of the refresh rate
+@@ -289,6 +308,7 @@
+ 	uint64_t        fSwapTime;              /* when the last swap was handed over */
+ 	uint32_t        fStatSwapsLate;         /* swaps that came more than a refresh and a quarter after the one before (and no pause) */
+ 	uint64_t        fStatWaiting;           /* how long frames waited for the GPU here */
++	FrameReadinessTiming fReadiness;        /* only the presenter records these times */
+ 	/* how the display is doing: frames and time spent drawing them here since fStatSince */
+ 	uint32_t        fStatFrames;
+ 	uint64_t        fStatSince, fStatDrawing;
+@@ -315,7 +335,8 @@
+ 	bool failStart(IOService * provider);
+ 	MiniIOSurface * defaultSurface(void);
+ 	IOReturn present(const uint8_t * swap);
+-	IOReturn show(const uint8_t * swap, MiniIOSurface ** surfaces, const char * who, int whoPid);
++	IOReturn show(const uint8_t * swap, MiniIOSurface ** surfaces, const char * who, int whoPid,
++	    uint64_t enqueued);
+ 	void presenter(void);
+ 	static void presenterMain(void * self, wait_result_t result);
+ 	void reportFrameTimes(void);
+@@ -962,6 +983,7 @@
+ 
+ 		fSwapSurfaces[slot][layer] = sid != 0 ? MiniIOSurfaceCopy(sid) : NULL;
+ 	}
++	fSwapEnqueued[slot] = mach_absolute_time();
+ 	fSwapsWaiting++;
+ 	IOLockWakeup(fSwapLock, fSwap, true);
+ 	IOLockUnlock(fSwapLock);
+@@ -1076,11 +1098,12 @@
+ 		 * pid=-1" in the field log). */
+ 		strlcpy(presenterWho, fSwapWho[fSwapFirst], sizeof(presenterWho));
+ 		presenterWhoPid = fSwapWhoPid[fSwapFirst];
++		const uint64_t enqueued = fSwapEnqueued[fSwapFirst];
+ 		IOLockUnlock(fSwapLock);
+ #if XNU_PONG_ADRENO_PLATFORM
+ 		expireDeferredGpuClear();
+ #endif
+-        IOReturn result=show(swap,surfaces,presenterWho,presenterWhoPid);
++        IOReturn result=show(swap,surfaces,presenterWho,presenterWhoPid,enqueued);
+         IOLockLock(fSwapLock);
+         const uint32_t id=swapWord(swap,SWAP_ID);
+         fRetired[id%64]={id,result};
+@@ -1140,10 +1163,12 @@
+ 
+ /* A swap's surfaces onto the panel, once the GPU is done with them. */
+ IOReturn
+-IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces, const char * who, int whoPid)
++IOMobileFramebuffer::show(const uint8_t * swap, MiniIOSurface ** surfaces, const char * who, int whoPid,
++    uint64_t enqueued)
+ {
+ 	uint32_t set = swapWord(swap, SWAP_LAYERS_SET);
+-	uint64_t began = mach_absolute_time(), nanos, ready, shown, drawn;
++	const uint64_t dequeued = mach_absolute_time();
++	uint64_t began = dequeued, nanos, ready, shown, drawn;
+ 	uint32_t layers = 0;
+ 	bool report;
+ 	const uint32_t swapID = swapWord(swap, SWAP_ID);
+@@ -1158,12 +1183,21 @@
+         MiniIOSurface *held[SWAP_LAYERS]={};
+         ~Readers(){for(auto *surface:held)if(surface)MiniIOSurfaceDisplayDone(surface);}
+     } readers;
++	MiniIOSurfaceReadTiming readTiming = {};
++#if XNU_PONG_ADRENO_PLATFORM
++	MiniIOSurfaceReadTiming *timing = desktop ? &readTiming : nullptr;
++#else
++	MiniIOSurfaceReadTiming *timing = nullptr;
++#endif
+ 
+ 	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+ 		if (surfaces[layer] == NULL) {
+ 			continue;
+ 		}
+-		if (!MiniIOSurfaceDrawn(surfaces[layer], surfaceDeadline, swapID)) {
++		if (!MiniIOSurfaceDrawn(surfaces[layer], surfaceDeadline, swapID, timing)) {
++			if (timing) {
++				fReadiness.notReady++;
++			}
+ 			fStatWaiting += mach_absolute_time() - began;
+ 			fStatLost++;
+ #if XNU_PONG_ADRENO_PLATFORM
+@@ -1353,6 +1387,17 @@
+ 		fLayersShown = layers;
+ 	}
+ 
++	if (timing && layers) {
++		fReadiness.frames++;
++		fReadiness.waitedForWriter += readTiming.waitedForWriter;
++		fReadiness.queued.add(dequeued - enqueued);
++		fReadiness.lock.add(readTiming.lockTicks);
++		fReadiness.writer.add(readTiming.writerTicks);
++		fReadiness.resume.add(readTiming.resumeTicks);
++		fReadiness.refresh.add(shown - ready);
++		fReadiness.panel.add(drawn - shown);
++	}
++
+ 	/* every five seconds in which something was drawn: how many frames, and what each cost here */
+ 	fStatFrames++;
+ 	fStatDrawing += mach_absolute_time() - began;
+@@ -1386,6 +1431,22 @@
+ 		IOLog("MiniIOMobileFramebuffer: vsync callbacks=%llu accepted=%llu dropped=%llu errors=%llu mean_fire_late_us=%llu\n",
+ 		    callbacks, accepted - fStatVSyncAccepted, dropped - fStatVSyncDropped, errors - fStatVSyncErrors,
+ 		    callbacks ? micros(lateness - fStatVSyncLateness) / callbacks : 0);
++		const uint32_t frames = fReadiness.frames;
++		if (frames) {
++			const auto mean = [frames](const FramePhaseTiming &phase) {
++				return micros(phase.total / frames);
++			};
++			IOLog("PONG FRAME READY: desktop=%u writer_waited=%u not_ready=%u mean/max_us queued=%llu/%llu "
++			    "surface_lock=%llu/%llu writer_release=%llu/%llu resume=%llu/%llu refresh=%llu/%llu panel=%llu/%llu\n",
++			    frames, fReadiness.waitedForWriter, fReadiness.notReady,
++			    mean(fReadiness.queued), micros(fReadiness.queued.maximum),
++			    mean(fReadiness.lock), micros(fReadiness.lock.maximum),
++			    mean(fReadiness.writer), micros(fReadiness.writer.maximum),
++			    mean(fReadiness.resume), micros(fReadiness.resume.maximum),
++			    mean(fReadiness.refresh), micros(fReadiness.refresh.maximum),
++			    mean(fReadiness.panel), micros(fReadiness.panel.maximum));
++		}
++		fReadiness = {};
+ 		fStatVSyncAccepted = accepted;
+ 		fStatVSyncDropped = dropped;
+ 		fStatVSyncErrors = errors;

@@ -1,0 +1,366 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -516,19 +516,20 @@
+ 	return tenths;
+ }
+ 
+-static void
++static bool
+ thorDsiTry120(const ThorDpuMappings &map, const ThorDsiInstance &dsi, uint64_t framebuffer)
+ {
++	bool qualified = false;
+ 	uint32_t enabled = 1;
+ 	(void) PE_parse_boot_argn("thor_dsi_120", &enabled, sizeof(enabled));
+ 	if (!enabled || !thorDsiDomainAudit(map, dsi)) {
+ 		thorDpuMarker("THOR DSI 120: skipped; fixed display identity context was not qualified\n");
+-		return;
++		return false;
+ 	}
+ 	const uint32_t initial = thorDsiMeasurePanel(map, dsi);
+ 	if (initial < 550 || initial > 650) {
+ 		IOLog("THOR DSI 120: skipped; initial hardware frequency out of range (%u)\n", initial);
+-		return;
++		return false;
+ 	}
+ 
+ 	constexpr IOByteCount commandBytes = sizeof(kThorDsiWqhd120);
+@@ -539,20 +540,20 @@
+ 	 * page on ARM64. Two pages take the bounded contiguous VM path. */
+ 	if (page_size != 4096) {
+ 		thorDpuMarker("THOR DSI 120: skipped; unexpected ARM64 VM page size\n");
+-		return;
++		return false;
+ 	}
+ 	IOBufferMemoryDescriptor *memory = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task,
+ 	    static_cast<IOOptionBits>(kIODirectionInOut) | static_cast<IOOptionBits>(kIOMemoryMapperNone) |
+ 	    kIOMemoryPhysicallyContiguous, allocationBytes, dmaLimit - page_size);
+ 	if (!memory) {
+ 		thorDpuMarker("THOR DSI 120: skipped; no fresh low contiguous command pages\n");
+-		return;
++		return false;
+ 	}
+ 	const IOReturn prepared = memory->prepare();
+ 	if (prepared != kIOReturnSuccess) {
+ 		IOLog("THOR DSI 120: low contiguous pages prepare failed=%#x\n", static_cast<unsigned>(prepared));
+ 		memory->release();
+-		return;
++		return false;
+ 	}
+ 	IOByteCount segment = 0, tail = 0;
+ 	const uint64_t address = memory->getPhysicalSegment(0, &segment, kIOMemoryMapperNone);
+@@ -567,14 +568,14 @@
+ 		thorDpuMarker("THOR DSI 120: skipped; fresh DMA pages failed physical range validation\n");
+ 		(void) memory->complete();
+ 		memory->release();
+-		return;
++		return false;
+ 	}
+ 	const vm_offset_t regs = io_map(dsi.address, 0x1000, VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
+ 	if (!regs) {
+ 		thorDpuMarker("THOR DSI 120: skipped; no command controller write mapping\n");
+ 		(void) memory->complete();
+ 		memory->release();
+-		return;
++		return false;
+ 	}
+ 	const uint32_t physical = static_cast<uint32_t>(address);
+ 	ThorDsiTransfer result = thorDsiTransferBatch(map, dsi, framebuffer, regs, memory, physical,
+@@ -592,6 +593,7 @@
+ 				after = thorDsiMeasurePanel(map, dsi);
+ 			}
+ 			if (after >= 1130 && after <= 1270) {
++				qualified = true;
+ 				thorDpuMarker("THOR DSI 120: PASS actual ~120 Hz hardware scanout measured\n");
+ 			} else {
+ 				thorDpuMarker("THOR DSI 120: hardware rate not qualified, try stock 60 Hz rollback\n");
+@@ -611,6 +613,7 @@
+ 		(void) memory->complete();
+ 		memory->release();
+ 	}
++	return qualified;
+ }
+ 
+ static void
+@@ -717,12 +720,13 @@
+ 	}
+ }
+ 
+-static void
++static bool
+ thorDsiAudit(const ThorDpuMappings &map, uint64_t framebuffer, uint32_t active)
+ {
+ 	uint32_t enabled = 1;
+ 	(void) PE_parse_boot_argn("thor_dsi_audit", &enabled, sizeof(enabled));
+-	if (!enabled || !thorDpuRefreshRouteMatches(map, framebuffer)) return;
++	if (!enabled || !thorDpuRefreshRouteMatches(map, framebuffer)) return false;
++	bool panel120 = false;
+ 
+ 	for (unsigned i = 0; i < sizeof(kThorDsi) / sizeof(kThorDsi[0]); ++i) {
+ 		const auto &dsi = kThorDsi[i];
+@@ -755,7 +759,7 @@
+ 					    thorDpuRead(intf + 0x298), thorDpuRead(intf + 0x2b0),
+ 					    thorDpuRead(intf + kThorIntfAutorefresh));
+ 					thorDsiTimingPreflight(map, regs, dsi, i, control);
+-					if (i == 0 && control == 0x1f5) thorDsiTry120(map, dsi, framebuffer);
++					if (i == 0 && control == 0x1f5) panel120 = thorDsiTry120(map, dsi, framebuffer);
+ 				}
+ 			} else {
+ 				IOLog("THOR DSI AUDIT: id=%u skip unexpected version=%#x\n", i, version);
+@@ -764,6 +768,7 @@
+ 		ml_io_unmap(regs, 0x1000);
+ 	}
+ 	thorDpuMarker("THOR DSI AUDIT: complete\n");
++	return panel120;
+ }
+ 
+ /* The live Cape DT advertises QSEED3 at VIG + 0xa00. Qualcomm's
+@@ -815,8 +820,183 @@
+ 	    te, sync, intCount, line, autorefresh, frames);
+ }
+ 
++static constexpr IOByteCount kThorScratchBytes = 5760ull * 3200;
++static constexpr uint32_t kThorFlipMask = (1u << 17) | 3u;
++static constexpr unsigned kThorCtlFlush = 0x18;
++static constexpr unsigned kThorSsppSource = 0x14;
++extern "C" bool pmap_pong_pa_valid(uint64_t);
++
++struct ThorDpuScratch {
++	IOBufferMemoryDescriptor *memory = nullptr;
++	bool prepared = false;
++
++	~ThorDpuScratch()
++	{
++		if (memory) {
++			if (prepared) (void) memory->complete();
++			memory->release();
++		}
++	}
++};
++
++struct ThorDpuFlipMaps {
++	vm_offset_t ctl = 0;
++	vm_offset_t pipes[2] = {};
++
++	~ThorDpuFlipMaps()
++	{
++		if (ctl) ml_io_unmap(ctl, 0x1000);
++		for (auto pipe : pipes) {
++			if (pipe) ml_io_unmap(pipe, 0x1000);
++		}
++	}
++};
++
++static bool
++thorDpuScratchRoute(const ThorDpuMappings &map, uint32_t address, uint32_t &pending)
++{
++	if (!thorDpuClocksReady(map)) return false;
++	const vm_offset_t ctl = map.mdss + 0x16000;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	pending = thorDpuRead(ctl + kThorCtlFlush);
++	if ((pending & ~kThorFlipMask) ||
++	    thorDpuRead(ctl) != 0x100002d || thorDpuRead(ctl + 4) != 0x100002d ||
++	    thorDpuRead(ctl + 0x14) != 0xf0020000 ||
++	    thorDpuRead(ctl + kThorCtlIntfActive) != 0x2 ||
++	    thorDpuRead(ctl + kThorCtlFetchActive) != 0x30000 ||
++	    thorDpuRead(intf + kThorIntfTearCheck) != 1 ||
++	    thorDpuRead(intf + kThorIntfAutorefresh) != kThorRefreshEachTe) return false;
++	for (unsigned i = 0; i < 2; ++i) {
++		const vm_offset_t pipe = map.mdss + kThorSsppOffset[i];
++		const uint32_t x = i * 720;
++		if (thorDpuRead(pipe) != 0x0c8002d0 || thorDpuRead(pipe + 0x0c) != 0x0c8002d0 ||
++		    thorDpuRead(pipe + 0x08) != x || thorDpuRead(pipe + 0x10) != x ||
++		    thorDpuRead(pipe + kThorSsppSource) != address ||
++		    thorDpuRead(pipe + 0x24) != 0x1680 || thorDpuRead(pipe + 0x30) != 0x237ff ||
++		    thorDpuRead(pipe + 0x34) != 0x3020001 || thorDpuRead(pipe + 0x38) != 0x80000000) return false;
++	}
++	return true;
++}
++
++enum ThorDpuScratchFlip { ThorDpuScratchSkipped, ThorDpuScratchPending, ThorDpuScratchLatched };
++
++static ThorDpuScratchFlip
++thorDpuScratchSubmit(const ThorDpuMappings &map, const ThorDpuFlipMaps &write,
++    uint32_t original, uint32_t address, const char *stage)
++{
++	uint32_t pending = 0;
++	if (!thorDpuScratchRoute(map, original, pending) || pending != 0) {
++		IOLog("THOR DPU SCRATCH: %s skipped before MMIO, route or flush changed\n", stage);
++		return ThorDpuScratchSkipped;
++	}
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[0];
++	const uint32_t before = thorDpuRead(intf + kThorIntfFrameCount);
++	for (auto pipe : write.pipes) {
++		*reinterpret_cast<volatile uint32_t *>(pipe + kThorSsppSource) = address;
++	}
++	__asm__ volatile("dsb sy" ::: "memory");
++	*reinterpret_cast<volatile uint32_t *>(write.ctl + kThorCtlFlush) = kThorFlipMask;
++	__asm__ volatile("dsb sy" ::: "memory");
++
++	bool sawPending = false, latched = false;
++	uint32_t scans = 0;
++	for (unsigned attempt = 0; attempt < 160; ++attempt) {
++		if (!thorDpuScratchRoute(map, address, pending)) break;
++		sawPending |= pending != 0;
++		scans = thorDpuRead(intf + kThorIntfFrameCount) - before;
++		if (sawPending && !pending && scans >= 2 && scans <= 8) {
++			latched = true;
++			break;
++		}
++		IODelay(250);
++	}
++	IOLog("THOR DPU SCRATCH: %s addr=%#x pending_seen=%u flush=%#x scans=%u result=%s\n",
++	    stage, address, sawPending ? 1u : 0u, pending, scans, latched ? "latched" : "unconfirmed");
++	return latched ? ThorDpuScratchLatched : ThorDpuScratchPending;
++}
++
+ static void
+-thorDpuProbe(uint64_t framebuffer)
++thorDpuScratchTrial(const ThorDpuMappings &map, uint64_t framebuffer, const uint8_t *source, IOLock *lock)
++{
++	if (page_size != 4096 || !source || !lock || !thorDpuRefreshRouteMatches(map, framebuffer) ||
++	    !thorDsiDomainAudit(map, kThorDsi[0])) return;
++
++	ThorDpuScratch scratch;
++	constexpr uint64_t dmaLimit = 1ull << 32;
++	scratch.memory = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task,
++	    static_cast<IOOptionBits>(kIODirectionInOut) | static_cast<IOOptionBits>(kIOMemoryMapperNone) |
++	    kIOMemoryPhysicallyContiguous, kThorScratchBytes, dmaLimit - page_size);
++	if (!scratch.memory || scratch.memory->prepare() != kIOReturnSuccess) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP no prepared native contiguous buffer\n");
++		return;
++	}
++	scratch.prepared = true;
++	IOByteCount segment = 0, tail = 0;
++	const uint64_t physical = scratch.memory->getPhysicalSegment(0, &segment, kIOMemoryMapperNone);
++	const uint64_t last = scratch.memory->getPhysicalSegment(kThorScratchBytes - 1, &tail, kIOMemoryMapperNone);
++	void *pixels = scratch.memory->getBytesNoCopy();
++	if (!physical || (physical & (page_size - 1)) || physical > dmaLimit - kThorScratchBytes ||
++	    segment < kThorScratchBytes || !tail || last != physical + kThorScratchBytes - 1 ||
++	    scratch.memory->getLength() != kThorScratchBytes || !pixels ||
++	    (physical < framebuffer + kThorScratchBytes && framebuffer < physical + kThorScratchBytes)) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP invalid native DMA descriptor\n");
++		return;
++	}
++	for (uint64_t page = physical; page <= last; page += 4096) {
++		if (!pmap_pong_pa_valid(page)) {
++			thorDpuMarker("THOR DPU SCRATCH: SKIP buffer outside XNU RAM ledger\n");
++			return;
++		}
++	}
++	IOLog("THOR DPU SCRATCH: owned contiguous pa=%#llx bytes=%llu pitch=5760\n",
++	    physical, static_cast<uint64_t>(kThorScratchBytes));
++	if (!IOLockTryLock(lock)) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP presenter busy at snapshot\n");
++		return;
++	}
++	memcpy(pixels, source, kThorScratchBytes);
++	IOLockUnlock(lock);
++
++	constexpr unsigned chunk = 64 * 1024;
++	for (IOByteCount offset = 0; offset < kThorScratchBytes; offset += chunk) {
++		const IOByteCount left = kThorScratchBytes - offset;
++		flush_dcache64(physical + offset, static_cast<unsigned>(left < chunk ? left : chunk), 1);
++	}
++	ThorDpuFlipMaps write;
++	write.ctl = io_map(kThorMdss + 0x16000, 0x1000, VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
++	for (unsigned i = 0; i < 2; ++i) {
++		write.pipes[i] = io_map(kThorMdss + kThorSsppOffset[i], 0x1000,
++		    VM_WIMG_IO, VM_PROT_READ | VM_PROT_WRITE, true);
++	}
++	if (!write.ctl || !write.pipes[0] || !write.pipes[1]) {
++		thorDpuMarker("THOR DPU SCRATCH: SKIP write aliases unavailable\n");
++		return;
++	}
++
++	const uint32_t original = static_cast<uint32_t>(framebuffer);
++	const uint32_t address = static_cast<uint32_t>(physical);
++	if (thorDpuScratchSubmit(map, write, original, original, "same-address") != ThorDpuScratchLatched) return;
++	thorDpuMarker("THOR DPU SCRATCH: before fresh source submission\n");
++	const auto submitted = thorDpuScratchSubmit(map, write, original, address, "fresh-buffer");
++	if (submitted == ThorDpuScratchSkipped) return;
++
++	/* Restore only when the controller confirms an idle, expected route.
++	 * A possibly scanned buffer must stay pinned until rollback is proven. */
++	const auto restored = thorDpuScratchSubmit(map, write, address, original, "restore");
++	if (restored != ThorDpuScratchLatched) {
++		scratch.memory = nullptr;
++		thorDpuMarker("THOR DPU SCRATCH: UNCERTAIN restore, keep fresh backing pinned\n");
++		return;
++	}
++	if (submitted == ThorDpuScratchLatched && thorDsiDomainAudit(map, kThorDsi[0])) {
++		thorDpuMarker("THOR DPU SCRATCH: PASS new-address latch and original-address restore\n");
++	} else {
++		thorDpuMarker("THOR DPU SCRATCH: restore confirmed, new scanout unqualified\n");
++	}
++}
++
++static void
++thorDpuProbe(uint64_t framebuffer, const uint8_t *source, IOLock *lock)
+ {
+ 	ThorDpuMappings map = {};
+ 	map.gcc = io_map(kThorGccDispAhb & ~0xffful, 0x1000, VM_WIMG_IO, VM_PROT_READ, true);
+@@ -923,17 +1103,14 @@
+ 		counter = next;
+ 		at = now;
+ 	}
+-	thorDsiAudit(map, framebuffer, active);
++	const bool panel120 = thorDsiAudit(map, framebuffer, active);
+ 	thorDpuFlipAudit(map, framebuffer);
++	uint32_t trial = 1;
++	(void)PE_parse_boot_argn("thor_flip_trial", &trial, sizeof(trial));
++	if (trial && panel120 && source) thorDpuScratchTrial(map, framebuffer, source, lock);
+ 	thorDpuInteractionAudit(map, framebuffer);
+ }
+ 
+-static void
+-thorDpuProbeMain(void *arg, wait_result_t result __unused)
+-{
+-	thorDpuProbe(reinterpret_cast<uintptr_t>(arg));
+-	(void) thread_terminate(current_thread());
+-}
+ #endif
+ #if XNU_PONG_BACKLIGHT
+ extern "C" void pong_backlight_start(IOService *display);
+@@ -1230,6 +1407,9 @@
+ 	    uint64_t enqueued);
+ 	void presenter(void);
+ 	static void presenterMain(void * self, wait_result_t result);
++#if XNU_PONG_ADRENO_PLATFORM
++	static void thorDpuProbeMain(void *self, wait_result_t result);
++#endif
+ 	void reportFrameTimes(void);
+ 	void beginGraphics(void);
+ 	void drawLayer(MiniIOSurface * s, const int32_t * src, const int32_t * dst);
+@@ -2084,6 +2264,18 @@
+     return result;
+ }
+ 
++#if XNU_PONG_ADRENO_PLATFORM
++void
++IOMobileFramebuffer::thorDpuProbeMain(void *self, wait_result_t result __unused)
++{
++	auto *fb = static_cast<IOMobileFramebuffer *>(self);
++	const uint8_t *source = fb->fThorNativeCpuCopy ? fb->fBase : nullptr;
++	thorDpuProbe(vinfo.v_physaddr, source, fb->fLock);
++	fb->release();
++	(void)thread_terminate(current_thread());
++}
++#endif
++
+ void
+ IOMobileFramebuffer::presenterMain(void * self, wait_result_t result __unused)
+ {
+@@ -2192,10 +2384,11 @@
+ 		    strcmp(presenterWho, "backboardd") == 0) {
+ 			fThorDpuProbePending = false;
+ 			thread_t probeThread;
+-			if (kernel_thread_start(thorDpuProbeMain,
+-			    reinterpret_cast<void *>(static_cast<uintptr_t>(vinfo.v_physaddr)), &probeThread) == KERN_SUCCESS) {
++			retain();
++			if (kernel_thread_start(thorDpuProbeMain, this, &probeThread) == KERN_SUCCESS) {
+ 				thread_deallocate(probeThread);
+ 			} else {
++				release();
+ 				IOLog("THOR DPU PROBE: skip worker creation failed\n");
+ 			}
+ 		}

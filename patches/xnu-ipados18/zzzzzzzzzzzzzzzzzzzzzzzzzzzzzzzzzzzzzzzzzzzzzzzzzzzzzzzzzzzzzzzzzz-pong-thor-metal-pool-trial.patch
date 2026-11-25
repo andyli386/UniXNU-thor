@@ -1,0 +1,124 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -188,6 +188,10 @@
+ 
+ #if defined(ARM64_BOARD_CONFIG_PONG) && (DEVELOPMENT || DEBUG) && __has_include("thor_ui_runtime_payload.h")
+ #include "thor_ui_runtime_payload.h"
++#endif
++
++#if defined(THOR_UI_RUNTIME_PAYLOAD) && defined(THOR_APP_INSTALLER_PAYLOAD) && __has_include("thor_metal_pool_payload.h")
++#include "thor_metal_pool_payload.h"
+ #endif
+ 
+ #include <CoreEntitlements/CoreEntitlements.h>
+@@ -6261,6 +6265,89 @@
+ }
+ #endif
+ 
++#ifdef THOR_METAL_POOL_PAYLOAD_BYTES
++static unsigned thor_metal_pool_ready;
++static unsigned thor_metal_pool_tried;
++#define THOR_METAL_POOL_DIR "/private/var/" THOR_METAL_POOL_NAME
++#define THOR_METAL_POOL_LIBRARY THOR_METAL_POOL_DIR "/PongMetalBridge.dylib"
++
++static void
++thor_stage_metal_pool_trial(proc_t p)
++{
++	vfs_context_t context = vfs_context_current();
++	vnode_t data = NULLVP, directory = NULLVP;
++	int error = vnode_lookup("/private/var", VNODE_LOOKUP_NOFOLLOW_ANY, &data, context);
++	if (!error) {
++		error = thor_stage_check_directory(data, 0, 0, 0);
++	}
++	if (!error) {
++		error = thor_stage_ensure_directory(data, THOR_METAL_POOL_NAME, 0, 0, 0755, &directory);
++	}
++	if (directory) {
++		vnode_put(directory);
++	}
++	if (data) {
++		vnode_put(data);
++	}
++	if (!error) {
++		error = thor_stage_data_payload(p, THOR_METAL_POOL_DIR, THOR_METAL_POOL_LIBRARY,
++		    thor_metal_pool_payload, THOR_METAL_POOL_PAYLOAD_BYTES, true);
++	}
++	if (error) {
++		printf("THOR METAL POOL: stage failed error=%d; stock bridge retained\n", error);
++		return;
++	}
++	__atomic_store_n(&thor_metal_pool_ready, 1, __ATOMIC_RELEASE);
++	printf("THOR METAL POOL: staged %s bytes=%u\n",
++	    THOR_METAL_POOL_LIBRARY, THOR_METAL_POOL_PAYLOAD_BYTES);
++}
++
++static int
++thor_metal_pool_exec(struct image_params *imgp, size_t pointer_size)
++{
++	static const char target[] = "backboardd";
++	static const char key[] = "DYLD_LIBRARY_PATH=";
++	static const char environment[] = "DYLD_LIBRARY_PATH=" THOR_METAL_POOL_DIR;
++	if (!__atomic_load_n(&thor_metal_pool_ready, __ATOMIC_ACQUIRE) ||
++	    !imgp->ip_ndp || imgp->ip_ndp->ni_cnd.cn_namelen != sizeof(target) - 1 ||
++	    memcmp(imgp->ip_ndp->ni_cnd.cn_nameptr, target, sizeof(target) - 1) ||
++	    imgp->ip_argspace < sizeof(environment) + 2 * pointer_size) {
++		return 0;
++	}
++	char path[MAXPATHLEN];
++	int path_length = sizeof(path);
++	if (!imgp->ip_vp || vn_getpath(imgp->ip_vp, path, &path_length) ||
++	    strcmp(path, "/usr/libexec/backboardd")) {
++		return 0;
++	}
++	const char *end = imgp->ip_strendp;
++	for (const char *entry = imgp->ip_endargv; entry < end; ) {
++		size_t limit = (size_t)(end - entry);
++		size_t length = strnlen(entry, limit);
++		if (length == limit) {
++			return 0;
++		}
++		if (length >= sizeof(key) - 1 && !memcmp(entry, key, sizeof(key) - 1)) {
++			printf("THOR METAL POOL: existing backboardd library path; stock lookup preserved\n");
++			return 0;
++		}
++		entry += length + 1;
++	}
++	/* A crash or failed exec respawns backboardd with its stock path. */
++	if (__atomic_exchange_n(&thor_metal_pool_tried, 1, __ATOMIC_ACQ_REL)) {
++		printf("THOR METAL POOL: backboardd retry uses stock bridge path\n");
++		return 0;
++	}
++	int error = exec_add_user_string(imgp, CAST_USER_ADDR_T(environment), UIO_SYSSPACE, TRUE);
++	if (!error) {
++		imgp->ip_argspace -= pointer_size;
++		imgp->ip_envc++;
++		printf("THOR METAL POOL: first backboardd exec given trial lookup path\n");
++	}
++	return error;
++}
++#endif
++
+ #ifdef THOR_UI_RUNTIME_PAYLOAD
+ /* Keep the existing adapter untouched. A diagnostic candidate is published
+  * to the configured process list only after a successful native APFS write. */
+@@ -6586,6 +6673,10 @@
+ 		imgp->ip_argspace -= new_ptr_size;
+ 		imgp->ip_envc++;
+ 	}
++#endif
++#ifdef THOR_METAL_POOL_PAYLOAD_BYTES
++	error = thor_metal_pool_exec(imgp, new_ptr_size);
++	if (error) goto bad;
+ #endif
+ #if defined(THOR_APP_INSTALLER_PAYLOAD)
+ 	/* The 22H374 lsd launch environment must agree with its native adapter.
+@@ -8325,6 +8416,9 @@
+ 	    PE_parse_boot_argn("pong_stage_ui_v77", &stage_ui_runtime, sizeof(stage_ui_runtime)) &&
+ 	    stage_ui_runtime == 1) {
+ 		thor_stage_ui_runtime(p, installer_ready);
++#ifdef THOR_METAL_POOL_PAYLOAD_BYTES
++		thor_stage_metal_pool_trial(p);
++#endif
+ 	}
+ #endif
+ #if CONFIG_MEMORYSTATUS

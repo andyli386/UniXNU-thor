@@ -1,0 +1,95 @@
+--- a/bsd/dev/pong_input.c
++++ b/bsd/dev/pong_input.c
+@@ -25,19 +25,77 @@
+ };
+ static struct input_queue queues[2];
+ static int input_major=-1;
++static uint64_t last_touch_event_time, touch_dropped_moves, touch_dropped_edges;
++
++static bool
++touch_evict_move(struct input_queue *q)
++{
++    for (uint32_t index = q->head; index != q->tail; ++index) {
++        if (q->samples[index % QUEUE_SIZE].type != PONG_TOUCH_MOVE) {
++            continue;
++        }
++        /* Shift the prefix forward so every retained sample keeps its order. */
++        while (index != q->head) {
++            q->samples[index % QUEUE_SIZE] = q->samples[(index - 1) % QUEUE_SIZE];
++            --index;
++        }
++        ++q->head;
++        return true;
++    }
++    return false;
++}
++
++uint64_t
++pong_touch_last_event_time(void)
++{
++    return __atomic_load_n(&last_touch_event_time, __ATOMIC_RELAXED);
++}
+ 
+ void
+ pong_touch_post(uint32_t type,uint32_t finger,uint32_t x,uint32_t y)
+ {
+     if (type<PONG_TOUCH_DOWN || type>PONG_BUTTON_UP ||
+         finger>=(type>=PONG_BUTTON_DOWN?3u:10u)) return;
+-    struct input_queue *q=&queues[type>=PONG_BUTTON_DOWN];
++
++    const bool button = type >= PONG_BUTTON_DOWN;
++    struct input_queue *q = &queues[button];
++    bool enqueue = true;
++    bool lost_edge = false;
++    uint64_t loss_count = 0;
++
+     lck_mtx_lock(&touch_lock);
+-    if (q->tail-q->head==QUEUE_SIZE) q->head++;
+-    q->samples[q->tail++%QUEUE_SIZE]=(struct pong_touch){mach_absolute_time(),type,finger,
+-        x>65535?65535:x,y>65535?65535:y};
++    if (q->tail - q->head == QUEUE_SIZE) {
++        if (button) {
++            ++q->head;
++        } else if (touch_evict_move(q)) {
++            loss_count = ++touch_dropped_moves;
++        } else if (type == PONG_TOUCH_MOVE) {
++            enqueue = false;
++            loss_count = ++touch_dropped_moves;
++        } else {
++            /* All slots hold edges. Keep the newest edge and report the loss. */
++            ++q->head;
++            lost_edge = true;
++            loss_count = ++touch_dropped_edges;
++        }
++    }
++    if (enqueue) {
++        const uint64_t now = mach_absolute_time();
++        q->samples[q->tail++ % QUEUE_SIZE] = (struct pong_touch){now,type,finger,
++            x>65535?65535:x,y>65535?65535:y};
++        if (!button) {
++            __atomic_store_n(&last_touch_event_time, now, __ATOMIC_RELAXED);
++        }
++    }
+     lck_mtx_unlock(&touch_lock);
+-    wakeup(q);
++
++    if (enqueue) {
++        wakeup(q);
++    }
++    if (loss_count && (loss_count & (loss_count - 1)) == 0) {
++        printf("Pong input overflow: touch %s dropped total=%llu\n",
++            lost_edge ? "edge" : "move", (unsigned long long)loss_count);
++    }
+ }
+ 
+ static int
+--- a/bsd/sys/pong_input.h
++++ b/bsd/sys/pong_input.h
+@@ -16,6 +16,7 @@
+ };
+ #ifdef KERNEL
+ void pong_touch_post(uint32_t, uint32_t, uint32_t, uint32_t);
++uint64_t pong_touch_last_event_time(void);
+ bool pong_touch_device_ready(void);
+ bool pong_buttons_device_ready(void);
+ void pong_goodix_init(void);

@@ -1,0 +1,57 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -61,4 +61,5 @@
+ static uint32_t gSlowSwapWaitReceipts, gTouchFrameGapReceipts;
+ static uint32_t gCadenceFrameReceipts, gBurstFrameReceipts;
++static uint64_t gThorFrameEnqueues, gThorFrameWritebacks;
+ static constexpr uint64_t kSlowDisplayUs = 100000;
+ static constexpr uint32_t kDisplayReceiptLimit = 48;
+@@ -671,4 +672,6 @@
+ 		const uint32_t configStart = thorDpuRead(intf + kThorIntfAutorefresh);
+ 		const uint32_t countStart = thorDpuRead(intf + kThorIntfFrameCount);
++		const uint64_t enqueues = __atomic_load_n(&gThorFrameEnqueues, __ATOMIC_RELAXED);
++		const uint64_t writebacks = __atomic_load_n(&gThorFrameWritebacks, __ATOMIC_RELAXED);
+ 		const uint64_t start = mach_absolute_time();
+ 		IOSleep(750);
+@@ -679,4 +682,6 @@
+ 		const uint32_t configEnd = thorDpuRead(intf + kThorIntfAutorefresh);
+ 		const uint32_t countEnd = thorDpuRead(intf + kThorIntfFrameCount);
++		const uint64_t enqueueDelta = __atomic_load_n(&gThorFrameEnqueues, __ATOMIC_RELAXED) - enqueues;
++		const uint64_t writebackDelta = __atomic_load_n(&gThorFrameWritebacks, __ATOMIC_RELAXED) - writebacks;
+ 		const uint64_t end = mach_absolute_time();
+ 		uint64_t touchNs, startNs, elapsedNs;
+@@ -685,7 +690,7 @@
+ 		absolutetime_to_nanoseconds(end - start, &elapsedNs);
+ 		IOLog("THOR DPU INTERACTION: sample=%u touch_us=%llu start_us=%llu elapsed_us=%llu "
+-		    "frames=%u delta=%u auto_before=%#x auto_after=%#x\n",
++		    "frames=%u delta=%u enqueued=%llu written=%llu auto_before=%#x auto_after=%#x\n",
+ 		    samples, touchNs / 1000, startNs / 1000, elapsedNs / 1000,
+-		    countEnd, countEnd - countStart, configStart, configEnd);
++		    countEnd, countEnd - countStart, enqueueDelta, writebackDelta, configStart, configEnd);
+ 	}
+ }
+@@ -737,5 +742,5 @@
+ 		ml_io_unmap(regs, 0x1000);
+ 	}
+-	thorDpuMarker("THOR DSI AUDIT: complete, no DSI writes or panel commands\n");
++	thorDpuMarker("THOR DSI AUDIT: complete\n");
+ }
+ 
+@@ -1817,4 +1822,9 @@
+ 	}
+ 	fSwapEnqueued[slot] = mach_absolute_time();
++#if XNU_PONG_ADRENO_PLATFORM
++	if (fThorRetainedCadence && fSwapSurfaces[slot][0] && strcmp(fSwapWho[slot], "backboardd") == 0) {
++		__atomic_fetch_add(&gThorFrameEnqueues, 1, __ATOMIC_RELAXED);
++	}
++#endif
+ 	fSwapsWaiting++;
+ 	IOLockWakeup(fSwapLock, fSwap, true);
+@@ -2276,4 +2286,7 @@
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	fLastWriteback = drawn;
++	if (fThorRetainedCadence && desktop && surfaces[0]) {
++		__atomic_fetch_add(&gThorFrameWritebacks, 1, __ATOMIC_RELAXED);
++	}
+ 	const uint64_t sampledTouch = interaction;
+ 	const bool traceWindow = drawn <= fInteractionTraceUntil;

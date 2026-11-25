@@ -1,0 +1,72 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -245,4 +245,63 @@
+ }
+ 
++/*
++ * GPIO/clock guards and read-only mapping come from thorDsiAudit.
++ * Thor L1 Android timing tables (LineageOS devicetrees 096f783227ec):
++ * each WQHD mode uses one vendor batch, 29 DSI packets, 260 DMA bytes.
++ * Command FIFO capacity is 64 bytes; do not send fragments as individual
++ * packets. Read-only register observations do not qualify a DMA buffer.
++ */
++static void
++thorDsiTimingPreflight(const ThorDpuMappings &map, vm_offset_t regs, const ThorDsiInstance &dsi,
++    unsigned index, uint32_t control)
++{
++	if (index != 0 || control != 0x1f5 || !thorDsiClocksReady(map, dsi, index)) return;
++	const vm_offset_t intf = map.mdss + kThorIntfOffset[index];
++	if (thorDpuRead(intf + kThorIntfAutorefresh) != kThorRefreshEachTe) return;
++
++	constexpr uint32_t BusyMask = (1u << 1) | (1u << 2);
++	constexpr uint32_t ErrorPending = 1u << 24;
++	const uint32_t dmaControl = thorDpuRead(regs + 0x03c);
++	const uint32_t dmaOffset = thorDpuRead(regs + 0x048);
++	const uint32_t dmaLength = thorDpuRead(regs + 0x04c);
++	const uint32_t trigger = thorDpuRead(regs + 0x084);
++	const uint32_t pattern = thorDpuRead(regs + 0x15c);
++	const uint32_t irq = thorDpuRead(regs + 0x110);
++	const uint32_t stream = thorDpuRead(regs + 0x058);
++	const uint32_t extent = thorDpuRead(regs + 0x05c);
++	IOLog("THOR DSI TIMING: id=0 dma_ctrl=%#x dma_offset=%#x dma_len=%#x "
++	    "trigger=%#x pattern=%#x irq=%#x stream0=%#x extent0=%#x\n",
++	    dmaControl, dmaOffset, dmaLength, trigger, pattern, irq, stream, extent);
++
++	unsigned samples = 0, idle = 0, error = 0, consecutiveIdle = 0, maxConsecutiveIdle = 0;
++	const uint32_t frameAtStart = thorDpuRead(intf + kThorIntfFrameCount);
++	const uint64_t start = mach_absolute_time();
++	for (; samples < 48; ++samples) {
++		if (!thorDsiClocksReady(map, dsi, index)) return;
++		if (!(thorDpuRead(map.mdss + 0x16000 + kThorCtlIntfActive) & dsi.route) ||
++		    thorDpuRead(regs + 0x004) != control) return;
++
++		const bool irqError = (thorDpuRead(regs + 0x110) & ErrorPending) != 0;
++		if (irqError) ++error;
++		if (!(thorDpuRead(regs + 0x008) & BusyMask) && !irqError) {
++			++idle;
++			++consecutiveIdle;
++			if (consecutiveIdle > maxConsecutiveIdle) maxConsecutiveIdle = consecutiveIdle;
++		} else {
++			consecutiveIdle = 0;
++		}
++		IOSleep(1);
++	}
++	if (!thorDsiClocksReady(map, dsi, index)) return;
++	const uint32_t frameAtEnd = thorDpuRead(intf + kThorIntfFrameCount);
++	uint64_t elapsed = 0;
++	absolutetime_to_nanoseconds(mach_absolute_time() - start, &elapsed);
++	IOLog("THOR DSI TIMING: samples=%u idle=%u irq_error=%u max_consecutive_idle=%u "
++	    "elapsed_us=%llu intf_frames=%u\n",
++	    samples, idle, error, maxConsecutiveIdle, elapsed / 1000, frameAtEnd - frameAtStart);
++	thorDpuMarker("THOR DSI TIMING: L1 WQHD 60/120 each 29 packets, 260-byte batch, "
++	    "FIFO 64 bytes, command DMA not qualified; no commands sent\n");
++}
++
+ static void
+ thorDsiAudit(const ThorDpuMappings &map, uint64_t framebuffer, uint32_t active)
+@@ -282,4 +341,5 @@
+ 					    thorDpuRead(intf + 0x298), thorDpuRead(intf + 0x2b0),
+ 					    thorDpuRead(intf + kThorIntfAutorefresh));
++					thorDsiTimingPreflight(map, regs, dsi, i, control);
+ 				}
+ 			} else {

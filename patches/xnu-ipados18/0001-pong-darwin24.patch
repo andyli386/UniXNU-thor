@@ -5418,6 +5418,8 @@ index 0000000..65a0b78
 +	MiniIOSurface * fSwapSurfaces[SWAP_QUEUE][SWAP_LAYERS]; /* ... their surfaces, held from SwapEnd on: their maker may let go of them */
 +	unsigned        fSwapFirst, fSwapsWaiting;
 +	struct {uint32_t id;IOReturn result;} fRetired[64];
++	uint32_t        fRetiredNewest;       /* newest terminal swap id published in the ring */
++	bool            fHaveRetired;         /* distinguishes id zero from an empty history */
 +	IOReturn waitSwap(uint32_t id,uint32_t flags,uint64_t timeout);
 +	/*
 +	 * ... and not whenever the GPU happens to be done, but on a beat of the refresh rate
@@ -5596,6 +5598,8 @@ index 0000000..65a0b78
 +	fLock = IOLockAlloc();
 +	fSwapLock = IOLockAlloc();
 +	fHelperLock = IOLockAlloc();
++	fRetiredNewest = 0;
++	fHaveRetired = false;
 +	fColumn = IONewZero(uint32_t, vinfo.v_width);
 +	fColumnWeight = IONewZero(uint16_t, vinfo.v_width);
 +	if (!fLock || !fSwapLock || !fHelperLock || !fColumn || !fColumnWeight) {
@@ -6102,6 +6106,15 @@ index 0000000..65a0b78
 +        id=swapWord(fSwap[last],SWAP_ID);
 +    }
 +    while(fRetired[id%64].id!=id) {
++        /* The completion ring is deliberately bounded.  Once a newer id is
++         * at least one ring-width ahead, this id is terminal but its exact
++         * result has aged out; return immediately instead of sleeping for a
++         * record that can never be republished.  Signed subtraction keeps
++         * the check valid across the uint32 id wrap while the live window is
++         * much smaller than 2^31. */
++        if(fHaveRetired && (int32_t)(fRetiredNewest-id)>=64) {
++            IOLockUnlock(fSwapLock);return kIOReturnNotFound;
++        }
 +        if(flags&0x80000000u){IOLockUnlock(fSwapLock);return kIOReturnBusy;}
 +        if(IOLockSleepDeadline(fSwapLock,&fSwapsWaiting,deadline,THREAD_ABORTSAFE)!=THREAD_AWAKENED) {
 +            IOLockUnlock(fSwapLock);return kIOReturnTimeout;
@@ -6134,6 +6147,7 @@ index 0000000..65a0b78
 +        IOLockLock(fSwapLock);
 +        const uint32_t id=swapWord(swap,SWAP_ID);
 +        fRetired[id%64]={id,result};
++        fRetiredNewest=id;fHaveRetired=true;
 +        fSwapFirst=(fSwapFirst+1)%SWAP_QUEUE;--fSwapsWaiting;
 +        IOLockWakeup(fSwapLock,&fSwapsWaiting,false);
 +        IOLockUnlock(fSwapLock);

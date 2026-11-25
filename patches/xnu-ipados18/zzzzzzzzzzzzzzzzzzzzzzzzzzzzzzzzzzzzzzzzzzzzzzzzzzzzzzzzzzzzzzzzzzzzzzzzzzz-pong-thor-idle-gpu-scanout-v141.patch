@@ -1,0 +1,18 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -1638,10 +1638,11 @@
+ 	fThorNativeCpuCopy = nativeThorWorkspace && !fGpuOnly && gThorNativeGpuCopy == 0;
+ 	fReportedRetainedCadence = false;
+ 	fLastWriteback = fInteractionTraceUntil = 0;
+-	/* The direct presenter accepts panel-sized frames only. When the
+-	 * workspace needs scaling, keep Metal rendering available while the
+-	 * CPU multiplies the workspace to the retained panel framebuffer. */
+-	if (fGpuOnly || (fWidth == fPanelWidth && fHeight == fPanelHeight)) {
++	/* Publish the direct presenter only when this framebuffer can enqueue
++	 * its GPU copies. Metal rendering remains available on the CPU route. */
++	if (fThorNativeCpuCopy) {
++		if (nativeScanout) IOLog("MiniIOMobileFramebuffer: native CPU copy; direct GPU scanout skipped\n");
++	} else if (fGpuOnly || (fWidth == fPanelWidth && fHeight == fPanelHeight)) {
+ 		pong_scanout_initialize((uint64_t) fBase, (size_t) fRowBytes * fPanelHeight,
+ 		    fRowBytes, fPanelWidth, fPanelHeight);
+ 	} else if (nativeScanout) {

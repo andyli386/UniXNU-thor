@@ -1,0 +1,145 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -54,6 +54,11 @@
+ 
+ extern "C" bool pong_scanout_quarantined(void);
+ extern "C" void pong_scanout_idle(void);
++extern "C" uint64_t pong_touch_last_event_time(void);
++static uint32_t gSlowSwapWaitReceipts, gTouchFrameGapReceipts;
++static constexpr uint64_t kSlowDisplayUs = 100000;
++static constexpr uint64_t kRecentTouchUs = 250000;
++static constexpr uint32_t kDisplayReceiptLimit = 48;
+ #endif
+ #if XNU_PONG_BACKLIGHT
+ extern "C" void pong_backlight_start(IOService *display);
+@@ -302,6 +307,10 @@
+ 	uint64_t        fStatBeatWait;
+ 	uint32_t        fStatSurfaces[8];       /* the first different surfaces the bottom layer was given */
+ 	uint32_t        fStatHeld, fStatLost;   /* swaps that waited for the one before; that gave up waiting */
++#if XNU_PONG_ADRENO_PLATFORM
++	uint32_t        fStatTouchFrameGaps;
++	uint64_t        fStatTouchFrameGapMaxUs;
++#endif
+ 	uint64_t        fSwapTime;              /* when the last swap was handed over */
+ 	uint32_t        fStatSwapsLate;         /* swaps that came more than a refresh and a quarter after the one before (and no pause) */
+ 	uint64_t        fStatWaiting;           /* how long frames waited for the GPU here */
+@@ -1012,21 +1021,49 @@
+  * never sleep for a future frame and stall the render server. */
+ IOReturn IOMobileFramebuffer::waitSwap(uint32_t id,uint32_t flags,uint64_t timeout)
+ {
++#if XNU_PONG_ADRENO_PLATFORM
++    const uint64_t began = mach_absolute_time();
++    const uint32_t requested = id;
++#endif
+     uint64_t deadline;
+     clock_interval_to_deadline((uint32_t)(timeout && timeout<1000?timeout:1000),kMillisecondScale,&deadline);
++    IOReturn result = kIOReturnSuccess;
+     IOLockLock(fSwapLock);
+-    if(!id) {
+-        if(!fSwapsWaiting){IOLockUnlock(fSwapLock);return kIOReturnSuccess;}
++    const bool hasTarget = id != 0 || fSwapsWaiting != 0;
++    if (!id && hasTarget) {
+         const unsigned last=(fSwapFirst+fSwapsWaiting-1)%SWAP_QUEUE;
+         id=swapWord(fSwap[last],SWAP_ID);
+     }
+-    while(fRetired[id%64].id!=id) {
+-        if(flags&0x80000000u){IOLockUnlock(fSwapLock);return kIOReturnBusy;}
+-        if(IOLockSleepDeadline(fSwapLock,&fSwapsWaiting,deadline,THREAD_ABORTSAFE)!=THREAD_AWAKENED) {
+-            IOLockUnlock(fSwapLock);return kIOReturnTimeout;
++    if (hasTarget) {
++        while (fRetired[id%64].id != id) {
++            if (flags & 0x80000000u) {
++                result = kIOReturnBusy;
++                break;
++            }
++            if (IOLockSleepDeadline(fSwapLock, &fSwapsWaiting, deadline, THREAD_ABORTSAFE) != THREAD_AWAKENED) {
++                result = kIOReturnTimeout;
++                break;
++            }
++        }
++        if (result == kIOReturnSuccess) {
++            result = fRetired[id%64].result;
+         }
+     }
+-    IOReturn result=fRetired[id%64].result;IOLockUnlock(fSwapLock);return result;
++#if XNU_PONG_ADRENO_PLATFORM
++    const uint32_t slotID = fRetired[id%64].id;
++    const unsigned queued = fSwapsWaiting;
++#endif
++    IOLockUnlock(fSwapLock);
++#if XNU_PONG_ADRENO_PLATFORM
++    const uint64_t elapsed = micros(mach_absolute_time() - began);
++    if (elapsed >= kSlowDisplayUs &&
++        __atomic_fetch_add(&gSlowSwapWaitReceipts, 1, __ATOMIC_RELAXED) < kDisplayReceiptLimit) {
++        IOLog("PONG SWAP WAIT: at_us=%llu elapsed_us=%llu requested=%u id=%u flags=%#x "
++            "slot_id=%u queued=%u result=%#x\n", micros(began), elapsed, requested, id,
++            flags, slotID, queued, static_cast<unsigned>(result));
++    }
++#endif
++    return result;
+ }
+ 
+ void
+@@ -1271,12 +1308,32 @@
+ 		}
+ 	}
+ 	shown = began;
++#if XNU_PONG_ADRENO_PLATFORM
++	uint64_t touchGapUs = 0, lastTouch = 0, previousFrame = 0;
++#endif
+     IOLockLock(fLock);
+     if (fLastFrame != 0) {
+ 		absolutetime_to_nanoseconds(began - fLastFrame, &nanos);
+ 		nanos /= NSEC_PER_MSEC;
+ 		if (nanos >= FRAME_PAUSE) {
+ 			fFramePauses++;
++#if XNU_PONG_ADRENO_PLATFORM
++			if (desktop && nanos >= kSlowDisplayUs / 1000) {
++				const uint64_t event = pong_touch_last_event_time();
++				/* These gaps can include static content. Record the actual timestamps
++				 * so the trace can distinguish that from delayed presentation. */
++				if (event && event <= shown && (event >= fLastFrame ||
++				    micros(fLastFrame - event) <= kRecentTouchUs)) {
++					touchGapUs = micros(shown - fLastFrame);
++					lastTouch = event;
++					previousFrame = fLastFrame;
++					++fStatTouchFrameGaps;
++					if (touchGapUs > fStatTouchFrameGapMaxUs) {
++						fStatTouchFrameGapMaxUs = touchGapUs;
++					}
++				}
++			}
++#endif
+ 		} else {
+ 			fFrameTimes[nanos < FRAME_TIMES ? nanos : FRAME_TIMES]++;
+ 			fFrameLongest = nanos > fFrameLongest ? (uint32_t) nanos : fFrameLongest;
+@@ -1498,6 +1555,14 @@
+ 		fStatHeld = fStatLost = fStatOnBeat = 0;
+ 		fStatWaiting = fStatBeatWait = 0;
+ 		reportFrameTimes();
++#if XNU_PONG_ADRENO_PLATFORM
++		if (fStatTouchFrameGaps) {
++			IOLog("PONG TOUCH FRAME GAPS: count=%u max_us=%llu\n",
++			    fStatTouchFrameGaps, fStatTouchFrameGapMaxUs);
++			fStatTouchFrameGaps = 0;
++			fStatTouchFrameGapMaxUs = 0;
++		}
++#endif
+ 		if (fDiff) {
+ 			IOLog("MiniIOMobileFramebuffer: %llu pixels of the panel changed a frame, all within %u,%u to %u,%u\n",
+ 			    fDiffPixels / fStatFrames, fDiffLeft, fDiffTop, fDiffRight, fDiffBottom);
+@@ -1510,6 +1575,14 @@
+ 		fStatSince = 0;
+ 	}
+ 	IOLockUnlock(fLock);
++#if XNU_PONG_ADRENO_PLATFORM
++	if (touchGapUs &&
++	    __atomic_fetch_add(&gTouchFrameGapReceipts, 1, __ATOMIC_RELAXED) < kDisplayReceiptLimit) {
++		IOLog("PONG TOUCH FRAME GAP: swap=%u gap_us=%llu previous_us=%llu touch_us=%llu "
++		    "enqueue_us=%llu ready_us=%llu done_us=%llu\n", swapID, touchGapUs,
++		    micros(previousFrame), micros(lastTouch), micros(enqueued), micros(ready), micros(drawn));
++	}
++#endif
+ 	return kIOReturnSuccess;
+ }
+ 

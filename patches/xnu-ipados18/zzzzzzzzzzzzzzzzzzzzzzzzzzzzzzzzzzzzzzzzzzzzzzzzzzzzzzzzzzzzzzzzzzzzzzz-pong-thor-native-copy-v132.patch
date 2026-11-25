@@ -1,0 +1,35 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -1023,6 +1023,7 @@
+ static TUNABLE(uint32_t, gFilter, "fb_filter", 1);
+ #if XNU_PONG_ADRENO_PLATFORM
+ static TUNABLE(uint32_t, gThorArea, "fb_area", 1);
++static TUNABLE(uint32_t, gThorNativeGpuCopy, "fb_copy", 1);
+ #endif
+ static TUNABLE(uint32_t, gRefreshHz, "fb_hz", 0);      /* defaults selected per display */
+ static TUNABLE(uint32_t, gOnTheBeat, "fb_beat", 1);
+@@ -1202,6 +1203,7 @@
+ 	bool            fGpuColorReceipt;
+ 	bool            fThorRetainedCadence;
+ 	bool            fThorAreaScaling;
++	bool            fThorNativeCpuCopy;
+ 	bool            fReportedRetainedCadence;
+ #endif
+ 	uint64_t        fDiffPixels;
+@@ -1422,6 +1424,7 @@
+ 	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
+ 	    !PE_parse_boot_argn("fb_beat", &beatOverride, sizeof(beatOverride));
+ 	fThorAreaScaling = thor && scaledWorkspace && fThorRetainedCadence && gThorArea != 0;
++	fThorNativeCpuCopy = nativeThorWorkspace && !fGpuOnly && gThorNativeGpuCopy == 0;
+ 	fReportedRetainedCadence = false;
+ 	fLastWriteback = fInteractionTraceUntil = 0;
+ 	/* The direct presenter accepts panel-sized frames only. When the
+@@ -2386,7 +2389,7 @@
+ 	int32_t source[4],destination[4];
+ 	memcpy(source,swap+SWAP_SOURCE(0),sizeof(source));
+ 	memcpy(destination,swap+SWAP_DEST(0),sizeof(destination));
+-	if(base && !swapWord(swap,SWAP_SURFACE(1)) && !swapWord(swap,SWAP_SURFACE(2)) &&
++	if(!fThorNativeCpuCopy && base && !swapWord(swap,SWAP_SURFACE(1)) && !swapWord(swap,SWAP_SURFACE(2)) &&
+ 	    !swapWord(swap,SWAP_SURFACE(3)) && canDrawLinearBGRA(base) &&
+ 	    base->info.width>=fPanelWidth && base->info.height>=fPanelHeight &&
+ 	    !source[0] && !source[1] && !destination[0] && !destination[1] &&

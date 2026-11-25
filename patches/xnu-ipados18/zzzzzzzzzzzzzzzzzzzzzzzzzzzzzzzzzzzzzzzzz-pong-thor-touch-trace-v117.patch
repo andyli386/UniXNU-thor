@@ -1,0 +1,45 @@
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -152,10 +152,10 @@
+ static unsigned pong_desktop_handoff_count;
+ 
+ static bool
+-pong_metal_receipt_reserve(unsigned *counter)
++pong_metal_receipt_reserve(unsigned *counter, unsigned limit)
+ {
+ 	unsigned count = __atomic_load_n(counter, __ATOMIC_RELAXED);
+-	while (count < 48) {
++	while (count < limit) {
+ 		if (__atomic_compare_exchange_n(counter, &count,
+ 		    count + 1, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+ 			return true;
+@@ -213,7 +213,8 @@
+ 	if (req->newlen < 256 && (settings_timing || metal_timing || touch_timing) &&
+ 	    pong_metal_receipt_reserve(touch_timing ? touch_counter :
+ 	        settings ? &pong_settings_receipt_count :
+-	        (handoff ? &pong_desktop_handoff_count : &pong_desktop_receipt_count))) {
++	        (handoff ? &pong_desktop_handoff_count : &pong_desktop_receipt_count),
++	        touch_counter == &pong_touch_edge_receipt_count ? 2048 : 48)) {
+ 		size_t end = strnlen(text, req->newlen);
+ 		if (end && text[end - 1] == '\n') {
+ 			end--;
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -57,7 +57,6 @@
+ extern "C" uint64_t pong_touch_last_event_time(void);
+ static uint32_t gSlowSwapWaitReceipts, gTouchFrameGapReceipts;
+ static constexpr uint64_t kSlowDisplayUs = 100000;
+-static constexpr uint64_t kRecentTouchUs = 250000;
+ static constexpr uint32_t kDisplayReceiptLimit = 48;
+ #endif
+ #if XNU_PONG_BACKLIGHT
+@@ -1322,8 +1321,7 @@
+ 				const uint64_t event = pong_touch_last_event_time();
+ 				/* These gaps can include static content. Record the actual timestamps
+ 				 * so the trace can distinguish that from delayed presentation. */
+-				if (event && event <= shown && (event >= fLastFrame ||
+-				    micros(fLastFrame - event) <= kRecentTouchUs)) {
++				if (event > fLastFrame && event <= enqueued) {
+ 					touchGapUs = micros(shown - fLastFrame);
+ 					lastTouch = event;
+ 					previousFrame = fLastFrame;

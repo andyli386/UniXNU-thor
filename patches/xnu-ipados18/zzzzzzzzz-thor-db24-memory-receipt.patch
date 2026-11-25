@@ -1,0 +1,80 @@
+--- a/osfmk/arm/arm_init.c
++++ b/osfmk/arm/arm_init.c
+@@ -597,8 +597,77 @@
+ 	kprintf("kprintf initialized\n");
+ #if defined(PONG)
+     printf("Pong RAM: %u owned banks, %llu MiB managed before kernel reservations, 4 KiB pages\n",
+         pong_ram_range_count, pong_ram_bytes >> 20);
++    /* THOR v76: name each accepted bank so the DarwinBoot handoff is
++     * auditable from the console (the ADT allows 11.5 GiB; only what
++     * DarwinBoot leased from UEFI conventional memory arrives here). */
++    for (unsigned i = 0; i < pong_ram_range_count; i++)
++        printf("Pong RAM: bank %u 0x%llx + 0x%llx (%llu MiB)\n", i,
++            (unsigned long long)pong_ram_ranges[i].start,
++            (unsigned long long)(pong_ram_ranges[i].end - pong_ram_ranges[i].start),
++            (unsigned long long)(pong_ram_ranges[i].end - pong_ram_ranges[i].start) >> 20);
++    /* DarwinBoot fills the existing 4 KiB diagnostics buffer with the
++     * map from its successful ExitBootServices attempt. ADT data is only
++     * 4-byte aligned, so copy bytes into aligned local words. */
++    {
++        DTEntry diag_entry;
++        const void *property = NULL;
++        unsigned diag_len = 0;
++        if (SecureDTLookupEntry(NULL, "/chosen", &diag_entry) == kSuccess &&
++            SecureDTGetProperty(diag_entry, "darwinboot-mem-diag",
++                                &property, &diag_len) == kSuccess &&
++            property != NULL && diag_len == 4096) {
++            const volatile uint8_t *diag = property;
++            uint64_t header[4];
++            for (unsigned i = 0; i < sizeof(header); i++) {
++                ((uint8_t *)header)[i] = diag[i];
++            }
++            uint64_t high_total = header[0];
++            uint64_t high_conv = header[1];
++            uint64_t pre_reclaim = header[2];
++            uint32_t count = (uint32_t)header[3];
++            if (!pre_reclaim && !high_total && header[3] == 0) {
++                printf("DB24 MEM: unpopulated ADT record\n");
++            } else if (!pre_reclaim || header[3] >> 32 || count > 120 ||
++                       count > (diag_len - sizeof(header)) / 32 ||
++                       high_conv > high_total || ((high_total | high_conv | pre_reclaim) & 0xfff) ||
++                       (!count && high_total) || (count && !high_total)) {
++                printf("DB24 MEM: invalid ADT diagnostic header\n");
++            } else {
++                printf("DB24 MEM: recorded high %llu MiB, conventional WB %llu MiB, owned pre-reclaim %llu MiB, accepted by XNU %llu MiB, %u descriptors%s\n",
++                    (unsigned long long)(high_total >> 20),
++                    (unsigned long long)(high_conv >> 20),
++                    (unsigned long long)(pre_reclaim >> 20),
++                    (unsigned long long)(pong_ram_bytes >> 20), count,
++                    count == 120 ? " (record limit reached)" : "");
++                for (uint32_t i = 0; i < count; i++) {
++                    uint64_t row[4];
++                    const volatile uint8_t *source = diag + sizeof(header) + (size_t)i * sizeof(row);
++                    for (unsigned j = 0; j < sizeof(row); j++) {
++                        ((uint8_t *)row)[j] = source[j];
++                    }
++                    uint32_t type = (uint32_t)row[0];
++                    uint64_t attr = row[1];
++                    uint64_t start = row[2];
++                    uint64_t bytes = row[3];
++                    if (row[0] >> 32 || start < 0x100000000ULL || !bytes ||
++                        ((start | bytes) & 0xfff) || bytes > UINT64_MAX - start) {
++                        printf("DB24 MEM: [%u] invalid descriptor\n", i);
++                        continue;
++                    }
++                    printf("DB24 MEM: [%u] type=%u attr=%llx %llx..%llx (%llu MiB)%s%s\n",
++                        i, type, (unsigned long long)attr,
++                        (unsigned long long)start, (unsigned long long)(start + bytes),
++                        (unsigned long long)(bytes >> 20),
++                        (type == 7 && (attr & 0x8)) ? " WB" : "",
++                        (attr & (1ULL << 63)) ? " Runtime" : "");
++                }
++            }
++        } else {
++            printf("DB24 MEM: ADT diagnostic property absent or malformed\n");
++        }
++    }
+ #endif
+ 
+ 	serialmode = 0;
+ 	if (PE_parse_boot_argn("serial", &serialmode, sizeof(serialmode))) {

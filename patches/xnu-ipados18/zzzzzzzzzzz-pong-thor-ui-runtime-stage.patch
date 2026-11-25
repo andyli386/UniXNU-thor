@@ -1,0 +1,11 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -6016,6 +6016,6 @@ thor_stage_ui_runtime(proc_t p)
+ {
+ 	static const char old_path[] = "/private/var/pong/libpong-ui18.dylib";
+-	static const char new_path[] = "/private/var/pong/libpong-ui-v77.dylib";
++	static const char new_path[] = THOR_UI_RUNTIME_STAGE_PATH;
+ 	char injection[sizeof(exec_inject_conf)];
+ 	lck_mtx_lock(&exec_inject_lock);
+ 	strlcpy(injection, exec_inject_conf, sizeof(injection));

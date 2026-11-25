@@ -1,0 +1,205 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -34,4 +34,7 @@
+ #include <sys/systm.h>
+ #include <sys/proc.h>
++#if XNU_PONG_ADRENO_PLATFORM
++#include <vm/memory_types.h>
++#endif
+ 
+ extern "C" {
+@@ -60,4 +63,159 @@
+ static constexpr uint64_t kSlowDisplayUs = 100000;
+ static constexpr uint32_t kDisplayReceiptLimit = 48;
++#endif
++#if XNU_PONG_ADRENO_PLATFORM
++/*
++ * SM8475 Cape display layout from the Thor LineageOS display DT.
++ * The clock check follows the MIX Fold 2 probe: a retained splash can
++ * scan while the MDSS register clock is off. Do not enable gates here.
++ */
++extern "C" vm_offset_t io_map(vm_map_offset_t, vm_size_t, unsigned int, vm_prot_t, bool);
++extern "C" void ml_io_unmap(vm_offset_t, vm_size_t);
++extern "C" void pong_ramoops_diagnostic_write(const char *, int);
++
++static constexpr vm_offset_t kThorGccDispAhb = 0x00137004;
++static constexpr vm_offset_t kThorDispCc = 0x0af00000;
++static constexpr vm_offset_t kThorMdss = 0x0ae00000;
++static constexpr unsigned kThorDispCcMdp = 0x800c;
++static constexpr unsigned kThorDispCcAhb = 0x80a4;
++static constexpr unsigned kThorDispCcGdsc = 0x9000;
++static constexpr unsigned kThorCtlIntfActive = 0xf4;
++static constexpr unsigned kThorCtlFetchActive = 0xfc;
++static constexpr unsigned kThorDsiInterfaces = (1u << 1) | (1u << 2);
++static constexpr unsigned kThorIntfFrameCount = 0xac;
++static constexpr unsigned kThorIntfTearCheck = 0x284;
++static constexpr unsigned kThorIntfAutorefresh = 0x2b4;
++static constexpr unsigned kThorIntfOffset[] = { 0x36000, 0x37000 };
++static constexpr unsigned kThorSsppOffset[] = { 0x5000, 0x7000, 0x9000, 0xb000, 0x25000, 0x27000, 0x29000, 0x2b000 };
++static constexpr unsigned kThorSsppFetchBit[] = { 16, 17, 18, 19, 0, 1, 2, 3 };
++
++struct ThorDpuMappings {
++	vm_offset_t gcc;
++	vm_offset_t clocks;
++	vm_offset_t mdss;
++
++	~ThorDpuMappings()
++	{
++		if (mdss) ml_io_unmap(mdss, 0x84000);
++		if (clocks) ml_io_unmap(clocks, 0x2000);
++		if (gcc) ml_io_unmap(gcc, 0x1000);
++	}
++};
++
++static uint32_t
++thorDpuRead(vm_offset_t address)
++{
++	return *reinterpret_cast<const volatile uint32_t *>(address);
++}
++
++static void
++thorDpuMarker(const char *text)
++{
++	IOLog("%s", text);
++	pong_ramoops_diagnostic_write(text, static_cast<int>(strlen(text)));
++}
++
++static bool
++thorDpuClockRunning(uint32_t cbcr)
++{
++	/* Require both an enable indication and a deasserted CLK_OFF bit. */
++	return (cbcr & 0x80000001u) == 1u;
++}
++
++static bool
++thorDpuClocksReady(const ThorDpuMappings &map)
++{
++	const uint32_t gcc = thorDpuRead(map.gcc + (kThorGccDispAhb & 0xfff));
++	if (!thorDpuClockRunning(gcc)) {
++		IOLog("THOR DPU PROBE: skip GCC DISP AHB cbcr=%#x\n", gcc);
++		return false;
++	}
++	/* The exposed DISPCC range begins at its MDP/AHB/GDSC register page. */
++	const uint32_t gdsc = thorDpuRead(map.clocks + kThorDispCcGdsc - 0x8000);
++	const uint32_t ahb = thorDpuRead(map.clocks + kThorDispCcAhb - 0x8000);
++	const uint32_t mdp = thorDpuRead(map.clocks + kThorDispCcMdp - 0x8000);
++	if ((gdsc & 0x80000001u) != 0x80000000u || !thorDpuClockRunning(ahb) || !thorDpuClockRunning(mdp)) {
++		IOLog("THOR DPU PROBE: skip DISPCC gdsc=%#x ahb=%#x mdp=%#x\n", gdsc, ahb, mdp);
++		return false;
++	}
++	return true;
++}
++
++static void
++thorDpuProbe(uint64_t framebuffer)
++{
++	ThorDpuMappings map = {};
++	map.gcc = io_map(kThorGccDispAhb & ~0xffful, 0x1000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!map.gcc || !thorDpuClockRunning(thorDpuRead(map.gcc + (kThorGccDispAhb & 0xfff)))) {
++		thorDpuMarker("THOR DPU PROBE: skip GCC DISP AHB unavailable\n");
++		return;
++	}
++	map.clocks = io_map(kThorDispCc + 0x8000, 0x2000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!map.clocks || !thorDpuClocksReady(map)) {
++		thorDpuMarker("THOR DPU PROBE: skip MDSS register clocks or power unavailable\n");
++		return;
++	}
++	map.mdss = io_map(kThorMdss, 0x84000, VM_WIMG_IO, VM_PROT_READ, true);
++	if (!map.mdss) {
++		thorDpuMarker("THOR DPU PROBE: skip MDSS map unavailable\n");
++		return;
++	}
++
++	thorDpuMarker("THOR DPU PROBE: clock guards passed, before first MDSS read\n");
++	uint32_t active = 0, fetch = 0;
++	for (unsigned i = 0; i < 6; ++i) {
++		if (!thorDpuClocksReady(map)) return;
++		const vm_offset_t ctl = map.mdss + 0x16000 + i * 0x1000;
++		const uint32_t interfaces = thorDpuRead(ctl + kThorCtlIntfActive);
++		if (!(interfaces & kThorDsiInterfaces)) continue;
++		const uint32_t pipes = thorDpuRead(ctl + kThorCtlFetchActive);
++		active |= interfaces;
++		fetch |= pipes;
++		IOLog("THOR DPU CTL: id=%u intf=%#x fetch=%#x top=%#x flush=%#x\n", i, interfaces,
++		    pipes, thorDpuRead(ctl + 0x14), thorDpuRead(ctl + 0x18));
++	}
++	if (!(active & kThorDsiInterfaces)) {
++		thorDpuMarker("THOR DPU PROBE: skip CTL reported no active DSI route\n");
++		return;
++	}
++	for (unsigned i = 0; i < sizeof(kThorSsppOffset) / sizeof(kThorSsppOffset[0]); ++i) {
++		if (!(fetch & (1u << kThorSsppFetchBit[i]))) continue;
++		if (!thorDpuClocksReady(map)) return;
++		const vm_offset_t pipe = map.mdss + kThorSsppOffset[i];
++		const uint32_t source = thorDpuRead(pipe + 0x14);
++		const bool inFramebuffer = source >= framebuffer && source - framebuffer < 1440ull * 3200 * 4;
++		IOLog("THOR DPU SSPP: id=%u src=%#x size=%#x out=%#x stride=%#x fmt=%#x fb=%#llx inside=%u\n", i,
++		    source, thorDpuRead(pipe), thorDpuRead(pipe + 0x0c), thorDpuRead(pipe + 0x24),
++		    thorDpuRead(pipe + 0x30), framebuffer, inFramebuffer ? 1 : 0);
++	}
++
++	uint32_t previous[2] = {};
++	uint64_t previousAt = 0;
++	for (unsigned sample = 0; sample < 4; ++sample) {
++		if (sample) IOSleep(250);
++		if (!thorDpuClocksReady(map)) return;
++		const uint64_t now = mach_absolute_time();
++		uint64_t elapsed = 0;
++		if (sample) absolutetime_to_nanoseconds(now - previousAt, &elapsed);
++		for (unsigned i = 0; i < 2; ++i) {
++			if (!(active & (1u << (i + 1)))) continue;
++			const vm_offset_t intf = map.mdss + kThorIntfOffset[i];
++			const uint32_t counter = thorDpuRead(intf + kThorIntfFrameCount);
++			IOLog("THOR DPU INTF: id=%u sample=%u frames=%u delta=%u elapsed_us=%llu tear=%#x auto=%#x\n",
++			    i + 1, sample, counter, sample ? counter - previous[i] : 0, elapsed / 1000,
++			    thorDpuRead(intf + kThorIntfTearCheck), thorDpuRead(intf + kThorIntfAutorefresh));
++			previous[i] = counter;
++		}
++		previousAt = now;
++	}
++	thorDpuMarker("THOR DPU PROBE: complete, no register writes\n");
++}
++
++static void
++thorDpuProbeMain(void *arg, wait_result_t result __unused)
++{
++	thorDpuProbe(reinterpret_cast<uintptr_t>(arg));
++	(void) thread_terminate(current_thread());
++}
+ #endif
+ #if XNU_PONG_BACKLIGHT
+@@ -327,4 +485,5 @@
+ 	bool            fGpuOnly;              /* explicit bring-up policy, never the default */
+ #if XNU_PONG_ADRENO_PLATFORM
++	bool            fThorDpuProbePending;
+ 	bool            fGpuColorReceipt;
+ 	bool            fThorRetainedCadence;
+@@ -483,4 +642,10 @@
+ 	const bool thor = PE_parse_boot_argn("arp0", board, sizeof(board)) &&
+ 	    strncmp(board, "thor", sizeof(board)) == 0;
++#if XNU_PONG_ADRENO_PLATFORM
++	uint32_t dpuProbe = 1;
++	(void) PE_parse_boot_argn("thor_dpu_probe", &dpuProbe, sizeof(dpuProbe));
++	fThorDpuProbePending = dpuProbe && thor && fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	    fRowBytes == 5760 && vinfo.v_physaddr != 0;
++#endif
+ 	fRefreshHz = thor ? kFBThorRefreshHz : kFBRefreshHz;
+ 	if (gRefreshHz == 60 || gRefreshHz == 90 || gRefreshHz == 120) {
+@@ -1170,4 +1335,17 @@
+ 		}
+ 		MiniIOSurfaceClearKept();               /* (the next frame is some milliseconds away) */
++#if XNU_PONG_ADRENO_PLATFORM
++		if (fThorDpuProbePending && result == kIOReturnSuccess && fLayersShown &&
++		    strcmp(presenterWho, "backboardd") == 0) {
++			fThorDpuProbePending = false;
++			thread_t probeThread;
++			if (kernel_thread_start(thorDpuProbeMain,
++			    reinterpret_cast<void *>(static_cast<uintptr_t>(vinfo.v_physaddr)), &probeThread) == KERN_SUCCESS) {
++				thread_deallocate(probeThread);
++			} else {
++				IOLog("THOR DPU PROBE: skip worker creation failed\n");
++			}
++		}
++#endif
+ 	}
+ }

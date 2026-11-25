@@ -1,0 +1,6 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -542,2 +542,3 @@
+ 	fReportedRetainedCadence = false;
++	fLastWriteback = fInteractionTraceUntil = 0;
+ 	/* The direct presenter accepts panel-sized frames only. When the

@@ -1,0 +1,53 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -393,2 +393,4 @@
+  */
++extern "C" void flush_dcache64(addr64_t address, unsigned length, int physical);
++
+ constexpr uint32_t kThorDsiControl = 0x04;
+@@ -432,6 +434,5 @@
+ 	memcpy(memory->getBytesNoCopy(), program, bytes);
+-	if (memory->performOperation(kIOMemoryIncoherentIOFlush, 0, bytes) != kIOReturnSuccess) {
+-		IOLog("THOR DSI 120: %s command buffer cache flush failed\n", tag);
+-		return ThorDsiNotStarted;
+-	}
++	/* Use explicit cache maintenance for this board's identity DMA path. */
++	flush_dcache64(physical, static_cast<unsigned>(bytes), 1);
++	__asm__ volatile("dsb sy" ::: "memory");
+ 
+@@ -523,5 +524,7 @@
+ 
++	constexpr IOByteCount commandBytes = sizeof(kThorDsiWqhd120);
++	static_assert(commandBytes == sizeof(kThorDsiWqhd60));
+ 	IOBufferMemoryDescriptor *memory = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task,
+-	    static_cast<IOOptionBits>(kIODirectionOut) | kIOMemoryMapperNone | kIOMemoryPhysicallyContiguous,
+-	    4096, 0xfffff000ull);
++	    static_cast<IOOptionBits>(kIODirectionInOut) | static_cast<IOOptionBits>(kIOMemoryMapperNone) |
++	    kIOMemoryPhysicallyContiguous, 4096, 0xfffff000ull);
+ 	if (!memory) {
+@@ -530,3 +533,5 @@
+ 	}
+-	if (memory->prepare() != kIOReturnSuccess) {
++	const IOReturn prepared = memory->prepare();
++	if (prepared != kIOReturnSuccess) {
++		IOLog("THOR DSI 120: low page prepare failed=%#x\n", static_cast<unsigned>(prepared));
+ 		memory->release();
+@@ -534,6 +539,14 @@
+ 	}
+-	IOByteCount size = 0;
+-	const uint64_t address = memory->getPhysicalSegment(0, &size, kIOMemoryMapperNone);
+-	if (!address || (address & 4095) || address > 0xfffff000ull || size < 4096 ||
+-	    memory->getLength() != 4096 || !memory->getBytesNoCopy()) {
++	IOByteCount segment = 0, tail = 0;
++	const uint64_t address = memory->getPhysicalSegment(0, &segment, kIOMemoryMapperNone);
++	const uint64_t last = memory->getPhysicalSegment(commandBytes - 1, &tail, kIOMemoryMapperNone);
++	const uint64_t descriptorBytes = memory->getLength();
++	const bool hasBuffer = memory->getBytesNoCopy() != nullptr;
++	IOLog("THOR DSI 120: low page pa=%#llx seg=%llu last=%#llx tail=%llu descriptor=%llu kva=%u\n",
++	    address, static_cast<uint64_t>(segment), last, static_cast<uint64_t>(tail), descriptorBytes, hasBuffer ? 1u : 0u);
++	/* The descriptor owns the entire page. Validate the command range
++	 * exactly; the segment helper may clip its reported length. */
++	if (!address || (address & 4095) || address > 0xfffff000ull || segment < commandBytes || !tail ||
++	    last != address + commandBytes - 1 || descriptorBytes < 4096 || !hasBuffer) {
++		thorDpuMarker("THOR DSI 120: skipped; fresh DMA page failed physical range validation\n");
+ 		(void) memory->complete();

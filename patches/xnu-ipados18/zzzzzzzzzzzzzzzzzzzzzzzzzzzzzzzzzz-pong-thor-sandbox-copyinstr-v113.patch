@@ -1,0 +1,40 @@
+--- a/bsd/kern/kern_minimac.c
++++ b/bsd/kern/kern_minimac.c
+@@ -552,7 +552,8 @@
+ 		return 0;
+ 	}
+ 	char extension_class[64], path[MAXPATHLEN];
+-	error = copyinstr(request.extension_class, extension_class, sizeof(extension_class), NULL);
++	vm_size_t copied;
++	error = copyinstr(request.extension_class, extension_class, sizeof(extension_class), &copied);
+ 	if (error != 0) {
+ 		return error;
+ 	}
+@@ -560,7 +561,7 @@
+ 		*handled = false;
+ 		return 0;
+ 	}
+-	error = copyinstr(request.path, path, sizeof(path), NULL);
++	error = copyinstr(request.path, path, sizeof(path), &copied);
+ 	if (error != 0) {
+ 		return error;
+ 	}
+@@ -638,7 +639,8 @@
+ 		return 0;
+ 	}
+ 	char token[THOR_IX_TOKEN_SIZE];
+-	error = copyinstr(request.token, token, sizeof(token), NULL);
++	vm_size_t copied;
++	error = copyinstr(request.token, token, sizeof(token), &copied);
+ 	if (error != 0 ||
+ 	    strncmp(token, thor_ix_token_prefix, sizeof(thor_ix_token_prefix) - 1) != 0) {
+ 		return 0;
+@@ -647,7 +649,7 @@
+ 	if (!thor_ix_is_helper(p)) {
+ 		return EPERM;
+ 	}
+-	if (strlen(token) != sizeof(token) - 1) {
++	if (copied != sizeof(token)) {
+ 		return EINVAL;
+ 	}
+ 

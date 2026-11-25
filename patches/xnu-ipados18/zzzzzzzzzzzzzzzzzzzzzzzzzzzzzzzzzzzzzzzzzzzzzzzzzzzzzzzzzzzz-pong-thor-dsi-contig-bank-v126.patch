@@ -1,0 +1,16 @@
+--- a/osfmk/vm/vm_resident.c
++++ b/osfmk/vm/vm_resident.c
+@@ -7154,6 +7154,13 @@
+ 		assert(vm_page_is_canonical(m));
+ 
+ 		if (max_pnum && VM_PAGE_GET_PHYS_PAGE(m) > max_pnum) {
++#if defined(PONG)
++			/* The boot bank is first and later banks need not be ordered by PA. */
++			if (pong_ram_range_count > 1) {
++				RESET_STATE_OF_RUN();
++				goto did_consider;
++			}
++#endif
+ 			/* no more low pages... */
+ 			break;
+ 		}

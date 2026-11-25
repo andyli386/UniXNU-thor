@@ -1,0 +1,37 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -1415,11 +1415,13 @@
+ 	const bool nativeScanout = PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) && scanout == 1;
+ 	fGpuColorReceipt = nativeScanout && PE_parse_boot_argn("memlog", &memlog, sizeof(memlog)) && memlog == 1;
+ 	uint32_t metal = 0, beatOverride = 0;
+-	fThorRetainedCadence = nativeScanout && !fGpuOnly && !gFilter &&
+-	    fWidth == 960 && fHeight == 2133 && fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	const bool scaledWorkspace = fWidth == 960 && fHeight == 2133;
++	const bool nativeThorWorkspace = thor && fWidth == fPanelWidth && fHeight == fPanelHeight;
++	fThorRetainedCadence = !fGpuOnly && !gFilter && fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	    ((nativeScanout && scaledWorkspace) || nativeThorWorkspace) &&
+ 	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
+ 	    !PE_parse_boot_argn("fb_beat", &beatOverride, sizeof(beatOverride));
+-	fThorAreaScaling = thor && fThorRetainedCadence && gThorArea != 0;
++	fThorAreaScaling = thor && scaledWorkspace && fThorRetainedCadence && gThorArea != 0;
+ 	fReportedRetainedCadence = false;
+ 	fLastWriteback = fInteractionTraceUntil = 0;
+ 	/* The direct presenter accepts panel-sized frames only. When the
+@@ -1899,6 +1901,17 @@
+ 	job.cx1 = cx1;
+ 	job.filter = filter;
+ 	job.unscaled = px1 - px0 == sw && py1 - py0 == sh && px0 >= 0 && (uint32_t) px1 <= fPanelWidth;
++#if XNU_PONG_ADRENO_PLATFORM
++	if (fThorRetainedCadence && job.unscaled && sx == 0 && sy == 0 && px0 == 0 && py0 == 0 &&
++	    sw == 1440 && sh == 3200) {
++		static unsigned reportedNative;
++		if (!__atomic_load_n(&reportedNative, __ATOMIC_RELAXED) &&
++		    !__atomic_exchange_n(&reportedNative, 1u, __ATOMIC_RELAXED)) {
++			IOLog("PONG SCANOUT: native CPU 1:1 source=%dx%d stride=%u panel_stride=%u\n",
++			    sw, sh, s->info.bytesPerRow, fRowBytes);
++		}
++	}
++#endif
+ 	if (fThreads <= 1 || fDiff) {
+ 		drawRows(&job, visibleY0, visibleY1, fBlendRow);
+ 		return;

@@ -1,0 +1,30 @@
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -147,6 +147,8 @@
+ static unsigned pong_settings_receipt_count;
+ static unsigned pong_desktop_receipt_count;
+ static unsigned pong_touch_receipt_count;
++static unsigned pong_touch_edge_receipt_count;
++static unsigned pong_touch_slow_receipt_count;
+ static unsigned pong_desktop_handoff_count;
+ 
+ static bool
+@@ -199,8 +201,17 @@
+ 	    scanout == 1));
+ 	const bool touch_timing = desktop &&
+ 	    strncmp(text, "Pong Touch: ", sizeof("Pong Touch: ") - 1) == 0;
++	unsigned *touch_counter = &pong_touch_receipt_count;
++	if (touch_timing) {
++		if (!strncmp(text, "Pong Touch: edge ", sizeof("Pong Touch: edge ") - 1)) {
++			touch_counter = &pong_touch_edge_receipt_count;
++		} else if (!strncmp(text, "Pong Touch: slow ", sizeof("Pong Touch: slow ") - 1) ||
++		    !strncmp(text, "Pong Touch: refused ", sizeof("Pong Touch: refused ") - 1)) {
++			touch_counter = &pong_touch_slow_receipt_count;
++		}
++	}
+ 	if (req->newlen < 256 && (settings_timing || metal_timing || touch_timing) &&
+-	    pong_metal_receipt_reserve(touch_timing ? &pong_touch_receipt_count :
++	    pong_metal_receipt_reserve(touch_timing ? touch_counter :
+ 	        settings ? &pong_settings_receipt_count :
+ 	        (handoff ? &pong_desktop_handoff_count : &pong_desktop_receipt_count))) {
+ 		size_t end = strnlen(text, req->newlen);

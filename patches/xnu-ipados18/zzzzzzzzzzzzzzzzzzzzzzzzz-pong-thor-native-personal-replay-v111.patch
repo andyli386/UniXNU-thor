@@ -1,0 +1,113 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -8035,6 +8035,96 @@
+ }
+ #endif
+ 
++#if CONFIG_PERSONAS && defined(PONG) && (DEVELOPMENT || DEBUG) && !SECURE_KERNEL && \
++    defined(XNU_OWNER_DATA_MOUNT) && XNU_OWNER_DATA_MOUNT
++/*
++ * The stock 22H374 usermanagerd --init wrote this native registry on this
++ * Thor. Restore launchd does not replay it on subsequent boots. Recognize
++ * the known registry before creating its matching in-memory personal
++ * persona. Unknown or replaced Data stays on the native boot path.
++ */
++static int
++thor_restore_personal_persona(proc_t p)
++{
++	static const uid_t persona_id = 1000;
++	static const char login[] = "4AB64734-42BF-4B3E-ADD8-AB46A5C015CD";
++	static const unsigned char expected[32] = {
++		0x8d, 0xca, 0x3c, 0x22, 0xc5, 0xa3, 0xbf, 0xa2,
++		0x9a, 0xe3, 0x2e, 0xce, 0x63, 0x79, 0xc9, 0xb4,
++		0x45, 0xec, 0xb2, 0x34, 0x8a, 0x51, 0x11, 0xf3,
++		0x46, 0x35, 0x4b, 0x5b, 0x04, 0x4d, 0x60, 0xb7,
++	};
++	unsigned char manifest[1514], digest[sizeof(expected)];
++	vfs_context_t context = vfs_context_current();
++	vnode_t file = NULLVP;
++	int error = vnode_open("/private/var/keybags/persona.kb", FREAD, 0,
++	    VNODE_LOOKUP_NOFOLLOW_ANY, &file, context);
++	if (error) {
++		return error;
++	}
++
++	struct vnode_attr attributes;
++	VATTR_INIT(&attributes);
++	VATTR_WANTED(&attributes, va_data_size);
++	VATTR_WANTED(&attributes, va_uid);
++	VATTR_WANTED(&attributes, va_mode);
++	error = VNOP_GETATTR(file, &attributes, context);
++	if (!error && (vnode_vtype(file) != VREG ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_data_size) ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_uid) ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_mode) ||
++	    attributes.va_uid != 0 || (attributes.va_mode & 0022) ||
++	    attributes.va_data_size != sizeof(manifest))) {
++		error = EINVAL;
++	}
++	if (!error) {
++		int residual = 0;
++		error = vn_rdwr(UIO_READ, file, (caddr_t)manifest, sizeof(manifest), 0,
++		    UIO_SYSSPACE, IO_UNIT, vfs_context_ucred(context), &residual, p);
++		if (!error && residual) {
++			error = EIO;
++		}
++	}
++	int close_error = vnode_close(file, FREAD, context);
++	if (error || close_error) {
++		return error ? error : close_error;
++	}
++
++	SHA256_CTX hash;
++	SHA256_Init(&hash);
++	SHA256_Update(&hash, manifest, sizeof(manifest));
++	SHA256_Final(digest, &hash);
++	if (memcmp(digest, expected, sizeof(expected))) {
++		return EINVAL;
++	}
++
++	struct persona *existing = NULL;
++	size_t count = 1;
++	if (persona_find(login, persona_id, &existing, &count) == 0) {
++		bool matches = persona_get_type(existing) == PERSONA_DEFAULT &&
++		    persona_get_uid(existing) == KAUTH_UID_NONE;
++		persona_put(existing);
++		return matches ? 0 : EEXIST;
++	}
++
++	/* Stock usermanagerd maps its Personal type to kernel DEFAULT.
++	 * Without an OD user key it uses KAUTH_UID_NONE and no home path.
++	 * launchd's native spawn still sets the mobile UID/GID for the app. */
++	struct persona *persona = persona_alloc(persona_id, login, PERSONA_DEFAULT,
++	    NULL, KAUTH_UID_NONE, &error);
++	if (!persona) {
++		return error;
++	}
++	error = persona_init_begin(persona);
++	persona_init_end(persona, error);
++	if (error) {
++		persona_put(persona);
++	}
++	/* The initial reference belongs to the registry after success. */
++	return error;
++}
++#endif
++
+ static int
+ load_init_program_at_path(proc_t p, user_addr_t scratch_addr, const char* path, user_addr_t envp)
+ {
+@@ -8206,6 +8296,12 @@
+ 	else printf("PONG APFS: Data mount PASS path=/private/var device=%s rw=%d bytes=%llu\n",
+ 	    native_owner_data_device_path, !native_owner_data_readonly,
+ 	    (unsigned long long)native_owner_data_seed_size);
++#if CONFIG_PERSONAS && defined(PONG) && (DEVELOPMENT || DEBUG) && !SECURE_KERNEL
++	if (!data_error) {
++		int persona_error = thor_restore_personal_persona(p);
++		printf("THOR persona: native personal replay id=1000 result=%d\n", persona_error);
++	}
++#endif
+ #endif
+ 	}
+ #ifdef THOR_UI_RUNTIME_PAYLOAD

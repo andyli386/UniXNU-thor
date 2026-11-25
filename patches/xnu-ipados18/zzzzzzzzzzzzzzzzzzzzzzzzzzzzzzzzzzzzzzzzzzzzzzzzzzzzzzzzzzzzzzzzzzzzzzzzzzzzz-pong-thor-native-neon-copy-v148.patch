@@ -1,0 +1,72 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -1889,6 +1889,24 @@
+ 	bool            filter, unscaled, nearestThreeToTwo, areaThreeToTwo;
+ };
+ 
++#if XNU_PONG_ADRENO_PLATFORM && defined(__aarch64__) && defined(__ARM_NEON)
++static inline void
++drawThorNativeRow(const uint32_t *row, uint32_t *panel)
++{
++	const ThorNeonU32x4 opaque = vdupq_n_u32(0xff000000u);
++	for (uint32_t x = 0; x < 1440; x += 16) {
++		const auto a = vld1q_u32(row + x);
++		const auto b = vld1q_u32(row + x + 4);
++		const auto c = vld1q_u32(row + x + 8);
++		const auto d = vld1q_u32(row + x + 12);
++		vst1q_u32(panel + x, vorrq_u32(a, opaque));
++		vst1q_u32(panel + x + 4, vorrq_u32(b, opaque));
++		vst1q_u32(panel + x + 8, vorrq_u32(c, opaque));
++		vst1q_u32(panel + x + 12, vorrq_u32(d, opaque));
++	}
++}
++#endif
++
+ void
+ IOMobileFramebuffer::drawRows(const RowJob * job, int32_t y0, int32_t y1, uint32_t * blendRow)
+ {
+@@ -1903,6 +1921,24 @@
+ 	if (y1 > (int32_t) fPanelHeight) y1 = (int32_t) fPanelHeight;
+ 	if (y0 >= y1 || cx0 >= cx1) return;
+ 
++#if XNU_PONG_ADRENO_PLATFORM && defined(__aarch64__) && defined(__ARM_NEON)
++	if (fThorNativeCpuCopy && job->unscaled && sx == 0 && sy == 0 && px0 == 0 && py0 == 0 &&
++	    sw == 1440 && sh == 3200 && fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	    (stride == 5888 || stride == 5760) && fRowBytes == 5760 &&
++	    ((reinterpret_cast<uintptr_t>(pixels) | reinterpret_cast<uintptr_t>(fBase)) & 15) == 0) {
++		for (int32_t y = y0; y < y1; y++) {
++			const auto *row = reinterpret_cast<const uint32_t *>(pixels + static_cast<size_t>(y) * stride);
++			auto *panel = reinterpret_cast<uint32_t *>(fBase + static_cast<size_t>(y) * fRowBytes);
++			drawThorNativeRow(row, panel);
++		}
++		static unsigned reported;
++		if (!__atomic_load_n(&reported, __ATOMIC_RELAXED) &&
++		    !__atomic_exchange_n(&reported, 1u, __ATOMIC_RELAXED)) {
++			IOLog("PONG SCANOUT: native CPU vector copy active\n");
++		}
++		return;
++	}
++#endif
+ 	if (job->areaThreeToTwo) {
+ 		const uint32_t sourceHeight = static_cast<uint32_t>(sh);
+ 		const uint32_t panelHeight = fPanelHeight;
+@@ -2145,8 +2181,9 @@
+ 			    job.areaThreeToTwo ? "area" : "nearest");
+ 		}
+ 	}
+-	/* Work out the generic source column once for each panel column. */
+-	if (!job.nearestThreeToTwo) {
++	job.unscaled = px1 - px0 == sw && py1 - py0 == sh && px0 >= 0 && (uint32_t) px1 <= fPanelWidth;
++	/* Work out source columns only for the generic scaling path. */
++	if (!job.unscaled && !job.nearestThreeToTwo) {
+ 		for (int32_t x = cx0; x < cx1; x++) {
+ 			if (filter) {
+ 				int64_t at = sample_at(x - px0, sw, px1 - px0);
+@@ -2171,7 +2208,6 @@
+ 	job.cx0 = cx0;
+ 	job.cx1 = cx1;
+ 	job.filter = filter;
+-	job.unscaled = px1 - px0 == sw && py1 - py0 == sh && px0 >= 0 && (uint32_t) px1 <= fPanelWidth;
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	if (fThorRetainedCadence && job.unscaled && sx == 0 && sy == 0 && px0 == 0 && py0 == 0 &&
+ 	    sw == 1440 && sh == 3200) {

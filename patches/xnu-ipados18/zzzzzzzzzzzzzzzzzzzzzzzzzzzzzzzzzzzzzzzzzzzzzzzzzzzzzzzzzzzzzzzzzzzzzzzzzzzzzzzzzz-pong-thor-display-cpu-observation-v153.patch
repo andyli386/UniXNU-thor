@@ -1,0 +1,46 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -26,6 +26,7 @@
+ #include <libkern/c++/OSString.h>
+ #include <libkern/c++/OSSymbol.h>
+ #include <libkern/c++/OSCollectionIterator.h>
++#include <kern/cpu_number.h>
+ #include <kern/thread_call.h>
+ #include <kern/thread.h>
+ #include <kern/clock.h>
+@@ -2681,6 +2682,13 @@
+         nanoseconds_to_absolutetime(1200ull * NSEC_PER_MSEC, &span);
+         fInteractionTraceUntil = shown + span;
+     }
++	// Report instantaneous presenter placement in sampled writebacks.
++	// The CPU may migrate while its helpers do their share of the copy.
++	const bool samplePresenterCPU = fThorRetainedCadence && desktop &&
++	    (shown <= fInteractionTraceUntil ||
++	    (fSwapsShown % 4 == 0 && interaction &&
++	    (interaction > shown || micros(shown - interaction) <= 90000)));
++	const int presenterCPUStart = samplePresenterCPU ? cpu_number() : -1;
+ #endif
+     if (fLastFrame != 0) {
+ 		absolutetime_to_nanoseconds(began - fLastFrame, &nanos);
+@@ -2816,6 +2824,7 @@
+ #endif
+ 	drawn = mach_absolute_time();
+ #if XNU_PONG_ADRENO_PLATFORM
++	const int presenterCPUEnd = samplePresenterCPU ? cpu_number() : -1;
+ 	fLastWriteback = drawn;
+ 	if (fThorRetainedCadence && desktop && surfaces[0]) {
+ 		__atomic_fetch_add(&gThorFrameWritebacks, 1, __ATOMIC_RELAXED);
+@@ -2994,9 +3003,10 @@
+ 	readers.release();
+ 	if (cadenceReceipt) {
+ 		IOLog("PONG TOUCH FRAME: swap=%u touch_us=%llu enqueue_us=%llu ready_us=%llu "
+-		    "start_us=%llu done_us=%llu fp=%016llx white=%u dark=%u samples=%u sample_us=%llu\n",
++		    "start_us=%llu done_us=%llu fp=%016llx white=%u dark=%u samples=%u sample_us=%llu cpu=%d/%d\n",
+ 		    swapID, micros(sampledTouch), micros(enqueued), micros(ready), micros(shown),
+-		    micros(drawn), frameFingerprint, nearWhite, nearBlack, samples, sampleUs);
++		    micros(drawn), frameFingerprint, nearWhite, nearBlack, samples, sampleUs,
++		    presenterCPUStart, presenterCPUEnd);
+ 	}
+ 	if (touchGapUs &&
+ 	    __atomic_fetch_add(&gTouchFrameGapReceipts, 1, __ATOMIC_RELAXED) < kDisplayReceiptLimit) {

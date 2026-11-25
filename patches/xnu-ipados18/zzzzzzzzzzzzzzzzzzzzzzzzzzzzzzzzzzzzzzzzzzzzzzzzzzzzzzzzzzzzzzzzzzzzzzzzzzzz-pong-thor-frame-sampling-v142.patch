@@ -1,0 +1,100 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -2539,7 +2539,14 @@
+ #endif
+     struct Readers {
+         MiniIOSurface *held[SWAP_LAYERS]={};
+-        ~Readers(){for(auto *surface:held)if(surface)MiniIOSurfaceDisplayDone(surface);}
++        void release()
++        {
++            for (auto *&surface : held) {
++                if (surface) MiniIOSurfaceDisplayDone(surface);
++                surface = nullptr;
++            }
++        }
++        ~Readers() { release(); }
+     } readers;
+ 	MiniIOSurfaceReadTiming readTiming = {};
+ #if XNU_PONG_ADRENO_PLATFORM
+@@ -2765,34 +2772,23 @@
+ 	}
+ 	const uint64_t sampledTouch = interaction;
+ 	const bool traceWindow = drawn <= fInteractionTraceUntil;
+-	// Retain launch detail while keeping panel reads out of most moving frames.
++	// Retain launch detail with sampled timing outside the presenter lock.
+ 	const bool sampleFrame = traceWindow || fSwapsShown % 4 == 0;
+ 	uint32_t *const traceBudget = traceWindow ? &gBurstFrameReceipts : &gCadenceFrameReceipts;
+ 	const uint32_t traceLimit = traceWindow ? 1536 : 2048;
+-	uint64_t frameFingerprint = 0;
+-	unsigned nearWhite = 0, nearBlack = 0;
+-	bool cadenceReceipt = false;
+-	if (sampleFrame && fThorRetainedCadence && desktop && layers && !gpuFrame &&
++	const bool cadenceReceipt = sampleFrame && fThorRetainedCadence && desktop && layers && !gpuFrame &&
+ 	    (traceWindow || (sampledTouch && sampledTouch <= drawn &&
+ 	        micros(drawn - sampledTouch) <= 90000)) &&
+ 	    __atomic_load_n(traceBudget, __ATOMIC_RELAXED) < traceLimit &&
+-	    __atomic_fetch_add(traceBudget, 1, __ATOMIC_RELAXED) < traceLimit) {
+-		// Sparse samples indicate changes to framebuffer contents, including the keypad.
+-		const volatile uint32_t *row;
+-		frameFingerprint = 14695981039346656037ull;
+-		for (unsigned y = 1; y < 24; ++y) {
+-			row = reinterpret_cast<const volatile uint32_t *>(
+-			    fBase + (size_t) (fPanelHeight * y / 24) * fRowBytes);
+-			for (unsigned x = 1; x < 12; ++x) {
+-				const uint32_t rgb = row[fPanelWidth * x / 12] & 0xffffffu;
+-				frameFingerprint ^= rgb;
+-				frameFingerprint *= 1099511628211ull;
+-				nearWhite += (rgb & 0x00f8f8f8u) == 0x00f8f8f8u;
+-				nearBlack += (rgb & 0x00f8f8f8u) == 0;
+-			}
+-		}
+-		cadenceReceipt = true;
+-	}
++	    __atomic_fetch_add(traceBudget, 1, __ATOMIC_RELAXED) < traceLimit;
++	// The full-screen 1:1 copy preserves RGB and only sets the alpha byte.
++	// The display reader keeps this source stable until show() returns.
++	const bool exactNativeSample = cadenceReceipt && fThorNativeCpuCopy && layers == 1 &&
++	    canDrawLinearBGRA(base) && base->info.width >= fPanelWidth && base->info.height >= fPanelHeight &&
++	    !source[0] && !source[1] && !destination[0] && !destination[1] &&
++	    source[2] == (int32_t) fPanelWidth && source[3] == (int32_t) fPanelHeight &&
++	    destination[2] == (int32_t) fPanelWidth && destination[3] == (int32_t) fPanelHeight;
++	const uint32_t sampleWidth = fPanelWidth, sampleHeight = fPanelHeight;
+ #endif
+ 	fSwapsShown++;
+ 	if (gTouchLat) {
+@@ -2924,11 +2920,33 @@
+ 	}
+ 	IOLockUnlock(fLock);
+ #if XNU_PONG_ADRENO_PLATFORM
++	uint64_t frameFingerprint = 0, sampleUs = 0;
++	unsigned nearWhite = 0, nearBlack = 0, samples = 0;
++	if (exactNativeSample) {
++		const uint64_t sampleBegan = mach_absolute_time();
++		const uint8_t *pixels = base->pixels();
++		frameFingerprint = 14695981039346656037ull;
++		for (unsigned y = 1; y < 24; ++y) {
++			const uint8_t *row = pixels + (size_t) (sampleHeight * y / 24) * base->info.bytesPerRow;
++			for (unsigned x = 1; x < 12; ++x) {
++				uint32_t pixel;
++				memcpy(&pixel, row + sizeof(pixel) * (sampleWidth * x / 12), sizeof(pixel));
++				const uint32_t rgb = pixel & 0xffffffu;
++				frameFingerprint ^= rgb;
++				frameFingerprint *= 1099511628211ull;
++				nearWhite += (rgb & 0x00f8f8f8u) == 0x00f8f8f8u;
++				nearBlack += (rgb & 0x00f8f8f8u) == 0;
++			}
++		}
++		samples = 23 * 11;
++		sampleUs = micros(mach_absolute_time() - sampleBegan);
++	}
++	readers.release();
+ 	if (cadenceReceipt) {
+ 		IOLog("PONG TOUCH FRAME: swap=%u touch_us=%llu enqueue_us=%llu ready_us=%llu "
+-		    "start_us=%llu done_us=%llu fp=%016llx white=%u dark=%u samples=253\n",
++		    "start_us=%llu done_us=%llu fp=%016llx white=%u dark=%u samples=%u sample_us=%llu\n",
+ 		    swapID, micros(sampledTouch), micros(enqueued), micros(ready), micros(shown),
+-		    micros(drawn), frameFingerprint, nearWhite, nearBlack);
++		    micros(drawn), frameFingerprint, nearWhite, nearBlack, samples, sampleUs);
+ 	}
+ 	if (touchGapUs &&
+ 	    __atomic_fetch_add(&gTouchFrameGapReceipts, 1, __ATOMIC_RELAXED) < kDisplayReceiptLimit) {

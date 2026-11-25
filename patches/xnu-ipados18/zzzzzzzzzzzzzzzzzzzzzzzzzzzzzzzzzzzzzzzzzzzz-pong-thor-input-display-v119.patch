@@ -1,0 +1,136 @@
+--- a/bsd/dev/pong_fts.c
++++ b/bsd/dev/pong_fts.c
+@@ -1060,8 +1060,7 @@
+ 	    fts_read(SALIXP_OP_FIFO, 0, 0, events[1], remaining * FTS_EVENT_SIZE);
+ 	timing->read_us = fts_monotonic_us() - read_start_us;
+-	if (!read_all) {
+-		return false;
+-	}
+-	for (unsigned index = 0; index <= remaining && events[index][0]; index++) {
++	/* The first read consumed its event even if the burst failed. */
++	const unsigned available = read_all ? remaining + 1 : 1;
++	for (unsigned index = 0; index < available && events[index][0]; index++) {
+ 		timing->events++;
+ 		if (!fts_dispatch(events[index], timing)) {
+@@ -1069,5 +1068,5 @@
+ 		}
+ 	}
+-	return true;
++	return read_all;
+ }
+ 
+@@ -1176,6 +1175,9 @@
+ 	// SALIXP can queue a contact before a low IRQ is sampled. Probe its
+ 	// FIFO sooner with IRQ high, especially while waiting for a release.
+-	const unsigned salixp_idle_ticks = 5, salixp_contact_ticks = 2;
++	const uint64_t salixp_idle_us = 40000, salixp_contact_us = 16000;
++	const uint64_t salixp_interaction_us = 250000;
++	uint64_t last_fifo_us = 0, last_contact_us = 0;
+ 	unsigned idle = 0, iterations = 0, failures = 0;
++	unsigned fast_sleeps = 0;
+ 	unsigned fallback_polls = 0, fallback_contacts = 0, fallback_releases = 0;
+ 	const uint64_t slow_loop_us = 50000, report_interval_us = 2000000;
+@@ -1186,7 +1188,7 @@
+ 		const uint64_t sample_us = thor_salixp ? fts_monotonic_us() : 0;
+ 		const bool irq = !gpio_get(PIN_INT);
+-		const unsigned fallback_ticks = thor_salixp ?
+-		    (fts_has_contact() ? salixp_contact_ticks : salixp_idle_ticks) : 10;
+-		const bool poll_fifo = irq || ++idle >= fallback_ticks;
++		const uint64_t fallback_us = fts_has_contact() ? salixp_contact_us : salixp_idle_us;
++		const bool poll_fifo = irq || (thor_salixp ?
++		    sample_us - last_fifo_us >= fallback_us : ++idle >= 10);
+ 		struct salixp_poll_timing timing = {0};
+ 		uint64_t poll_us = 0;
+@@ -1199,4 +1201,8 @@
+ 			if (thor_salixp) {
+ 				poll_us = fts_monotonic_us() - poll_start_us;
++				last_fifo_us = sample_us;
++				if (seen.touches != contacts_before || seen.releases != releases_before) {
++					last_contact_us = sample_us;
++				}
+ 			}
+ 			if (thor_salixp && !irq) {
+@@ -1246,5 +1252,10 @@
+ 		}
+ 		const uint64_t sleep_start_us = thor_salixp ? fts_monotonic_us() : 0;
+-		sleep_ms(8);
++		/* Sample the IRQ level faster during interaction without polling an
++		 * empty FIFO more often. Keep the legacy path at its original cadence. */
++		const bool fast = thor_salixp && (fts_has_contact() ||
++		    (last_contact_us && sample_us - last_contact_us < salixp_interaction_us));
++		fast_sleeps += fast;
++		sleep_ms(fast ? 4 : 8);
+ 		if (thor_salixp) {
+ 			previous_sleep_us = fts_monotonic_us() - sleep_start_us;
+@@ -1255,6 +1266,6 @@
+ 			    seen.polls, seen.events, seen.touches, seen.last_x, seen.last_y, seen.errors, seen.io_failures);
+ 			if (thor_salixp) {
+-				printf("Pong FTS: IRQ-high fallback polls=%u contacts=%u releases=%u intervals=%u/%u\n",
+-				    fallback_polls, fallback_contacts, fallback_releases, salixp_idle_ticks, salixp_contact_ticks);
++				printf("Pong FTS: IRQ-high fallback polls=%u contacts=%u releases=%u idle_us=%llu contact_us=%llu fast_sleeps=%u\n",
++				    fallback_polls, fallback_contacts, fallback_releases, salixp_idle_us, salixp_contact_us, fast_sleeps);
+ 				printf("Pong FTS: timing slow_loops=%u max_loop_us=%llu paired_batches=%u\n",
+ 				    slow_loops, max_loop_us, paired_batches);
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -311,4 +311,5 @@
+ 	uint32_t        fStatTouchFrameGaps;
+ 	uint64_t        fStatTouchFrameGapMaxUs;
++	uint64_t        fLastWriteback, fInteractionTraceUntil;
+ #endif
+ 	uint64_t        fSwapTime;              /* when the last swap was handed over */
+@@ -1274,9 +1275,10 @@
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	if (pace && fThorRetainedCadence && desktop && surfaces[0] != NULL) {
+-		/* The retained framebuffer is updated in place. Use the existing
+-		 * software cadence to avoid closely spaced consecutive updates. */
++		/* The v118 software beat added delay without improving presentation. */
++		pace = false;
++		fBeat = fReady = 0;
+ 		if (!fReportedRetainedCadence) {
+ 			fReportedRetainedCadence = true;
+-			IOLog("PONG FB PACE: Thor retained framebuffer uses software refresh pacing\n");
++			IOLog("PONG FB PACE: Thor retained framebuffer presents on readiness\n");
+ 		}
+ 	}
+@@ -1311,4 +1313,13 @@
+ #endif
+     IOLockLock(fLock);
++#if XNU_PONG_ADRENO_PLATFORM
++    const uint64_t interaction = pong_touch_last_event_time();
++    if (fThorRetainedCadence && desktop && fLastWriteback && interaction > fLastWriteback &&
++        interaction <= enqueued && micros(shown - fLastWriteback) >= 100000) {
++        uint64_t span;
++        nanoseconds_to_absolutetime(1200ull * NSEC_PER_MSEC, &span);
++        fInteractionTraceUntil = shown + span;
++    }
++#endif
+     if (fLastFrame != 0) {
+ 		absolutetime_to_nanoseconds(began - fLastFrame, &nanos);
+@@ -1321,8 +1332,8 @@
+ 				/* These gaps can include static content. Record the actual timestamps
+ 				 * so the trace can distinguish that from delayed presentation. */
+-				if (event > fLastFrame && event <= enqueued) {
+-					touchGapUs = micros(shown - fLastFrame);
++				if (event > fLastWriteback && event <= enqueued && fLastWriteback) {
++					touchGapUs = micros(shown - fLastWriteback);
+ 					lastTouch = event;
+-					previousFrame = fLastFrame;
++					previousFrame = fLastWriteback;
+ 					++fStatTouchFrameGaps;
+ 					if (touchGapUs > fStatTouchFrameGapMaxUs) {
+@@ -1445,9 +1456,12 @@
+ 	drawn = mach_absolute_time();
+ #if XNU_PONG_ADRENO_PLATFORM
+-	const uint64_t sampledTouch = pong_touch_last_event_time();
++	fLastWriteback = drawn;
++	const uint64_t sampledTouch = interaction;
++	const bool traceWindow = drawn <= fInteractionTraceUntil;
+ 	uint64_t frameFingerprint = 0;
+ 	bool cadenceReceipt = false;
+ 	if (fThorRetainedCadence && desktop && layers && !gpuFrame &&
+-	    sampledTouch && sampledTouch <= drawn && micros(drawn - sampledTouch) <= 90000 &&
++	    (traceWindow || (sampledTouch && sampledTouch <= drawn &&
++	        micros(drawn - sampledTouch) <= 90000)) &&
+ 	    __atomic_load_n(&gCadenceFrameReceipts, __ATOMIC_RELAXED) < 2048 &&
+ 	    __atomic_fetch_add(&gCadenceFrameReceipts, 1, __ATOMIC_RELAXED) < 2048) {

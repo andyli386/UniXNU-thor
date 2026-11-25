@@ -1,0 +1,460 @@
+--- a/bsd/kern/kern_minimac.c
++++ b/bsd/kern/kern_minimac.c
+@@ -30,6 +30,11 @@
+ #include <sys/codesign.h>
+ #include <sys/errno.h>
+ #include <sys/kpi_socket.h>
++#include <sys/kauth.h>
++#include <sys/namei.h>
++#include <sys/random.h>
++#include <sys/time.h>
++#include <kern/locks.h>
+ #include <sys/priv.h>
+ #include <sys/proc_internal.h>
+ #include <sys/ubc_internal.h>
+@@ -333,12 +338,445 @@
+ 	return error;
+ }
+ 
++/*
++ * Installation Coordination's iPadOS 18 promise protocol calls the Sandbox
++ * policy even when no confinement is installed. Model only the capability
++ * lifetime needed for the stock system-app promise. Authorization of file
++ * operations remains with the process's credentials and the filesystem.
++ */
++#define THOR_IX_ISSUE 5
++#define THOR_IX_CONSUME 6
++#define THOR_IX_RELEASE 7
++#define THOR_IX_TOKEN_BYTES 16
++#define THOR_IX_MAX_PROMISES 64
++#define THOR_IX_EXPIRY_SECONDS 300
++#define THOR_IX_HANDLE_TAG (UINT64_C(0x5448) << 48)
++#define THOR_IX_HANDLE_MASK (UINT64_C(0xffff) << 48)
++
++static const char thor_ix_staging[] =
++    "/private/var/containers/Shared/SystemGroup/systemgroup.com.apple.installcoordinationd/Library/InstallCoordination/PromiseStaging/";
++static const char thor_ix_token_prefix[] = "pong-ix-promise-v1:";
++#define THOR_IX_TOKEN_SIZE (sizeof(thor_ix_token_prefix) + 2 * THOR_IX_TOKEN_BYTES)
++#define THOR_IX_PATH_SIZE (sizeof(thor_ix_staging) + 36)
++
++static const unsigned char thor_ix_issuer_cdhash[CS_CDHASH_LEN] = {
++	0xf3, 0xd5, 0xf5, 0x37, 0xea, 0x44, 0x4f, 0xd0, 0x13, 0x30,
++	0xad, 0x92, 0x5f, 0xdf, 0xbe, 0x7c, 0xc6, 0xfa, 0x84, 0x66,
++};
++static const unsigned char thor_ix_helper_cdhash[CS_CDHASH_LEN] = {
++	0x84, 0xc6, 0x7d, 0xc3, 0xd6, 0xf9, 0xca, 0x55, 0x50, 0x05,
++	0x1e, 0x95, 0x27, 0x5d, 0xf5, 0x6e, 0x10, 0x22, 0xea, 0xe2,
++};
++
++struct thor_ix_vnode_identity {
++	uint64_t fileid;
++	uint64_t fsid;
++};
++
++struct thor_ix_promise {
++	char token[THOR_IX_TOKEN_SIZE];
++	char leaf[37];
++	struct thor_ix_vnode_identity vnode_id;
++	uint64_t expires;
++	uint64_t consumer;
++	uint64_t handle;
++};
++
++static LCK_GRP_DECLARE(thor_ix_lock_group, "Thor install promises");
++static LCK_MTX_DECLARE(thor_ix_lock, &thor_ix_lock_group);
++static struct thor_ix_promise thor_ix_promises[THOR_IX_MAX_PROMISES];
++static uint64_t thor_ix_next_handle;
++
++static bool
++thor_ix_enabled(void)
++{
++	char device[16] = {};
++	return PE_parse_boot_argn("arp0", device, sizeof(device)) &&
++	    strcmp(device, "thor") == 0;
++}
++
++static bool
++thor_ix_is_proc(proc_t p, const unsigned char expected[CS_CDHASH_LEN], const char *expected_path)
++{
++	vfs_context_t ctx = vfs_context_current();
++	kauth_cred_t cred = vfs_context_ucred(ctx);
++	if (kauth_cred_getuid(cred) != 501 || kauth_cred_getruid(cred) != 501) {
++		return false;
++	}
++	unsigned char cdhash[CS_CDHASH_LEN];
++	if (proc_getcdhash(p, cdhash) || memcmp(cdhash, expected, sizeof(cdhash)) != 0) {
++		return false;
++	}
++
++	vnode_t vp = proc_getexecutablevnode(p);
++	if (vp == NULLVP) {
++		return false;
++	}
++	char path[MAXPATHLEN];
++	int length = sizeof(path);
++	int error = vn_getpath(vp, path, &length);
++	struct vnode_attr va;
++	VATTR_INIT(&va);
++	VATTR_WANTED(&va, va_uid);
++	VATTR_WANTED(&va, va_mode);
++	if (error == 0) {
++		error = vnode_getattr(vp, &va, ctx);
++	}
++	vnode_put(vp);
++	return error == 0 && strcmp(path, expected_path) == 0 &&
++	    VATTR_IS_SUPPORTED(&va, va_uid) && VATTR_IS_SUPPORTED(&va, va_mode) &&
++	    va.va_uid == 0 && (va.va_mode & (S_IWGRP | S_IWOTH)) == 0;
++}
++
++static bool
++thor_ix_is_issuer(proc_t p)
++{
++	if (strncmp(p->p_comm, "installcoordinat", MAXCOMLEN) != 0) {
++		return false;
++	}
++	return thor_ix_is_proc(p, thor_ix_issuer_cdhash,
++	    "/System/Library/PrivateFrameworks/InstallCoordination.framework/Support/installcoordinationd");
++}
++
++static bool
++thor_ix_is_helper(proc_t p)
++{
++	if (strncmp(p->p_comm, "thor-calc-instal", MAXCOMLEN) != 0) {
++		return false;
++	}
++	return thor_ix_is_proc(p, thor_ix_helper_cdhash, "/private/var/thor-exec/thor-calc-install-v109");
++}
++
++static bool
++thor_ix_uuid_valid(const char *s)
++{
++	if (strlen(s) != 36) {
++		return false;
++	}
++	for (unsigned i = 0; i < 36; i++) {
++		const char c = s[i];
++		const bool hex = (c >= '0' && c <= '9') ||
++		    (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
++		const bool dash = i == 8 || i == 13 || i == 18 || i == 23;
++		if (dash ? c != '-' : !hex) {
++			return false;
++		}
++	}
++	return true;
++}
++
++static int
++thor_ix_path_identity(const char *path, struct thor_ix_vnode_identity *result)
++{
++	vfs_context_t ctx = vfs_context_current();
++	struct nameidata nd;
++	NDINIT(&nd, LOOKUP, OP_LOOKUP, NOFOLLOW, UIO_SYSSPACE, CAST_USER_ADDR_T(path), ctx);
++	int error = namei(&nd);
++	if (error != 0) {
++		return error;
++	}
++	vnode_t vp = nd.ni_vp;
++	nameidone(&nd);
++
++	char resolved[MAXPATHLEN];
++	int length = sizeof(resolved);
++	if (!vnode_isdir(vp) || vn_getpath(vp, resolved, &length) != 0 ||
++	    strcmp(resolved, path) != 0) {
++		error = EACCES;
++	} else {
++		error = vnode_authorize(vp, NULLVP, KAUTH_VNODE_SEARCH |
++		    KAUTH_VNODE_LIST_DIRECTORY | KAUTH_VNODE_ADD_FILE |
++		    KAUTH_VNODE_ADD_SUBDIRECTORY, ctx);
++	}
++	if (error == 0) {
++		struct vnode_attr va;
++		VATTR_INIT(&va);
++		VATTR_WANTED(&va, va_fsid);
++		VATTR_WANTED(&va, va_fileid);
++		error = vnode_getattr(vp, &va, ctx);
++		if (error == 0) {
++			if (!VATTR_IS_SUPPORTED(&va, va_fsid) || !VATTR_IS_SUPPORTED(&va, va_fileid)) {
++				error = ENOTSUP;
++			} else {
++				result->fsid = va.va_fsid;
++				result->fileid = va.va_fileid;
++			}
++		}
++	}
++	vnode_put(vp);
++	return error;
++}
++
++static uint64_t
++thor_ix_now(void)
++{
++	struct timeval time;
++	microuptime(&time);
++	return (uint64_t)time.tv_sec;
++}
++
++static struct thor_ix_promise *
++thor_ix_find_token(const char *token, uint64_t now)
++{
++	lck_mtx_assert(&thor_ix_lock, LCK_MTX_ASSERT_OWNED);
++	for (unsigned i = 0; i < THOR_IX_MAX_PROMISES; i++) {
++		struct thor_ix_promise *slot = &thor_ix_promises[i];
++		if (slot->expires > now && memcmp(slot->token, token, sizeof(slot->token)) == 0) {
++			return slot;
++		}
++	}
++	return NULL;
++}
++
++static int
++thor_ix_issue(user_addr_t arg, bool *handled)
++{
++	struct {
++		user_addr_t extension_class;
++		uint64_t type;
++		user_addr_t path;
++		uint64_t flags;
++		user_addr_t out_token;
++		int64_t pid;
++		uint64_t pid_version;
++	} request;
++	_Static_assert(sizeof(request) == 56, "22H374 sandbox issue request");
++	*handled = true;
++	int error = copyin(arg, &request, sizeof(request));
++	if (error != 0) {
++		return error;
++	}
++	if (request.type != 0 || request.flags != 0 || request.pid != 0 ||
++	    request.pid_version != 0) {
++		*handled = false;
++		return 0;
++	}
++	char extension_class[64], path[MAXPATHLEN];
++	error = copyinstr(request.extension_class, extension_class, sizeof(extension_class), NULL);
++	if (error != 0) {
++		return error;
++	}
++	if (strcmp(extension_class, "com.apple.app-sandbox.read-write") != 0) {
++		*handled = false;
++		return 0;
++	}
++	error = copyinstr(request.path, path, sizeof(path), NULL);
++	if (error != 0) {
++		return error;
++	}
++	const size_t prefix_length = sizeof(thor_ix_staging) - 1;
++	if (strncmp(path, thor_ix_staging, prefix_length) != 0) {
++		*handled = false;
++		return 0;
++	}
++	const char *leaf = path + prefix_length;
++	if (!thor_ix_uuid_valid(leaf)) {
++		return EINVAL;
++	}
++	struct thor_ix_promise promise = {};
++	error = thor_ix_path_identity(path, &promise.vnode_id);
++	if (error != 0) {
++		printf("THOR IX: issue denied staging authorization errno=%d\n", error);
++		return error;
++	}
++	memcpy(promise.leaf, leaf, sizeof(promise.leaf));
++	unsigned char entropy[THOR_IX_TOKEN_BYTES];
++	static const char hex[] = "0123456789abcdef";
++	read_random(entropy, sizeof(entropy));
++	const size_t token_prefix = sizeof(thor_ix_token_prefix) - 1;
++	memcpy(promise.token, thor_ix_token_prefix, token_prefix);
++	for (unsigned i = 0; i < sizeof(entropy); i++) {
++		promise.token[token_prefix + 2 * i] = hex[entropy[i] >> 4];
++		promise.token[token_prefix + 2 * i + 1] = hex[entropy[i] & 0x0f];
++	}
++
++	uint64_t now = thor_ix_now();
++	promise.expires = now + THOR_IX_EXPIRY_SECONDS;
++	lck_mtx_lock(&thor_ix_lock);
++	struct thor_ix_promise *slot = NULL;
++	for (unsigned i = 0; i < THOR_IX_MAX_PROMISES; i++) {
++		if (thor_ix_promises[i].expires <= now) {
++			slot = &thor_ix_promises[i];
++			break;
++		}
++	}
++	if (slot != NULL && thor_ix_find_token(promise.token, now) == NULL) {
++		*slot = promise;
++	} else {
++		slot = NULL;
++	}
++	lck_mtx_unlock(&thor_ix_lock);
++	if (slot == NULL) {
++		return ENOSPC;
++	}
++
++	error = copyout(promise.token, request.out_token, sizeof(promise.token));
++	if (error != 0) {
++		lck_mtx_lock(&thor_ix_lock);
++		if (memcmp(slot->token, promise.token, sizeof(promise.token)) == 0) {
++			memset(slot, 0, sizeof(*slot));
++		}
++		lck_mtx_unlock(&thor_ix_lock);
++	} else {
++		printf("THOR IX: issued stock staging promise\n");
++	}
++	return error;
++}
++
++static int
++thor_ix_consume(proc_t p, user_addr_t arg, bool *handled)
++{
++	struct {
++		user_addr_t token;
++		user_size_t size;
++		user_addr_t out_handle;
++	} request;
++	_Static_assert(sizeof(request) == 24, "22H374 sandbox consume request");
++	*handled = false;
++	int error = copyin(arg, &request, sizeof(request));
++	if (error != 0 || request.size != THOR_IX_TOKEN_SIZE) {
++		return 0;
++	}
++	char token[THOR_IX_TOKEN_SIZE];
++	error = copyinstr(request.token, token, sizeof(token), NULL);
++	if (error != 0 ||
++	    strncmp(token, thor_ix_token_prefix, sizeof(thor_ix_token_prefix) - 1) != 0) {
++		return 0;
++	}
++	*handled = true;
++	if (!thor_ix_is_helper(p)) {
++		return EPERM;
++	}
++	if (strlen(token) != sizeof(token) - 1) {
++		return EINVAL;
++	}
++
++	uint64_t owner = proc_uniqueid(p);
++	uint64_t now = thor_ix_now();
++	lck_mtx_lock(&thor_ix_lock);
++	struct thor_ix_promise *slot = thor_ix_find_token(token, now);
++	struct thor_ix_promise promise = {};
++	if (slot != NULL) {
++		promise = *slot;
++	}
++	lck_mtx_unlock(&thor_ix_lock);
++	if (promise.expires == 0 || (promise.consumer != 0 && promise.consumer != owner)) {
++		return ENOENT;
++	}
++
++	char path[THOR_IX_PATH_SIZE];
++	memcpy(path, thor_ix_staging, sizeof(thor_ix_staging) - 1);
++	memcpy(path + sizeof(thor_ix_staging) - 1, promise.leaf, sizeof(promise.leaf));
++	struct thor_ix_vnode_identity vnode_id;
++	error = thor_ix_path_identity(path, &vnode_id);
++	if (error != 0) {
++		return error;
++	}
++	if (vnode_id.fsid != promise.vnode_id.fsid || vnode_id.fileid != promise.vnode_id.fileid) {
++		return ESTALE;
++	}
++
++	now = thor_ix_now();
++	lck_mtx_lock(&thor_ix_lock);
++	slot = thor_ix_find_token(token, now);
++	if (slot == NULL || (slot->consumer != 0 && slot->consumer != owner)) {
++		lck_mtx_unlock(&thor_ix_lock);
++		return ESTALE;
++	}
++	uint64_t handle = slot->handle;
++	const bool fresh = handle == 0;
++	if (fresh) {
++		handle = THOR_IX_HANDLE_TAG | (++thor_ix_next_handle & ~THOR_IX_HANDLE_MASK);
++	}
++	/* A mutex may be held while copyout blocks. No file-operation policy
++	 * takes this mutex, so page faults cannot reenter the promise table. */
++	error = copyout(&handle, request.out_handle, sizeof(handle));
++	if (error == 0 && fresh) {
++		slot->consumer = owner;
++		slot->handle = handle;
++	}
++	lck_mtx_unlock(&thor_ix_lock);
++	if (error == 0 && fresh) {
++		printf("THOR IX: consumed verified stock staging promise\n");
++	}
++	return error;
++}
++
++static int
++thor_ix_release(proc_t p, user_addr_t arg, bool *handled)
++{
++	*handled = false;
++	struct { uint64_t handle, flags, reserved; } request;
++	_Static_assert(sizeof(request) == 24, "22H374 sandbox release request");
++	int error = copyin(arg, &request, sizeof(request));
++	if (error != 0 || (request.handle & THOR_IX_HANDLE_MASK) != THOR_IX_HANDLE_TAG) {
++		return 0;
++	}
++	*handled = true;
++	if (!thor_ix_is_helper(p)) {
++		return EPERM;
++	}
++	if (request.flags != 0 || request.reserved != 0) {
++		return EINVAL;
++	}
++
++	uint64_t const owner = proc_uniqueid(p);
++	uint64_t const now = thor_ix_now();
++	error = ENOENT;
++	lck_mtx_lock(&thor_ix_lock);
++	for (unsigned i = 0; i < THOR_IX_MAX_PROMISES; i++) {
++		struct thor_ix_promise *slot = &thor_ix_promises[i];
++		if (slot->expires > now && slot->handle == request.handle) {
++			error = EPERM;
++			if (slot->consumer == owner) {
++				memset(slot, 0, sizeof(*slot));
++				error = 0;
++			}
++			break;
++		}
++	}
++	lck_mtx_unlock(&thor_ix_lock);
++	if (*handled && error == 0) {
++		printf("THOR IX: released stock staging promise\n");
++	}
++	return error;
++}
++
++static int
++thor_ix_syscall(proc_t p, int call, user_addr_t arg, bool *handled)
++{
++	*handled = false;
++	if (!thor_ix_enabled()) {
++		return 0;
++	}
++	switch (call) {
++	case THOR_IX_ISSUE:
++		if (thor_ix_is_issuer(p)) {
++			return thor_ix_issue(arg, handled);
++		}
++		return 0;
++	case THOR_IX_CONSUME:
++		return thor_ix_consume(p, arg, handled);
++	case THOR_IX_RELEASE:
++		return thor_ix_release(p, arg, handled);
++	default:
++		return 0;
++	}
++}
++
+ /* Which request numbers have been seen: one log line each, to learn what user space asks for. */
+ static uint64_t minisandbox_seen;
+ 
+ static int
+ minisandbox_policy_syscall(struct proc *p, int call, user_addr_t arg)
+ {
++	if (call >= THOR_IX_ISSUE && call <= THOR_IX_RELEASE) {
++		bool handled;
++		int error = thor_ix_syscall(p, call, arg, &handled);
++		if (handled) {
++			return error;
++		}
++	}
+ 	if (call >= 0 && call < 64 && (minisandbox_seen & (1ULL << call)) == 0) {
+ 		minisandbox_seen |= 1ULL << call;
+ 		printf("minisandbox: request %d (first seen from %s[%d]): %s\n", call, p->p_comm, proc_getpid(p),

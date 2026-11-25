@@ -1,0 +1,189 @@
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -182,6 +182,36 @@
+ 	int error = SYSCTL_IN(req, text, req->newlen);
+ 	if (error) return error;
+ 	text[req->newlen] = 0;
++
++#if XNU_PONG_ADRENO_PLATFORM
++	/* This fixed-size cue is accepted only through the existing SpringBoard endpoint. */
++	static unsigned switcher_status_count;
++	static const char switcher_status[] = "Pong Switcher: timing armed drag=";
++	if (!strcmp(process->p_comm, "SpringBoard") &&
++	    (!strcmp(text, "Pong Switcher: timing unavailable") ||
++	    !strncmp(text, switcher_status, sizeof(switcher_status) - 1)) &&
++	    pong_metal_receipt_reserve(&switcher_status_count, 2)) {
++		printf("PONG SWITCHER STATUS: %s\n", text);
++	}
++	static const char switcher_prefix[] = "Pong Switcher: ";
++	const size_t prefix_size = sizeof(switcher_prefix) - 1;
++	if (!strcmp(process->p_comm, "SpringBoard") && req->newlen == prefix_size + 18 &&
++	    !memcmp(text, switcher_prefix, prefix_size) &&
++	    (text[prefix_size] == 'P' || text[prefix_size] == 'K') &&
++	    text[prefix_size + 1] == ' ') {
++		uint64_t timestamp = 0;
++		for (size_t i = prefix_size + 2; i < req->newlen; ++i) {
++			const char digit = text[i];
++			if (!((digit >= '0' && digit <= '9') || (digit >= 'a' && digit <= 'f'))) {
++				return EINVAL;
++			}
++			timestamp = (timestamp << 4) | (uint64_t)(digit <= '9' ?
++			    digit - '0' : digit - 'a' + 10);
++		}
++		extern int thor_switcher_trace_arm(unsigned, uint64_t);
++		return thor_switcher_trace_arm(text[prefix_size] == 'P' ? 1 : 2, timestamp);
++	}
++#endif
+ 	int length = snprintf(line, sizeof(line), "%s[%d]: %s\n",
+ 	    settings ? "PONG SETTINGS" : "PONG GPU", proc_getpid(process), text);
+ 	if (length > 0) pong_ramoops_diagnostic_write(line,
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -28,6 +28,7 @@
+ #include <libkern/c++/OSCollectionIterator.h>
+ #include <kern/cpu_number.h>
+ #include <kern/thread_call.h>
++#include <kern/locks.h>
+ #include <kern/thread.h>
+ #include <kern/clock.h>
+ #include <IOKit/IOKitServer.h>
+@@ -72,6 +73,121 @@
+ static uint64_t gThorFrameEnqueues, gThorFrameWritebacks;
+ static constexpr uint64_t kSlowDisplayUs = 100000;
+ static constexpr uint32_t kDisplayReceiptLimit = 48;
++
++/* A boot-wide bounded trace. Rendering only appends to memory. */
++struct ThorSwitcherFrame {
++	uint64_t enqueued, dequeued, ready, shown, drawn, gpuWriter;
++	uint32_t id;
++};
++
++struct ThorSwitcherCue {
++	uint64_t user, kernel;
++	unsigned phase;
++};
++
++LCK_GRP_DECLARE(thor_switcher_trace_group, "thor-switcher-trace");
++LCK_MTX_DECLARE(thor_switcher_trace_lock, &thor_switcher_trace_group);
++static ThorSwitcherFrame gSwitcherFrames[1152];
++static ThorSwitcherCue gSwitcherCues[96];
++static unsigned gSwitcherFrameCount, gSwitcherCueCount;
++static uint64_t gSwitcherTraceEnd, gSwitcherHardEnd;
++static bool gSwitcherTraceSealed;
++static thread_call_t gSwitcherTraceCall;
++
++static unsigned long long
++thorSwitcherMicros(uint64_t timestamp)
++{
++	uint64_t ns = 0;
++	absolutetime_to_nanoseconds(timestamp, &ns);
++	return static_cast<unsigned long long>(ns / 1000);
++}
++
++static void
++thorSwitcherReport(thread_call_param_t, thread_call_param_t)
++{
++	lck_mtx_lock(&thor_switcher_trace_lock);
++	if (gSwitcherTraceSealed) {
++		lck_mtx_unlock(&thor_switcher_trace_lock);
++		return;
++	}
++	const uint64_t deadline = __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED);
++	if (deadline > mach_absolute_time()) {
++		thread_call_enter_delayed(gSwitcherTraceCall, deadline);
++		lck_mtx_unlock(&thor_switcher_trace_lock);
++		return;
++	}
++	gSwitcherTraceSealed = true;
++	__atomic_store_n(&gSwitcherTraceEnd, 0, __ATOMIC_RELAXED);
++	lck_mtx_unlock(&thor_switcher_trace_lock);
++
++	IOLog("PONG SWITCHER: capture cues=%u swaps=%u full=%u CPU writeback only\n",
++	    gSwitcherCueCount, gSwitcherFrameCount,
++	    gSwitcherFrameCount == sizeof(gSwitcherFrames) / sizeof(gSwitcherFrames[0]));
++	for (unsigned index = 0; index < gSwitcherCueCount; ++index) {
++		const ThorSwitcherCue &cue = gSwitcherCues[index];
++		IOLog("PONG SWITCHER CUE: phase=%u user_us=%llu kernel_us=%llu\n",
++		    cue.phase, thorSwitcherMicros(cue.user), thorSwitcherMicros(cue.kernel));
++	}
++	for (unsigned index = 0; index < gSwitcherFrameCount; ++index) {
++		const ThorSwitcherFrame &frame = gSwitcherFrames[index];
++		IOLog("PONG SWITCHER FRAME: swap=%u enqueue_us=%llu dequeue_us=%llu ready_us=%llu "
++		    "start_us=%llu done_us=%llu writer_wait_us=%llu\n", frame.id, thorSwitcherMicros(frame.enqueued),
++		    thorSwitcherMicros(frame.dequeued), thorSwitcherMicros(frame.ready),
++		    thorSwitcherMicros(frame.shown), thorSwitcherMicros(frame.drawn),
++		    thorSwitcherMicros(frame.gpuWriter));
++	}
++}
++
++extern "C" int
++thor_switcher_trace_arm(unsigned phase, uint64_t user)
++{
++	const uint64_t now = mach_absolute_time();
++	uint64_t quiet, window;
++	nanoseconds_to_absolutetime(950ull * NSEC_PER_MSEC, &quiet);
++	nanoseconds_to_absolutetime(8ull * NSEC_PER_SEC, &window);
++	if (!user || user > now || now - user > quiet) {
++		return EINVAL;
++	}
++	lck_mtx_lock(&thor_switcher_trace_lock);
++	if (gSwitcherTraceSealed) {
++		lck_mtx_unlock(&thor_switcher_trace_lock);
++		return 0;
++	}
++	if (!gSwitcherTraceCall) {
++		gSwitcherTraceCall = thread_call_allocate_with_priority(thorSwitcherReport,
++		    nullptr, THREAD_CALL_PRIORITY_LOW);
++		if (!gSwitcherTraceCall) {
++			lck_mtx_unlock(&thor_switcher_trace_lock);
++			return ENOMEM;
++		}
++		gSwitcherHardEnd = now + window;
++	}
++	if (gSwitcherCueCount < sizeof(gSwitcherCues) / sizeof(gSwitcherCues[0])) {
++		gSwitcherCues[gSwitcherCueCount++] = { user, now, phase };
++	}
++	const uint64_t deadline = now + quiet < gSwitcherHardEnd ? now + quiet : gSwitcherHardEnd;
++	__atomic_store_n(&gSwitcherTraceEnd, deadline, __ATOMIC_RELAXED);
++	thread_call_enter_delayed(gSwitcherTraceCall, deadline);
++	lck_mtx_unlock(&thor_switcher_trace_lock);
++	return 0;
++}
++
++static void
++thorSwitcherCapture(uint32_t swap, uint64_t enqueued, uint64_t dequeued,
++    uint64_t ready, uint64_t shown, uint64_t drawn, uint64_t gpuWriter)
++{
++	const uint64_t now = drawn ? drawn : mach_absolute_time();
++	const uint64_t deadline = __atomic_load_n(&gSwitcherTraceEnd, __ATOMIC_RELAXED);
++	if (!deadline || now > deadline) {
++		return;
++	}
++	lck_mtx_lock(&thor_switcher_trace_lock);
++	if (!gSwitcherTraceSealed &&
++	    gSwitcherFrameCount < sizeof(gSwitcherFrames) / sizeof(gSwitcherFrames[0])) {
++		gSwitcherFrames[gSwitcherFrameCount++] = { enqueued, dequeued, ready, shown, drawn, gpuWriter, swap };
++	}
++	lck_mtx_unlock(&thor_switcher_trace_lock);
++}
+ #endif
+ #if XNU_PONG_ADRENO_PLATFORM
+ /*
+@@ -2618,6 +2734,9 @@
+ 			fStatLost++;
+ #if XNU_PONG_ADRENO_PLATFORM
+ 			pongDisplayTrace(22, swapID, 3, swapWord(swap, SWAP_SURFACE(layer)), micros(mach_absolute_time() - began));
++			if (desktop && fThorRetainedCadence && surfaces[0]) {
++				thorSwitcherCapture(swapID, enqueued, dequeued, 0, 0, 0, readTiming.writerTicks);
++			}
+ 			/* Arm once per completed desktop GPU frame, never per retry. */
+ 			if (desktop && fLastDesktopGpuFrame && !fGpuClearDeadline &&
+ 			    fGpuFramePowerEpoch == powerEpoch) {
+@@ -2828,6 +2947,7 @@
+ 	fLastWriteback = drawn;
+ 	if (fThorRetainedCadence && desktop && surfaces[0]) {
+ 		__atomic_fetch_add(&gThorFrameWritebacks, 1, __ATOMIC_RELAXED);
++		thorSwitcherCapture(swapID, enqueued, dequeued, ready, shown, drawn, readTiming.writerTicks);
+ 	}
+ 	const uint64_t sampledTouch = interaction;
+ 	const bool traceWindow = drawn <= fInteractionTraceUntil;
