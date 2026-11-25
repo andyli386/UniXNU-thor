@@ -1,0 +1,20 @@
+diff --git a/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -185,10 +185,14 @@
+ 
+ 	/* Keep each client in its own bounded console budget. */
+ 	unsigned metal = 0, scanout = 0;
+-	if ((settings || (desktop && PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) &&
+-	    scanout == 1)) && req->newlen < 256 &&
++	const bool settings_timing = settings &&
++	    strncmp(text, "Pong Settings: ", sizeof("Pong Settings: ") - 1) == 0;
++	const bool metal_timing =
+ 	    strncmp(text, "Pong Metal: ", sizeof("Pong Metal: ") - 1) == 0 &&
+ 	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
++	    (settings || (desktop && PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) &&
++	    scanout == 1));
++	if (req->newlen < 256 && (settings_timing || metal_timing) &&
+ 	    pong_metal_receipt_reserve(settings ? &pong_settings_receipt_count : &pong_desktop_receipt_count)) {
+ 		size_t end = strnlen(text, req->newlen);
+ 		if (end && text[end - 1] == '\n') {

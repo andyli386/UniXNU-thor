@@ -1,0 +1,135 @@
+diff --git a/scripts/wrap-apfs-gpt.py b/scripts/wrap-apfs-gpt.py
+index 162d932..2d7eb85 100644
+--- a/scripts/wrap-apfs-gpt.py
++++ b/scripts/wrap-apfs-gpt.py
+@@ -5,25 +5,42 @@ at byte 512 it requires for the OS and Data SHNGROOT windows.
+ 
+ The container bytes are copied verbatim into the partition; nothing inside
+ the APFS (volume UUIDs, checksums) is touched.
++
++THOR fix (2026-11-11): the original header() wrote fields at wrong offsets
++(disk GUID overwrote PartitionEntryLBA/NumEntries/EntrySize; EntrySize was
++92 instead of 128) and never wrote the backup GPT. IOGUIDPartitionScheme on
++device could not locate the entries, so apfs never claimed the partition.
++All offsets now follow the UEFI GPT spec and both headers + backup entries
++are written.
+ """
+-import argparse, hashlib, struct, sys, uuid, zlib
++import argparse, struct, uuid, zlib
+ from pathlib import Path
+ 
+ LBA = 512
+ PART_OFFSET_LBA = 2048          # 1 MiB alignment for the partition start
+ APFS_TYPE = uuid.UUID('7c3457ef-0000-11aa-aa11-00306543ecac')
++ENTRY_COUNT = 128
++ENTRY_SIZE = 128
++ENTRIES_LBAS = ENTRY_COUNT * ENTRY_SIZE // LBA   # 32 LBAs
+ 
+ 
+-def gpt_header(disk_last_lba, part_first, part_last, entries_lba, entry_count=128):
++def gpt_header(disk_last_lba, current_lba, backup_lba, entries_lba,
++               disk_guid, entries_crc):
+     h = bytearray(92)
+     h[0:8] = b'EFI PART'
+-    struct.pack_into('<II', h, 8, 0x00010000, 92)          # rev, header size
+-    struct.pack_into('<I', h, 84, 0)                        # crc placeholder
+-    struct.pack_into('<Q', h, 72, disk_last_lba)            # backup lba
+-    struct.pack_into('<Q', h, 24, entries_lba)              # entries lba
+-    struct.pack_into('<I', h, 80, entry_count)              # entry count
+-    struct.pack_into('<I', h, 84, 0)
+-    struct.pack_into('<I', h, 16, disk_last_lba)            # last usable lba... fixed below
++    struct.pack_into('<I', h, 8, 0x00010000)            # 0x08 revision
++    struct.pack_into('<I', h, 12, 92)                   # 0x0C header size
++    # 0x10 header CRC = 0 (placeholder), 0x14 reserved = 0
++    struct.pack_into('<Q', h, 24, current_lba)          # 0x18 current LBA
++    struct.pack_into('<Q', h, 32, backup_lba)           # 0x20 backup LBA
++    struct.pack_into('<Q', h, 40, 34)                   # 0x28 first usable
++    struct.pack_into('<Q', h, 48, disk_last_lba - ENTRIES_LBAS - 1)  # 0x30 last usable
++    h[56:72] = disk_guid.bytes_le                       # 0x38 disk GUID
++    struct.pack_into('<Q', h, 72, entries_lba)          # 0x48 entries LBA
++    struct.pack_into('<I', h, 80, ENTRY_COUNT)          # 0x50 entry count
++    struct.pack_into('<I', h, 84, ENTRY_SIZE)           # 0x54 entry size
++    struct.pack_into('<I', h, 88, entries_crc)          # 0x58 entries CRC
++    struct.pack_into('<I', h, 16, zlib.crc32(bytes(h)) & 0xFFFFFFFF)
+     return h
+ 
+ 
+@@ -40,54 +57,37 @@ def main():
+     part_lba_count = size // LBA
+     first = PART_OFFSET_LBA
+     last = first + part_lba_count - 1
+-    # disk: [0, first) reserved, partition, 33 LBA of backup GPT at the end
+-    disk_last_lba = last + 33
++    disk_last_lba = last + ENTRIES_LBAS + 1             # backup entries + header
+     total = (disk_last_lba + 1) * LBA
+ 
+     part_guid = uuid.UUID(a.part_guid) if a.part_guid else uuid.uuid4()
++    disk_guid = uuid.uuid5(uuid.NAMESPACE_OID, str(part_guid))
+ 
+     # protective MBR: one entry of type 0xEE spanning the disk
+     mbr = bytearray(LBA)
+     mbr[510:512] = b'\x55\xaa'
+-    struct.pack_into('<B3sB3sBI', mbr, 446, 0, b'\x00' * 3, 0xEE, b'\x00' * 3, 1, min(disk_last_lba, 0xFFFFFFFF))
++    struct.pack_into('<B3sB3sBI', mbr, 446, 0, b'\x00' * 3, 0xEE, b'\x00' * 3,
++                     1, min(disk_last_lba, 0xFFFFFFFF))
+ 
+     # partition entry
+-    entry = bytearray(128)
++    entry = bytearray(ENTRY_SIZE)
+     entry[0:16] = APFS_TYPE.bytes_le
+     entry[16:32] = part_guid.bytes_le
+     struct.pack_into('<QQQ', entry, 32, first, last, 0)
+-    entry[72:72 + len(b'UnixNU OS/Data') ] = b'UnixNU OS/Data'
+-    entries = bytearray(128 * 128)
+-    entries[0:128] = entry
+-
++    entry[72:72 + len(b'UnixNU OS/Data')] = b'UnixNU OS/Data'
++    entries = bytearray(ENTRY_COUNT * ENTRY_SIZE)
++    entries[0:ENTRY_SIZE] = entry
+     entries_crc = zlib.crc32(bytes(entries)) & 0xFFFFFFFF
+ 
+-    def header(current_lba, backup_lba, entries_lba):
+-        h = bytearray(92)
+-        h[0:8] = b'EFI PART'
+-        struct.pack_into('<II', h, 8, 0x00010000, 92)
+-        struct.pack_into('<Q', h, 16, disk_last_lba - 33)   # last usable
+-        struct.pack_into('<Q', h, 24, current_lba)
+-        struct.pack_into('<Q', h, 32, backup_lba)
+-        struct.pack_into('<Q', h, 40, first)                # partition entry first
+-        struct.pack_into('<Q', h, 48, last)                 # partition entry last
+-        struct.pack_into('<I', h, 72, disk_last_lba)        # disk guid material (reused) -> keep simple
+-        struct.pack_into('<III', h, 72, 0, 0, 0)
+-        h[72:88] = uuid.uuid5(uuid.NAMESPACE_OID, str(part_guid)).bytes_le  # disk guid, deterministic
+-        struct.pack_into('<I', h, 80, 128)
+-        struct.pack_into('<I', h, 84, 92)
+-        struct.pack_into('<I', h, 88, entries_crc)
+-        crc = zlib.crc32(bytes(h)) & 0xFFFFFFFF
+-        struct.pack_into('<I', h, 16, crc)
+-        return h
+-
+-    primary_header = header(1, disk_last_lba, 2)
+-    backup_header = header(disk_last_lba, 1, disk_last_lba - 32)
++    primary = gpt_header(disk_last_lba, 1, disk_last_lba, 2, disk_guid, entries_crc)
++    backup = gpt_header(disk_last_lba, disk_last_lba, 1,
++                        disk_last_lba - ENTRIES_LBAS, disk_guid, entries_crc)
+ 
+     a.output.parent.mkdir(parents=True, exist_ok=True)
+     with a.output.open('wb') as out:
+         out.write(mbr)
+-        out.write(bytes(primary_header))
++        out.write(bytes(primary))
++        out.seek(2 * LBA)
+         out.write(bytes(entries))
+         out.seek(first * LBA)
+         copied = 0
+@@ -97,6 +97,10 @@ def main():
+                 copied += len(chunk)
+         assert copied == size, 'short copy'
+         out.truncate(total)
++        out.seek((disk_last_lba - ENTRIES_LBAS) * LBA)
++        out.write(bytes(entries))
++        out.seek(disk_last_lba * LBA)
++        out.write(bytes(backup))
+ 
+     print(f'{a.output}: container {size} at lba {first}, disk {total} bytes, '
+           f'part-guid {part_guid}')

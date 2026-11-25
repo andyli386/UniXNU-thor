@@ -1,0 +1,25 @@
+diff --git a/iokit/Kernel/IOPlatformExpert.cpp b/iokit/Kernel/IOPlatformExpert.cpp
+--- a/iokit/Kernel/IOPlatformExpert.cpp
++++ b/iokit/Kernel/IOPlatformExpert.cpp
+@@ -2209,6 +2209,21 @@
+ 	uuid_string_t     uuid;
+ 
+ #if !defined(__x86_64__)
++#if defined(PONG)
++	/* The mobile identity seed is separate from the platform UUID already
++	 * assigned to this Thor installation. Publish the explicit UUID before
++	 * native seed derivation when it is present and valid. */
++	uuid_string_t software_uuid = {};
++	uuid_t parsed_uuid;
++	if (PE_parse_boot_argn("pong_platform_uuid", software_uuid, sizeof(software_uuid)) &&
++	    software_uuid[sizeof(software_uuid) - 1] == 0 &&
++	    uuid_parse(software_uuid, parsed_uuid) == 0 && !uuid_is_null(parsed_uuid) &&
++	    setProperty(kIOPlatformUUIDKey, software_uuid)) {
++		gIOPlatformUUIDAndSerialDone = true;
++		IOLog("Pong: existing software platform UUID selected before identity seed\n");
++		return;
++	}
++#endif
+ 	entry = IORegistryEntry::fromPath( "/chosen", gIODTPlane );
+ 	if (entry) {
+ 		OSData * data1;

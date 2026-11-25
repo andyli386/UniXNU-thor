@@ -1,0 +1,99 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -42,6 +42,7 @@
+ #include <IOKit/IOBufferMemoryDescriptor.h>
+ 
+ #include "MiniIOSurface.h"
++#include "PongNearestThreeToTwo.h"
+ 
+ #if XNU_PONG_ADRENO_PLATFORM
+ extern "C" void pong_scanout_initialize(uint64_t,size_t,uint32_t,uint32_t,uint32_t);
+@@ -602,7 +603,7 @@
+ 	const uint8_t * pixels;
+ 	uint32_t        stride;
+ 	int32_t         sx, sy, sw, sh, px0, py0, px1, py1, cx0, cx1;
+-	bool            filter, unscaled;
++	bool            filter, unscaled, nearestThreeToTwo;
+ };
+ 
+ void
+@@ -652,6 +653,10 @@
+ 			}
+ 		} else {
+ 			from = (const uint32_t *) (pixels + (size_t) (sy + (int64_t) (y - py0) * sh / (py1 - py0)) * stride);
++			if (job->nearestThreeToTwo) {
++				pongNearestThreeToTwoRow(from + sx, to, (uint32_t)sw);
++				continue;
++			}
+ 		}
+ 		if (fDiff) {
+ 			for (int32_t x = cx0; x < cx1; x++) {
+@@ -822,15 +827,26 @@
+ 		}
+ 	}
+ 	filter = filter && fBlendRow != NULL && fBlendRowSize >= (uint32_t) sw;
+-	/* which pixel of a source row each pixel of a panel row takes: worked out once, not 2.6 million times */
+-	for (int32_t x = cx0; x < cx1; x++) {
+-		if (filter) {
+-			int64_t at = sample_at(x - px0, sw, px1 - px0);
+-
+-			fColumn[x] = (uint32_t) (at >> 8);              /* (in the blended row: from sx on) */
+-			fColumnWeight[x] = (uint16_t) (fColumn[x] + 1 < (uint32_t) sw ? at & 255 : 0);
+-		} else {
+-			fColumn[x] = (uint32_t) (sx + (int64_t) (x - px0) * sw / (px1 - px0));
++	job.nearestThreeToTwo = pongNearestThreeToTwo(filter, fDiff, sw, px0, px1, fPanelWidth);
++	if (job.nearestThreeToTwo) {
++		static unsigned reported;
++		if (!__atomic_load_n(&reported, __ATOMIC_RELAXED) &&
++		    !__atomic_exchange_n(&reported, 1u, __ATOMIC_RELAXED)) {
++			IOLog("PONG SCANOUT: 3:2 CPU fast path source=%dx%d panel=%ux%u stride=%u panel_stride=%u\n",
++			    sw, sh, fPanelWidth, fPanelHeight, s->info.bytesPerRow, fRowBytes);
++		}
++	}
++	/* Work out the generic source column once for each panel column. */
++	if (!job.nearestThreeToTwo) {
++		for (int32_t x = cx0; x < cx1; x++) {
++			if (filter) {
++				int64_t at = sample_at(x - px0, sw, px1 - px0);
++
++				fColumn[x] = (uint32_t) (at >> 8);        /* (in the blended row: from sx on) */
++				fColumnWeight[x] = (uint16_t) (fColumn[x] + 1 < (uint32_t) sw ? at & 255 : 0);
++			} else {
++				fColumn[x] = (uint32_t) (sx + (int64_t) (x - px0) * sw / (px1 - px0));
++			}
+ 		}
+ 	}
+ 	job.pixels = s->pixels();
+diff --git a/iokit/Kernel/PongNearestThreeToTwo.h b/iokit/Kernel/PongNearestThreeToTwo.h
+new file mode 100644
+--- /dev/null
++++ b/iokit/Kernel/PongNearestThreeToTwo.h
+@@ -0,0 +1,27 @@
++/* SPDX-License-Identifier: BSD-2-Clause-Patent */
++#pragma once
++#include <stdint.h>
++
++static inline bool
++pongNearestThreeToTwo(bool filter, bool diff, int32_t sourceWidth,
++    int32_t left, int32_t right, uint32_t panelWidth)
++{
++	return !filter && !diff && sourceWidth > 0 && left == 0 &&
++	       right > 0 && (uint32_t)right == panelWidth &&
++	       (uint64_t)sourceWidth * 3 == (uint64_t)panelWidth * 2;
++}
++
++/* floor(x * 2 / 3) expands each two source pixels to [a, a, b].
++ * The selector ensures an even source width and a complete output row. */
++static inline void
++pongNearestThreeToTwoRow(const uint32_t *source, uint32_t *panel, uint32_t sourceWidth)
++{
++	for (uint32_t x = 0; x < sourceWidth; x += 2) {
++		const uint32_t a = source[x] | 0xff000000u;
++		const uint32_t b = source[x + 1] | 0xff000000u;
++		panel[0] = a;
++		panel[1] = a;
++		panel[2] = b;
++		panel += 3;
++	}
++}

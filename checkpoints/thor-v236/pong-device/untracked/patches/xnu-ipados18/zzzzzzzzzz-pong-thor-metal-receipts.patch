@@ -1,0 +1,53 @@
+diff --git a/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -143,6 +143,22 @@
+ #if defined(PONG)
+ extern void pong_ramoops_diagnostic_write(const char *, int);
+ 
++/* Give the Metal test a bounded number of records in PongConsole per boot. */
++static unsigned pong_metal_receipt_count;
++
++static bool
++pong_metal_receipt_reserve(void)
++{
++	unsigned count = __atomic_load_n(&pong_metal_receipt_count, __ATOMIC_RELAXED);
++	while (count < 48) {
++		if (__atomic_compare_exchange_n(&pong_metal_receipt_count, &count,
++		    count + 1, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
++			return true;
++		}
++	}
++	return false;
++}
++
+ /* A write-only, small diagnostic endpoint for the Settings adapter. No
+  * process can read kernel memory or choose a physical address through it.
+  * Resolve its MIB once in userspace before installing fatal signal handlers.
+@@ -165,6 +181,26 @@
+ 	    settings ? "PONG SETTINGS" : "PONG GPU", proc_getpid(process), text);
+ 	if (length > 0) pong_ramoops_diagnostic_write(line,
+ 	    length < (int)sizeof(line) ? length : (int)sizeof(line)-1);
++
++	/* Preferences' stderr and ramoops are separate from the kernel msgbuf. */
++	unsigned metal = 0;
++	if (settings && req->newlen < 256 &&
++	    strncmp(text, "Pong Metal: ", sizeof("Pong Metal: ") - 1) == 0 &&
++	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
++	    pong_metal_receipt_reserve()) {
++		size_t end = strnlen(text, req->newlen);
++		if (end && text[end - 1] == '\n') {
++			end--;
++		}
++		for (size_t i = 0; i < end; i++) {
++			uint8_t value = (uint8_t)text[i];
++			if (value < 0x20 || value > 0x7e) {
++				text[i] = '?';
++			}
++		}
++		text[end] = 0;
++		printf("PONG SETTINGS[%d]: %s\n", proc_getpid(process), text);
++	}
+ 	return 0;
+ }
+ SYSCTL_PROC(_kern, OID_AUTO, pong_diagnostic,

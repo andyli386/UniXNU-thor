@@ -1,0 +1,78 @@
+{
+  "checkpoint": "thor-v236-pong-device",
+  "what": "Uncommitted changes of the Pong SM8475 device repository working tree and of the Thor 18 device repository, as they were on 2026-11-25",
+  "pong_device_repository": {
+    "remote": "https://github.com/Chengdong-Yu/UniXNU-pong.git",
+    "head": "760be3f37cc86436e4598d69398358360312d552",
+    "head_subject": "760be3f 2026-11-15 thor v79: EINVAL fix, HYP-clipped MemoryMapLib + ADT, integrated boot image",
+    "local_commits_ahead_of_its_upstream": 41,
+    "tracked_patch": {
+      "path": "pong-device/tracked.patch",
+      "sha256": "bc96211b31d7be962480a3a25d5de3e9b181e04e8a4a5f181f9fdcf166daf81c",
+      "files": [
+        "configs/pong-memory-sm8475.json",
+        "configs/pong-touch-thor-fts.json",
+        "configs/pong-touch-thor-fts.json.example",
+        "drivers/AdrenoMetal",
+        "drivers/PongAdreno",
+        "drivers/PongMetal",
+        "kits/PongPlatform24/build-support/merged-scripts/build-pong-metal-plugin.py",
+        "patches/thor-kernel-22H374-v77.patch",
+        "patches/xnu-ipados18/0001-pong-darwin24.patch",
+        "patches/xnu-ipados18/series",
+        "scripts/analyze-thor-boot-evidence.py",
+        "scripts/build-ipados18-pong-macos.py",
+        "scripts/build-pong-metal-plugin.py",
+        "scripts/build-pong-power-native.py",
+        "scripts/build-xnu-ipados18.sh",
+        "scripts/make-thor-adt-ipados18.py",
+        "scripts/prelink-thor-kernel.py",
+        "userland/boot_snapshot18.c",
+        "userland/ui_compat18.c"
+      ]
+    },
+    "untracked_files": [
+      "configs/thor-memory-sm8475.json",
+      "patches/xnu-ipados18/zz-thor-salixp-touch.patch",
+      "patches/xnu-ipados18/zzzzzzzzz-thor-db24-memory-receipt.patch",
+      "patches/xnu-ipados18/zzzzzzzzzz-pong-thor-metal-receipts.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzz-pong-thor-ui-runtime-stage.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzz-pong-thor-platform-uuid.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzz-pong-thor-ram-audit.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzz-pong-thor-desktop-gpu-receipts.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzz-pong-thor-vsync-receipt.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzz-pong-thor-smem402-receipt.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzz-pong-thor-settings-timing.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzz-pong-thor-native-frame-handoff.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzz-pong-thor-scaled-scanout.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzz-pong-thor-gpu-color-receipt.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzz-pong-thor-nearest-3to2.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzz-pong-thor-present-when-ready.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzz-pong-thor-readiness-timing.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer-v108.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer-v109.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-software-cadence-v109.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-compact-workspace-v110.patch",
+      "patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-native-persona-v110.patch",
+      "scripts/pack-thor-boot.py",
+      "userland/metal_smoke18.mm",
+      "userland/settings_watch_stack18.c",
+      "userland/settings_watchdog18.c"
+    ],
+    "submodules_with_uncommitted_changes": "recorded in ../drivers (the driver patches cover both the working tree of the submodule and the recipe copy)",
+    "note": "The upstream of this repository cannot be fetched from here (it needs credentials), so its 41 local commits and these changes exist only on this machine."
+  },
+  "thor_18_repository": {
+    "head": "6ce92de128cab559bfaaa225b84df93de4cc2f81",
+    "head_subject": "6ce92de 2026-11-11 thor-18: mirror ipados18 kernel patches; GPT wrapper for APFS windows",
+    "patch": {
+      "path": "unixnu-thor-18/scripts-wrap-apfs-gpt.patch",
+      "sha256": "bd32a88805b33b9b612e0a57f6b8bfdc14cbd8ea6eb06758c97f2473194dd747",
+      "files": [
+        "scripts/wrap-apfs-gpt.py"
+      ]
+    },
+    "note": "This repository has no remote; its one uncommitted change is the APFS GPT wrapper script."
+  }
+}

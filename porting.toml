@@ -682,3 +682,17 @@ completion = ["Every patch round-trips to the recipe source; the patches hold no
 limits = ["These record the working sources; nothing was committed to the upstream driver repositories. The v236 GPU timing hook fix has only been built on the host so far."]
 next_action = ["Offer the PongAdreno timing hook change upstream once a device boot confirms it."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v236/drivers/manifest.json", result = "Eight patches, 91 files; each reproduces the recipe source from its pinned commit."}]
+
+[[area]]
+id = "thor-v236-pong-device"
+status = "implemented"
+components = ["PongPlatform24"]
+paths = ["checkpoints/thor-v236/pong-device/**", "checkpoints/thor-v236/unixnu-thor-18/**"]
+inputs = ["The Pong SM8475 device repository at its local HEAD of 2026-11-15", "The Thor 18 device repository at its HEAD of 2026-11-11"]
+configuration = ["Working trees of both repositories as they were on 2026-11-25"]
+procedure = ["Apply pong-device/tracked.patch with git apply and copy the files under pong-device/untracked to the same paths; apply the Thor 18 patch to scripts/wrap-apfs-gpt.py."]
+findings = ["The Pong device working tree carries 16 modified files (touch and memory configuration, build scripts, the first Darwin 24 patch and its series, the UI adapter and the boot snapshot runtime) and 27 new files (22 Thor patches, the boot packaging script, the Settings diagnostic sources and a Metal smoke test). Three of its driver submodules have uncommitted changes; those are covered by the driver checkpoint. The upstream of this repository cannot be fetched from here."]
+completion = ["Every file is text; none holds a local path, a device identifier or key material."]
+limits = ["The repository's 41 local commits and these changes exist only on this machine."]
+next_action = ["Reconcile the Pong device tree with this fork so that one series and one set of build scripts is maintained."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v236/pong-device/manifest.json", result = "19 tracked files in the patch, 27 untracked files copied, one Thor 18 file."}]

@@ -1,0 +1,47 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -301,6 +301,8 @@
+ 	bool            fGpuOnly;              /* explicit bring-up policy, never the default */
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	bool            fGpuColorReceipt;
++	bool            fPresentWhenReady;
++	bool            fReportedReadyPresent;
+ #endif
+ 	uint64_t        fDiffPixels;
+ 	uint32_t        fDiffLeft, fDiffTop, fDiffRight, fDiffBottom;
+@@ -493,6 +495,12 @@
+ 	uint32_t scanout = 0, memlog = 0;
+ 	const bool nativeScanout = PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) && scanout == 1;
+ 	fGpuColorReceipt = nativeScanout && PE_parse_boot_argn("memlog", &memlog, sizeof(memlog)) && memlog == 1;
++	uint32_t metal = 0, beatOverride = 0;
++	fPresentWhenReady = nativeScanout && !fGpuOnly && !gFilter &&
++	    fWidth == 960 && fHeight == 2133 && fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
++	    !PE_parse_boot_argn("fb_beat", &beatOverride, sizeof(beatOverride));
++	fReportedReadyPresent = false;
+ 	/* The direct presenter accepts panel-sized frames only. When the
+ 	 * workspace needs scaling, keep Metal rendering available while the
+ 	 * CPU multiplies the workspace to the retained panel framebuffer. */
+@@ -1183,7 +1191,20 @@
+ 	}
+ 	fStatWaiting += mach_absolute_time() - began;
+ 	began = ready = mach_absolute_time();
+-	if (gOnTheBeat) {
++	bool pace = gOnTheBeat != 0;
++#if XNU_PONG_ADRENO_PLATFORM
++	if (pace && fPresentWhenReady && desktop && surfaces[0] != NULL) {
++		/* Every source reader is held. Skip only the software timer,
++		 * and start a new cadence if a later swap needs the old path. */
++		pace = false;
++		fBeat = fReady = 0;
++		if (!fReportedReadyPresent) {
++			fReportedReadyPresent = true;
++			IOLog("PONG FB PACE: Thor desktop presents after IOSurface ready; synthetic wait skipped\n");
++		}
++	}
++#endif
++	if (pace) {
+ 		uint64_t period, aim, next;
+ 
+ 		nanoseconds_to_absolutetime(NSEC_PER_SEC / refreshHz(), &period);

@@ -1,0 +1,73 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -111,6 +111,9 @@
+ #define FOURCC(a, b, c, d) ((uint32_t)(a) << 24 | (uint32_t)(b) << 16 | (uint32_t)(c) << 8 | (uint32_t)(d))
+ 
+ static uint64_t gFBLogged[2];           /* selectors already reported */
++/* Statistics across active synthetic-vsync notification clients. */
++static uint64_t gVSyncAccepted, gVSyncDropped, gVSyncErrors, gVSyncLateness;
++
+ static uint8_t  gFBCalls[128];          /* how many calls of each selector were traced */
+ 
+ /*
+@@ -275,6 +278,7 @@
+ 	/* how the display is doing: frames and time spent drawing them here since fStatSince */
+ 	uint32_t        fStatFrames;
+ 	uint64_t        fStatSince, fStatDrawing;
++	uint64_t        fStatVSyncAccepted, fStatVSyncDropped, fStatVSyncErrors, fStatVSyncLateness;
+ 	/* ... and how evenly: the time from each frame to the next, counted by the millisecond (the last count: longer) */
+ 	uint64_t        fLastFrame;
+ 	uint32_t        fFrameTimes[FRAME_TIMES + 1], fFramePauses, fFrameLongest;
+@@ -1174,6 +1178,10 @@
+ 	fStatDrawing += mach_absolute_time() - began;
+ 	if (fStatSince == 0) {
+ 		fStatSince = began;
++		fStatVSyncAccepted = __atomic_load_n(&gVSyncAccepted, __ATOMIC_RELAXED);
++		fStatVSyncDropped = __atomic_load_n(&gVSyncDropped, __ATOMIC_RELAXED);
++		fStatVSyncErrors = __atomic_load_n(&gVSyncErrors, __ATOMIC_RELAXED);
++		fStatVSyncLateness = __atomic_load_n(&gVSyncLateness, __ATOMIC_RELAXED);
+ 	}
+ 	absolutetime_to_nanoseconds(mach_absolute_time() - fStatSince, &nanos);
+ 	if (nanos >= 5 * NSEC_PER_SEC) {
+@@ -1189,6 +1197,19 @@
+ 		    fStatFrames * NSEC_PER_SEC / nanos, drawing / fStatFrames / NSEC_PER_USEC,
+ 		    waiting / fStatFrames / NSEC_PER_USEC, fStatOnBeat, fStatOnBeat ? beat / fStatOnBeat / NSEC_PER_USEC : 0,
+ 		    fStatHeld, fStatLost, fStatSwapsLate);
++		const uint64_t accepted = __atomic_load_n(&gVSyncAccepted, __ATOMIC_RELAXED);
++		const uint64_t dropped = __atomic_load_n(&gVSyncDropped, __ATOMIC_RELAXED);
++		const uint64_t errors = __atomic_load_n(&gVSyncErrors, __ATOMIC_RELAXED);
++		const uint64_t lateness = __atomic_load_n(&gVSyncLateness, __ATOMIC_RELAXED);
++		const uint64_t callbacks = (accepted - fStatVSyncAccepted) + (dropped - fStatVSyncDropped) +
++		    (errors - fStatVSyncErrors);
++		IOLog("MiniIOMobileFramebuffer: vsync callbacks=%llu accepted=%llu dropped=%llu errors=%llu mean_fire_late_us=%llu\n",
++		    callbacks, accepted - fStatVSyncAccepted, dropped - fStatVSyncDropped, errors - fStatVSyncErrors,
++		    callbacks ? micros(lateness - fStatVSyncLateness) / callbacks : 0);
++		fStatVSyncAccepted = accepted;
++		fStatVSyncDropped = dropped;
++		fStatVSyncErrors = errors;
++		fStatVSyncLateness = lateness;
+ 		fStatSwapsLate = 0;
+ 		for (different = 0; different < 8 && fStatSurfaces[different] != 0; different++) {
+ 		}
+@@ -1383,6 +1404,7 @@
+ {
+ 	OSAsyncReference64 ref = { 0 };
+ 	io_user_reference_t args[6];
++	const uint64_t fired = mach_absolute_time();
+ 	uint64_t now, count = 0;
+ 	mach_port_t port = IPC_PORT_NULL;
+ 	bool send = false;
+@@ -1415,6 +1437,12 @@
+ 	if (send) {
+ 		IOReturn result = sendAsyncResult64WithOptions(ref, kIOReturnSuccess, args, 6, kIOUserNotifyOptionCanDrop);
+ 		ipc_port_release_send(port);
++		uint64_t *counter = result == kIOReturnSuccess ? &gVSyncAccepted :
++		    (result == MACH_SEND_TIMED_OUT ? &gVSyncDropped : &gVSyncErrors);
++		__atomic_fetch_add(counter, 1, __ATOMIC_RELAXED);
++		if (fired > now) {
++			__atomic_fetch_add(&gVSyncLateness, fired - now, __ATOMIC_RELAXED);
++		}
+ 		if (count <= 2) {
+ 			IOLog("MiniIOMobileFramebuffer: refresh notification %llu result=%x\n", count, result);
+ 		}

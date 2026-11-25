@@ -1,0 +1,12 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -6311,7 +6311,7 @@
+ thor_stage_app_installer(proc_t p)
+ {
+ 	static const char parent[] = "/private/var/thor-exec";
+-	static const char path[] = "/private/var/thor-exec/thor-calc-install-v108";
++	static const char path[] = "/private/var/thor-exec/thor-calc-install-v109";
+ 	vnode_t data = NULLVP, directory = NULLVP;
+ 	int error = vnode_lookup("/private/var", VNODE_LOOKUP_NOFOLLOW_ANY, &data,
+ 	    vfs_context_current());

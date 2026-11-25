@@ -1,0 +1,355 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -6009,21 +6009,125 @@
+ static bool exec_inject_seeded;
+ 
+ #if defined(THOR_UI_RUNTIME_PAYLOAD) || defined(THOR_APP_INSTALLER_PAYLOAD)
+-static bool
+-thor_stage_trusted_directory(vnode_t directory, vfs_context_t context)
++#ifdef THOR_APP_INSTALLER_PAYLOAD
++static int
++thor_stage_check_directory(vnode_t node, uid_t uid, gid_t gid, mode_t mode)
+ {
+ 	struct vnode_attr attributes;
+ 	VATTR_INIT(&attributes);
+ 	VATTR_WANTED(&attributes, va_uid);
++	VATTR_WANTED(&attributes, va_gid);
+ 	VATTR_WANTED(&attributes, va_mode);
+-	return !VNOP_GETATTR(directory, &attributes, context) &&
+-	       VATTR_IS_SUPPORTED(&attributes, va_uid) &&
+-	       VATTR_IS_SUPPORTED(&attributes, va_mode) &&
+-	       (attributes.va_uid == 0 || attributes.va_uid == 99) &&
+-	       (attributes.va_mode & 0022) == 0;
++	int error = VNOP_GETATTR(node, &attributes, vfs_context_current());
++	if (error) {
++		return error;
++	}
++	if (vnode_vtype(node) != VDIR ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_uid) ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_gid) ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_mode) ||
++	    attributes.va_uid != uid || attributes.va_gid != gid) {
++		return EACCES;
++	}
++	/* The Data root is root:wheel and may be group writable. */
++	if (mode ? (attributes.va_mode & 07777) != mode :
++	    (attributes.va_mode & 07002) != 0) {
++		return EACCES;
++	}
++	return 0;
++}
++
++static int
++thor_stage_ensure_directory(vnode_t parent, char *name, uid_t uid, gid_t gid,
++    mode_t mode, vnode_t *result)
++{
++	vfs_context_t context = vfs_context_current();
++	vnode_t child = NULLVP;
++	int error = vnode_lookupat(name, VNODE_LOOKUP_NOFOLLOW_ANY, &child, context, parent);
++
++	if (error == ENOENT) {
++		/* Use the same exclusive component-local creation as the VFS sidecar
++		 * directory path. Pass UID/GID with mkdir so no pre-existing vnode
++		 * is ever chowned or chmodded. */
++		struct componentname component = {
++			.cn_nameiop = LOOKUP,
++			.cn_flags = ISLASTCN,
++			.cn_context = context,
++			.cn_pnbuf = name,
++			.cn_pnlen = (int)strlen(name) + 1,
++			.cn_nameptr = name,
++			.cn_namelen = (int)strlen(name),
++		};
++		struct vnode_attr attributes;
++		VATTR_INIT(&attributes);
++		VATTR_SET(&attributes, va_uid, uid);
++		VATTR_SET(&attributes, va_gid, gid);
++		VATTR_SET(&attributes, va_mode, mode);
++		VATTR_SET(&attributes, va_type, VDIR);
++		attributes.va_vaflags = VA_EXCLUSIVE;
++		error = VNOP_MKDIR(parent, &child, &component, &attributes, context);
++		if (error == EEXIST) {
++			error = vnode_lookupat(name, VNODE_LOOKUP_NOFOLLOW_ANY, &child, context, parent);
++		}
++	}
++	if (!error && (child == NULLVP || vnode_mount(child) != vnode_mount(parent))) {
++		error = EXDEV;
++	}
++	if (!error) {
++		error = thor_stage_check_directory(child, uid, gid, mode);
++	}
++	if (error) {
++		if (child) {
++			vnode_put(child);
++		}
++		return error;
++	}
++	*result = child;
++	return 0;
+ }
+ 
+ static int
++thor_stage_installd_directories(vnode_t data)
++{
++	vnode_t home = NULLVP, library = NULLVP, leaf = NULLVP;
++	const char *path = "/private/var/installd";
++	int error = thor_stage_ensure_directory(data, "installd", 33, 33, 0700, &home);
++
++	if (!error) {
++		path = "/private/var/installd/Library";
++		error = thor_stage_ensure_directory(home, "Library", 33, 33, 0700, &library);
++	}
++	if (!error) {
++		path = "/private/var/installd/Library/MobileInstallation";
++		error = thor_stage_ensure_directory(library, "MobileInstallation", 33, 33, 0700, &leaf);
++	}
++	if (leaf) {
++		vnode_put(leaf);
++		leaf = NULLVP;
++	}
++	if (!error) {
++		path = "/private/var/installd/Library/Caches";
++		error = thor_stage_ensure_directory(library, "Caches", 33, 33, 0700, &leaf);
++	}
++	if (leaf) {
++		vnode_put(leaf);
++	}
++	if (library) {
++		vnode_put(library);
++	}
++	if (home) {
++		vnode_put(home);
++	}
++	if (error) {
++		printf("THOR APP installer: installd directories FAIL error=%d path=%s\n", error, path);
++	} else {
++		printf("THOR APP installer: installd directories PASS uid=33 gid=33 mode=0700\n");
++	}
++	return error;
++}
++#endif
++
++static int
+ thor_stage_verify_payload(proc_t p, vnode_t file, const unsigned char *payload,
+     size_t length, vfs_context_t context)
+ {
+@@ -6049,7 +6153,7 @@
+ }
+ 
+ static int
+-thor_stage_data_payload(proc_t p, const char *path, const unsigned char *payload,
++thor_stage_data_payload(proc_t p, const char *parent, const char *path, const unsigned char *payload,
+     size_t length, bool verify)
+ {
+ 	vfs_context_t context = vfs_context_current();
+@@ -6058,16 +6162,20 @@
+ 	bool matches = false;
+ 	int error = vnode_lookup("/private/var", VNODE_LOOKUP_NOFOLLOW_ANY, &data, context);
+ 	if (!error) {
+-		error = vnode_lookup("/private/var/pong", VNODE_LOOKUP_NOFOLLOW_ANY, &directory, context);
++		error = vnode_lookup(parent, VNODE_LOOKUP_NOFOLLOW_ANY, &directory, context);
+ 	}
+ 	if (!error && (vnode_vtype(directory) != VDIR ||
+ 	    vnode_mount(directory) != vnode_mount(data))) {
+ 		error = EXDEV;
+ 	}
+-	if (!error && verify && (!thor_stage_trusted_directory(data, context) ||
+-	    !thor_stage_trusted_directory(directory, context))) {
+-		error = EACCES;
++#ifdef THOR_APP_INSTALLER_PAYLOAD
++	if (!error && verify) {
++		error = thor_stage_check_directory(data, 0, 0, 0);
++		if (!error) {
++			error = thor_stage_check_directory(directory, 0, 0, 0755);
++		}
+ 	}
++#endif
+ 	if (!error) {
+ 		/* THOR v79: O_NOFOLLOW combined with VNODE_LOOKUP_NOFOLLOW_ANY
+ 		 * triggers EINVAL at vfs_vnops.c:412 (the latter already maps to
+@@ -6089,7 +6197,10 @@
+ 		VATTR_WANTED(&attributes, va_nlink);
+ 		VATTR_WANTED(&attributes, va_uid);
+ 		VATTR_WANTED(&attributes, va_mode);
+-		VATTR_WANTED(&attributes, va_data_size);
++		if (verify) {
++			VATTR_WANTED(&attributes, va_gid);
++			VATTR_WANTED(&attributes, va_data_size);
++		}
+ 		error = verify ? VNOP_GETATTR(file, &attributes, context) :
+ 		    vnode_getattr(file, &attributes, context);
+ 		if (!error && (vnode_vtype(file) != VREG ||
+@@ -6098,7 +6209,9 @@
+ 		    !VATTR_IS_SUPPORTED(&attributes, va_uid) ||
+ 		    !VATTR_IS_SUPPORTED(&attributes, va_mode) ||
+ 		    attributes.va_nlink != 1 ||
+-		    (attributes.va_uid != 0 && attributes.va_uid != 99) ||
++		    (verify ? (!VATTR_IS_SUPPORTED(&attributes, va_gid) ||
++		    attributes.va_uid != 0 || attributes.va_gid != 0) :
++		    (attributes.va_uid != 0 && attributes.va_uid != 99)) ||
+ 		    (attributes.va_mode & (verify ? 07777 : 0777)) != 0755)) {
+ 			error = EACCES;
+ 		}
+@@ -6152,7 +6265,7 @@
+ /* Keep the existing adapter untouched. A diagnostic candidate is published
+  * to the configured process list only after a successful native APFS write. */
+ static void
+-thor_stage_ui_runtime(proc_t p)
++thor_stage_ui_runtime(proc_t p, bool installer_ready)
+ {
+ 	static const char old_path[] = "/private/var/pong/libpong-ui18.dylib";
+ 	static const char new_path[] = THOR_UI_RUNTIME_STAGE_PATH;
+@@ -6166,7 +6279,7 @@
+ 		return;
+ 	}
+ 
+-	int error = thor_stage_data_payload(p, new_path, thor_ui_runtime_payload,
++	int error = thor_stage_data_payload(p, "/private/var/pong", new_path, thor_ui_runtime_payload,
+ 	    sizeof(thor_ui_runtime_payload), false);
+ 	if (error) {
+ 		printf("THOR UI runtime: FAIL error=%d; using existing adapter\n", error);
+@@ -6176,19 +6289,17 @@
+ 	lck_mtx_lock(&exec_inject_lock);
+ 	snprintf(exec_inject_conf, sizeof(exec_inject_conf), "%s%s",
+ 	    new_path, injection + sizeof(old_path) - 1);
+-#ifdef THOR_APP_INSTALLER_PAYLOAD
+-	/* Keep the public boot command line unchanged. The single-app pilot
+-	 * needs the established UID-33 installd library-directory adapter. */
+ 	const char service[] = " installd";
+-	bool install_adapter = strlen(exec_inject_conf) + sizeof(service) <= sizeof(exec_inject_conf);
++	bool install_adapter = installer_ready &&
++	    strlen(exec_inject_conf) + sizeof(service) <= sizeof(exec_inject_conf);
+ 	if (install_adapter) {
+ 		strlcat(exec_inject_conf, service, sizeof(exec_inject_conf));
+ 	}
+-#endif
+ 	lck_mtx_unlock(&exec_inject_lock);
+ #ifdef THOR_APP_INSTALLER_PAYLOAD
+ 	printf("THOR APP installer: installd adapter %s\n",
+-	    install_adapter ? "armed" : "skipped (config full)");
++	    install_adapter ? "armed" : (installer_ready ? "skipped (config full)" :
++	    "skipped (installer or service directories unavailable)"));
+ #endif
+ 	printf("THOR UI runtime: PASS path=%s bytes=%zu\n",
+ 	    new_path, sizeof(thor_ui_runtime_payload));
+@@ -6196,18 +6307,40 @@
+ #endif
+ 
+ #ifdef THOR_APP_INSTALLER_PAYLOAD
+-static void
++static bool
+ thor_stage_app_installer(proc_t p)
+ {
+-	static const char path[] = "/private/var/pong/thor-calc-install-v107";
+-	int error = thor_stage_data_payload(p, path, thor_app_installer_payload,
+-	    sizeof(thor_app_installer_payload), true);
++	static const char parent[] = "/private/var/thor-exec";
++	static const char path[] = "/private/var/thor-exec/thor-calc-install-v108";
++	vnode_t data = NULLVP, directory = NULLVP;
++	int error = vnode_lookup("/private/var", VNODE_LOOKUP_NOFOLLOW_ANY, &data,
++	    vfs_context_current());
++	if (!error) {
++		error = thor_stage_check_directory(data, 0, 0, 0);
++	}
++	if (!error) {
++		error = thor_stage_ensure_directory(data, "thor-exec", 0, 0, 0755, &directory);
++	}
++	if (directory) {
++		vnode_put(directory);
++	}
++	if (!error) {
++		error = thor_stage_installd_directories(data);
++	}
++	if (data) {
++		vnode_put(data);
++	}
++	if (!error) {
++		error = thor_stage_data_payload(p, parent, path, thor_app_installer_payload,
++		    sizeof(thor_app_installer_payload), true);
++	}
+ 	if (error) {
+ 		printf("THOR APP installer: FAIL error=%d path=%s\n", error, path);
+-	} else {
+-		printf("THOR APP installer: PASS path=%s bytes=%zu\n",
+-		    path, sizeof(thor_app_installer_payload));
++		return false;
+ 	}
++	printf("THOR APP installer: PASS path=%s bytes=%zu\n",
++	    path, sizeof(thor_app_installer_payload));
++	return true;
+ }
+ #endif
+ 
+@@ -6454,6 +6587,37 @@
+ 		imgp->ip_envc++;
+ 	}
+ #endif
++#if defined(THOR_APP_INSTALLER_PAYLOAD)
++	/* The 22H374 lsd launch environment must agree with its native adapter.
++	 * Supply the same single-user database path before dyld starts. */
++	static const char thor_lsd_database[] =
++	    "LS_DATABASE_DIR=/private/var/mobile/Library/Pong/LaunchServices";
++	static const char thor_lsd_database_key[] = "LS_DATABASE_DIR=";
++	if (imgp->ip_ndp && imgp->ip_ndp->ni_cnd.cn_namelen == 3 &&
++	    !memcmp(imgp->ip_ndp->ni_cnd.cn_nameptr, "lsd", 3) &&
++	    imgp->ip_argspace >= sizeof(thor_lsd_database) + 2 * new_ptr_size) {
++		bool present = false;
++		const char *end = imgp->ip_strendp;
++		for (const char *entry = imgp->ip_endargv; entry < end; ) {
++			size_t limit = (size_t)(end - entry);
++			size_t length = strnlen(entry, limit);
++			if (length == limit) break;
++			if (length >= sizeof(thor_lsd_database_key) - 1 &&
++			    !memcmp(entry, thor_lsd_database_key, sizeof(thor_lsd_database_key) - 1)) {
++				present = true;
++				break;
++			}
++			entry += length + 1;
++		}
++		if (!present) {
++			error = exec_add_user_string(imgp, CAST_USER_ADDR_T(thor_lsd_database), UIO_SYSSPACE, TRUE);
++			if (error) goto bad;
++			imgp->ip_argspace -= new_ptr_size;
++			imgp->ip_envc++;
++			printf("THOR APP installer: lsd launch database path supplied\n");
++		}
++	}
++#endif
+ 	/* Account for the extra string and pointer exactly as for caller envv. */
+ #if defined(ARM64_BOARD_CONFIG_PONG) && (DEVELOPMENT || DEBUG)
+ 	if (exec_applog_oslog(imgp)) {
+@@ -8045,19 +8209,26 @@
+ #endif
+ 	}
+ #ifdef THOR_UI_RUNTIME_PAYLOAD
+-	uint32_t stage_ui_runtime = 0;
+-	if (native_owner_data_status == 0 &&
+-	    PE_parse_boot_argn("pong_stage_ui_v77", &stage_ui_runtime, sizeof(stage_ui_runtime)) &&
+-	    stage_ui_runtime == 1) {
+-		thor_stage_ui_runtime(p);
+-	}
++	bool installer_ready = false;
+ #endif
+ #ifdef THOR_APP_INSTALLER_PAYLOAD
+ 	if (native_owner_data_status == 0) {
+-		thor_stage_app_installer(p);
++#ifdef THOR_UI_RUNTIME_PAYLOAD
++		installer_ready = thor_stage_app_installer(p);
++#else
++		(void)thor_stage_app_installer(p);
++#endif
+ 	} else {
+ 		printf("THOR APP installer: SKIP Data mount error=%d\n",
+ 		    native_owner_data_status);
++	}
++#endif
++#ifdef THOR_UI_RUNTIME_PAYLOAD
++	uint32_t stage_ui_runtime = 0;
++	if (native_owner_data_status == 0 &&
++	    PE_parse_boot_argn("pong_stage_ui_v77", &stage_ui_runtime, sizeof(stage_ui_runtime)) &&
++	    stage_ui_runtime == 1) {
++		thor_stage_ui_runtime(p, installer_ready);
+ 	}
+ #endif
+ #if CONFIG_MEMORYSTATUS

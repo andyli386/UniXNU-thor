@@ -1,0 +1,1150 @@
+diff --git a/configs/pong-memory-sm8475.json b/configs/pong-memory-sm8475.json
+index 8fb07d6..537767c 100644
+--- a/configs/pong-memory-sm8475.json
++++ b/configs/pong-memory-sm8475.json
+@@ -257,7 +257,11 @@
+     },
+     {
+       "base": "0x800000000",
+-      "size": "0x30000000"
++      "size": "0x39900000"
++    },
++    {
++      "base": "0x839f00000",
++      "size": "0x1e00000"
+     },
+     {
+       "base": "0x840000000",
+@@ -265,4 +269,4 @@
+     }
+   ],
+   "policy": "Intersect with current UEFI EfiConventionalMemory and claim each range; exclude firmware GOP at runtime; never reclaim BootServices/RuntimeServices or reserved descriptors"
+-}
+\ No newline at end of file
++}
+diff --git a/configs/pong-touch-thor-fts.json b/configs/pong-touch-thor-fts.json
+index 8b27eb0..52a13e3 100644
+--- a/configs/pong-touch-thor-fts.json
++++ b/configs/pong-touch-thor-fts.json
+@@ -1,5 +1,5 @@
+ {
+-  "_comment": "Values from the Xiaomi 12S Ultra (thor) stock DTS, qupv3_se4_spi/fts@0: reg 0x990000, pinmux gpio16-19 qup4, fts irq-gpio 21, reset-gpio 20, x-max 0x3840, y-max 0x7d00. When enabled the Goodix pong-touch node is NOT generated (same serial engine).",
++  "_comment": "Values from the Xiaomi 12S Ultra (thor) stock DTS, qupv3_se4_spi/fts@0: reg 0x990000, pinmux gpio16-19 qup4, fts irq-gpio 21, reset-gpio 20, x-max 0x3840, y-max 0x7d00. Pins follow the GENI SPI MISO, MOSI, CLK, CS order, then IRQ and reset. When enabled the Goodix pong-touch node is NOT generated (same serial engine).",
+   "enable": true,
+   "spi_base": "0x990000",
+   "tlmm_base": "0xF000000",
+diff --git a/configs/pong-touch-thor-fts.json.example b/configs/pong-touch-thor-fts.json.example
+index c20a73c..3ef7ff0 100644
+--- a/configs/pong-touch-thor-fts.json.example
++++ b/configs/pong-touch-thor-fts.json.example
+@@ -1,5 +1,5 @@
+ {
+-  "_comment": "Copy to configs/pong-touch-thor-fts.json and fill with this board's CONFIRMED Recovery-DT values for the STMicro FTS touch controller. pins order: [spi-clk, spi-cs, spi-mosi, spi-miso, irq-gpio, rst-gpio]. Remove _comment and set enable=true. Until this file exists the FTS driver stays dormant and the Goodix node keeps its place.",
++  "_comment": "Copy to configs/pong-touch-thor-fts.json and fill with this board's CONFIRMED Recovery-DT values for the STMicro FTS touch controller. pins order: [spi-miso, spi-mosi, spi-clk, spi-cs, irq-gpio, rst-gpio]. Remove _comment and set enable=true. Until this file exists the FTS driver stays dormant and the Goodix node keeps its place.",
+   "enable": false,
+   "spi_base": "0x990000",
+   "tlmm_base": "0xF000000",
+@@ -8,6 +8,6 @@
+   "cmd_db_base": "0x80860000",
+   "gpio_offset": "0x100000",
+   "pins": [16, 17, 18, 19, 21, 20],
+-  "max_x": 1080,
+-  "max_y": 2412
++  "max_x": "14400",
++  "max_y": "32000"
+ }
+diff --git a/drivers/AdrenoMetal b/drivers/AdrenoMetal
+--- a/drivers/AdrenoMetal
++++ b/drivers/AdrenoMetal
+@@ -1 +1 @@
+-Subproject commit da7aedd827dfdb581eac041615c45cc1cd5e71db
++Subproject commit da7aedd827dfdb581eac041615c45cc1cd5e71db-dirty
+diff --git a/drivers/PongAdreno b/drivers/PongAdreno
+--- a/drivers/PongAdreno
++++ b/drivers/PongAdreno
+@@ -1 +1 @@
+-Subproject commit 3e8ffa2424e7915a1cc35da14b043057a87707e7
++Subproject commit 3e8ffa2424e7915a1cc35da14b043057a87707e7-dirty
+diff --git a/drivers/PongMetal b/drivers/PongMetal
+--- a/drivers/PongMetal
++++ b/drivers/PongMetal
+@@ -1 +1 @@
+-Subproject commit ccdbc294a9fa95b341fa6f926870ca07ddc663a4
++Subproject commit ccdbc294a9fa95b341fa6f926870ca07ddc663a4-dirty
+diff --git a/kits/PongPlatform24/build-support/merged-scripts/build-pong-metal-plugin.py b/kits/PongPlatform24/build-support/merged-scripts/build-pong-metal-plugin.py
+index 8f403c7..6554a61 100644
+--- a/kits/PongPlatform24/build-support/merged-scripts/build-pong-metal-plugin.py
++++ b/kits/PongPlatform24/build-support/merged-scripts/build-pong-metal-plugin.py
+@@ -52,13 +52,15 @@ subprocess.run(command,env=env,check=True)
+ shutil.copyfile(a.bridge_directory/'PongMetalBridge.dylib',bundle/'PongMetalBridge.dylib')
+ shutil.copyfile(a.turnip_library,bundle/'libvulkan_freedreno.dylib')
+ if a.prime_list:shutil.copyfile(a.prime_list,bundle/'PongAdrenoMetal.primelist')
+-for binary in ['PongAdrenoMetal','PongMetalBridge.dylib','libvulkan_freedreno.dylib']:
++for binary in ['PongMetalBridge.dylib','libvulkan_freedreno.dylib']:
+     subprocess.run(['codesign','--force','--sign','-','--pagesize','4096',str(bundle/binary)],check=True)
+ with (bundle/'Info.plist').open('wb') as f:
+     plistlib.dump(dict(CFBundleIdentifier='dev.unixnu.pong.Metal',CFBundleName='PongAdrenoMetal',
+         CFBundleExecutable='PongAdrenoMetal',CFBundlePackageType='BNDL',CFBundleVersion='1',
+         NSPrincipalClass='PongAdrenoMetalDevice',MinimumOSVersion=minimum,
+         CFBundleSupportedPlatforms=['iPhoneOS']),f)
++# Bind Info.plist and nested libraries after signing all bundle contents.
++subprocess.run(['codesign','--force','--sign','-','--pagesize','4096',str(bundle)],check=True)
+ clients=['backboardd', 'SpringBoard', 'CollectionsPoster', 'WidgetRenderer_Default', 'PosterBoard', 'Weather', 'WeatherPoster', 'GradientPosterExtension']
+ if a.guest_build=='22H374':
+     # Actual 22H374 executable names from the supplied restore Info.plists.
+diff --git a/patches/thor-kernel-22H374-v77.patch b/patches/thor-kernel-22H374-v77.patch
+index c8f0d03..eee77aa 100644
+--- a/patches/thor-kernel-22H374-v77.patch
++++ b/patches/thor-kernel-22H374-v77.patch
+@@ -3060,10 +3060,10 @@ index 240bbf6..551419d 100644
+ +		error = EXDEV;
+ +	}
+ +	if (!error) {
+-+		error = vnode_open(new_path, O_CREAT | O_EXCL | FWRITE | O_NOFOLLOW,
+++		error = vnode_open(new_path, O_CREAT | O_EXCL | FWRITE,
+ +		    0755, VNODE_LOOKUP_NOFOLLOW_ANY, &file, context);
+ +		if (error == EEXIST) {
+-+			error = vnode_open(new_path, FWRITE | O_NOFOLLOW, 0,
+++			error = vnode_open(new_path, FWRITE, 0,
+ +			    VNODE_LOOKUP_NOFOLLOW_ANY, &file, context);
+ +		}
+ +	}
+diff --git a/patches/xnu-ipados18/0001-pong-darwin24.patch b/patches/xnu-ipados18/0001-pong-darwin24.patch
+index 12dd5cc..40e4340 100644
+--- a/patches/xnu-ipados18/0001-pong-darwin24.patch
++++ b/patches/xnu-ipados18/0001-pong-darwin24.patch
+@@ -5418,6 +5418,8 @@ index 0000000..65a0b78
+ +	MiniIOSurface * fSwapSurfaces[SWAP_QUEUE][SWAP_LAYERS]; /* ... their surfaces, held from SwapEnd on: their maker may let go of them */
+ +	unsigned        fSwapFirst, fSwapsWaiting;
+ +	struct {uint32_t id;IOReturn result;} fRetired[64];
+++	uint32_t        fRetiredNewest;       /* newest terminal swap id published in the ring */
+++	bool            fHaveRetired;         /* distinguishes id zero from an empty history */
+ +	IOReturn waitSwap(uint32_t id,uint32_t flags,uint64_t timeout);
+ +	/*
+ +	 * ... and not whenever the GPU happens to be done, but on a beat of the refresh rate
+@@ -5596,6 +5598,8 @@ index 0000000..65a0b78
+ +	fLock = IOLockAlloc();
+ +	fSwapLock = IOLockAlloc();
+ +	fHelperLock = IOLockAlloc();
+++	fRetiredNewest = 0;
+++	fHaveRetired = false;
+ +	fColumn = IONewZero(uint32_t, vinfo.v_width);
+ +	fColumnWeight = IONewZero(uint16_t, vinfo.v_width);
+ +	if (!fLock || !fSwapLock || !fHelperLock || !fColumn || !fColumnWeight) {
+@@ -6102,6 +6106,15 @@ index 0000000..65a0b78
+ +        id=swapWord(fSwap[last],SWAP_ID);
+ +    }
+ +    while(fRetired[id%64].id!=id) {
+++        /* The completion ring is deliberately bounded.  Once a newer id is
+++         * at least one ring-width ahead, this id is terminal but its exact
+++         * result has aged out; return immediately instead of sleeping for a
+++         * record that can never be republished.  Signed subtraction keeps
+++         * the check valid across the uint32 id wrap while the live window is
+++         * much smaller than 2^31. */
+++        if(fHaveRetired && (int32_t)(fRetiredNewest-id)>=64) {
+++            IOLockUnlock(fSwapLock);return kIOReturnNotFound;
+++        }
+ +        if(flags&0x80000000u){IOLockUnlock(fSwapLock);return kIOReturnBusy;}
+ +        if(IOLockSleepDeadline(fSwapLock,&fSwapsWaiting,deadline,THREAD_ABORTSAFE)!=THREAD_AWAKENED) {
+ +            IOLockUnlock(fSwapLock);return kIOReturnTimeout;
+@@ -6134,6 +6147,7 @@ index 0000000..65a0b78
+ +        IOLockLock(fSwapLock);
+ +        const uint32_t id=swapWord(swap,SWAP_ID);
+ +        fRetired[id%64]={id,result};
+++        fRetiredNewest=id;fHaveRetired=true;
+ +        fSwapFirst=(fSwapFirst+1)%SWAP_QUEUE;--fSwapsWaiting;
+ +        IOLockWakeup(fSwapLock,&fSwapsWaiting,false);
+ +        IOLockUnlock(fSwapLock);
+diff --git a/patches/xnu-ipados18/series b/patches/xnu-ipados18/series
+index 94a655b..be8095b 100644
+--- a/patches/xnu-ipados18/series
++++ b/patches/xnu-ipados18/series
+@@ -8,3 +8,25 @@ zzzzzzzz-pong-native-pac-keys.patch
+ zz-thor-kalloc-zone-64.patch
+ zz-thor-console-2x-font.patch
+ zz-thor-msgbuf-cursor.patch
++zz-thor-salixp-touch.patch
++zzzzzzzzz-thor-db24-memory-receipt.patch
++zzzzzzzzzz-pong-thor-metal-receipts.patch
++zzzzzzzzzzz-pong-thor-ui-runtime-stage.patch
++zzzzzzzzzzzz-pong-thor-platform-uuid.patch
++zzzzzzzzzzzzz-pong-thor-ram-audit.patch
++zzzzzzzzzzzzzz-pong-thor-desktop-gpu-receipts.patch
++zzzzzzzzzzzzzzz-pong-thor-vsync-receipt.patch
++zzzzzzzzzzzzzzzz-pong-thor-smem402-receipt.patch
++zzzzzzzzzzzzzzzzz-pong-thor-settings-timing.patch
++zzzzzzzzzzzzzzzzzz-pong-thor-native-frame-handoff.patch
++zzzzzzzzzzzzzzzzzzz-pong-thor-scaled-scanout.patch
++zzzzzzzzzzzzzzzzzzzz-pong-thor-gpu-color-receipt.patch
++zzzzzzzzzzzzzzzzzzzzz-pong-thor-nearest-3to2.patch
++zzzzzzzzzzzzzzzzzzzzzz-pong-thor-present-when-ready.patch
++zzzzzzzzzzzzzzzzzzzzzz-pong-thor-readiness-timing.patch
++zzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer.patch
++zzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer-v108.patch
++zzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer-v109.patch
++zzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-software-cadence-v109.patch
++zzzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-native-persona-v110.patch
++zzzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-compact-workspace-v110.patch
+diff --git a/scripts/analyze-thor-boot-evidence.py b/scripts/analyze-thor-boot-evidence.py
+index 448d931..e2ea0f5 100755
+--- a/scripts/analyze-thor-boot-evidence.py
++++ b/scripts/analyze-thor-boot-evidence.py
+@@ -27,6 +27,7 @@ RUNTIME_STAGE = re.compile(
+     rb"THOR UI runtime: (PASS) path=/private/var/pong/libpong-ui-v77\.dylib bytes=\d+\b"
+     rb"|THOR UI runtime: (FAIL) error=\d+; using existing adapter"
+ )
++LOADED_ADAPTER = re.compile(rb"^Pong boot adapter: (\S+) pid=(\d+) boot=(" + BOOT_UUID + rb") uuid=(" + BOOT_UUID + rb"|unavailable) path=(.+)$")
+ SESSION = re.compile(rb"^Pong boot snapshot SESSION: (\S+) pid=(\d+) boot=(" + BOOT_UUID + rb"|unavailable)\b")
+ LIMIT = re.compile(rb"Pong lsd memlimit: pid=(\d+) active=(-?\d+)MiB active_attr=(0x[0-9a-fA-F]+) inactive=(-?\d+)MiB inactive_attr=(0x[0-9a-fA-F]+)")
+ EXIT = re.compile(rb"(?:audiomxd|PosterBoard|lsd|SpringBoard|backboardd)", re.I)
+@@ -173,12 +174,12 @@ def macho_uuid(path):
+     raise ValueError("no LC_UUID command")
+ 
+ 
+-def runtime_check(root, lines):
++def runtime_check(root, lines, expected_uuid, expected_bytes):
+     staging = [(line, RUNTIME_STAGE.search(line.raw)) for line in lines]
+     staging = [(line, match[1] or match[2]) for line, match in staging if match]
+     stage_lines = [line for line, _ in staging]
+     path = root / RUNTIME
+-    exported = {"file": RUNTIME, "expected_uuid": RUNTIME_UUID, "expected_bytes": RUNTIME_BYTES}
++    exported = {"file": RUNTIME, "expected_uuid": expected_uuid, "expected_bytes": expected_bytes}
+     if path.is_file():
+         try:
+             exported.update(uuid=macho_uuid(path), bytes=path.stat().st_size)
+@@ -187,17 +188,39 @@ def runtime_check(root, lines):
+     if any(status == b"FAIL" for _, status in staging):
+         return receipt("FAIL", "the selected boot reported a runtime staging failure", stage_lines + [exported])
+     if not stage_lines:
+-        return receipt("SKIP", "no v77 runtime staging receipt in the selected kernel log", [exported])
+-    if not all(re.search(rb"\bbytes=" + str(RUNTIME_BYTES).encode() + rb"\b", line.raw) for line in stage_lines):
+-        return receipt("FAIL", "staging receipt size differs from the v77 candidate", stage_lines + [exported])
++        return receipt("SKIP", "no runtime staging receipt in the selected kernel log", [exported])
++    if not all(re.search(rb"\bbytes=" + str(expected_bytes).encode() + rb"\b", line.raw) for line in stage_lines):
++        return receipt("FAIL", "staging receipt size differs from the expected candidate", stage_lines + [exported])
+     if "uuid" not in exported:
+         return receipt("SKIP", "staging receipt found, exported Mach-O UUID is unavailable", stage_lines + [exported])
+-    matches = exported["uuid"] == RUNTIME_UUID and exported["bytes"] == RUNTIME_BYTES
++    matches = exported["uuid"] == expected_uuid and exported["bytes"] == expected_bytes
+     return receipt("PASS" if matches else "FAIL",
+                    "staging receipt and exported Mach-O size/UUID match the candidate" if matches
+                    else "exported staged runtime differs from the candidate", stage_lines + [exported])
+ 
+ 
++def runtime_loaded_check(observed, boot, expected_uuid):
++    required = {b"SpringBoard", b"backboardd"}
++    loaded = {}
++    for line in observed:
++        match = LOADED_ADAPTER.match(line.raw)
++        if not match:
++            continue
++        process, _, session, identity, path = match.groups()
++        if process not in required or session.decode().lower() != boot:
++            continue
++        loaded[process] = (identity.decode().upper(), path, line)
++    evidence = [value[2] for value in loaded.values()]
++    if not required.issubset(loaded):
++        return receipt("SKIP", "same-boot loaded-adapter receipts are incomplete", evidence)
++    matched = all(identity == expected_uuid and path == b"/private/var/" + RUNTIME.encode()
++                  for identity, path, _ in loaded.values())
++    return receipt("PASS" if matched else "FAIL",
++                   "SpringBoard and backboardd mapped the candidate adapter" if matched
++                   else "at least one core UI process mapped a different adapter",
++                   evidence, expected_uuid=expected_uuid)
++
++
+ def memory_check(lines, boot_identified):
+     summaries = [(line, RAM_SUMMARY.search(line.raw)) for line in lines]
+     summaries = [(line, match) for line, match in summaries if match]
+@@ -428,6 +451,8 @@ def main():
+     parser.add_argument("--boot-id", type=lambda value: str(UUID(value)), help="select a specific cursor boot UUID")
+     parser.add_argument("--previous-console", type=Path,
+                         help="require this exact prior byte prefix and analyze only the complete appended legacy lines")
++    parser.add_argument("--runtime-candidate", type=Path,
++                        help="read the expected runtime Mach-O identity instead of the v77 reference")
+     parser.add_argument("--output", type=Path, help="optional JSON destination; otherwise write to stdout")
+     args = parser.parse_args()
+     directory = args.directory.absolute()
+@@ -452,7 +477,14 @@ def main():
+     issues = [line for line in raw if re.match(rb"Pong console capture (?:WRAP|RESET)", line.raw)]
+     selected_boot = boot not in (None, "unavailable")
+     unique_raw = list({line.raw: line for line in reversed(raw)}.values()) if not selected_boot else raw
+-    stage = runtime_check(root, unique_raw)
++    expected_uuid, expected_bytes = RUNTIME_UUID, RUNTIME_BYTES
++    if args.runtime_candidate:
++        try:
++            expected_uuid = macho_uuid(args.runtime_candidate)
++            expected_bytes = args.runtime_candidate.stat().st_size
++        except (OSError, ValueError) as error:
++            parser.error(f"--runtime-candidate: {error}")
++    stage = runtime_check(root, unique_raw, expected_uuid, expected_bytes)
+     candidate_kernel = bool(args.previous_console and
+                             sum(bool(RUNTIME_STAGE.search(line.raw)) for line in unique_raw) == 1 and
+                             sum(bool(RAM_SUMMARY.search(line.raw)) for line in unique_raw) == 1)
+@@ -464,6 +496,7 @@ def main():
+         display["meaning"] += "; cursor continuity or boot identity is unverified"
+     checks = {
+         "runtime_staging": stage,
++        "runtime_loaded": runtime_loaded_check(observed, boot, expected_uuid),
+         "mount_and_injection": mount_check(unique_raw),
+         "managed_memory": memory_check(unique_raw, identified or candidate_kernel),
+         "lsd_runtime_limits": memlimit_check(diagnostic),
+diff --git a/scripts/build-ipados18-pong-macos.py b/scripts/build-ipados18-pong-macos.py
+index 092761d..4763d9f 100644
+--- a/scripts/build-ipados18-pong-macos.py
++++ b/scripts/build-ipados18-pong-macos.py
+@@ -26,7 +26,11 @@ def main():
+     p.add_argument('--skip-image-verification',action='store_true',default=True)
+     p.add_argument('--thor-ui-runtime', type=Path,
+                    help='embed the matching signed Thor UI adapter for opt-in staging on APFS Data')
++    p.add_argument('--thor-ui-runtime-tag',
++                   help='use a tagged adapter path when staging the runtime on APFS Data')
+     a=p.parse_args();tree=a.tree.resolve()
++    if a.thor_ui_runtime_tag and not a.thor_ui_runtime:
++        p.error('--thor-ui-runtime-tag requires --thor-ui-runtime')
+     tree.mkdir(parents=True,exist_ok=True)
+     refs=[r for r in tomllib.loads((DEVICE/'feeds.toml').read_text())['source'] if r['kind']=='refer']
+     for ref in refs:
+@@ -90,8 +94,11 @@ def main():
+     if a.prepare_only:print(tree);return
+     stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ');log=tree.parent/f'build-{stamp}.log'
+     env.pop('THOR_UI_RUNTIME', None)
++    env.pop('THOR_UI_RUNTIME_TAG', None)
+     if a.thor_ui_runtime:
+         env['THOR_UI_RUNTIME'] = str(a.thor_ui_runtime.resolve(strict=True))
++        if a.thor_ui_runtime_tag:
++            env['THOR_UI_RUNTIME_TAG'] = a.thor_ui_runtime_tag
+     print('Building Darwin 24; log:',log,flush=True)
+     with log.open('w') as f:r=subprocess.run(['bash','scripts/build-xnu-ipados18.sh'],cwd=tree,env=env,stdout=f,stderr=subprocess.STDOUT)
+     report.update(returncode=r.returncode,log=str(log));result.write_text(json.dumps(report,indent=2)+'\n')
+diff --git a/scripts/build-pong-metal-plugin.py b/scripts/build-pong-metal-plugin.py
+index a983edf..c6e81ad 100644
+--- a/scripts/build-pong-metal-plugin.py
++++ b/scripts/build-pong-metal-plugin.py
+@@ -47,13 +47,15 @@ command=['xcrun','clang++','-target','arm64-apple-ios'+minimum,'-isysroot',sdk,
+ subprocess.run(command,env=env,check=True)
+ shutil.copyfile(a.bridge_directory/'PongMetalBridge.dylib',bundle/'PongMetalBridge.dylib')
+ shutil.copyfile(a.turnip_library,bundle/'libvulkan_freedreno.dylib')
+-for binary in ['PongAdrenoMetal','PongMetalBridge.dylib','libvulkan_freedreno.dylib']:
++for binary in ['PongMetalBridge.dylib','libvulkan_freedreno.dylib']:
+     subprocess.run(['codesign','--force','--sign','-','--pagesize','4096',str(bundle/binary)],check=True)
+ with (bundle/'Info.plist').open('wb') as f:
+     plistlib.dump(dict(CFBundleIdentifier='dev.unixnu.pong.Metal',CFBundleName='PongAdrenoMetal',
+         CFBundleExecutable='PongAdrenoMetal',CFBundlePackageType='BNDL',CFBundleVersion='1',
+         NSPrincipalClass='PongAdrenoMetalDevice',MinimumOSVersion=minimum,
+         CFBundleSupportedPlatforms=['iPhoneOS']),f)
++# Bind Info.plist and nested libraries after signing all bundle contents.
++subprocess.run(['codesign','--force','--sign','-','--pagesize','4096',str(bundle)],check=True)
+ clients=['backboardd', 'SpringBoard', 'CollectionsPoster', 'WidgetRenderer_Default', 'PosterBoard', 'Weather', 'WeatherPoster', 'GradientPosterExtension']
+ if a.guest_build=='22H374':
+     # Actual 22H374 executable names from the supplied restore Info.plists.
+diff --git a/scripts/build-pong-power-native.py b/scripts/build-pong-power-native.py
+index 455a400..17fad34 100644
+--- a/scripts/build-pong-power-native.py
++++ b/scripts/build-pong-power-native.py
+@@ -45,7 +45,7 @@ def main():
+   print(f'Audio firmware not found at {audio_container}; writing empty profile header')
+   (out/'PongAmpProfiles.h').write_text('#pragma once\n#define PONG_AMP_PROFILE_COUNT 0\n')
+  objects=[]
+- for name in ('QcomSmem.c','PongSmmuLease.cpp'):
++ for name in ('QcomSmem.c','PongPlatformResources.cpp'):
+   source=ROOT/'drivers/PongPower'/name;obj=out/(source.stem+'.o');cpp=source.suffix=='.cpp'
+   cmd=['xcrun','clang++' if cpp else 'clang',*flags,*(['-std=gnu++17','-fno-exceptions','-fno-rtti'] if cpp else []),'-c',str(source),'-o',str(obj)]
+   r=subprocess.run(cmd,env=env,capture_output=True,text=True);(out/(source.stem+'.log')).write_text(r.stdout+r.stderr)
+diff --git a/scripts/build-xnu-ipados18.sh b/scripts/build-xnu-ipados18.sh
+index 9d8d775..92d8a89 100644
+--- a/scripts/build-xnu-ipados18.sh
++++ b/scripts/build-xnu-ipados18.sh
+@@ -77,29 +77,74 @@ if [ ! -x .cache/fakeroot/usr/local/libexec/availability.pl ]; then
+     OBJROOT="$ROOT/build/availability" SYMROOT="$ROOT/build/availability" \
+     DSTROOT="$ROOT/.cache/fakeroot" CMAKE="$(command -v cmake)" NINJA="$(command -v ninja)"
+ fi
+-# Generate the optional Thor adapter on the host, outside versioned sources.
+-python3 - <<'PY_THOR_UI_RUNTIME'
++# Generate optional Thor payloads on the host, outside versioned sources.
++python3 - <<'PY_THOR_PAYLOADS'
+ from pathlib import Path
++from hashlib import sha256
+ import os
++import re
++import struct
++
++
++def c_array(name, payload):
++    rows = ['\t' + ', '.join(f'0x{byte:02x}' for byte in payload[i:i + 16]) + ','
++            for i in range(0, len(payload), 16)]
++    return f'static const unsigned char {name}[] = {{\n' + '\n'.join(rows) + '\n};\n'
++
+ 
+ header = Path('.cache/xnu-work/bsd/kern/thor_ui_runtime_payload.h')
+ source = os.environ.get('THOR_UI_RUNTIME')
+-if not source:
+-    if header.exists():
+-        header.unlink()
+-        header.with_name('kern_exec.c').touch()
+-else:
++installer = os.environ.get('THOR_APP_INSTALLER')
++text = ''
++if source:
+     payload = Path(source).read_bytes()
+     if not 0 < len(payload) <= 512 * 1024 or payload[:4] != bytes.fromhex('cffaedfe'):
+         raise ValueError('expected a bounded arm64 Mach-O UI adapter')
+-    rows = ['\t' + ', '.join(f'0x{byte:02x}' for byte in payload[i:i + 16]) + ','
+-            for i in range(0, len(payload), 16)]
+-    text = '#define THOR_UI_RUNTIME_PAYLOAD 1\nstatic const unsigned char thor_ui_runtime_payload[] = {\n'
+-    text += '\n'.join(rows) + '\n};\n'
++    tag = os.environ.get('THOR_UI_RUNTIME_TAG', 'v77')
++    if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,31}', tag):
++        raise ValueError('invalid Thor UI runtime tag')
++    text += '#define THOR_UI_RUNTIME_PAYLOAD 1\n'
++    text += f'#define THOR_UI_RUNTIME_STAGE_PATH "/private/var/pong/libpong-ui-{tag}.dylib"\n'
++    text += c_array('thor_ui_runtime_payload', payload)
++if installer:
++    path = Path(installer)
++    with path.open('rb') as source_file:
++        payload = source_file.read(512 * 1024 + 1)
++    if not 32 <= len(payload) <= 512 * 1024:
++        raise ValueError('expected a bounded arm64 Mach-O application installer')
++    magic, cpu, _, file_type = struct.unpack_from('<IIII', payload)
++    if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, 2):
++        raise ValueError('application installer must be a thin arm64 MH_EXECUTE')
++    text += '#define THOR_APP_INSTALLER_PAYLOAD 1\n'
++    text += c_array('thor_app_installer_payload', payload)
++
++native_launchd = os.environ.get('THOR_PERSONA_LAUNCHD')
++if native_launchd:
++    if not source or not installer:
++        raise ValueError('native persona init requires the Thor runtime and installer')
++    original = Path(os.environ['THOR_PERSONA_LAUNCHD_SOURCE']).read_bytes()
++    alternate = Path(native_launchd).read_bytes()
++    if not 32 <= len(original) <= 1024 * 1024 or len(alternate) != len(original):
++        raise ValueError('invalid launchd payload sizes')
++    for candidate in (original, alternate):
++        magic, cpu, _, file_type = struct.unpack_from('<IIII', candidate)
++        if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, 2):
++            raise ValueError('persona initialization needs an arm64 MH_EXECUTE')
++    if original == alternate:
++        raise ValueError('persona launchd candidate must enable its bootstrap task')
++    text += '#define THOR_PERSONA_LAUNCHD_PAYLOAD 1\n'
++    text += f'#define THOR_PERSONA_LAUNCHD_SOURCE_SIZE {len(original)}\n'
++    text += c_array('thor_persona_launchd_source_sha256', sha256(original).digest())
++    text += c_array('thor_persona_launchd_payload', alternate)
++
++if text:
+     if not header.exists() or header.read_text() != text:
+         header.write_text(text)
+         header.with_name('kern_exec.c').touch()
+-PY_THOR_UI_RUNTIME
++elif header.exists():
++    header.unlink()
++    header.with_name('kern_exec.c').touch()
++PY_THOR_PAYLOADS
+ # The optional observation hooks overlap existing root/exec patch context.
+ # Remove them first so earlier independent patches retain their idempotent checks.
+ # The same holds for the boot-time GPU addon mount (zzy), which edits the owner Data mount function inside the systemos patch.
+diff --git a/scripts/make-thor-adt-ipados18.py b/scripts/make-thor-adt-ipados18.py
+index d6adbcd..9327fcd 100644
+--- a/scripts/make-thor-adt-ipados18.py
++++ b/scripts/make-thor-adt-ipados18.py
+@@ -119,6 +119,7 @@ def main():
+         help='optional DarwinBoot contiguous window, 256 MiB..8 GiB, aligned to 2 MiB')
+     parser.add_argument('--unique-chip-id', type=lambda value: int(value, 16), default=None,
+                         help='software IOPlatformUUID seed, not an Apple silicon identifier')
++    parser.add_argument('--udid-version', type=int, choices=(1, 2), default=1)
+     parser.add_argument('--chip-id', type=lambda value: int(value, 16), default=None,
+                         help='software IOPlatformUUID seed, not an Apple silicon identifier')
+     ufs_mode = parser.add_mutually_exclusive_group()
+@@ -160,6 +161,8 @@ def main():
+             parser.error('the APFS system volume UUID must be a valid UUID')
+     if args.ufs and not args.root_match_volume_uuid:
+         parser.error('--ufs needs --volume-layout or --root-match-volume-uuid; use --ufs-probe for storage bring-up')
++    if args.root_match_volume_uuid and args.boot_manifest is None:
++        parser.error('an APFS root match requires --boot-manifest for the AppleImage4 boot policy')
+ 
+     if args.dram_size <= 0 or args.dram_size > 0xFFFFFFFFFFFFFFFF - DRAM_BASE:
+         parser.error('--dram-size must be a positive physical size that does not overflow DRAM_BASE')
+@@ -172,6 +175,8 @@ def main():
+     if args.unique_chip_id is not None and (
+             not 0 < args.unique_chip_id < 1 << 64 or not 0 < args.chip_id < 1 << 32):
+         parser.error('identity seeds must be nonzero values fitting 8 and 4 bytes')
++    if args.udid_version == 2 and args.unique_chip_id is None:
++        parser.error('--udid-version=2 requires explicit software identity seeds')
+     system_volume_auth_blob = None
+     if args.system_volume_auth_blob is not None:
+         system_volume_auth_blob = args.system_volume_auth_blob.read_bytes()
+@@ -205,7 +210,7 @@ def main():
+         ('darwinboot-mem-diag', bytes(4096)),
+         ('pong-allocatable-ram', b''.join(
+             struct.pack('<QQ', int(bank['base'], 0), int(bank['size'], 0))
+-            for bank in json.loads((ROOT / 'configs/pong-memory-sm8475.json').read_text())['allocatable'])),
++            for bank in json.loads((ROOT / 'configs/thor-memory-sm8475.json').read_text())['allocatable'])),
+         ('display-rotation', struct.pack('<I', 0)),
+         # Host UTC sampled for this temporary development boot. The platform
+         # expert advances this software clock using the native arch timer.
+@@ -272,12 +277,12 @@ def main():
+         # until a complete Pong GIC SPI provider and interrupt specifier exist.
+         ('pong,ufs-spi', struct.pack('<I', UFS_SPI)),
+     ])
+-    # THOR v78: ST FST2 touch frontend (Recovery confirms the 12S Ultra touch
++    # Thor SALIXP touch frontend (Recovery confirms the 12S Ultra touch
+     # is STMicro FTS, not Goodix). The node is generated ONLY when
+     # configs/pong-touch-thor-fts.json exists with this board's confirmed
+     # values; absent file = no node = the driver stays dormant and the Goodix
+     # frontend keeps its node. Fill: spi_base, tlmm_base, gcc_base, rsc_base,
+-    # cmd_db_base, gpio_offset, pins[6] (clk,cs,mosi,miso,irq,rst), max_x, max_y.
++    # cmd_db_base, gpio_offset, pins[6] (miso,mosi,clk,cs,irq,rst), max_x, max_y.
+     fts = {}
+     fts_path = ROOT / 'configs/pong-touch-thor-fts.json'
+     if fts_path.exists():
+@@ -299,7 +304,7 @@ def main():
+     ])
+     if fts.get('enable'):
+         touch_fts = node('pong-touch-fts', [
+-            ('compatible', b'pong,st-fst2\0'),
++            ('compatible', b'st,salixp\0'),
+             ('spi-base', struct.pack('<Q', int(fts['spi_base'], 0))),
+             ('tlmm-base', struct.pack('<Q', int(fts['tlmm_base'], 0))),
+             ('gcc-base', struct.pack('<Q', int(fts['gcc_base'], 0))),
+@@ -335,7 +340,8 @@ def main():
+             ('#address-cells', struct.pack('<I', 2)),
+             ('#size-cells', struct.pack('<I', 2)),
+             ('ranges', struct.pack('<QQQ', 0, APSS_BASE, APSS_SIZE)),
+-        ], [gic, *([touch] if touch is not None else []), node('pong-buttons', [
++        ], [gic, *([touch] if touch is not None else []),
++            *([touch_fts] if touch_fts is not None else []), node('pong-buttons', [
+             ('compatible', b'pong,pm8350-keys\0'),
+             ('core-base', struct.pack('<Q', 0x0c400000)),
+             ('cnfg-base', struct.pack('<Q', 0x0c42d000)),
+@@ -375,10 +381,9 @@ def main():
+             ('thin-bezel', struct.pack('<I', 1)),
+             ('allow-32bit-apps', struct.pack('<I', 0)),
+             ('ephemeral-data-mode', struct.pack('<I', 0)),
+-            ('udid-version', struct.pack('<I', 1)),
++            ('udid-version', struct.pack('<I', args.udid_version)),
+             ('artwork-scale-factor', struct.pack('<I', 3)),
+         ]),
+-        *([touch_fts] if touch_fts is not None else []),
+     ])
+     # Hardware-only probes do not load AppleImage4. Full root boot does, and its
+     # nonce subsystem requires CHMH even when the chip initializer allows AMNM.
+diff --git a/scripts/prelink-thor-kernel.py b/scripts/prelink-thor-kernel.py
+index b17e75c..c39013e 100644
+--- a/scripts/prelink-thor-kernel.py
++++ b/scripts/prelink-thor-kernel.py
+@@ -51,6 +51,13 @@ LIBRARY = {
+     'com.apple.driver.AppleEffaceableStorage',
+     'com.apple.driver.AppleMobileFileIntegrity',
+ }
++GPU_ROOT = 'com.apple.iokit.IOGPUFamily'
++GPU_LIBRARY = {
++    GPU_ROOT,
++    'com.apple.iokit.IOSurface',
++    'com.apple.iokit.IOReportFamily',
++    'com.apple.iokit.IOSlowAdaptiveClockingFamily',
++}
+ 
+ 
+ def main() -> int:
+@@ -60,12 +67,15 @@ def main() -> int:
+   ap.add_argument('--bindings', type=Path, default=DEFAULT_BINDINGS)
+   ap.add_argument('--output', type=Path, default=DEFAULT_OUTPUT)
+   ap.add_argument('--plan-json', type=Path, default=DEFAULT_PLAN)
++  ap.add_argument('--gpu', action='store_true', help='include the matching 22H374 IOGPUFamily bindings')
+   args = ap.parse_args()
+ 
+   native = args.native.read_bytes()
+   orig = arm64_image(args.original.read_bytes())
+   m = macho(orig)
+   bindings = json.loads(args.bindings.read_text())
++  if bindings.get('build') != '22H374':
++    raise ValueError('Thor prelink requires 22H374 storage bindings')
+   print('bindings build:', bindings.get('build'),
+         'prelink_base:', bindings.get('fixed_prelink_base'))
+   base = min(s['va'] for s in m['segments']
+@@ -73,12 +83,16 @@ def main() -> int:
+   slide = int(bindings['fixed_prelink_base'], 16) - base
+   print('base', hex(base), 'slide', hex(slide))
+ 
+-  closure = plan(native, orig, ROOTS, slide, verify_images=False)
+-  library = LIBRARY & set(closure['components'])
++  roots = [*ROOTS, GPU_ROOT] if args.gpu else ROOTS
++  libraries = LIBRARY | GPU_LIBRARY if args.gpu else LIBRARY
++  closure = plan(native, orig, roots, slide, verify_images=False)
++  if args.gpu and GPU_ROOT not in closure['components']:
++    raise ValueError('Matching 22H374 IOGPUFamily is absent from the prelink closure')
++  library = libraries & set(closure['components'])
+   print('closure components:', len(closure['components']),
+         'library-only:', len(library))
+ 
+-  candidate, selection = emit(native, orig, ROOTS, slide,
++  candidate, selection = emit(native, orig, roots, slide,
+                               verify_images=False,
+                               library_only_components=library)
+   args.output.write_bytes(candidate)
+diff --git a/userland/boot_snapshot18.c b/userland/boot_snapshot18.c
+index fbc114e..1b250ec 100644
+--- a/userland/boot_snapshot18.c
++++ b/userland/boot_snapshot18.c
+@@ -23,11 +23,13 @@
+ #include <mach/mach_host.h>
+ #include <mach/arm/thread_status.h>
+ #include <mach-o/dyld.h>
++#include <mach-o/loader.h>
+ #include <mach/vm_statistics.h>
+ #include <notify.h>
+ #include <pthread.h>
+ #include <stdarg.h>
+ #include <stdbool.h>
++#include <stddef.h>
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -41,6 +43,7 @@
+ #include <sys/sysctl.h>
+ #include <time.h>
+ #include <unistd.h>
++#include <uuid/uuid.h>
+ 
+ static const char *process_name;
+ static int console_fd = -2;   /* -2 not tried, -1 unavailable */
+@@ -141,6 +144,20 @@ static void snapshot(int fd, unsigned elapsed)
+         "Pong boot snapshot BEGIN: %s pid=%d seconds=%u time=%lld threads=%u",
+         process_name, getpid(), elapsed, (long long)time(NULL), count);
+     if (n > 0) emit(fd, line);
++#if defined(PONG_THOR_MEMORY_BUDGET)
++    if (strcmp(process_name, "backboardd") == 0) {
++        task_vm_info_data_t memory = {0};
++        mach_msg_type_number_t words = TASK_VM_INFO_COUNT;
++        if (task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&memory, &words) == KERN_SUCCESS &&
++            words >= TASK_VM_INFO_REV1_COUNT) {
++            n = snprintf(line, sizeof(line),
++                "Pong display memory: pid=%d seconds=%u footprint=%llu resident=%llu compressed=%llu bytes",
++                getpid(), elapsed, (unsigned long long)memory.phys_footprint,
++                (unsigned long long)memory.resident_size, (unsigned long long)memory.compressed);
++            if (n > 0) emit(fd, line);
++        }
++    }
++#endif
+     if (result != KERN_SUCCESS) {
+         snprintf(line, sizeof(line),
+                  "Pong boot snapshot FAIL: %s pid=%d seconds=%u task_threads=%d",
+@@ -366,6 +383,40 @@ static void snapshot_observe_console_bytes(const char *bytes, size_t count, bool
+              now,status);
+ }
+ 
++static int console_write_memory(int fd, const char *boot, uint64_t now)
++{
++    uint64_t memory = 0;
++    size_t length = sizeof(memory);
++    const bool have_memory =
++        sysctlbyname("hw.memsize", &memory, &length, NULL, 0) == 0 &&
++        length == sizeof(memory);
++
++    mach_port_t host = mach_host_self();
++    vm_size_t page_size = 0;
++    const kern_return_t page_status = host_page_size(host, &page_size);
++    vm_statistics64_data_t vm = {0};
++    mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
++    const kern_return_t vm_status =
++        host_statistics64(host, HOST_VM_INFO64, (host_info64_t)&vm, &count);
++    (void)mach_port_deallocate(mach_task_self(), host);
++
++    /* A newer SDK can define a longer HOST_VM_INFO64 reply than Darwin 24
++     * returns. Only require the prefix through the last field we use. */
++    const size_t required = offsetof(vm_statistics64_data_t, compressor_page_count) +
++                            sizeof(vm.compressor_page_count);
++    if (vm_status != KERN_SUCCESS || (size_t)count * sizeof(integer_t) < required)
++        return dprintf(fd,
++                       "Pong memory: boot=%s uptime_ms=%llu memsize_bytes=%llu memsize_ok=%u page_bytes=%llu vm_status=%d vm_count=%u\n",
++                       boot, (unsigned long long)now, (unsigned long long)memory,
++                       (unsigned)have_memory, (unsigned long long)page_size,
++                       vm_status, count);
++    return dprintf(fd,
++                   "Pong memory: boot=%s uptime_ms=%llu memsize_bytes=%llu memsize_ok=%u page_bytes=%llu page_status=%d free_pages=%u wired_pages=%u compressor_pages=%u purgeable_pages=%u\n",
++                   boot, (unsigned long long)now, (unsigned long long)memory,
++                   (unsigned)have_memory, (unsigned long long)page_size, page_status,
++                   vm.free_count, vm.wire_count, vm.compressor_page_count, vm.purgeable_count);
++}
++
+ static void *console_worker(void *unused)
+ {
+     (void)unused;
+@@ -382,7 +433,22 @@ static void *console_worker(void *unused)
+     } packet = {0};
+     uint64_t cursor = 0;
+     bool first = true, complained = false;
++    char boot[64] = "unavailable";
++    size_t length = sizeof(boot);
++    if (sysctlbyname("kern.bootsessionuuid", boot, &length, NULL, 0) != 0)
++        strlcpy(boot, "unavailable", sizeof(boot));
++    boot[sizeof(boot) - 1] = '\0';
++
++    static const unsigned memory_sample_ms[] = {0, 30000, 120000};
++    const uint64_t start_ms = snapshot_clock_ms();
++    size_t sample = 0;
+     for (;;) {
++        const uint64_t now = snapshot_clock_ms();
++        if (sample < sizeof(memory_sample_ms) / sizeof(memory_sample_ms[0]) &&
++            now - start_ms >= memory_sample_ms[sample]) {
++            if (console_write_memory(out, boot, now) < 0) break;
++            sample++;
++        }
+         int got = __proc_info(0x4, 0, PONG_KERNMSGBUF_CURSOR, cursor,
+                               &packet, (int32_t)sizeof(packet));
+         size_t count = got >= (int)sizeof(packet.range)
+@@ -402,11 +468,6 @@ static void *console_worker(void *unused)
+         complained = false;
+         if (first) {
+             first = false;
+-            char boot[64] = "unavailable";
+-            size_t length = sizeof(boot);
+-            if (sysctlbyname("kern.bootsessionuuid", boot, &length, NULL, 0) != 0)
+-                strlcpy(boot, "unavailable", sizeof(boot));
+-            boot[sizeof(boot) - 1] = 0;
+             if (dprintf(out, "\nPong console capture BEGIN boot=%s pid=%d first=%llu\n",
+                         boot, getpid(), (unsigned long long)range.start) < 0) break;
+         }
+@@ -468,22 +529,46 @@ static void *console_worker(void *unused)
+  * full cold-fault working set, and not about fairplayd.A2's own file.
+  * 327 MiB requested (~318 MiB reachable given file sizes). The worker
+  * yields to foreground disk requests and stops starting reads when its
+- * boot-wide byte or time budget runs out. Disable with pong_cache_prefetch=0. */
++ * boot-wide byte or time budget runs out. Use pong_cache_prefetch=0 to
++ * disable it, =2 for the first hot cache file, or =3 to include text
++ * pages sampled during the Settings launch on 22H374. */
+ enum {
+     CACHE_PREFETCH_BUDGET = 327 * 1024 * 1024,
+     CACHE_PREFETCH_CHUNK = 256 * 1024,
+     CACHE_PREFETCH_GATE_INTERVAL = 2 * 1024 * 1024,
+     CACHE_PREFETCH_MIN_POOL_PAGES = 16000,
+     CACHE_PREFETCH_WINDOW_MS = 120 * 1000,
++    CACHE_PREFETCH_MIB = 1024 * 1024,
++    CACHE_PREFETCH_NARROW_BUDGET = 32 * CACHE_PREFETCH_MIB,
++    CACHE_PREFETCH_SETTINGS_BUDGET = 34 * CACHE_PREFETCH_MIB,
++    CACHE_PREFETCH_NARROW_WINDOW_MS = 20 * 1000,
+ };
+ 
+-static bool cache_prefetch_enabled(void)
++enum cache_prefetch_mode {
++    CACHE_PREFETCH_OFF, CACHE_PREFETCH_FULL, CACHE_PREFETCH_NARROW,
++    CACHE_PREFETCH_SETTINGS,
++};
++
++static enum cache_prefetch_mode cache_prefetch_mode(void)
+ {
+     char args[2048];
+     size_t length = sizeof(args);
+-    if (sysctlbyname("kern.bootargs", args, &length, NULL, 0) != 0) return true;
+-    args[length < sizeof(args) ? length : sizeof(args) - 1] = 0;
+-    return strstr(args, "pong_cache_prefetch=0") == NULL;
++    if (sysctlbyname("kern.bootargs", args, &length, NULL, 0) != 0)
++        return CACHE_PREFETCH_FULL;
++    args[length < sizeof(args) ? length : sizeof(args) - 1] = '\0';
++    enum cache_prefetch_mode mode = CACHE_PREFETCH_FULL;
++    char *remaining = args;
++    for (char *arg; (arg = strsep(&remaining, " \t")) != NULL;) {
++        if (!strcmp(arg, "pong_cache_prefetch=0"))
++            mode = CACHE_PREFETCH_OFF;
++        else if (!strcmp(arg, "pong_cache_prefetch=1"))
++            mode = CACHE_PREFETCH_FULL;
++        else if (!strcmp(arg, "pong_cache_prefetch=2"))
++            mode = CACHE_PREFETCH_NARROW;
++        else if (!strcmp(arg, "pong_cache_prefetch=3"))
++            mode = CACHE_PREFETCH_SETTINGS;
++    }
++    return mode;
+ }
+ 
+ static uint64_t cache_prefetch_now_ms(void)
+@@ -547,12 +632,21 @@ static bool cache_prefetch_has_headroom(mach_port_t host)
+ static void *cache_worker(void *unused)
+ {
+     (void)unused;
+-    if (!cache_prefetch_enabled()) {
+-        pong_console_line("Pong cache pre-read: disabled by boot arg");
++    const enum cache_prefetch_mode mode = cache_prefetch_mode();
++    if (mode == CACHE_PREFETCH_OFF) {
++        diag_say("Pong cache pre-read: disabled by boot arg");
+         return NULL;
+     }
+-    sleep(60);
+-    uint64_t deadline = cache_prefetch_now_ms() + CACHE_PREFETCH_WINDOW_MS;
++    const bool settings = mode == CACHE_PREFETCH_SETTINGS;
++    const bool bounded = mode != CACHE_PREFETCH_FULL;
++    off_t budget = bounded ? CACHE_PREFETCH_NARROW_BUDGET : CACHE_PREFETCH_BUDGET;
++    if (settings) budget = CACHE_PREFETCH_SETTINGS_BUDGET;
++    const unsigned window = bounded ? CACHE_PREFETCH_NARROW_WINDOW_MS : CACHE_PREFETCH_WINDOW_MS;
++    const unsigned delay = bounded ? 30 : 60;
++    const char *mode_name = bounded ? "narrow" : "full";
++    if (settings) mode_name = "settings";
++    sleep(delay);
++    uint64_t deadline = cache_prefetch_now_ms() + window;
+     int claim = claim_cache_prefetch_boot();
+     if (claim != 0) {
+         diag_say("Pong cache pre-read: boot claim skipped errno=%d", claim);
+@@ -563,21 +657,48 @@ static void *cache_worker(void *unused)
+     int policy_error = 0;
+     if (setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_THREAD, IOPOL_THROTTLE) != 0)
+         policy_error = errno;
+-    diag_say("Pong cache pre-read: begin budget=%dB window_ms=%d chunk=%dB io_policy_errno=%d",
+-             CACHE_PREFETCH_BUDGET, CACHE_PREFETCH_WINDOW_MS, CACHE_PREFETCH_CHUNK,
+-             policy_error);
++    diag_say("Pong cache pre-read: begin mode=%s budget=%lldB delay_s=%u window_ms=%u chunk=%dB io_policy_errno=%d",
++             mode_name, (long long)budget, delay, window,
++             CACHE_PREFETCH_CHUNK, policy_error);
+     static const char *candidates[] = {
+         "/System/Library/dyld",
+         "/System/Library/Caches/com.apple.dyld",
+         "/System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld",
+         NULL};
+     static const char prefix[] = "dyld_shared_cache_arm64.";
+-    static const struct { unsigned sub, start_mib, length_mib; } extents[] = {
+-        { 1,  0, 68}, { 3, 21, 19}, { 3, 44, 30}, { 5, 30, 26},
+-        { 9, 10, 30}, {11, 46, 12}, {11, 88, 10}, {25, 16, 24},
+-        {25, 72, 26}, {27, 14, 28}, {31,  0, 28}, {31, 82, 10},
+-        {40, 78, 16},
++    struct cache_extent { unsigned sub; off_t start, length; };
++    static const struct cache_extent boot_extents[] = {
++        { 1,  0,                                  68 * CACHE_PREFETCH_MIB },
++        { 3, 21 * CACHE_PREFETCH_MIB,              19 * CACHE_PREFETCH_MIB },
++        { 3, 44 * CACHE_PREFETCH_MIB,              30 * CACHE_PREFETCH_MIB },
++        { 5, 30 * CACHE_PREFETCH_MIB,              26 * CACHE_PREFETCH_MIB },
++        { 9, 10 * CACHE_PREFETCH_MIB,              30 * CACHE_PREFETCH_MIB },
++        {11, 46 * CACHE_PREFETCH_MIB,              12 * CACHE_PREFETCH_MIB },
++        {11, 88 * CACHE_PREFETCH_MIB,              10 * CACHE_PREFETCH_MIB },
++        {25, 16 * CACHE_PREFETCH_MIB,              24 * CACHE_PREFETCH_MIB },
++        {25, 72 * CACHE_PREFETCH_MIB,              26 * CACHE_PREFETCH_MIB },
++        {27, 14 * CACHE_PREFETCH_MIB,              28 * CACHE_PREFETCH_MIB },
++        {31,  0,                                  28 * CACHE_PREFETCH_MIB },
++        {31, 82 * CACHE_PREFETCH_MIB,              10 * CACHE_PREFETCH_MIB },
++        {40, 78 * CACHE_PREFETCH_MIB,              16 * CACHE_PREFETCH_MIB },
+     };
++    /* 22H374 subcache file offsets for v83 Settings's main-thread samples.
++     * The base 32 MiB already covers the sampled libobjc and SwiftCore text. */
++    static const struct cache_extent settings_extents[] = {
++        { 1, 0,         CACHE_PREFETCH_NARROW_BUDGET },
++        { 1, 0x4640000, 0xc0000 }, /* CoreText */
++        { 3, 0x0080000, 0x80000 }, /* SwiftUI */
++        { 3, 0x69e0000, 0x40000 }, /* UIFoundation */
++        {11, 0x5a40000, 0x80000 }, /* dyld protocol conformance lookup */
++    };
++    const struct cache_extent *extents = boot_extents;
++    size_t extent_count = sizeof(boot_extents) / sizeof(boot_extents[0]);
++    if (settings) {
++        extents = settings_extents;
++        extent_count = sizeof(settings_extents) / sizeof(settings_extents[0]);
++    } else if (bounded) {
++        extent_count = 1;
++    }
+     char path[512], full[512];
+     void *chunk = malloc(CACHE_PREFETCH_CHUNK);
+     if (!chunk) {
+@@ -589,8 +710,8 @@ static void *cache_worker(void *unused)
+     uint64_t total_read_ms = 0;
+     int fd = -1;
+     unsigned opened_sub = 0;
+-    for (unsigned i = 0; i < sizeof(extents) / sizeof(extents[0])
+-         && total < CACHE_PREFETCH_BUDGET && cache_prefetch_now_ms() < deadline; i++) {
++    for (size_t i = 0; i < extent_count
++         && total < budget && cache_prefetch_now_ms() < deadline; i++) {
+         if (fd < 0 || extents[i].sub != opened_sub) {
+             if (fd >= 0) close(fd);
+             fd = -1;
+@@ -613,21 +734,21 @@ static void *cache_worker(void *unused)
+             diag_say("Pong cache pre-read: .%02u fstat errno=%d", extents[i].sub, errno);
+             continue;
+         }
+-        off_t begin = (off_t)extents[i].start_mib << 20;
+-        off_t want = (off_t)extents[i].length_mib << 20;
++        off_t begin = extents[i].start;
++        off_t want = extents[i].length;
+         const char *note = "complete";
+         if (begin >= st.st_size) {
+-            diag_say("Pong cache pre-read: .%02u [%u+%uMiB] skipped, past EOF %lldB",
+-                     extents[i].sub, extents[i].start_mib, extents[i].length_mib,
+-                     (long long)st.st_size);
++            diag_say("Pong cache pre-read: .%02u [0x%llx+0x%llx] skipped, past EOF %lldB",
++                     extents[i].sub, (unsigned long long)begin,
++                     (unsigned long long)extents[i].length, (long long)st.st_size);
+             continue;
+         }
+         if (begin + want > st.st_size) {
+             want = st.st_size - begin;
+             note = "clamped to EOF";
+         }
+-        if (want > CACHE_PREFETCH_BUDGET - total) {
+-            want = CACHE_PREFETCH_BUDGET - total;
++        if (want > budget - total) {
++            want = budget - total;
+             note = "clamped to budget";
+         }
+         if (lseek(fd, begin, SEEK_SET) < 0) {
+@@ -688,8 +809,9 @@ static void *cache_worker(void *unused)
+         total += done;
+         uint64_t read_ms = read_ns / 1000000;
+         total_read_ms += read_ms;
+-        diag_say("Pong cache pre-read: .%02u [%u+%uMiB] read=%lld of %lld bytes ms=%llu wall_ms=%llu %s %s errno=%d",
+-                 extents[i].sub, extents[i].start_mib, extents[i].length_mib,
++        diag_say("Pong cache pre-read: .%02u [0x%llx+0x%llx] read=%lld of %lld bytes ms=%llu wall_ms=%llu %s %s errno=%d",
++                 extents[i].sub, (unsigned long long)begin,
++                 (unsigned long long)extents[i].length,
+                  (long long)done, (long long)want, (unsigned long long)read_ms,
+                  (unsigned long long)(cache_prefetch_now_ms() - start_ms),
+                  note, status, read_errno);
+@@ -850,6 +972,37 @@ static bool snapshot_core_ui(void)
+            !strcmp(process_name,"runningboardd");
+ }
+ 
++/* Read the UUID from the Mach-O that actually supplied this function.
++ * Kernel staging success alone cannot attest that dyld loaded the adapter. */
++static void report_loaded_adapter(int fd, const char *boot_id)
++{
++    Dl_info adapter = {0};
++    if (!dladdr((const void *)pong_console_line, &adapter) || !adapter.dli_fbase)
++        return;
++    const struct mach_header_64 *header = adapter.dli_fbase;
++    if (header->magic != MH_MAGIC_64)
++        return;
++    const char *command = (const char *)(header + 1);
++    const char *end = command + header->sizeofcmds;
++    uuid_string_t image_uuid = "unavailable";
++    for (uint32_t i = 0; i < header->ncmds; i++) {
++        if ((size_t)(end - command) < sizeof(struct load_command))
++            break;
++        const struct load_command *entry = (const void *)command;
++        if (entry->cmdsize < sizeof(*entry) || entry->cmdsize > (size_t)(end - command))
++            break;
++        if (entry->cmd == LC_UUID && entry->cmdsize == sizeof(struct uuid_command)) {
++            const struct uuid_command *identity = (const void *)command;
++            uuid_unparse_upper(identity->uuid, image_uuid);
++            break;
++        }
++        command += entry->cmdsize;
++    }
++    dprintf(fd, "Pong boot adapter: %s pid=%d boot=%s uuid=%s path=%s\n",
++            process_name, getpid(), boot_id, image_uuid,
++            adapter.dli_fname ? adapter.dli_fname : "unavailable");
++}
++
+ static void *worker(void *unused)
+ {
+     (void)unused;
+@@ -861,6 +1014,7 @@ static void *worker(void *unused)
+         (void)mkdir("/private/var/mobile/Library", 0755);
+         (void)mkdir("/private/var/mobile/Library/Logs", 0755);
+     }
++    replay_previous();
+     snapshot_path(path, sizeof(path));
+     int fd = open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
+     if (fd >= 0) (void)fchmod(fd, 0600);
+@@ -906,6 +1060,7 @@ static void *worker(void *unused)
+     uint64_t start_ms = snapshot_clock_ms();
+     dprintf(fd,"Pong boot snapshot SESSION: %s pid=%d boot=%s start_ms=%llu display_trigger=%s\n",
+             process_name,getpid(),boot_id,start_ms,token>=0?"registered":"off");
++    report_loaded_adapter(fd, boot_id);
+     size_t early_index = 0;
+     uint64_t next_tick = start_ms + 60000;
+     uint64_t next_snapshot = start_ms + (uint64_t)early[0] * 1000;
+@@ -954,6 +1109,22 @@ static void *worker(void *unused)
+     return NULL;
+ }
+ 
++static void start_console_worker(void)
++{
++    pthread_attr_t attr;
++    if (pthread_attr_init(&attr)) return;
++    pthread_t thread;
++    if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) == 0)
++        (void)pthread_create(&thread, &attr, console_worker, NULL);
++    pthread_attr_destroy(&attr);
++}
++
++void pong_boot_console_start(void)
++{
++    static pthread_once_t once = PTHREAD_ONCE_INIT;
++    if (geteuid() == 0) (void)pthread_once(&once, start_console_worker);
++}
++
+ void pong_boot_snapshot_start(const char *name)
+ {
+     if (strcmp(name, "SpringBoard") && strcmp(name, "backboardd") &&
+@@ -968,7 +1139,6 @@ void pong_boot_snapshot_start(const char *name)
+         strcmp(name, "datamigratorhelper")) return;
+     if (process_name) return;
+     process_name = name;
+-    replay_previous();
+     pthread_attr_t attr;
+     if (pthread_attr_init(&attr)) return;
+     pthread_t thread;
+@@ -976,7 +1146,7 @@ void pong_boot_snapshot_start(const char *name)
+         (void)pthread_create(&thread, &attr, worker, NULL);
+     /* Only one root, early, stable process owns the auxiliary workers. */
+     if (geteuid() == 0 && !strcmp(name, "runningboardd")) {
+-        (void)pthread_create(&thread, &attr, console_worker, NULL);
++        pong_boot_console_start();
+         (void)pthread_create(&thread, &attr, cache_worker, NULL);
+         (void)pthread_create(&thread, &attr, watch_worker, NULL);
+     }
+diff --git a/userland/ui_compat18.c b/userland/ui_compat18.c
+index 09cfc13..422605e 100644
+--- a/userland/ui_compat18.c
++++ b/userland/ui_compat18.c
+@@ -81,7 +81,15 @@ static void stui_repair_bar(id);
+ static bool boot_option(const char *option);
+ static bool own_directory(const char *path);
+ void pong_boot_snapshot_start(const char *name);
++void pong_boot_console_start(void);
+ void pong_settings18_start(void);
++#if defined(PONG_THOR_METAL_CLIENT_SMOKE)
++void pong_preferences_metal_smoke_start(bool run_probe);
++#endif
++#if defined(PONG_THOR_SETTINGS_WATCHDOG)
++void pong_settings_watchdog18_start(void (*receipt)(const char *, ...));
++void pong_settings_watch_stack_start(void);
++#endif
+ void pong_audio_volume18_start(void);
+ 
+ /* THOR v62: key receipts also go to /dev/console. Services spawned via
+@@ -1982,6 +1990,52 @@ static bool boot_option(const char *key)
+  * This selects a real software backend; no Metal device is fabricated.
+  * Match this image's UUID and entry instructions, never a 20G81 address.
+  */
++#if defined(PONG_THOR_DESKTOP_GPU)
++static bool thor_policy_file_matches(const char *path, const char *expected)
++{
++    const int fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
++    if (fd < 0) return false;
++    const size_t size = strlen(expected);
++    struct stat info;
++    char data[32];
++    const bool matches = size <= sizeof(data) &&
++        fstat(fd, &info) == 0 && S_ISREG(info.st_mode) &&
++        info.st_uid == 0 && !(info.st_mode & 022) && info.st_size == (off_t)size &&
++        read(fd, data, size) == (ssize_t)size && memcmp(data, expected, size) == 0;
++    close(fd);
++    return matches;
++}
++
++#if defined(PONG_THOR_MEMORY_BUDGET)
++static void thor_desktop_gpu_memory_budget(void)
++{
++    uint64_t memory = 0;
++    size_t size = sizeof(memory);
++    if (sysctlbyname("hw.memsize", &memory, &size, NULL, 0) == 0 &&
++        size == sizeof(memory) && memory > UINT64_C(1024) * 1024 * 1024)
++        return;
++
++    /* The signed 22H374 plugin supplies defaults with overwrite=0.
++     * Set the resident budget before Metal/Turnip open. Both layers
++     * apply their limits only to released or fence-retired resources. */
++    const int images = setenv("METAL2VULKAN_SPARE_IMAGE_MIB", "32", 1);
++    const int buffers = setenv("TU_DARWIN_BO_CACHE_MIB", "32", 1);
++    const char *message = !images && !buffers
++        ? "Pong Metal: Thor low-RAM cache defaults applied (spare images 32 MiB, retired BOs 32 MiB)"
++        : "Pong Metal: Thor low-RAM cache defaults partially unavailable";
++    (void)sysctlbyname("kern.pong_diagnostic", NULL, NULL, (void *)message, strlen(message));
++}
++#endif
++
++static bool thor_desktop_gpu_policy_ready(void)
++{
++    /* Require the explicit, signed-build OS policy; a Data marker
++     * must not silently turn the desktop GPU on. */
++    return thor_policy_file_matches("/System/Library/Extensions/PongAdrenoMetal.publish", "1\n") &&
++        thor_policy_file_matches("/System/Library/Extensions/PongAdrenoMetal.clients", "Preferences\nbackboardd\n");
++}
++#endif
++
+ static void compositor_image(const struct mach_header *header,intptr_t slide)
+ {
+     phone_gestalt_image(header,slide);
+@@ -2010,6 +2064,25 @@ static void compositor_image(const struct mach_header *header,intptr_t slide)
+         lc=(const void *)((const char *)lc+lc->cmdsize);
+     }
+     if(!matched)return;
++#if defined(PONG_THOR_LINEAR_GPU)
++    static bool linear_gpu_installed;
++    if (backboard_process && !software_composition && !linear_gpu_installed) {
++        /* 22H374 CA::Render::get_compressed_agx_universal_rgb_fourcc.
++         * For BGRA alone, branch to the original identity return instead of
++         * the &BGA return. QuartzCore then allocates a linear IOSurface. */
++        static const uint32_t bgra_to_compressed[] = {0x54000200};
++        static const uint32_t bgra_to_identity[] = {0x540001e0};
++        linear_gpu_installed = install_compositor_code(header, slide,
++            0x1843acbccULL - 0x184339000ULL, bgra_to_compressed,
++            bgra_to_identity, sizeof(bgra_to_identity), "desktop BGRA compression bypass");
++        const char *message = linear_gpu_installed
++            ? "Pong Metal: 22H374 desktop BGRA compression bypass installed"
++            : "Pong Metal: 22H374 desktop BGRA compression bypass unavailable; CPU compositor requested";
++        (void)sysctlbyname("kern.pong_diagnostic", NULL, NULL, (void *)message, strlen(message));
++        if (!linear_gpu_installed)
++            software_composition = true;
++    }
++#endif
+     static const uint32_t expected[]={0xa9be4ff4,0xa9017bfd};
+     static const uint32_t cpu_renderer[]={0xd2800000,0xd65f03c0}; /* return nullptr */
+     if(software_composition && !renderer_installed)renderer_installed=install_compositor_code(header,slide,
+@@ -2828,6 +2901,22 @@ __attribute__((constructor)) static void pong_ui18_start(void)
+ {
+     const char *name=getprogname();
+     if(!name)return;
++#if defined(PONG_THOR_SETTINGS_WATCHDOG)
++    if(!strcmp(name,"Preferences"))pong_settings_watch_stack_start();
++#endif
++#if defined(PONG_THOR_METAL_CLIENT_SMOKE)
++    if(!strcmp(name,"Preferences")) {
++        /* Keep the Settings startup path independent of the compositor.
++         * Turning Metal off should disable the workload, not run the
++         * generic phone, status-bar and compositor hooks in Settings. */
++        bool run_probe = boot_option("pong_metal=1");
++#if defined(PONG_THOR_DESKTOP_GPU)
++        run_probe = run_probe && (!boot_option("pong_gpu_scanout=1") || !thor_desktop_gpu_policy_ready());
++#endif
++        pong_preferences_metal_smoke_start(run_probe);
++        return;
++    }
++#endif
+     /* v67: A2 hooks in FIRST, before any shared UI initialization
+      * (gestalt scans, dup2/setvbuf, banner) - the smallest possible
+      * perturbation for a daemon that exits within seconds. Entry
+@@ -2920,6 +3009,7 @@ __attribute__((constructor)) static void pong_ui18_start(void)
+     }
+     if(strcmp(name,"runningboardd")==0) {
+         _dyld_register_func_for_add_image(poster_jetsam_image);
++        if(boot_option("memlog=1"))pong_boot_console_start();
+         if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
+         return;
+     }
+@@ -2946,7 +3036,10 @@ __attribute__((constructor)) static void pong_ui18_start(void)
+         springboard_process=true;
+         if(boot_option("pong_boot_snapshot=1"))
+             atomic_store_explicit(&ui_observer_role,OBSERVER_SB,memory_order_relaxed);
+-        pong_sb_note("Pong UI18: SpringBoard adapter ctor (v73)");
++        pong_sb_note("Pong UI18: SpringBoard adapter ctor");
++#if defined(PONG_THOR_SETTINGS_WATCHDOG)
++        pong_settings_watchdog18_start(pong_sb_note);
++#endif
+         // Physical volume keys stay on the native HID/system event route.
+         skip_setup=boot_option("pong_skip_setup=1");
+         CFPreferencesSetAppValue(CFSTR("SBDisableAutoDim"),kCFBooleanTrue,kCFPreferencesCurrentApplication);
+@@ -2959,6 +3052,20 @@ __attribute__((constructor)) static void pong_ui18_start(void)
+         if(boot_option("pong_boot_snapshot=1"))
+             atomic_store_explicit(&ui_observer_role,OBSERVER_BBD,memory_order_relaxed);
+         software_composition=boot_option("pong_ui_software=1");
++#if defined(PONG_THOR_DESKTOP_GPU)
++        if (boot_option("pong_gpu_scanout=1") && boot_option("pong_metal=1")) {
++            const bool native = thor_desktop_gpu_policy_ready();
++            software_composition = !native;
++#if defined(PONG_THOR_MEMORY_BUDGET)
++            if (native)
++                thor_desktop_gpu_memory_budget();
++#endif
++            const char *message = native
++                ? "Pong Metal: Thor desktop native policy selected"
++                : "Pong Metal: Thor desktop software policy selected";
++            (void)sysctlbyname("kern.pong_diagnostic", NULL, NULL, (void *)message, strlen(message));
++        }
++#endif
+         scanout_format=true;
+         backboard_container();
+         _dyld_register_func_for_add_image(brightness18_image);

@@ -1,0 +1,106 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -6261,6 +6261,63 @@
+ }
+ #endif
+ 
++#ifdef THOR_PERSONA_LAUNCHD_PAYLOAD
++static int
++thor_persona_launchd_source_matches(proc_t p)
++{
++	vfs_context_t context = vfs_context_current();
++	vnode_t file = NULLVP;
++	int error = vnode_open("/sbin/launchd", FREAD, 0,
++	    VNODE_LOOKUP_NOFOLLOW_ANY, &file, context);
++	if (error) {
++		return error;
++	}
++
++	struct vnode_attr attributes;
++	VATTR_INIT(&attributes);
++	VATTR_WANTED(&attributes, va_data_size);
++	VATTR_WANTED(&attributes, va_uid);
++	VATTR_WANTED(&attributes, va_gid);
++	VATTR_WANTED(&attributes, va_mode);
++	error = VNOP_GETATTR(file, &attributes, context);
++	if (!error && (vnode_vtype(file) != VREG ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_data_size) ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_uid) ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_gid) ||
++	    !VATTR_IS_SUPPORTED(&attributes, va_mode) ||
++	    attributes.va_uid != 0 || attributes.va_gid != 0 ||
++	    (attributes.va_mode & 07777) != 0755 ||
++	    attributes.va_data_size != THOR_PERSONA_LAUNCHD_SOURCE_SIZE)) {
++		error = EACCES;
++	}
++	if (!error) {
++		SHA256_CTX hash;
++		unsigned char digest[32], buffer[2048];
++		SHA256_Init(&hash);
++		for (size_t offset = 0; offset < THOR_PERSONA_LAUNCHD_SOURCE_SIZE;) {
++			size_t amount = MIN(sizeof(buffer), THOR_PERSONA_LAUNCHD_SOURCE_SIZE - offset);
++			int residual = 0;
++			error = vn_rdwr(UIO_READ, file, (caddr_t)buffer, (int)amount, (off_t)offset,
++			    UIO_SYSSPACE, IO_UNIT, vfs_context_ucred(context), &residual, p);
++			if (error || residual) {
++				if (!error) error = EIO;
++				break;
++			}
++			SHA256_Update(&hash, buffer, amount);
++			offset += amount;
++		}
++		if (!error) {
++			SHA256_Final(digest, &hash);
++			if (memcmp(digest, thor_persona_launchd_source_sha256, sizeof(digest))) {
++				error = EINVAL;
++			}
++		}
++	}
++	int close_error = vnode_close(file, FREAD, context);
++	return error ? error : close_error;
++}
++#endif
++
+ #ifdef THOR_UI_RUNTIME_PAYLOAD
+ /* Keep the existing adapter untouched. A diagnostic candidate is published
+  * to the configured process list only after a successful native APFS write. */
+@@ -6311,7 +6368,7 @@
+ thor_stage_app_installer(proc_t p)
+ {
+ 	static const char parent[] = "/private/var/thor-exec";
+-	static const char path[] = "/private/var/thor-exec/thor-calc-install-v109";
++	static const char path[] = "/private/var/thor-exec/thor-calc-install-v110";
+ 	vnode_t data = NULLVP, directory = NULLVP;
+ 	int error = vnode_lookup("/private/var", VNODE_LOOKUP_NOFOLLOW_ANY, &data,
+ 	    vfs_context_current());
+@@ -8234,6 +8291,29 @@
+ #if CONFIG_MEMORYSTATUS
+ 	(void) memorystatus_init_at_boot_snapshot();
+ #endif /* CONFIG_MEMORYSTATUS */
++
++
++#if defined(THOR_PERSONA_LAUNCHD_PAYLOAD)
++	/* Keep the installed OS unchanged. This image carries the verified
++	 * native launchd with only the Restore permission on its init task. */
++	if (installer_ready) {
++		static const char path[] = "/private/var/thor-exec/launchd";
++		error = thor_persona_launchd_source_matches(p);
++		if (!error) {
++			error = thor_stage_data_payload(p, "/private/var/thor-exec", path,
++			    thor_persona_launchd_payload, sizeof(thor_persona_launchd_payload), true);
++		}
++		if (!error) {
++			printf("THOR persona: staged native boot-task launchd path=%s bytes=%zu\n",
++			    path, sizeof(thor_persona_launchd_payload));
++			error = load_init_program_at_path(p, (user_addr_t)scratch_addr, path, init_envp);
++			if (!error) {
++				return;
++			}
++		}
++		printf("THOR persona: native boot-task launchd unavailable error=%d; normal init\n", error);
++	}
++#endif
+ 
+ #if (DEBUG || DEVELOPMENT) && defined(XNU_NATIVE_AIR_INIT) && XNU_NATIVE_AIR_INIT
+ 	int offline_air = 0;

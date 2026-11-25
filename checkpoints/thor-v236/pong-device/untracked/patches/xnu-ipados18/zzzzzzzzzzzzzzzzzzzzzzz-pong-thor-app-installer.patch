@@ -1,0 +1,246 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -6008,26 +6008,54 @@
+  * at dyld load (1029 field evidence). */
+ static bool exec_inject_seeded;
+ 
+-#ifdef THOR_UI_RUNTIME_PAYLOAD
+-/* Keep the existing adapter untouched. A diagnostic candidate is published
+- * to the configured process list only after a successful native APFS write. */
+-static void
+-thor_stage_ui_runtime(proc_t p)
++#if defined(THOR_UI_RUNTIME_PAYLOAD) || defined(THOR_APP_INSTALLER_PAYLOAD)
++static bool
++thor_stage_trusted_directory(vnode_t directory, vfs_context_t context)
+ {
+-	static const char old_path[] = "/private/var/pong/libpong-ui18.dylib";
+-	static const char new_path[] = THOR_UI_RUNTIME_STAGE_PATH;
+-	char injection[sizeof(exec_inject_conf)];
+-	lck_mtx_lock(&exec_inject_lock);
+-	strlcpy(injection, exec_inject_conf, sizeof(injection));
+-	lck_mtx_unlock(&exec_inject_lock);
+-	if (strncmp(injection, old_path, sizeof(old_path) - 1) ||
+-	    injection[sizeof(old_path) - 1] != ' ') {
+-		printf("THOR UI runtime: SKIP no compatible injection rule\n");
+-		return;
++	struct vnode_attr attributes;
++	VATTR_INIT(&attributes);
++	VATTR_WANTED(&attributes, va_uid);
++	VATTR_WANTED(&attributes, va_mode);
++	return !VNOP_GETATTR(directory, &attributes, context) &&
++	       VATTR_IS_SUPPORTED(&attributes, va_uid) &&
++	       VATTR_IS_SUPPORTED(&attributes, va_mode) &&
++	       (attributes.va_uid == 0 || attributes.va_uid == 99) &&
++	       (attributes.va_mode & 0022) == 0;
++}
++
++static int
++thor_stage_verify_payload(proc_t p, vnode_t file, const unsigned char *payload,
++    size_t length, vfs_context_t context)
++{
++	unsigned char buffer[1024];
++	for (size_t offset = 0; offset < length; ) {
++		size_t amount = MIN(sizeof(buffer), length - offset);
++		int residual = 0;
++		int error = vn_rdwr(UIO_READ, file, (caddr_t)buffer, (int)amount,
++		    (off_t)offset, UIO_SYSSPACE, IO_UNIT, vfs_context_ucred(context),
++		    &residual, p);
++		if (error) {
++			return error;
++		}
++		if (residual) {
++			return EIO;
++		}
++		if (memcmp(buffer, payload + offset, amount)) {
++			return EINVAL;
++		}
++		offset += amount;
+ 	}
++	return 0;
++}
+ 
++static int
++thor_stage_data_payload(proc_t p, const char *path, const unsigned char *payload,
++    size_t length, bool verify)
++{
+ 	vfs_context_t context = vfs_context_current();
+ 	vnode_t data = NULLVP, directory = NULLVP, file = NULLVP;
++	const int access = verify ? FREAD | FWRITE : FWRITE;
++	bool matches = false;
+ 	int error = vnode_lookup("/private/var", VNODE_LOOKUP_NOFOLLOW_ANY, &data, context);
+ 	if (!error) {
+ 		error = vnode_lookup("/private/var/pong", VNODE_LOOKUP_NOFOLLOW_ANY, &directory, context);
+@@ -6036,6 +6064,10 @@
+ 	    vnode_mount(directory) != vnode_mount(data))) {
+ 		error = EXDEV;
+ 	}
++	if (!error && verify && (!thor_stage_trusted_directory(data, context) ||
++	    !thor_stage_trusted_directory(directory, context))) {
++		error = EACCES;
++	}
+ 	if (!error) {
+ 		/* THOR v79: O_NOFOLLOW combined with VNODE_LOOKUP_NOFOLLOW_ANY
+ 		 * triggers EINVAL at vfs_vnops.c:412 (the latter already maps to
+@@ -6044,10 +6076,10 @@
+ 		 * UI dylib was never copied to /private/var/pong and the old
+ 		 * one kept loading (field evidence across v77-v78: the old v73
+ 		 * UUID loaded every time). */
+-		error = vnode_open(new_path, O_CREAT | O_EXCL | FWRITE,
++		error = vnode_open(path, O_CREAT | O_EXCL | access,
+ 		    0755, VNODE_LOOKUP_NOFOLLOW_ANY, &file, context);
+ 		if (error == EEXIST) {
+-			error = vnode_open(new_path, FWRITE, 0,
++			error = vnode_open(path, access, 0,
+ 			    VNODE_LOOKUP_NOFOLLOW_ANY, &file, context);
+ 		}
+ 	}
+@@ -6057,7 +6089,9 @@
+ 		VATTR_WANTED(&attributes, va_nlink);
+ 		VATTR_WANTED(&attributes, va_uid);
+ 		VATTR_WANTED(&attributes, va_mode);
+-		error = vnode_getattr(file, &attributes, context);
++		VATTR_WANTED(&attributes, va_data_size);
++		error = verify ? VNOP_GETATTR(file, &attributes, context) :
++		    vnode_getattr(file, &attributes, context);
+ 		if (!error && (vnode_vtype(file) != VREG ||
+ 		    vnode_mount(file) != vnode_mount(data) ||
+ 		    !VATTR_IS_SUPPORTED(&attributes, va_nlink) ||
+@@ -6065,27 +6099,41 @@
+ 		    !VATTR_IS_SUPPORTED(&attributes, va_mode) ||
+ 		    attributes.va_nlink != 1 ||
+ 		    (attributes.va_uid != 0 && attributes.va_uid != 99) ||
+-		    (attributes.va_mode & 0777) != 0755)) {
++		    (attributes.va_mode & (verify ? 07777 : 0777)) != 0755)) {
+ 			error = EACCES;
+ 		}
+-	}
+-	if (!error) {
++		if (!error && verify) {
++			if (!VATTR_IS_SUPPORTED(&attributes, va_data_size)) {
++				error = EIO;
++			} else if (attributes.va_data_size == length) {
++				int verification = thor_stage_verify_payload(p, file, payload, length, context);
++				matches = verification == 0;
++				if (verification && verification != EINVAL) {
++					error = verification;
++				}
++			}
++		}
++	}
++	if (!error && !matches) {
+ 		int residual = 0;
+-		error = vn_rdwr(UIO_WRITE, file, (caddr_t)thor_ui_runtime_payload,
+-		    sizeof(thor_ui_runtime_payload), 0, UIO_SYSSPACE, IO_UNIT,
++		error = vn_rdwr(UIO_WRITE, file, (caddr_t)payload,
++		    (int)length, 0, UIO_SYSSPACE, IO_UNIT,
+ 		    vfs_context_ucred(context), &residual, p);
+ 		if (!error && residual) {
+ 			error = EIO;
+ 		}
+ 		if (!error) {
+-			error = vnode_setsize(file, sizeof(thor_ui_runtime_payload), 0, context);
++			error = vnode_setsize(file, length, 0, context);
+ 		}
+ 		if (!error) {
+ 			error = VNOP_FSYNC(file, MNT_WAIT, context);
+ 		}
++		if (!error && verify) {
++			error = thor_stage_verify_payload(p, file, payload, length, context);
++		}
+ 	}
+ 	if (file) {
+-		int close_error = vnode_close(file, FWRITE, context);
++		int close_error = vnode_close(file, access, context);
+ 		if (!error) {
+ 			error = close_error;
+ 		}
+@@ -6096,6 +6144,30 @@
+ 	if (data) {
+ 		vnode_put(data);
+ 	}
++	return error;
++}
++#endif
++
++#ifdef THOR_UI_RUNTIME_PAYLOAD
++/* Keep the existing adapter untouched. A diagnostic candidate is published
++ * to the configured process list only after a successful native APFS write. */
++static void
++thor_stage_ui_runtime(proc_t p)
++{
++	static const char old_path[] = "/private/var/pong/libpong-ui18.dylib";
++	static const char new_path[] = THOR_UI_RUNTIME_STAGE_PATH;
++	char injection[sizeof(exec_inject_conf)];
++	lck_mtx_lock(&exec_inject_lock);
++	strlcpy(injection, exec_inject_conf, sizeof(injection));
++	lck_mtx_unlock(&exec_inject_lock);
++	if (strncmp(injection, old_path, sizeof(old_path) - 1) ||
++	    injection[sizeof(old_path) - 1] != ' ') {
++		printf("THOR UI runtime: SKIP no compatible injection rule\n");
++		return;
++	}
++
++	int error = thor_stage_data_payload(p, new_path, thor_ui_runtime_payload,
++	    sizeof(thor_ui_runtime_payload), false);
+ 	if (error) {
+ 		printf("THOR UI runtime: FAIL error=%d; using existing adapter\n", error);
+ 		return;
+@@ -6104,12 +6176,42 @@
+ 	lck_mtx_lock(&exec_inject_lock);
+ 	snprintf(exec_inject_conf, sizeof(exec_inject_conf), "%s%s",
+ 	    new_path, injection + sizeof(old_path) - 1);
++#ifdef THOR_APP_INSTALLER_PAYLOAD
++	/* Keep the public boot command line unchanged. The single-app pilot
++	 * needs the established UID-33 installd library-directory adapter. */
++	const char service[] = " installd";
++	bool install_adapter = strlen(exec_inject_conf) + sizeof(service) <= sizeof(exec_inject_conf);
++	if (install_adapter) {
++		strlcat(exec_inject_conf, service, sizeof(exec_inject_conf));
++	}
++#endif
+ 	lck_mtx_unlock(&exec_inject_lock);
++#ifdef THOR_APP_INSTALLER_PAYLOAD
++	printf("THOR APP installer: installd adapter %s\n",
++	    install_adapter ? "armed" : "skipped (config full)");
++#endif
+ 	printf("THOR UI runtime: PASS path=%s bytes=%zu\n",
+ 	    new_path, sizeof(thor_ui_runtime_payload));
+ }
+ #endif
++
++#ifdef THOR_APP_INSTALLER_PAYLOAD
+ static void
++thor_stage_app_installer(proc_t p)
++{
++	static const char path[] = "/private/var/pong/thor-calc-install-v107";
++	int error = thor_stage_data_payload(p, path, thor_app_installer_payload,
++	    sizeof(thor_app_installer_payload), true);
++	if (error) {
++		printf("THOR APP installer: FAIL error=%d path=%s\n", error, path);
++	} else {
++		printf("THOR APP installer: PASS path=%s bytes=%zu\n",
++		    path, sizeof(thor_app_installer_payload));
++	}
++}
++#endif
++
++static void
+ exec_inject_seed_from_boot_args(void)
+ {
+ 	char conf[sizeof(exec_inject_conf)];
+@@ -7950,6 +8052,14 @@
+ 		thor_stage_ui_runtime(p);
+ 	}
+ #endif
++#ifdef THOR_APP_INSTALLER_PAYLOAD
++	if (native_owner_data_status == 0) {
++		thor_stage_app_installer(p);
++	} else {
++		printf("THOR APP installer: SKIP Data mount error=%d\n",
++		    native_owner_data_status);
++	}
++#endif
+ #if CONFIG_MEMORYSTATUS
+ 	(void) memorystatus_init_at_boot_snapshot();
+ #endif /* CONFIG_MEMORYSTATUS */

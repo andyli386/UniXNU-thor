@@ -1,0 +1,362 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -232,6 +232,19 @@
+ 	uint32_t        fSwapsShown;
+ 	uint32_t        fLayersShown;           /* which layers the last swap had a surface in */
+ 	bool            fGraphics;              /* the text console has been told to stop */
++#if XNU_PONG_ADRENO_PLATFORM
++	/* The presenter owns this state except for the atomic power epoch. */
++	uint64_t        fPowerRequestEpoch;
++	uint64_t        fGpuFramePowerEpoch;
++	uint64_t        fGpuClearDeadline;
++	bool            fLastDesktopGpuFrame;
++	bool            fGpuClearDeferred;
++
++	bool gpuFrameHoldActive(void) const;
++	void expireDeferredGpuClear(void);
++	void cancelGpuFrameHold(void);
++#endif
++	void clearPanel(void);
+ 	/*
+ 	 * A frame goes to the panel when the GPU is done with it: a thread of ours waits for that
+ 	 * and copies it there, and whoever made the frame is back at the next one meanwhile. One
+@@ -956,6 +969,52 @@
+ }
+ 
+ void
++IOMobileFramebuffer::clearPanel(void)
++{
++	for (uint32_t y = 0; y < fPanelHeight; y++) {
++		uint32_t *row = reinterpret_cast<uint32_t *>(fBase + (size_t)y * fRowBytes);
++		for (uint32_t x = 0; x < fPanelWidth; x++) {
++			row[x] = 0xff000000u;
++		}
++	}
++}
++
++#if XNU_PONG_ADRENO_PLATFORM
++bool
++IOMobileFramebuffer::gpuFrameHoldActive(void) const
++{
++	return fGpuClearDeadline && mach_absolute_time() < fGpuClearDeadline &&
++	    fGpuFramePowerEpoch == __atomic_load_n(&fPowerRequestEpoch, __ATOMIC_ACQUIRE);
++}
++
++void
++IOMobileFramebuffer::expireDeferredGpuClear(void)
++{
++	if (!fGpuClearDeferred || gpuFrameHoldActive()) {
++		return;
++	}
++	fGpuClearDeferred = false;
++	fLastDesktopGpuFrame = false;
++	fGpuClearDeadline = 0;
++	IOLockLock(fLock);
++	/* A quarantined DMA copy still owns the destination. */
++	if (!pong_scanout_quarantined()) {
++		clearPanel();
++	}
++	IOLockUnlock(fLock);
++}
++
++void
++IOMobileFramebuffer::cancelGpuFrameHold(void)
++{
++	IOLockLock(fSwapLock);
++	__atomic_add_fetch(&fPowerRequestEpoch, 1, __ATOMIC_RELEASE);
++	IOLockWakeup(fSwapLock, fSwap, true);
++	IOLockUnlock(fSwapLock);
++}
++#endif
++
++void
+ IOMobileFramebuffer::presenter(void)
+ {
+ 	static uint8_t swap[SWAP_SIZE];         /* (one thread) */
+@@ -966,6 +1025,18 @@
+ 	for (;;) {
+ 		IOLockLock(fSwapLock);
+ 		while (fSwapsWaiting == 0) {
++#if XNU_PONG_ADRENO_PLATFORM
++			if (fGpuClearDeferred) {
++				if (gpuFrameHoldActive()) {
++					IOLockSleepDeadline(fSwapLock, fSwap, fGpuClearDeadline, THREAD_UNINT);
++				} else {
++					IOLockUnlock(fSwapLock);
++					expireDeferredGpuClear();
++					IOLockLock(fSwapLock);
++				}
++				continue;
++			}
++#endif
+ 			IOLockSleep(fSwapLock, fSwap, THREAD_UNINT);
+ 		}
+ 		memcpy(swap, fSwap[fSwapFirst], SWAP_SIZE);
+@@ -977,6 +1048,9 @@
+ 		strlcpy(presenterWho, fSwapWho[fSwapFirst], sizeof(presenterWho));
+ 		presenterWhoPid = fSwapWhoPid[fSwapFirst];
+ 		IOLockUnlock(fSwapLock);
++#if XNU_PONG_ADRENO_PLATFORM
++		expireDeferredGpuClear();
++#endif
+         IOReturn result=show(swap,surfaces,presenterWho,presenterWhoPid);
+         IOLockLock(fSwapLock);
+         const uint32_t id=swapWord(swap,SWAP_ID);
+@@ -1001,9 +1075,13 @@
+ 	uint64_t began = mach_absolute_time(), nanos, ready, shown, drawn;
+ 	uint32_t layers = 0;
+ 	bool report;
+-	bool surfacesReady = true;
++	const uint32_t swapID = swapWord(swap, SWAP_ID);
++	uint64_t surfaceDeadline;
++	clock_interval_to_deadline(SWAP_GPU_MS, kMillisecondScale, &surfaceDeadline);
+ #if XNU_PONG_ADRENO_PLATFORM
+-    pongDisplayTrace(20,swapWord(swap,SWAP_ID),1,swapWord(swap,SWAP_SURFACE(0)));
++	const bool desktop = who && strcmp(who, "backboardd") == 0;
++	const uint64_t powerEpoch = __atomic_load_n(&fPowerRequestEpoch, __ATOMIC_ACQUIRE);
++	pongDisplayTrace(20, swapID, 1, swapWord(swap, SWAP_SURFACE(0)));
+ #endif
+     struct Readers {
+         MiniIOSurface *held[SWAP_LAYERS]={};
+@@ -1011,18 +1089,26 @@
+     } readers;
+ 
+ 	for (unsigned layer = 0; layer < SWAP_LAYERS; layer++) {
+-		if (surfaces[layer] != NULL && !MiniIOSurfaceDrawn(surfaces[layer], SWAP_GPU_MS)) {
+-			surfacesReady = false;
++		if (surfaces[layer] == NULL) {
++			continue;
++		}
++		if (!MiniIOSurfaceDrawn(surfaces[layer], surfaceDeadline, swapID)) {
++			fStatWaiting += mach_absolute_time() - began;
++			fStatLost++;
+ #if XNU_PONG_ADRENO_PLATFORM
+-            pongDisplayTrace(22,swapWord(swap,SWAP_ID),3,swapWord(swap,SWAP_SURFACE(layer)),SWAP_GPU_MS);
++			pongDisplayTrace(22, swapID, 3, swapWord(swap, SWAP_SURFACE(layer)), micros(mach_absolute_time() - began));
++			/* Arm once per completed desktop GPU frame, never per retry. */
++			if (desktop && fLastDesktopGpuFrame && !fGpuClearDeadline &&
++			    fGpuFramePowerEpoch == powerEpoch) {
++				clock_interval_to_deadline(2500, kMillisecondScale, &fGpuClearDeadline);
++			}
+ #endif
+-			IOLog("MiniIOMobileFramebuffer: swap %u: GPU surface %u incomplete after %u ms; retaining the last completed frame\n",
+-			    swapWord(swap, SWAP_ID), swapWord(swap, SWAP_SURFACE(layer)), SWAP_GPU_MS);
+-		} else if(surfaces[layer]){readers.held[layer]=surfaces[layer];
++			return kIOReturnNotReady;
++		}
++		readers.held[layer] = surfaces[layer];
+ #if XNU_PONG_ADRENO_PLATFORM
+-            pongDisplayTrace(22,swapWord(swap,SWAP_ID),1,swapWord(swap,SWAP_SURFACE(layer)));
++		pongDisplayTrace(22, swapID, 1, swapWord(swap, SWAP_SURFACE(layer)));
+ #endif
+-        }
+ 	}
+ 	fStatWaiting += mach_absolute_time() - began;
+ 	began = ready = mach_absolute_time();
+@@ -1051,7 +1137,6 @@
+ 		}
+ 	}
+ 	shown = began;
+-    if (!surfacesReady) { fStatLost++; return kIOReturnNotReady; }
+     IOLockLock(fLock);
+     if (fLastFrame != 0) {
+ 		absolutetime_to_nanoseconds(began - fLastFrame, &nanos);
+@@ -1082,7 +1167,7 @@
+ 	int32_t source[4],destination[4];
+ 	memcpy(source,swap+SWAP_SOURCE(0),sizeof(source));
+ 	memcpy(destination,swap+SWAP_DEST(0),sizeof(destination));
+-	if(surfacesReady && base && !swapWord(swap,SWAP_SURFACE(1)) && !swapWord(swap,SWAP_SURFACE(2)) &&
++	if(base && !swapWord(swap,SWAP_SURFACE(1)) && !swapWord(swap,SWAP_SURFACE(2)) &&
+ 	    !swapWord(swap,SWAP_SURFACE(3)) && canDrawLinearBGRA(base) &&
+ 	    base->info.width>=fPanelWidth && base->info.height>=fPanelHeight &&
+ 	    !source[0] && !source[1] && !destination[0] && !destination[1] &&
+@@ -1120,10 +1205,21 @@
+ 		if (sid == 0) {
+ 			/* the bottom layer taken away: nothing is shown, the screen is black */
+ 			if (!gpuFrame && layer == 0 && (set & 1) && fGraphics) {
+-				for (uint32_t y = 0; y < fPanelHeight; y++) {
+-					uint32_t *row=(uint32_t *)(fBase + (size_t)y * fRowBytes);
+-					for (uint32_t x=0;x<fPanelWidth;x++) row[x]=0xff000000u;
++#if XNU_PONG_ADRENO_PLATFORM
++				if (desktop && !swapWord(swap, SWAP_SURFACE(1)) &&
++				    !swapWord(swap, SWAP_SURFACE(2)) && !swapWord(swap, SWAP_SURFACE(3)) &&
++				    gpuFrameHoldActive()) {
++					if (!fGpuClearDeferred) {
++						IOLog("PONG SCANOUT: deferred desktop empty swap=%u after GPU surface failure\n", swapID);
++					}
++					fGpuClearDeferred = true;
++					continue;
+ 				}
++				fGpuClearDeferred = false;
++				fGpuClearDeadline = 0;
++				fLastDesktopGpuFrame = false;
++#endif
++				clearPanel();
+ 			}
+ 			continue;
+ 		}
+@@ -1145,6 +1241,14 @@
+ 			if (!gpuFrame) drawLayer(s, src, dst);
+ 		}
+ 	}
++#if XNU_PONG_ADRENO_PLATFORM
++	if (layers != 0) {
++		fGpuClearDeferred = false;
++		fGpuClearDeadline = 0;
++		fLastDesktopGpuFrame = gpuFrame && desktop;
++		fGpuFramePowerEpoch = powerEpoch;
++	}
++#endif
+ 	drawn = mach_absolute_time();
+ 	fSwapsShown++;
+ 	if (gTouchLat) {
+@@ -1552,8 +1656,14 @@
+ 	case kFBMethodSwapSignal:
+ 	case kFBMethodSwapCancel:
+ 	case kFBMethodSwapCancelAll:
++	case kFBMethodChangeFrameInfo:
++		return kIOReturnSuccess;
++
+ 	case kFBMethodRequestPowerChange:
+-	case kFBMethodChangeFrameInfo:
++#if XNU_PONG_ADRENO_PLATFORM
++		/* Any request cancels optional retention; leave the power ABI alone. */
++		fOwner->cancelGpuFrameHold();
++#endif
+ 		return kIOReturnSuccess;
+ 
+ 	case kFBMethodNotifications:                    /* in: callback (0 = off), its argument, type, 0 */
+diff --git a/iokit/Kernel/MiniIOSurface.cpp b/iokit/Kernel/MiniIOSurface.cpp
+--- a/iokit/Kernel/MiniIOSurface.cpp
++++ b/iokit/Kernel/MiniIOSurface.cpp
+@@ -2006,10 +2006,21 @@
+  * authorizes the handoff. No numeric surface ID is treated as ownership.
+  * Each connection retains its pending surfaces; a dead producer poisons its
+  * incomplete frame rather than inventing GPU completion. */
++static bool
++logGpuSurfaceReceipt(void)
++{
++	static unsigned count;
++	return __atomic_fetch_add(&count, 1, __ATOMIC_RELAXED) < 24;
++}
++
+ void IOSurfaceRootUserClient::abandonGpuHolds(void)
+ {
+     for(auto &hold:fGpuHolds)if(hold.surface) {
+         auto *surface=hold.surface;
++        if (!surface->gpuFailed && logGpuSurfaceReceipt()) {
++            IOLog("PONG IOSURFACE: sid=%u poison=producer-close writers=%u abandoned=%u\n",
++                surface->sid, surface->gpuWriters, hold.writers);
++        }
+         surface->gpuFailed=true;surface->gpuWriters-=hold.writers;
+         hold={};IOLockWakeup(gSurfaceLock,surface,false);surfaceUnhold(surface);
+     }
+@@ -2046,7 +2057,13 @@
+         unsigned i=0;for(;i<256;i++)if(fGpuHolds[i].surface==surface)break;
+         if(i==256 || !fGpuHolds[i].writers)result=kIOReturnBadArgument;
+         else {
+-            if(args->scalarInput[2])surface->gpuFailed=true;
++            if (args->scalarInput[2]) {
++                if (!surface->gpuFailed && logGpuSurfaceReceipt()) {
++                    IOLog("PONG IOSURFACE: sid=%u poison=producer-end pid=%d writers=%u\n",
++                        surface->sid, proc_selfpid(), surface->gpuWriters);
++                }
++                surface->gpuFailed = true;
++            }
+             --surface->gpuWriters;
+             if(!--fGpuHolds[i].writers){fGpuHolds[i]={};surfaceUnhold(surface);}
+             IOLockWakeup(gSurfaceLock,surface,false);
+@@ -2454,19 +2471,36 @@
+ /* The Metal frontend brackets actual submissions with authorized send
+  * rights. Reading starts only after those GPU jobs and cache acquisition
+  * completed; subsequent writers wait until the display finishes copying. */
+-bool MiniIOSurfaceDrawn(MiniIOSurface *surface,uint64_t milliseconds)
+-{
+-    if(!surface)return false;
+-    uint64_t deadline;clock_interval_to_deadline((uint32_t)(milliseconds>1000?1000:milliseconds),kMillisecondScale,&deadline);
+-    IOLockLock(gSurfaceLock);
+-    while(surface->gpuWriters && !surface->gpuFailed) {
+-        if(IOLockSleepDeadline(gSurfaceLock,surface,deadline,THREAD_ABORTSAFE)!=THREAD_AWAKENED) {
+-            IOLockUnlock(gSurfaceLock);return false;
+-        }
+-    }
+-    const bool ready=!surface->gpuFailed && !surface->drawn;
+-    if(ready)++surface->displayReaders;
+-    IOLockUnlock(gSurfaceLock);return ready;
++bool
++MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID)
++{
++	if (surface == NULL) {
++		return false;
++	}
++	const uint64_t began = mach_absolute_time();
++	wait_result_t waitResult = THREAD_AWAKENED;
++	IOLockLock(gSurfaceLock);
++	while (surface->gpuWriters && !surface->gpuFailed && waitResult == THREAD_AWAKENED) {
++		/* Only the dedicated presenter enters here. The absolute deadline
++		 * bounds the wait, independent of transient thread aborts. */
++		waitResult = IOLockSleepDeadline(gSurfaceLock, surface, deadline, THREAD_UNINT);
++	}
++	const bool ready = !surface->gpuWriters && !surface->gpuFailed && !surface->drawn;
++	if (ready) {
++		surface->displayReaders++;
++	}
++	const bool logFailure = !ready && logGpuSurfaceReceipt();
++	const uint32_t writers = surface->gpuWriters, readers = surface->displayReaders;
++	const bool poison = surface->gpuFailed, drawn = surface->drawn;
++	IOLockUnlock(gSurfaceLock);
++	if (logFailure) {
++		uint64_t nanos;
++		absolutetime_to_nanoseconds(mach_absolute_time() - began, &nanos);
++		IOLog("PONG IOSURFACE: swap=%u sid=%u format=%#x writers=%u readers=%u poison=%d drawn=%d wait=%d elapsed_us=%llu\n",
++		    swapID, surface->sid, surface->info.pixelFormat, writers, readers, poison, drawn,
++		    waitResult, nanos / NSEC_PER_USEC);
++	}
++	return ready;
+ }
+ void MiniIOSurfaceDisplayDone(MiniIOSurface *surface)
+ {
+diff --git a/iokit/Kernel/MiniIOSurface.h b/iokit/Kernel/MiniIOSurface.h
+--- a/iokit/Kernel/MiniIOSurface.h
++++ b/iokit/Kernel/MiniIOSurface.h
+@@ -170,7 +170,7 @@
+ /* Clear the memory that is kept of surfaces that are gone, for the next ones: when the caller has a moment. */
+ void            MiniIOSurfaceClearKept(void);
+ /* True only when the surface has no pending GPU fence in this CPU backend. */
+-bool            MiniIOSurfaceDrawn(MiniIOSurface * surface, uint64_t milliseconds);
++bool            MiniIOSurfaceDrawn(MiniIOSurface *surface, uint64_t deadline, uint32_t swapID);
+ void            MiniIOSurfaceDisplayDone(MiniIOSurface * surface);
+ MiniIOSurface * MiniIOSurfaceCreateSimple(uint32_t width, uint32_t height, uint32_t pixelFormat);
+ void            MiniIOSurfaceDrop(MiniIOSurface * surface);
+diff --git a/bsd/kern/kern_exit.c b/bsd/kern/kern_exit.c
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -146,6 +146,7 @@
+ /* Give the Metal test a bounded number of records in PongConsole per boot. */
+ static unsigned pong_settings_receipt_count;
+ static unsigned pong_desktop_receipt_count;
++static unsigned pong_desktop_handoff_count;
+ 
+ static bool
+ pong_metal_receipt_reserve(unsigned *counter)
+@@ -183,6 +184,9 @@
+ 	if (length > 0) pong_ramoops_diagnostic_write(line,
+ 	    length < (int)sizeof(line) ? length : (int)sizeof(line)-1);
+ 
++	/* Keep late desktop handoff failures independent of startup telemetry. */
++	bool handoff = desktop &&
++	    strncmp(text, "Pong Metal: handoff ", sizeof("Pong Metal: handoff ") - 1) == 0;
+ 	/* Keep each client in its own bounded console budget. */
+ 	unsigned metal = 0, scanout = 0;
+ 	const bool settings_timing = settings &&
+@@ -193,7 +197,8 @@
+ 	    (settings || (desktop && PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) &&
+ 	    scanout == 1));
+ 	if (req->newlen < 256 && (settings_timing || metal_timing) &&
+-	    pong_metal_receipt_reserve(settings ? &pong_settings_receipt_count : &pong_desktop_receipt_count)) {
++	    pong_metal_receipt_reserve(settings ? &pong_settings_receipt_count :
++	        (handoff ? &pong_desktop_handoff_count : &pong_desktop_receipt_count))) {
+ 		size_t end = strnlen(text, req->newlen);
+ 		if (end && text[end - 1] == '\n') {
+ 			end--;

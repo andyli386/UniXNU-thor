@@ -1,0 +1,98 @@
+diff --git a/iokit/Kernel/MiniIOMobileFramebuffer.cpp b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -135,6 +135,8 @@
+  */
+ #define kFBDefaultScale         3
+ static TUNABLE(uint32_t, gFBScale, "fbscale", 0);
++/* Retain the previous Thor fbscale=2 workspace with fb720=0. */
++static TUNABLE(uint32_t, gFBCompactThor, "fb720", 1);
+ /* Boot-arg fbtrace=N: log the first N calls of every selector (default 3). */
+ static TUNABLE(uint32_t, gFBTrace, "fbtrace", 0);
+ 
+@@ -521,13 +523,26 @@
+ 			IOLog("MiniIOMobileFramebuffer: invalid fbscale=%u; retain native workspace\n", scale);
+ 		}
+ 	}
++	const bool thorPanel = thor && fPanelWidth == 1440 && fPanelHeight == 3200;
++	const bool thorScaledWorkspace = thorPanel && gFBScale == 2 &&
++	    fWidth == 960 && fHeight == 2133;
++	if (thorScaledWorkspace && gFBCompactThor != 0 && !fGpuOnly &&
++	    gFBWidth == 0 && gFBHeight == 0 && !gFilter && !gDiff) {
++		/* Preserve @2x UI assets and the native panel. Only the compositor
++		 * target changes, giving an exact two-pixel panel step per source pixel. */
++		fWidth = fPanelWidth / 2;
++		fHeight = fPanelHeight / 2;
++		IOLog("PONG SCANOUT: Thor compact workspace 720x1600 at 2x UI scale; fb720=0 restores 960x2133\n");
++	}
+ #if XNU_PONG_ADRENO_PLATFORM
+ 	uint32_t scanout = 0, memlog = 0;
+ 	const bool nativeScanout = PE_parse_boot_argn("pong_gpu_scanout", &scanout, sizeof(scanout)) && scanout == 1;
+ 	fGpuColorReceipt = nativeScanout && PE_parse_boot_argn("memlog", &memlog, sizeof(memlog)) && memlog == 1;
+ 	uint32_t metal = 0, beatOverride = 0;
+-	fPresentWhenReady = nativeScanout && !fGpuOnly && !gFilter &&
+-	    fWidth == 960 && fHeight == 2133 && fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	const bool thorPresentGeometry = fPanelWidth == 1440 && fPanelHeight == 3200 &&
++	    ((fWidth == 960 && fHeight == 2133) ||
++	    (thorPanel && fWidth == 720 && fHeight == 1600));
++	fPresentWhenReady = nativeScanout && !fGpuOnly && !gFilter && thorPresentGeometry &&
+ 	    PE_parse_boot_argn("pong_metal", &metal, sizeof(metal)) && metal == 1 &&
+ 	    !PE_parse_boot_argn("fb_beat", &beatOverride, sizeof(beatOverride));
+ 	fReportedReadyPresent = false;
+@@ -640,7 +655,7 @@
+ 	const uint8_t * pixels;
+ 	uint32_t        stride;
+ 	int32_t         sx, sy, sw, sh, px0, py0, px1, py1, cx0, cx1;
+-	bool            filter, unscaled, nearestThreeToTwo;
++	bool            filter, unscaled, nearestThreeToTwo, nearestTwoX;
+ };
+ 
+ void
+@@ -656,6 +671,20 @@
+ 	if (y0 < 0) y0 = 0;
+ 	if (y1 > (int32_t) fPanelHeight) y1 = (int32_t) fPanelHeight;
+ 	if (y0 >= y1 || cx0 >= cx1) return;
++
++	if (job->nearestTwoX) {
++		for (int32_t y = y0; y < y1; y++) {
++			const auto *from = (const uint32_t *)(pixels +
++			    (size_t)(sy + y / 2) * stride) + sx;
++			auto *to = (uint32_t *)(fBase + (size_t)y * fRowBytes);
++			for (int32_t x = 0; x < sw; x++) {
++				const uint32_t opaque = from[x] | 0xff000000u;
++				to[2 * x] = opaque;
++				to[2 * x + 1] = opaque;
++			}
++		}
++		return;
++	}
+ 
+ 	for (int32_t y = y0; y < y1; y++) {
+ 		const uint32_t * from;
+@@ -865,6 +894,17 @@
+ 	}
+ 	filter = filter && fBlendRow != NULL && fBlendRowSize >= (uint32_t) sw;
+ 	job.nearestThreeToTwo = pongNearestThreeToTwo(filter, fDiff, sw, px0, px1, fPanelWidth);
++	job.nearestTwoX = !filter && !fDiff && sw == 720 && sh == 1600 &&
++	    px0 == 0 && py0 == 0 && px1 == 1440 && py1 == 3200 &&
++	    fPanelWidth == (uint32_t)px1 && fPanelHeight == (uint32_t)py1;
++	if (job.nearestTwoX) {
++		static unsigned reportedTwoX;
++		if (!__atomic_load_n(&reportedTwoX, __ATOMIC_RELAXED) &&
++		    !__atomic_exchange_n(&reportedTwoX, 1u, __ATOMIC_RELAXED)) {
++			IOLog("PONG SCANOUT: 2x CPU fast path source=%dx%d panel=%ux%u stride=%u panel_stride=%u\n",
++			    sw, sh, fPanelWidth, fPanelHeight, s->info.bytesPerRow, fRowBytes);
++		}
++	}
+ 	if (job.nearestThreeToTwo) {
+ 		static unsigned reported;
+ 		if (!__atomic_load_n(&reported, __ATOMIC_RELAXED) &&
+@@ -874,7 +914,7 @@
+ 		}
+ 	}
+ 	/* Work out the generic source column once for each panel column. */
+-	if (!job.nearestThreeToTwo) {
++	if (!job.nearestThreeToTwo && !job.nearestTwoX) {
+ 		for (int32_t x = cx0; x < cx1; x++) {
+ 			if (filter) {
+ 				int64_t at = sample_at(x - px0, sw, px1 - px0);
