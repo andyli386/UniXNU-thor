@@ -1,0 +1,621 @@
+{
+  "checkpoint": "thor-v236",
+  "date": "2026-11-25",
+  "branch": "thor/main",
+  "description": "Index of the v236 source checkpoint: the state of the Thor port (Xiaomi 12S Ultra, SM8475, iPadOS 18.7.10 / 22H374) as built and analysed on 2026-11-25. See docs/thor-v236-source-checkpoint.md.",
+  "images_built_from_these_sources": [
+    {
+      "image": "boot-thor-unixnu-v235-unified.img",
+      "image_sha256": "fc15cb8d5d3e4492421be5ffd9c28249d006b1d7622222ff6576ff26a2ff0368",
+      "kernel_uuid": "65407879-1854-3E78-8CC5-461BFDEF956A",
+      "boot_argument_bytes": 1005
+    },
+    {
+      "image": "boot-thor-unixnu-v236-unified.img",
+      "image_sha256": "c3049c63145f01780f1dbd6774bd056b1cb65137b67cfe7cc09976a9cf02b347",
+      "kernel_uuid": "BBA25C2A-7B62-346F-9FBE-BE0D263AFE59",
+      "boot_argument_bytes": 1005
+    }
+  ],
+  "device_results": {
+    "v235": "temp-booted at 20:28, froze after about five minutes; the panic record was stored and names the cause (a dangling clock pointer in NativeAdrenoUserClient::dispatch)",
+    "v236": "built on the host; device result pending when the checkpoint was made"
+  },
+  "parts": {
+    "xnu_series": [
+      "patches/xnu-ipados18/series"
+    ],
+    "xnu_tree": [
+      "patches/xnu-ipados18/checkpoints/thor-v236/manifest.json",
+      "patches/xnu-ipados18/checkpoints/thor-v236/xnu-after-series.patch"
+    ],
+    "drivers": [
+      "checkpoints/thor-v236/drivers/AdrenoMetal.patch",
+      "checkpoints/thor-v236/drivers/ArmCpu.patch",
+      "checkpoints/thor-v236/drivers/ArmDTPlatform.patch",
+      "checkpoints/thor-v236/drivers/NativeUfs.patch",
+      "checkpoints/thor-v236/drivers/PongAdreno.patch",
+      "checkpoints/thor-v236/drivers/PongMetal.patch",
+      "checkpoints/thor-v236/drivers/PongPower.patch",
+      "checkpoints/thor-v236/drivers/PongWifi.patch",
+      "checkpoints/thor-v236/drivers/manifest.json"
+    ],
+    "pong_device": [
+      "checkpoints/thor-v236/pong-device/manifest.json",
+      "checkpoints/thor-v236/pong-device/tracked.patch",
+      "checkpoints/thor-v236/pong-device/untracked/configs/thor-memory-sm8475.json",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zz-thor-salixp-touch.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzz-thor-db24-memory-receipt.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzz-pong-thor-metal-receipts.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzz-pong-thor-ui-runtime-stage.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzz-pong-thor-platform-uuid.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzz-pong-thor-ram-audit.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzz-pong-thor-desktop-gpu-receipts.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzz-pong-thor-vsync-receipt.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzz-pong-thor-smem402-receipt.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzz-pong-thor-settings-timing.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzz-pong-thor-native-frame-handoff.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzz-pong-thor-scaled-scanout.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzz-pong-thor-gpu-color-receipt.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzz-pong-thor-nearest-3to2.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzz-pong-thor-present-when-ready.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzz-pong-thor-readiness-timing.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer-v108.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer-v109.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-software-cadence-v109.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-compact-workspace-v110.patch",
+      "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-native-persona-v110.patch",
+      "checkpoints/thor-v236/pong-device/untracked/scripts/pack-thor-boot.py",
+      "checkpoints/thor-v236/pong-device/untracked/userland/metal_smoke18.mm",
+      "checkpoints/thor-v236/pong-device/untracked/userland/settings_watch_stack18.c",
+      "checkpoints/thor-v236/pong-device/untracked/userland/settings_watchdog18.c"
+    ],
+    "thor_18": [
+      "checkpoints/thor-v236/unixnu-thor-18/scripts-wrap-apfs-gpt.patch"
+    ],
+    "records": [
+      "checkpoints/thor-v236/records/analysis/v228/ANALYSIS.md",
+      "checkpoints/thor-v236/records/analysis/v229/ANALYSIS.md",
+      "checkpoints/thor-v236/records/analysis/v230/ANALYSIS.md",
+      "checkpoints/thor-v236/records/analysis/v231/ANALYSIS.md",
+      "checkpoints/thor-v236/records/analysis/v232/ANALYSIS.md",
+      "checkpoints/thor-v236/records/analysis/v233/ANALYSIS.md",
+      "checkpoints/thor-v236/records/analysis/v234/ANALYSIS.md",
+      "checkpoints/thor-v236/records/analysis/v235/ANALYSIS.md",
+      "checkpoints/thor-v236/records/analysis/v236/ANALYSIS.md",
+      "checkpoints/thor-v236/records/panic-20261125/README.md",
+      "checkpoints/thor-v236/records/recent-crashes-rust-assessment-20261119.md",
+      "checkpoints/thor-v236/records/umi-reference/PORTING-MAP.md",
+      "checkpoints/thor-v236/records/umi-reference/audio.md",
+      "checkpoints/thor-v236/records/umi-reference/bluetooth-wifi.md",
+      "checkpoints/thor-v236/records/umi-reference/cellular.md",
+      "checkpoints/thor-v236/records/umi-reference/gpu-display-hang.md",
+      "checkpoints/thor-v236/records/upstream-gpu-kernel.md",
+      "checkpoints/thor-v236/records/upstream-gpu-runtime.md"
+    ],
+    "tools": [
+      "checkpoints/thor-v236/tools/adt_diff.py",
+      "checkpoints/thor-v236/tools/apfs_extents.py",
+      "checkpoints/thor-v236/tools/apfs_region.py",
+      "checkpoints/thor-v236/tools/boot_stack_budget.py",
+      "checkpoints/thor-v236/tools/console_sessions.py",
+      "checkpoints/thor-v236/tools/dis.py",
+      "checkpoints/thor-v236/tools/disat.py",
+      "checkpoints/thor-v236/tools/disrange.py",
+      "checkpoints/thor-v236/tools/fbprobe.c",
+      "checkpoints/thor-v236/tools/frame_size.py",
+      "checkpoints/thor-v236/tools/fstarts.py",
+      "checkpoints/thor-v236/tools/full-snapshot.py",
+      "checkpoints/thor-v236/tools/ips_key.py",
+      "checkpoints/thor-v236/tools/ips_summary.py",
+      "checkpoints/thor-v236/tools/kalloc_orderings.py",
+      "checkpoints/thor-v236/tools/kalloc_sort_sim.py",
+      "checkpoints/thor-v236/tools/kc_prelink.py",
+      "checkpoints/thor-v236/tools/member_extract.py",
+      "checkpoints/thor-v236/tools/panic_record.py",
+      "checkpoints/thor-v236/tools/sections.py",
+      "checkpoints/thor-v236/tools/shngvol.sh",
+      "checkpoints/thor-v236/tools/stackshot_threads.py",
+      "checkpoints/thor-v236/tools/startup_entries.py",
+      "checkpoints/thor-v236/tools/startup_sort_sim.py",
+      "checkpoints/thor-v236/tools/sym.py",
+      "checkpoints/thor-v236/tools/symat.py",
+      "checkpoints/thor-v236/tools/transcript_index.py",
+      "checkpoints/thor-v236/tools/unified-dump/Cargo.lock",
+      "checkpoints/thor-v236/tools/unified-dump/Cargo.toml",
+      "checkpoints/thor-v236/tools/unified-dump/run.sh",
+      "checkpoints/thor-v236/tools/unified-dump/src/main.rs",
+      "checkpoints/thor-v236/tools/usbreset.c",
+      "checkpoints/thor-v236/tools/witness_report.py"
+    ],
+    "recipe": [
+      "checkpoints/thor-v236/recipe/history-capture-v227/capture-history.sh",
+      "checkpoints/thor-v236/recipe/history-capture-v227/check.py",
+      "checkpoints/thor-v236/recipe/history-capture-v227/history.py",
+      "checkpoints/thor-v236/recipe/history-capture-v227/prepare.py",
+      "checkpoints/thor-v236/recipe/history-capture-v227/read-stall-events.py",
+      "checkpoints/thor-v236/recipe/history-capture-v227/report.py",
+      "checkpoints/thor-v236/recipe/intake-v236/auto-boot.sh",
+      "checkpoints/thor-v236/recipe/intake-v236/auto-collect.sh",
+      "checkpoints/thor-v236/recipe/intake-v236/boot-v236.sh",
+      "checkpoints/thor-v236/recipe/intake-v236/collect-full.sh",
+      "checkpoints/thor-v236/recipe/v235/package-v235.py",
+      "checkpoints/thor-v236/recipe/v235/prepare/make-witness-patch.py",
+      "checkpoints/thor-v236/recipe/v235/prepare/witness.patch",
+      "checkpoints/thor-v236/recipe/v236/build-kernel.sh",
+      "checkpoints/thor-v236/recipe/v236/package-v236.py",
+      "checkpoints/thor-v236/recipe/v236/prepare/build.sh",
+      "checkpoints/thor-v236/recipe/v236/prepare/clone.sh",
+      "checkpoints/thor-v236/recipe/v236/prepare/env.sh",
+      "checkpoints/thor-v236/recipe/v236/prepare/gpu-clock-hook.patch",
+      "checkpoints/thor-v236/recipe/v236/prepare/relocate.py",
+      "checkpoints/thor-v236/recipe/v236/thor-gpu.defconfig"
+    ]
+  },
+  "files": {
+    "patches/xnu-ipados18/series": {
+      "sha256": "acf4b3b70c37b1de2855e02446b3bc60804dcb805a4a51c124355f05a110bb2a",
+      "bytes": 1967
+    },
+    "patches/xnu-ipados18/checkpoints/thor-v236/manifest.json": {
+      "sha256": "fef38dca0a81a764a906fb13e8f159070d6e763114f81dc687c37114be7da553",
+      "bytes": 23803
+    },
+    "patches/xnu-ipados18/checkpoints/thor-v236/xnu-after-series.patch": {
+      "sha256": "a98fe3cf9cde324ec8a55f07d941d3c99045cd7cfeb10311fb400316790190f1",
+      "bytes": 443503
+    },
+    "checkpoints/thor-v236/drivers/AdrenoMetal.patch": {
+      "sha256": "16defcc931eb114f72b6d6c41a53fabbccb9342b200566e3410492efa42d7dd9",
+      "bytes": 4170
+    },
+    "checkpoints/thor-v236/drivers/ArmCpu.patch": {
+      "sha256": "07686f1c84f3ec7d938752777c7cca42c5fa50bf5a7c5ca49daaa9aa9c58f5d4",
+      "bytes": 13000
+    },
+    "checkpoints/thor-v236/drivers/ArmDTPlatform.patch": {
+      "sha256": "a1863d5453e2fd16dd623d6f8cbbfc7db06baddc9ee2b49856dcef06518e92b6",
+      "bytes": 33990
+    },
+    "checkpoints/thor-v236/drivers/NativeUfs.patch": {
+      "sha256": "301aa263cd4763d8e6cdd9a542313d61b4297b68f1eadaf41c515cb2279dafd3",
+      "bytes": 89051
+    },
+    "checkpoints/thor-v236/drivers/PongAdreno.patch": {
+      "sha256": "37212a08b7adec86c468982b01d0e709212bf231c17f3144bde3920ad3af6556",
+      "bytes": 253680
+    },
+    "checkpoints/thor-v236/drivers/PongMetal.patch": {
+      "sha256": "51ee3c8bec251d00e8df437afbe6a31e8a3a4684647af616c3b694b4a1b72497",
+      "bytes": 19326
+    },
+    "checkpoints/thor-v236/drivers/PongPower.patch": {
+      "sha256": "75f2015026554e83ea664df19e95d501c1dc9cb4ac80cdfb0f8048142bd9b138",
+      "bytes": 332514
+    },
+    "checkpoints/thor-v236/drivers/PongWifi.patch": {
+      "sha256": "95f76a9a449b46c4d099ad571ebd6b89a6f56613d16f64d71acde3524cb21b3a",
+      "bytes": 67735
+    },
+    "checkpoints/thor-v236/drivers/manifest.json": {
+      "sha256": "bb9fd27c436fc347528a12a9ff667d554ada49e95d77cb5b0826d1091bf600fd",
+      "bytes": 7696
+    },
+    "checkpoints/thor-v236/pong-device/manifest.json": {
+      "sha256": "eaad2dcd99021e3b659e37b4829503520a8515e7b20d8a76508e02b47aae572c",
+      "bytes": 4410
+    },
+    "checkpoints/thor-v236/pong-device/tracked.patch": {
+      "sha256": "bc96211b31d7be962480a3a25d5de3e9b181e04e8a4a5f181f9fdcf166daf81c",
+      "bytes": 59996
+    },
+    "checkpoints/thor-v236/pong-device/untracked/configs/thor-memory-sm8475.json": {
+      "sha256": "6c26821dbd8e6414f77e1b993290275eec72b7f8162448b0fefbe9f6966847d3",
+      "bytes": 461
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zz-thor-salixp-touch.patch": {
+      "sha256": "1eab34ff63ddbaf39715432997abe0dcaf51581876937e2465dc00b8212860ae",
+      "bytes": 44328
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzz-thor-db24-memory-receipt.patch": {
+      "sha256": "3a05584a44706cdc1f31bb7878cde082afd9e032524e418b2a70e7ba4b34640e",
+      "bytes": 4395
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzz-pong-thor-metal-receipts.patch": {
+      "sha256": "863f8dcd519cf803f5c4eea705f762b9a56031a1249c8550aef42d4b1c07cf7b",
+      "bytes": 1846
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzz-pong-thor-ui-runtime-stage.patch": {
+      "sha256": "665dd695465a895bc0e6ca2830bc409876080a102e00c118f7f29e8f4c2d8b22",
+      "bytes": 515
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzz-pong-thor-platform-uuid.patch": {
+      "sha256": "7db98cd50a5965689de57db0a681d8ac6ae51d1a4f4bc124bcd16c84c299a885",
+      "bytes": 1049
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzz-pong-thor-ram-audit.patch": {
+      "sha256": "950bba4de993bba63319aff70ecf0928fed066d53dec446c380782926e6cc267",
+      "bytes": 2595
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzz-pong-thor-desktop-gpu-receipts.patch": {
+      "sha256": "d774d4fd09bfb2c468fe5db55701feb942e786c4edace5659b5018b29546baa4",
+      "bytes": 2604
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzz-pong-thor-vsync-receipt.patch": {
+      "sha256": "4d47c009079b2c61f6457edb9a5225d96ef53d77cc7f522d0d7a43921f14fb33",
+      "bytes": 3753
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzz-pong-thor-smem402-receipt.patch": {
+      "sha256": "8fe93b1faa0751dc9f59afa12f9bfef45812d045582f70ac7d4230fb7660d0c4",
+      "bytes": 1127
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzz-pong-thor-settings-timing.patch": {
+      "sha256": "0f855b2c8bf59690e2b3cf199eb8c9d955fb5ac6e983f1328a3a6048749d82e3",
+      "bytes": 1049
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzz-pong-thor-native-frame-handoff.patch": {
+      "sha256": "fdab0fc4f6df682b7dbfc0a5e337cbe1e8167b243485408e15b8c6b3a39c7d94",
+      "bytes": 14454
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzz-pong-thor-scaled-scanout.patch": {
+      "sha256": "e0569e8473c4c420a9c84836e3ee51896b50aaff670507aad745b1dae3f3a380",
+      "bytes": 1552
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzz-pong-thor-gpu-color-receipt.patch": {
+      "sha256": "634e926cf20cfb0697564890a22715d100124828fe5f230faf82291377456419",
+      "bytes": 3859
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzz-pong-thor-nearest-3to2.patch": {
+      "sha256": "00df742178e4c8997095f4c41714edc9c56e47b2c88cd95f7a4c2c5917d9fd0f",
+      "bytes": 3637
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzz-pong-thor-present-when-ready.patch": {
+      "sha256": "37c54cf5ff0f3cee68958388d0dc43a0e6dff97e7bdeab6502a928959794954f",
+      "bytes": 2154
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzz-pong-thor-readiness-timing.patch": {
+      "sha256": "b053e954b7d51fa03e5ca252e7c9104afc2f721582c6ba591a0c07bec077a887",
+      "bytes": 10449
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer.patch": {
+      "sha256": "0cbc3918381bb0a11ec865195c69f84d820870abf367ddd3a08e1052c0aa5a0f",
+      "bytes": 8681
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer-v108.patch": {
+      "sha256": "efe30aea237991cdb24759b62402a07540ecba76e42b1d7e9f7e1b69a548d0c8",
+      "bytes": 12411
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-app-installer-v109.patch": {
+      "sha256": "eae28a23868a72cbffb7b573b29393769585221899692dbb4f0615fd1d1b87bc",
+      "bytes": 537
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-software-cadence-v109.patch": {
+      "sha256": "68f131e1a99b665d94e2a04dd0e5afbed5d48b633957fbb1a795be973e0bb951",
+      "bytes": 6997
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-compact-workspace-v110.patch": {
+      "sha256": "0b32dc9e29172531fa7adcbc669b6ea796f38991eaefaebb2a56e7d9cb47d95f",
+      "bytes": 4287
+    },
+    "checkpoints/thor-v236/pong-device/untracked/patches/xnu-ipados18/zzzzzzzzzzzzzzzzzzzzzzzzzz-pong-thor-native-persona-v110.patch": {
+      "sha256": "a492b9ea90c3645a85f7f0c671aef73da3391b4b2c195aca124a53898bff4125",
+      "bytes": 3774
+    },
+    "checkpoints/thor-v236/pong-device/untracked/scripts/pack-thor-boot.py": {
+      "sha256": "05c1dc0a0860acdbd7d7cb5962f742a082ade8c1dcbab54345fb315a63906395",
+      "bytes": 10181
+    },
+    "checkpoints/thor-v236/pong-device/untracked/userland/metal_smoke18.mm": {
+      "sha256": "29472fdeb3481f5ef051b8f99f1099837b8e24b9ff8510407d4146a1bc966803",
+      "bytes": 15608
+    },
+    "checkpoints/thor-v236/pong-device/untracked/userland/settings_watch_stack18.c": {
+      "sha256": "84859d932d9e8e2afd237611453ed1f4e1be4d4801f5491ff5956d3ce7565229",
+      "bytes": 6723
+    },
+    "checkpoints/thor-v236/pong-device/untracked/userland/settings_watchdog18.c": {
+      "sha256": "c496c3c87b6751472781250446ec672a675d67bac01170095c6733f14780dd52",
+      "bytes": 11476
+    },
+    "checkpoints/thor-v236/unixnu-thor-18/scripts-wrap-apfs-gpt.patch": {
+      "sha256": "bd32a88805b33b9b612e0a57f6b8bfdc14cbd8ea6eb06758c97f2473194dd747",
+      "bytes": 6421
+    },
+    "checkpoints/thor-v236/records/analysis/v228/ANALYSIS.md": {
+      "sha256": "f94df12b3d094664f6c8b7a1bb57e395958aaa6fe1b8dbec4a22ac9432f65367",
+      "bytes": 12042
+    },
+    "checkpoints/thor-v236/records/analysis/v229/ANALYSIS.md": {
+      "sha256": "ba4e8515b65034dd8ccf7b010b6ffad5ef8e741d8a12e0e62f5382a512564e62",
+      "bytes": 10460
+    },
+    "checkpoints/thor-v236/records/analysis/v230/ANALYSIS.md": {
+      "sha256": "923d7237574dd46f1e66d1e343a19e23c298e1b8de37c429e12eec2d46b28f66",
+      "bytes": 5712
+    },
+    "checkpoints/thor-v236/records/analysis/v231/ANALYSIS.md": {
+      "sha256": "a8207ba3630a63f70ba99bfa7c68ec102a33a046a055ecc124d14853787dac9b",
+      "bytes": 9084
+    },
+    "checkpoints/thor-v236/records/analysis/v232/ANALYSIS.md": {
+      "sha256": "0cd44e39322c3b2195cbcf63fd30c4262c48c3c1ba0505661da72045a05a20ef",
+      "bytes": 625
+    },
+    "checkpoints/thor-v236/records/analysis/v233/ANALYSIS.md": {
+      "sha256": "d49ff55ad5936328682c60bce3539190195da679cbfcc3b67c4ed68e04dee4f3",
+      "bytes": 6811
+    },
+    "checkpoints/thor-v236/records/analysis/v234/ANALYSIS.md": {
+      "sha256": "1fad021f48bf222f514edb0464b38c887828cc0e4727f12e0de9936eb8a0d65a",
+      "bytes": 9872
+    },
+    "checkpoints/thor-v236/records/analysis/v235/ANALYSIS.md": {
+      "sha256": "e3421cae47ba86039b80fe3c0e5f1e26c4ff3d66d867122b3df7e56c88bdafc5",
+      "bytes": 7652
+    },
+    "checkpoints/thor-v236/records/analysis/v236/ANALYSIS.md": {
+      "sha256": "a3bf97cc87c3ba6dceb1f133b2bed419d9088f72bac0dd88d0c358e3d5cbc555",
+      "bytes": 7446
+    },
+    "checkpoints/thor-v236/records/panic-20261125/README.md": {
+      "sha256": "8a7928baec78a27a3a8ced9dda53dedbdcb6afa13a52a5bc965d942a230826a3",
+      "bytes": 5489
+    },
+    "checkpoints/thor-v236/records/recent-crashes-rust-assessment-20261119.md": {
+      "sha256": "fa507f7242abaddfdeb9b77fad1a8e094f729ce3c2dc6cc8bd66fa47b5b0dd6c",
+      "bytes": 9882
+    },
+    "checkpoints/thor-v236/records/umi-reference/PORTING-MAP.md": {
+      "sha256": "e30ba0eec298cee6326ab0e9b5e7e84af94425f8d9dc1e4d520ca0a94bd2718e",
+      "bytes": 13552
+    },
+    "checkpoints/thor-v236/records/umi-reference/audio.md": {
+      "sha256": "1cb9f7532cea3c712e69a06296db23bba426d3556bf50caa079ab7b450caa79d",
+      "bytes": 18474
+    },
+    "checkpoints/thor-v236/records/umi-reference/bluetooth-wifi.md": {
+      "sha256": "cf3bd8fb8f2595562a3473eba7bcc5abed2e1bf5c3fe5837ccaf59859aa142a7",
+      "bytes": 20564
+    },
+    "checkpoints/thor-v236/records/umi-reference/cellular.md": {
+      "sha256": "2b5e06f9f07e023ca8c0cf473a4a4cc69357eda5271007f2b606d9851fd2233e",
+      "bytes": 16223
+    },
+    "checkpoints/thor-v236/records/umi-reference/gpu-display-hang.md": {
+      "sha256": "22c305700c940f7d2ede0f4f5c7158974ac6c88a1f091476fdbe2536447dd18f",
+      "bytes": 14299
+    },
+    "checkpoints/thor-v236/records/upstream-gpu-kernel.md": {
+      "sha256": "2a56ddd5bebe4eeff747ea29a29a3092e9e42b54dff25f29c49a9d9a32b6a8e4",
+      "bytes": 7043
+    },
+    "checkpoints/thor-v236/records/upstream-gpu-runtime.md": {
+      "sha256": "4c64cf98d6043f309f6ae6e1335d6f907654bf37de64079f6c2192bb0d381c07",
+      "bytes": 10604
+    },
+    "checkpoints/thor-v236/tools/adt_diff.py": {
+      "sha256": "a9967eb1a7c727764a17bf1a5d94cf1997344a2fef709b63dc79e1d9ece48aae",
+      "bytes": 1646
+    },
+    "checkpoints/thor-v236/tools/apfs_extents.py": {
+      "sha256": "9c6574659085732ece6e012686ac92d8189583ac60dbee82a282c53f3f554dcf",
+      "bytes": 4402
+    },
+    "checkpoints/thor-v236/tools/apfs_region.py": {
+      "sha256": "76dc0d7ba1ae20997238e13d3475f4ef8fa88c2b2b2e9d51d74c9a11cfe2b526",
+      "bytes": 4725
+    },
+    "checkpoints/thor-v236/tools/boot_stack_budget.py": {
+      "sha256": "f1b8eecfb99851dd596a5acd2eadd6e1a895fc2b14f2a507c9abd314e781e006",
+      "bytes": 3321
+    },
+    "checkpoints/thor-v236/tools/console_sessions.py": {
+      "sha256": "cf82a42d5361657c02916e45471f2d1e2aead5b7260a2194d2278957589e436f",
+      "bytes": 6002
+    },
+    "checkpoints/thor-v236/tools/dis.py": {
+      "sha256": "7e7bcc678bbb0d3d5ec342f88106febfd549864a06844228f731a10c800d6f58",
+      "bytes": 1253
+    },
+    "checkpoints/thor-v236/tools/disat.py": {
+      "sha256": "dbc2ee5776b80c08794547dd54cf078f8f0f3376602d08ddaa53aee472838c43",
+      "bytes": 891
+    },
+    "checkpoints/thor-v236/tools/disrange.py": {
+      "sha256": "9cba9a5e21cc09e623e6678267a4fea07ccc0c6d97ecb11882717eb344f4d288",
+      "bytes": 841
+    },
+    "checkpoints/thor-v236/tools/fbprobe.c": {
+      "sha256": "506128dfd31000a5f79b63d05e146ae8838f6fe49505920c811560b5ba348ede",
+      "bytes": 7607
+    },
+    "checkpoints/thor-v236/tools/frame_size.py": {
+      "sha256": "63de31a0682baee2d799da7762ec634db28ddf1737a36306b465aedf45776a5a",
+      "bytes": 1840
+    },
+    "checkpoints/thor-v236/tools/fstarts.py": {
+      "sha256": "ea24794896bced6335810ad5c74799bf0636958aa770dbde57a2cc6e7510c058",
+      "bytes": 2261
+    },
+    "checkpoints/thor-v236/tools/full-snapshot.py": {
+      "sha256": "6751b8fbc3c94827c05e6ad06686e88d236e22bdcef0aec817ffb6bcde4fedf3",
+      "bytes": 11603
+    },
+    "checkpoints/thor-v236/tools/ips_key.py": {
+      "sha256": "d3033a25ef9b6f87eebfd909e3dcf1d473e0eee65d754cdc5ebf6a2bca14d7ba",
+      "bytes": 2964
+    },
+    "checkpoints/thor-v236/tools/ips_summary.py": {
+      "sha256": "0f399477aa99d59bb5460b2f1d51c0263237c30f0b4e2ea233a48415ac353d5e",
+      "bytes": 2101
+    },
+    "checkpoints/thor-v236/tools/kalloc_orderings.py": {
+      "sha256": "c8c81bb1a271524a20075ca376162378e1a4d9d827ad3d340387452fe8330713",
+      "bytes": 2696
+    },
+    "checkpoints/thor-v236/tools/kalloc_sort_sim.py": {
+      "sha256": "347f3c94beb2dc89ee6d15a7d346a42e733abefd2219d8a1722e9ac7d7baa51a",
+      "bytes": 7916
+    },
+    "checkpoints/thor-v236/tools/kc_prelink.py": {
+      "sha256": "10cce60c773ce13089fdfadf9fbce513fee911382ed5dffb920f93bf382dcc69",
+      "bytes": 5034
+    },
+    "checkpoints/thor-v236/tools/member_extract.py": {
+      "sha256": "5cf32830ad04be8b90296114bbda07bf6d63574c782b2e70e75b4223015ba1ca",
+      "bytes": 887
+    },
+    "checkpoints/thor-v236/tools/panic_record.py": {
+      "sha256": "eef48cb0800f98e3562b7628f11258fb03a300883a4b48afd76c7cf4ba7529c3",
+      "bytes": 3708
+    },
+    "checkpoints/thor-v236/tools/sections.py": {
+      "sha256": "68610d036473da5df1c71edeb9fae5ee6f5262eda155f8f8bdf6de2387f4ada2",
+      "bytes": 1192
+    },
+    "checkpoints/thor-v236/tools/shngvol.sh": {
+      "sha256": "c340f942de20196bb344e1ee84686280d2ac618925a338a98fa1651d6e1e18ed",
+      "bytes": 604
+    },
+    "checkpoints/thor-v236/tools/stackshot_threads.py": {
+      "sha256": "e9924fbf3c51ecbe51de91d23a4b6cf70b3f357e77423f035b61656eda319334",
+      "bytes": 4013
+    },
+    "checkpoints/thor-v236/tools/startup_entries.py": {
+      "sha256": "fa7551a1233cb06b28ca661ef2b34870e0bedd283a37e00641e17b730e3c98c1",
+      "bytes": 2626
+    },
+    "checkpoints/thor-v236/tools/startup_sort_sim.py": {
+      "sha256": "1926ee994c4b76860125e8246cdaaacda0fb4998098923c4dc9cb01020172034",
+      "bytes": 1346
+    },
+    "checkpoints/thor-v236/tools/sym.py": {
+      "sha256": "e5a91e95a3ac9b064d85f4b7caa075f795308271f66996b2e551b4080b05d2ab",
+      "bytes": 2240
+    },
+    "checkpoints/thor-v236/tools/symat.py": {
+      "sha256": "258c9342342de5ee5b7927dab23dc72f0f3dbae139bb349a0e545fa2606373f7",
+      "bytes": 2015
+    },
+    "checkpoints/thor-v236/tools/transcript_index.py": {
+      "sha256": "44b4518914a4583f75a8c6574b317ec68a1fa4128fe0b36a1d9ab620e3609848",
+      "bytes": 2240
+    },
+    "checkpoints/thor-v236/tools/unified-dump/Cargo.lock": {
+      "sha256": "86bc4761567240831a115b68e000496cca1ecd0bb6e75654d3a46b19f2c4e4a8",
+      "bytes": 19086
+    },
+    "checkpoints/thor-v236/tools/unified-dump/Cargo.toml": {
+      "sha256": "9d06b500230b56645d7d170171a31473710de1449878f2360f49abcc5c6c06b4",
+      "bytes": 298
+    },
+    "checkpoints/thor-v236/tools/unified-dump/run.sh": {
+      "sha256": "b305e8024c1bbd9d0c5961b31ecbd584a32f26c05362cf7de1ccefe162475d68",
+      "bytes": 609
+    },
+    "checkpoints/thor-v236/tools/unified-dump/src/main.rs": {
+      "sha256": "54ba51b7ea42e970c21c408804f739a9a071e61933a917f496b8b21122d450fa",
+      "bytes": 4319
+    },
+    "checkpoints/thor-v236/tools/usbreset.c": {
+      "sha256": "df8c88f2543a999d87aa2a0952312f13d0e6215c31c732291ad820a344d87c07",
+      "bytes": 3310
+    },
+    "checkpoints/thor-v236/tools/witness_report.py": {
+      "sha256": "c05d78466e07b2606a93d862960f02a25079cbd17d89d76ff135b452f5129623",
+      "bytes": 4137
+    },
+    "checkpoints/thor-v236/recipe/history-capture-v227/capture-history.sh": {
+      "sha256": "d0150bd72aa1c659542549fe660249aefc2dbf22fc74f3ef498edced06b3b8d3",
+      "bytes": 655
+    },
+    "checkpoints/thor-v236/recipe/history-capture-v227/check.py": {
+      "sha256": "701f982ede2c3eb2de427c3307e26f935fc74340119ca0645582ef963a82efe9",
+      "bytes": 4833
+    },
+    "checkpoints/thor-v236/recipe/history-capture-v227/history.py": {
+      "sha256": "5ed20dbbcd6520c2f6ca7ee5b737bb1c775bec60a9d2dafd4e5d1ca02a793a79",
+      "bytes": 1610
+    },
+    "checkpoints/thor-v236/recipe/history-capture-v227/prepare.py": {
+      "sha256": "9d64680623ac93a3b8c886d95ef1a7e3b8b78053ed72b50ccdaa873fa9680107",
+      "bytes": 3160
+    },
+    "checkpoints/thor-v236/recipe/history-capture-v227/read-stall-events.py": {
+      "sha256": "d1160562c1d1c84235cb4917a7b2b959d31a33dcb7bd4daa7538744ae967336a",
+      "bytes": 5754
+    },
+    "checkpoints/thor-v236/recipe/history-capture-v227/report.py": {
+      "sha256": "883f8b583219e2df081e84bf12572bebe69e5aac55b0d1a36c337f94e72d78b7",
+      "bytes": 1709
+    },
+    "checkpoints/thor-v236/recipe/intake-v236/auto-boot.sh": {
+      "sha256": "119a3e25031e6a88c9c35d9e78015a96580cbc75577f5a36d7b449bf3a094e92",
+      "bytes": 1869
+    },
+    "checkpoints/thor-v236/recipe/intake-v236/auto-collect.sh": {
+      "sha256": "f4e97e215d4e84164884b83dedaab38389c3902b059c3911ae43ade18de32f53",
+      "bytes": 1150
+    },
+    "checkpoints/thor-v236/recipe/intake-v236/boot-v236.sh": {
+      "sha256": "8dd1b55d24dbfbba16a750edc1442e6b1322512091e270ed2fa59e40b988dcd8",
+      "bytes": 1832
+    },
+    "checkpoints/thor-v236/recipe/intake-v236/collect-full.sh": {
+      "sha256": "6095e21fec2d000c93b5954647aacc27a4ede93d1b913aa1b6d52ee998daf9c5",
+      "bytes": 5597
+    },
+    "checkpoints/thor-v236/recipe/v235/package-v235.py": {
+      "sha256": "59bd2a633438f16916de7bb03bc2cc4096a50a08d54fa44612e6fbde2b457758",
+      "bytes": 17325
+    },
+    "checkpoints/thor-v236/recipe/v235/prepare/make-witness-patch.py": {
+      "sha256": "b163bc897d341e02a1f2b909bff83474ca6061c01b584383d8f14ad30487f7ec",
+      "bytes": 2164
+    },
+    "checkpoints/thor-v236/recipe/v235/prepare/witness.patch": {
+      "sha256": "33927a53cf2c7ca6bad5f7390f43d861a909d69a7365419898c236333fd55919",
+      "bytes": 77778
+    },
+    "checkpoints/thor-v236/recipe/v236/build-kernel.sh": {
+      "sha256": "8fe9a7641d4cdf3f1c6935b1b839acac96cbcc87f2a19bdba3f856d126757f46",
+      "bytes": 2019
+    },
+    "checkpoints/thor-v236/recipe/v236/package-v236.py": {
+      "sha256": "0106508b76159c07f61d1c5df0dddf915d274e61d342ca6570561b51b739fd17",
+      "bytes": 17822
+    },
+    "checkpoints/thor-v236/recipe/v236/prepare/build.sh": {
+      "sha256": "79272bdd5c22ce0d382d148912cb3ed109f4b5c11bd996c130e4478decab4ab5",
+      "bytes": 310
+    },
+    "checkpoints/thor-v236/recipe/v236/prepare/clone.sh": {
+      "sha256": "163e215876e51b0cea965b5e2093d9dee308f4ec32d001f967cdc35d12167676",
+      "bytes": 701
+    },
+    "checkpoints/thor-v236/recipe/v236/prepare/env.sh": {
+      "sha256": "5db8778a35f477f0485f8c008545d359b05c9d868cbbebd52c1313a1741e73f0",
+      "bytes": 546
+    },
+    "checkpoints/thor-v236/recipe/v236/prepare/gpu-clock-hook.patch": {
+      "sha256": "9fad7337062954c871e1e3c5af8289b6e29367fe404630461b554833072d92b0",
+      "bytes": 3831
+    },
+    "checkpoints/thor-v236/recipe/v236/prepare/relocate.py": {
+      "sha256": "401858b235df52a1003c983bd8f900250ffb46a0794edbfd91bc871ac4c65bf6",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v236/recipe/v236/thor-gpu.defconfig": {
+      "sha256": "1e17db889141ef668f61d875abfcfa9b35f4f69e1362dcbdffdbac938d69bd60",
+      "bytes": 1626
+    }
+  },
+  "kept_local": [
+    "boot images and kernels",
+    "signed runtime libraries and the three generated payload headers",
+    "firmware and restore inputs",
+    "logs, panic records and photographs (they name the device)",
+    "home directory paths and the phone's fastboot serial (replaced by THOR_ROOT, THOR_TOOLS, THOR_SERIAL)"
+  ]
+}
