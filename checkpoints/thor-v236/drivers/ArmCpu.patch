@@ -1,0 +1,244 @@
+diff --git a/PongCpuPolicy.h b/PongCpuPolicy.h
+index 1e253e91f39a06128b539b36760f1257c2656ca3..891ee2ed04d76829ff5fe791077d3177ca9e2fe7 100644
+--- a/PongCpuPolicy.h
++++ b/PongCpuPolicy.h
+@@ -2,7 +2,7 @@
+  * Pong EPSS requests, native LUTs and 4+3+1 topology. Register facts:
+  * NothingOSS SM8475 cpufreq-hw; per-core DCVS follows upstream EPSS.
+  * pong_cpu_policy=0 disables votes, 1 selects load-based scaling and
+- * 2 (default) holds the highest allowed non-boost request in each domain.
++ * 2 (default outside Thor) holds the highest allowed non-boost request in each domain.
+  * EPSS/LMh still controls actual voltage, frequency and thermal mitigation.
+  */
+ #pragma once
+@@ -12,17 +12,26 @@
+ #include <kern/clock.h>
+ #include <pexpert/pexpert.h>
+ extern "C" uint64_t pong_cpu_idle_mach(unsigned int);
++extern "C" uint64_t pong_touch_last_event_time(void) __attribute__((weak_import));
+ namespace PongCpuPolicy {
++struct TouchVote {
++    uint64_t at=0,touch=0;
++    unsigned count=0,load=0,prior=0,normal=0,selected=0,readback=0,cap=0,limit=0;
++    bool pending=false;
++};
+ struct Domain {
+     unsigned first,count,cap_khz;
+     IOMemoryMap *map=nullptr;
+     volatile uint32_t *regs=nullptr,*pdmem=nullptr;
+     unsigned khz[40]{},levels=0,down=0;
+     bool live=false;
++    TouchVote vote{};
+ };
+ static Domain domains[]={{0,4,1804800},{4,3,2496000},{7,1,2995200}};
+ static IOMemoryMap *pdmem_map;
+ static unsigned mode=2,started;
++static bool thorDemandDefault;
++static unsigned thorFirstDown,thorFirstRecovery;
+ static void stop() __attribute__((noreturn));
+ static void stop()
+ {thread_terminate(current_thread());thread_block(THREAD_CONTINUE_NULL);__builtin_unreachable();}
+@@ -78,6 +87,49 @@ static unsigned highest(const Domain &d)
+     for(unsigned i=0;i<d.levels;++i)if(d.khz[i])selected=i;
+     return selected;
+ }
++static void reportTouchVote(Domain &d)
++{
++    auto &v=d.vote;
++    uint64_t atNs,touchNs;
++    absolutetime_to_nanoseconds(v.at,&atNs);
++    absolutetime_to_nanoseconds(v.touch,&touchNs);
++    IOLog("THOR CPU V213: cpu=%u touch_us=%llu vote_us=%llu age_us=%llu busy=%u "
++          "prior_row=%u prior_khz=%u normal_row=%u normal_khz=%u "
++          "request_row=%u request_khz=%u readback=%u cap_khz=%u lmh=0x%x\n",
++          d.first,(unsigned long long)(touchNs/1000),(unsigned long long)(atNs/1000),
++          (unsigned long long)((atNs-touchNs)/1000),v.load,v.prior,d.khz[v.prior],
++          v.normal,d.khz[v.normal],v.selected,d.khz[v.selected],v.readback,v.cap,v.limit);
++    v.pending=false;
++}
++// Only the governor worker touches this record. Start over on a newer input
++// event; a quiet interval usually leaves the finger-up timestamp that UIKit saw.
++struct InputSample {
++    uint64_t touch=0,first=0,last=0;
++    unsigned count=0,fast=0,load[3]{},initial[3]{},peak[3]{},cap[3]{};
++    // v228: samples held at the top row by the input boost, and samples in which
++    // the hardware delivered less than the requested row (a real LMh ceiling).
++    unsigned boosted[3]{},below[3]{},rawXo[3]{},requestKHz[3]{};
++};
++static uint64_t micros(uint64_t ticks)
++{
++    uint64_t ns;absolutetime_to_nanoseconds(ticks,&ns);return ns/1000;
++}
++static void reportInputSample(const InputSample &s)
++{
++    IOLog("THOR CPU V224: touch_us=%llu first_us=%llu last_us=%llu n=%u fast=%u "
++          "load=%u/%u/%u initial_khz=%u/%u/%u peak_khz=%u/%u/%u min_cap_khz=%u/%u/%u\n",
++          (unsigned long long)micros(s.touch),(unsigned long long)micros(s.first),(unsigned long long)micros(s.last),
++          s.count,s.fast,s.load[0],s.load[1],s.load[2],s.initial[0],s.initial[1],s.initial[2],
++          s.peak[0],s.peak[1],s.peak[2],s.cap[0],s.cap[1],s.cap[2]);
++}
++static void reportLimit(const InputSample &s)
++{
++    IOLog("THOR CPU LIMIT V228: touch_us=%llu n=%u boosted=%u/%u/%u below=%u/%u/%u "
++          "last_xo=%u/%u/%u last_request_khz=%u/%u/%u\n",
++          (unsigned long long)micros(s.touch),s.count,s.boosted[0],s.boosted[1],s.boosted[2],
++          s.below[0],s.below[1],s.below[2],
++          s.rawXo[0],s.rawXo[1],s.rawXo[2],s.requestKHz[0],s.requestKHz[1],s.requestKHz[2]);
++}
+ static void worker(void *,wait_result_t)
+ {
+     IOSleep(3000);
+@@ -111,11 +163,51 @@ static void worker(void *,wait_result_t)
+         }
+     }
+     uint64_t idle[8];for(unsigned c=0;c<8;++c)idle[c]=pong_cpu_idle_mach(c);
++    // A recent input can shorten the ramp on an already saturated domain.
++    // The main thread can start navigation well after sendEvent returns.
++    // Sample a recent busy interval at the 120-Hz panel's frame scale. A
++    // wakeup alone never requests a higher row, and base polling resumes
++    // immediately when input expires or every sampled domain is lightly loaded.
++    constexpr unsigned sampleMs=32, interactiveSampleMs=8;
++    // v228: both performance clusters stay at their top non-boost row while the
++    // display is in active use. A frame producer is one thread doing about a
++    // quarter frame of work at full speed, so a utilisation target settles on the
++    // frequency at which it only just fits the budget, and the next heavier frame
++    // is late. v227 measured both clusters at 100% load on their lowest rows in
++    // every touch window. Sampling runs at the frame scale throughout the window
++    // so the first busy slice after a new touch is seen within 8 ms.
++    constexpr unsigned boostMs=600, boostFloor=25;
++    unsigned nextSampleMs=sampleMs,inputReports=0;
++    InputSample inputSample{};
++    uint64_t touchWindow=0,boostWindow=0,receiptSpacing=0;
++    if(thorDemandDefault && &pong_touch_last_event_time) {
++        clock_interval_to_absolutetime_interval(8*sampleMs,NSEC_PER_MSEC,&touchWindow);
++        clock_interval_to_absolutetime_interval(boostMs,NSEC_PER_MSEC,&boostWindow);
++        clock_interval_to_absolutetime_interval(15000,NSEC_PER_MSEC,&receiptSpacing);
++    }
++    if(thorDemandDefault)
++        IOLog("THOR CPU V228: governor=load ceiling=request-only boost_ms=%u boost_floor=%u clusters=1,2\n",
++              boostMs,boostFloor);
+     uint64_t stamp=mach_absolute_time();
+     for(;;) {
+-        IOSleep(32);
++        const unsigned intervalMs=nextSampleMs;
++        IOSleep(intervalMs);
++        const uint64_t touch=touchWindow ? pong_touch_last_event_time() : 0;
+         const uint64_t now=mach_absolute_time(),elapsed=now-stamp;stamp=now;
+         if(!elapsed)continue;
++        const bool interactive=touch && touch<=now && now-touch<touchWindow;
++        const bool boosted=boostWindow && touch && touch<=now && now-touch<boostWindow;
++        nextSampleMs=sampleMs;
++        if(touch!=inputSample.touch)inputSample=InputSample{};
++        if(interactive && inputReports<48) {
++            if(!inputSample.count){inputSample.touch=touch;inputSample.first=now;}
++            inputSample.last=now;++inputSample.count;
++            if(intervalMs==interactiveSampleMs)++inputSample.fast;
++        } else if(inputSample.count) {
++            reportInputSample(inputSample);
++            if (inputReports < 8 || (inputReports % 8) == 0) reportLimit(inputSample);
++            ++inputReports;inputSample=InputSample{};
++        }
+         unsigned busy[8]{};bool valid[8]{};
+         for(unsigned c=0;c<8;++c) {
+             const uint64_t value=pong_cpu_idle_mach(c);
+@@ -126,20 +218,40 @@ static void worker(void *,wait_result_t)
+             idle[c]=value;
+         }
+         for(auto &d:domains)if(d.live) {
++            if(d.vote.pending && !interactive)reportTouchVote(d);
+             unsigned load=0;bool sampled=false;
+             for(unsigned c=d.first;c<d.first+d.count;++c)if(valid[c]) {
+                 sampled=true;if(busy[c]>load)load=busy[c];
+             }
+             if(!sampled)continue;
++            const unsigned index=unsigned(&d-domains);
++            const bool hold=boosted && index && load>=boostFloor;
++            if((interactive && load>=80) || boosted)nextSampleMs=interactiveSampleMs;
+             const unsigned current=d.regs[0x320/4];
+             if(current>=d.levels){d.live=false;continue;}
+             unsigned freq=d.khz[current];if(!freq)freq=d.cap_khz;
+-            uint64_t requested=uint64_t(freq)*load*125/10000;
+-            if(load>=90)requested=uint64_t(freq)*2;
+-            unsigned cap=d.cap_khz;
+-            if(d.regs[0x30c/4]&4) {
+-                const unsigned hardware=(d.regs[0x20/4]&255)*19200u;
+-                if(hardware && hardware<cap)cap=hardware;
++            const uint64_t demand=load>=90?(interactive?uint64_t(d.cap_khz):uint64_t(freq)*2)
++                                         :uint64_t(freq)*load*125/10000;
++            uint64_t requested=demand;
++            if(hold)requested=d.cap_khz;
++            // EPSS/LMh keeps its own current and thermal ceilings and applies them
++            // under whatever row is requested. 0x30c bit 2 is the DCVSH interrupt
++            // status: a latched event that nothing clears here, not a statement that
++            // the domain is limited now. DOMAIN_STATE's low byte follows the request
++            // itself, so taking it as a ceiling while that bit is set pinned every
++            // cluster to the row it already had (v227: equal=n/n, below=0).
++            const unsigned cap=d.cap_khz;
++            const unsigned limit=d.regs[0x30c/4];
++            const unsigned hardware=(d.regs[0x20/4]&255)*19200u;
++            if(inputSample.count) {
++                if(!inputSample.cap[index])inputSample.initial[index]=d.khz[current];
++                inputSample.cap[index]=cap;
++                if(freq>inputSample.peak[index] && d.khz[current])inputSample.peak[index]=freq;
++                if(load>inputSample.load[index])inputSample.load[index]=load;
++                if(hold)++inputSample.boosted[index];
++                if(hardware && hardware<freq)++inputSample.below[index];
++                inputSample.rawXo[index]=hardware/19200u;
++                inputSample.requestKHz[index]=d.khz[current];
+             }
+             unsigned selected=40,last=40;
+             for(unsigned i=0;i<d.levels;++i)if(d.khz[i] && d.khz[i]<=cap) {
+@@ -148,16 +260,52 @@ static void worker(void *,wait_result_t)
+             if(selected==40)selected=last;
+             if(selected==40){d.down=0;continue;}
+             if(selected==current){d.down=0;request(d,selected);continue;}
++            // An ordinary reduction still needs four consecutive lower votes.
+             if(d.khz[selected]<freq && ++d.down<4)continue;
+             d.down=0;
+             request(d,selected);
++            // Record only a real upward write whose demand policy would have
++            // selected a strictly lower row. Defer I/O until quiet.
++            auto &v=d.vote;
++            const bool raised=hold || (interactive && load>=90);
++            if(raised && d.khz[selected]>freq && !v.pending &&
++               v.count<8 && (!v.count || now-v.at>=receiptSpacing)) {
++                for(unsigned i=0;i<selected;++i) {
++                    if(d.khz[i]<demand)continue;
++                    v.at=now;v.touch=touch;v.load=load;v.prior=current;
++                    v.normal=i;v.selected=selected;v.readback=d.regs[0x320/4];
++                    v.cap=cap;v.limit=limit;++v.count;v.pending=true;
++                    break;
++                }
++            }
++            if(thorDemandDefault) {
++                const unsigned bit=1u << d.first;
++                const bool lower=d.khz[selected]<freq;
++                const bool firstDown=lower && !(thorFirstDown&bit);
++                const bool firstRecovery=!lower && (thorFirstDown&bit) && !(thorFirstRecovery&bit);
++                if(firstDown || firstRecovery) {
++                    if(firstDown)thorFirstDown|=bit;else thorFirstRecovery|=bit;
++                    // PERF_STATE is the hardware request readback. DOMAIN_STATE is
++                    // reported raw and must not be mistaken for die temperature.
++                    IOLog("THOR CPU V211: cpu=%u event=%s from_khz=%u request_khz=%u row=%u request_readback=%u lmh_status=0x%x domain_state=0x%x\n",
++                        d.first,firstDown?"first-down":"first-recovery",freq,d.khz[selected],selected,
++                        d.regs[0x320/4],d.regs[0x30c/4],d.regs[0x20/4]);
++                }
++            }
+         }
+     }
+ }
+ static void start()
+ {
+     if(__atomic_exchange_n(&started,1,__ATOMIC_ACQ_REL))return;
+-    PE_parse_boot_argn("pong_cpu_policy",&mode,sizeof mode);
++    if(!PE_parse_boot_argn("pong_cpu_policy",&mode,sizeof mode)) {
++        char board[16]={};
++        if(PE_parse_boot_argn("arp0",board,sizeof board) && !strcmp(board,"thor")) {
++            mode=1;
++            thorDemandDefault=true;
++            IOLog("THOR CPU V211: governor=load source=thor-default sample_ms=32 down_samples=4 touch_window_ms=256 busy_sample_ms=8\n");
++        }
++    }
+     if(!mode)return;
+     if(mode>2){IOLog("Pong CPU: invalid pong_cpu_policy=%u; EPSS votes skipped\n",mode);return;}
+     thread_t thread=THREAD_NULL;

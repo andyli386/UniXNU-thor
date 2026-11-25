@@ -668,3 +668,17 @@ completion = ["The patch round-trips to the recorded tree hash and its file list
 limits = ["Three generated payload headers stay local: they embed the signed console and UI runtime libraries as byte arrays or name local library paths. Backup and reject files left by the patch tool are not part of the checkpoint."]
 next_action = ["Regenerate the three payload headers from the signed runtime libraries before an independent build."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "patches/xnu-ipados18/checkpoints/thor-v236/manifest.json", result = "Replay of the series and the checkpoint patch reproduces tree 87b77ec85073."}]
+
+[[area]]
+id = "thor-v236-driver-sources"
+status = "implemented"
+components = ["PongAdreno", "PongPower", "NativeUfs", "PongMetal", "PongWifi", "ArmCpu", "ArmDTPlatform", "AdrenoMetal"]
+paths = ["checkpoints/thor-v236/drivers/*.patch", "checkpoints/thor-v236/drivers/manifest.json"]
+inputs = ["The eight upstream driver commits named in checkpoints/thor-v236/drivers/manifest.json", "The driver sources of the v236 unified recipe"]
+configuration = ["Thor SM8475 with the Adreno 730, iPadOS 18.7.10 / 22H374"]
+procedure = ["Export the named upstream commit of each driver and apply its patch with git apply --index."]
+findings = ["Eight drivers differ from the commits their repositories pin; four are identical and need no patch. The patches carry 91 files, 47 of them new (modem, battery, ADSP and Wi-Fi firmware access in PongPower and NativeUfs, the Bluetooth probe in ArmDTPlatform, the timing hook fix of v236 in PongAdreno). Each applies to a fresh export of its pinned commit and the result equals the recipe source, blob for blob."]
+completion = ["Every patch round-trips to the recipe source; the patches hold no binary content, local paths or device identifiers."]
+limits = ["These record the working sources; nothing was committed to the upstream driver repositories. The v236 GPU timing hook fix has only been built on the host so far."]
+next_action = ["Offer the PongAdreno timing hook change upstream once a device boot confirms it."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v236/drivers/manifest.json", result = "Eight patches, 91 files; each reproduces the recipe source from its pinned commit."}]

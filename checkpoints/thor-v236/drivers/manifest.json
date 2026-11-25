@@ -1,0 +1,256 @@
+{
+  "AdrenoMetal": {
+    "upstream_repository": "https://github.com/UniXNU/AdrenoMetal.git",
+    "upstream_commit": "da7aedd827dfdb581eac041615c45cc1cd5e71db",
+    "patch": "AdrenoMetal.patch",
+    "sha256": "16defcc931eb114f72b6d6c41a53fabbccb9342b200566e3410492efa42d7dd9",
+    "bytes": 4170,
+    "files": [
+      "GpuScanoutPresenter.h"
+    ],
+    "new_files": [],
+    "left_out": {},
+    "not_text": [],
+    "upstream_files_absent_from_the_recipe": []
+  },
+  "ArmCpu": {
+    "upstream_repository": "https://github.com/Chengdong-Yu/pong-arm-cpu.git",
+    "upstream_commit": "ac65513a780255a8b6771ae280068ef9586497d7",
+    "patch": "ArmCpu.patch",
+    "sha256": "07686f1c84f3ec7d938752777c7cca42c5fa50bf5a7c5ca49daaa9aa9c58f5d4",
+    "bytes": 13000,
+    "files": [
+      "PongCpuPolicy.h"
+    ],
+    "new_files": [],
+    "left_out": {},
+    "not_text": [],
+    "upstream_files_absent_from_the_recipe": []
+  },
+  "ArmDTPlatform": {
+    "upstream_repository": "https://github.com/Chengdong-Yu/pong-arm-dt-platform.git",
+    "upstream_commit": "09ecfcf62ea109c036500d8a1dbf88ef234831b8",
+    "patch": "ArmDTPlatform.patch",
+    "sha256": "a1863d5453e2fd16dd623d6f8cbbfc7db06baddc9ee2b49856dcef06518e92b6",
+    "bytes": 33990,
+    "files": [
+      "ArmDTPlatform.cpp",
+      "ThorBtProbe.h"
+    ],
+    "new_files": [
+      "ThorBtProbe.h"
+    ],
+    "left_out": {},
+    "not_text": [],
+    "upstream_files_absent_from_the_recipe": []
+  },
+  "NativeUfs": {
+    "upstream_repository": "https://github.com/Chengdong-Yu/pong-ufs.git",
+    "upstream_commit": "72acf2ceb719a54fcd1cac45ec450ea5b7e46b76",
+    "patch": "NativeUfs.patch",
+    "sha256": "301aa263cd4763d8e6cdd9a542313d61b4297b68f1eadaf41c515cb2279dafd3",
+    "bytes": 89051,
+    "files": [
+      "FactoryNvAccess.h",
+      "FactoryNvLayout.h",
+      "ModemFirmwareAccess.h",
+      "ModemFirmwareBounds.h",
+      "ModemFirmwareFat.h",
+      "ModemFirmwareGpt.h",
+      "ModemFirmwareMetadata.h",
+      "PongUfsTransport.cpp",
+      "README.md",
+      "RootCommands.h",
+      "ThorAdspFirmware.h",
+      "ThorAdspFirmwareAccess.inc",
+      "ThorModemFirmwareLoad.h",
+      "ThorModemSlot.h",
+      "ThorWifiFirmware.h"
+    ],
+    "new_files": [
+      "FactoryNvAccess.h",
+      "FactoryNvLayout.h",
+      "ModemFirmwareAccess.h",
+      "ModemFirmwareBounds.h",
+      "ModemFirmwareFat.h",
+      "ModemFirmwareGpt.h",
+      "ModemFirmwareMetadata.h",
+      "ThorAdspFirmware.h",
+      "ThorAdspFirmwareAccess.inc",
+      "ThorModemFirmwareLoad.h",
+      "ThorModemSlot.h",
+      "ThorWifiFirmware.h"
+    ],
+    "left_out": {
+      "ModemFirmwareAccess.h.orig": "backup or reject file of the patch tool"
+    },
+    "not_text": [],
+    "upstream_files_absent_from_the_recipe": []
+  },
+  "PongAdreno": {
+    "upstream_repository": "https://github.com/Chengdong-Yu/pong-adreno.git",
+    "upstream_commit": "3e8ffa2424e7915a1cc35da14b043057a87707e7",
+    "patch": "PongAdreno.patch",
+    "sha256": "37212a08b7adec86c468982b01d0e709212bf231c17f3144bde3920ad3af6556",
+    "bytes": 253680,
+    "files": [
+      "ArmSmmu4K/ArmSmmu4KLive.c",
+      "ArmSmmu4K/ArmSmmu4KLive.h",
+      "PongAdrenoCp.cpp",
+      "PongAdrenoNativeGlue.cpp",
+      "PongAdrenoPlatform.cpp",
+      "PongAdrenoScanout.cpp",
+      "ThorSoftwareDisplayPolicy.h",
+      "submit/NativeAdrenoCpu.cpp",
+      "submit/NativeAdrenoMemory.cpp",
+      "submit/NativeAdrenoMemory.h",
+      "submit/NativeAdrenoPublish.cpp",
+      "submit/NativeAdrenoRing.cpp",
+      "submit/NativeAdrenoRing.h",
+      "submit/NativeAdrenoSmmuMemory.cpp",
+      "submit/NativeAdrenoSubmit.cpp",
+      "submit/NativeAdrenoSubmit.h",
+      "submit/NativeAdrenoUserClient.cpp",
+      "submit/NativeAdrenoUserClient.h",
+      "submit/NativeAdrenoVm.cpp",
+      "submit/NativeAdrenoVm.h",
+      "submit/NativeAdrenoVmAlias.h",
+      "submit/NativeGpuTrace.inc"
+    ],
+    "new_files": [
+      "ThorSoftwareDisplayPolicy.h"
+    ],
+    "left_out": {},
+    "not_text": [],
+    "upstream_files_absent_from_the_recipe": []
+  },
+  "PongMetal": {
+    "upstream_repository": "https://github.com/Chengdong-Yu/pong-metal.git",
+    "upstream_commit": "ccdbc294a9fa95b341fa6f926870ca07ddc663a4",
+    "patch": "PongMetal.patch",
+    "sha256": "51ee3c8bec251d00e8df437afbe6a31e8a3a4684647af616c3b694b4a1b72497",
+    "bytes": 19326,
+    "files": [
+      "GpuScanoutPresenter.h",
+      "NativeBridgeMetalFrontend.mm",
+      "PongMetalScanout.h",
+      "PongSurfaceHandoff.h"
+    ],
+    "new_files": [],
+    "left_out": {},
+    "not_text": [],
+    "upstream_files_absent_from_the_recipe": []
+  },
+  "PongPower": {
+    "upstream_repository": "https://github.com/Chengdong-Yu/pong-power.git",
+    "upstream_commit": "e1382a7efc679a0920e8597eb6f16c0848c8c158",
+    "patch": "PongPower.patch",
+    "sha256": "75f2015026554e83ea664df19e95d501c1dc9cb4ac80cdfb0f8048142bd9b138",
+    "bytes": 332514,
+    "files": [
+      "PongAdsp.cpp",
+      "PongLowDma.h",
+      "PongPlatformResources.cpp",
+      "PongPlatformResources.h",
+      "QcomScm.h",
+      "QcomSmem.c",
+      "QcomSmem.h",
+      "README.md",
+      "ThorActiveTcs.h",
+      "ThorAdspArcRead.h",
+      "ThorAdspCold.inc",
+      "ThorAdspProxy.h",
+      "ThorBatteryReading.h",
+      "ThorBatterySource.cpp",
+      "ThorModemAoss.h",
+      "ThorModemAossChannel.h",
+      "ThorModemAossPacket.h",
+      "ThorModemArc.h",
+      "ThorModemCmdDb.h",
+      "ThorModemDdrStats.h",
+      "ThorModemIcc.h",
+      "ThorModemIccAdmission.h",
+      "ThorMssChannel.h",
+      "ThorMssGlinkObserve.inc",
+      "ThorMssServe.inc",
+      "ThorMssVersion.h",
+      "ThorMssVersionKernel.inc",
+      "ThorPas1Boot.h",
+      "ThorPas1Kernel.inc",
+      "ThorPas4Kernel.inc",
+      "ThorPas4Session.h",
+      "ThorPasProbe.h",
+      "ThorPdLocator.h",
+      "ThorQrtrProbe.h",
+      "ThorSsctlFields.h",
+      "ThorStagedBcm.h",
+      "ThorUimStatus.h",
+      "ThorWifiPcie.h"
+    ],
+    "new_files": [
+      "ThorActiveTcs.h",
+      "ThorAdspArcRead.h",
+      "ThorAdspCold.inc",
+      "ThorAdspProxy.h",
+      "ThorBatteryReading.h",
+      "ThorBatterySource.cpp",
+      "ThorModemAoss.h",
+      "ThorModemAossChannel.h",
+      "ThorModemAossPacket.h",
+      "ThorModemArc.h",
+      "ThorModemCmdDb.h",
+      "ThorModemDdrStats.h",
+      "ThorModemIcc.h",
+      "ThorModemIccAdmission.h",
+      "ThorMssChannel.h",
+      "ThorMssGlinkObserve.inc",
+      "ThorMssServe.inc",
+      "ThorMssVersion.h",
+      "ThorMssVersionKernel.inc",
+      "ThorPas1Boot.h",
+      "ThorPas1Kernel.inc",
+      "ThorPas4Kernel.inc",
+      "ThorPas4Session.h",
+      "ThorPasProbe.h",
+      "ThorPdLocator.h",
+      "ThorQrtrProbe.h",
+      "ThorSsctlFields.h",
+      "ThorStagedBcm.h",
+      "ThorUimStatus.h",
+      "ThorWifiPcie.h"
+    ],
+    "left_out": {
+      "PongPlatformResources.cpp.orig": "backup or reject file of the patch tool"
+    },
+    "not_text": [],
+    "upstream_files_absent_from_the_recipe": []
+  },
+  "PongWifi": {
+    "upstream_repository": "https://github.com/Chengdong-Yu/pong-wifi.git",
+    "upstream_commit": "d2e33ca6e0f6a3b3e7881a45ab36c6920e7afb07",
+    "patch": "PongWifi.patch",
+    "sha256": "95f76a9a449b46c4d099ad571ebd6b89a6f56613d16f64d71acde3524cb21b3a",
+    "bytes": 67735,
+    "files": [
+      "PongWifiLease.h",
+      "PongWifiNet.cpp",
+      "PongWifiNotify.h",
+      "PongWifiPci.cpp",
+      "PongWifiPlatform.cpp",
+      "ath11k/PongAth11k.c",
+      "ath11k/compat/PongCompat.h",
+      "ath11k/compat/PongWait.h"
+    ],
+    "new_files": [
+      "PongWifiLease.h",
+      "PongWifiNotify.h",
+      "ath11k/compat/PongWait.h"
+    ],
+    "left_out": {},
+    "not_text": [],
+    "upstream_files_absent_from_the_recipe": [
+      "AGENTS.md",
+      "README.md"
+    ]
+  }
+}
