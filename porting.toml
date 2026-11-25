@@ -597,3 +597,17 @@ completion = ["Confirm the development kernel emits one arm record and three sam
 limits = ["Accounted CPU time may omit the active slice. Last CPU, on-core and state are concurrent observations.", "This patch observes launch behavior. The public-base replay has not been rebuilt or booted on the phone."]
 next_action = ["Correlate a fresh launch's scheduler samples with its scene-commit timing."]
 evidence = [{kind = "source", reference = "patches/xnu-ipados18/zzzzzzzzz-thor-settings-launch-sampling.patch", result = "Preserves the v153 sampler and v154 trigger correction as one ordered patch."}]
+
+[[area]]
+id = "thor-apfs-gpt"
+status = "implemented"
+components = ["PongPlatform24"]
+paths = ["scripts/wrap-apfs-gpt.py"]
+inputs = ["A user-supplied bare 512-byte-aligned APFS container image."]
+configuration = ["Choose a fresh output image path. An optional partition GUID allows a predetermined GPT identity."]
+procedure = ["Run python3 scripts/wrap-apfs-gpt.py --input CONTAINER --output DISK and hand the resulting local image to the GPT-aware host tooling."]
+findings = ["The wrapper imported from Thor's earlier board work uses consistent primary and backup headers and partition entry CRCs. APFS bytes remain identical."]
+completion = ["Verify the intended APFS container is recognized through the boot or recovery path that consumes the new GPT image."]
+limits = ["This is a host preparation tool. The v156 boot-image packer uses an existing template and does not invoke this wrapper."]
+next_action = ["Use the wrapper when a host build starts with a bare APFS container and needs GPT framing."]
+evidence = [{kind = "source", reference = "scripts/wrap-apfs-gpt.py", result = "Implements the EFI header geometry, partition table CRCs and preserved partition payload."}]
