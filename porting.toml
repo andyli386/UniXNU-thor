@@ -654,3 +654,17 @@ completion = ["Every patch listed in the series exists in the tree and the porti
 limits = ["Two base patches differ from the 2026-11-05 versions on main; the recorded ones are those of the v236 build."]
 next_action = ["Rebuild from this series together with the v236 kernel tree checkpoint."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "patches/xnu-ipados18/series", result = "39 entries; each listed patch is present."}]
+
+[[area]]
+id = "thor-v236-xnu-tree"
+status = "implemented"
+components = ["PongPlatform24"]
+paths = ["patches/xnu-ipados18/checkpoints/thor-v236/xnu-after-series.patch", "patches/xnu-ipados18/checkpoints/thor-v236/manifest.json"]
+inputs = ["Apple XNU 43a90889846e00bfb5cf1d255cdc0a701a1e05a4 with the recorded thor-v236-xnu-series applied"]
+configuration = ["The kernel tree of the v236 unified image (iPadOS 18.7.10 / 22H374) as built on 2026-11-25"]
+procedure = ["Replay the recorded series on the pristine tree, then apply xnu-after-series.patch with git apply --index."]
+findings = ["The 39-patch series applies to the pristine tree without one rejected hunk. The checkpoint patch then carries 35 files, 7 of them new (among them the Thor touch driver, the panic witness and the software display policy), and reproduces the v236 build tree exactly: replayed tree b8bbd733b4b8, v236 tree 87b77ec85073, 5531 files equal."]
+completion = ["The patch round-trips to the recorded tree hash and its file list equals that of the build tree."]
+limits = ["Three generated payload headers stay local: they embed the signed console and UI runtime libraries as byte arrays or name local library paths. Backup and reject files left by the patch tool are not part of the checkpoint."]
+next_action = ["Regenerate the three payload headers from the signed runtime libraries before an independent build."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "patches/xnu-ipados18/checkpoints/thor-v236/manifest.json", result = "Replay of the series and the checkpoint patch reproduces tree 87b77ec85073."}]
