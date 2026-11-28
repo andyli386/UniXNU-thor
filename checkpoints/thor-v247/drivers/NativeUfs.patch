@@ -1,0 +1,2254 @@
+diff --git a/FactoryNvAccess.h b/FactoryNvAccess.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..27239da6b2fd53aeb27a638ba9d0445dd7f25e48
+--- /dev/null
++++ b/FactoryNvAccess.h
+@@ -0,0 +1,87 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++// Internal implementation. The exported C ABI is the same one consumed by
++// PongModemRmtfs.h. Controller ownership stays with the native UFS queue.
++static bool gFactoryNvVerified;
++static bool gFactoryNvReportedError;
++static uint8_t gFactoryNvPrimary[kFactoryNvGptBytes];
++
++static int factoryNvVerifyLocked()
++{
++  const uint8_t tur[6] = {}, capacity[10] = {0x25};
++  uint32_t scsi = 0;
++  if (hostScsi(kFactoryNvLun, tur, sizeof(tur), false, 0, 200000, &scsi) != kIOReturnSuccess ||
++      hostScsi(kFactoryNvLun, capacity, sizeof(capacity), true, 8, 200000, &scsi) != kIOReturnSuccess)
++    return ENXIO;
++
++  auto *dma = gHost.virt + kDataOffset;
++  if (loadBe32(dma) != kFactoryNvLunBlocks - 1 || loadBe32(dma + 4) != kFactoryNvBlockBytes)
++    return ENXIO;
++  gHost.factoryNvBlocks = kFactoryNvLunBlocks;
++  // The READ CAPACITY result gates every LUN 5 data transfer. Read only the
++  // four GPT blocks specified by the verified Thor LUN 5 geometry.
++  FactoryNvGptIdentity primary{}, backup{};
++  if (hostRead4kLocked(kFactoryNvLun, 1, 1) != kIOReturnSuccess || !factoryNvHeader(dma, false, primary) ||
++      hostRead4kLocked(kFactoryNvLun, kFactoryNvLunBlocks - 1, 1) != kIOReturnSuccess ||
++      !factoryNvHeader(dma, true, backup) || primary.entriesCrc != backup.entriesCrc ||
++      memcmp(primary.diskGuid, backup.diskGuid, sizeof(primary.diskGuid)) != 0 ||
++      hostRead4kLocked(kFactoryNvLun, 2, 1) != kIOReturnSuccess)
++    return EIO;
++  memcpy(gFactoryNvPrimary, dma, sizeof(gFactoryNvPrimary));
++  if (!factoryNvEntries(gFactoryNvPrimary, primary.entriesCrc) ||
++      hostRead4kLocked(kFactoryNvLun, kFactoryNvLastUsable + 1, 1) != kIOReturnSuccess ||
++      memcmp(gFactoryNvPrimary, dma, sizeof(gFactoryNvPrimary)) != 0)
++    return EIO;
++  return 0;
++}
++
++static int factoryNvPrepareLocked()
++{
++  if (!gHost.ready || gHost.poisoned) return ENXIO;
++  if (gFactoryNvVerified) return 0;
++  const int status = factoryNvVerifyLocked();
++  if (status) {
++    gHost.factoryNvBlocks = 0;
++    if (!gFactoryNvReportedError) {
++      gFactoryNvReportedError = true;
++      IOLog("THOR UFS NV V161: LUN5 GPT unavailable errno=%d\n", status);
++    }
++    return status;
++  }
++  gFactoryNvVerified = true;
++  IOLog("THOR UFS NV V161: LUN5 GPT verified, 4 read-only partitions\n");
++  return 0;
++}
++
++static int factoryNvAccess(unsigned slot, uint64_t offset, void *dst, uint32_t count, uint64_t *bytes)
++{
++  if (!bytes) return EINVAL;
++  *bytes = 0;
++  if (slot >= kFactoryNvSlotCount || count > kDataMax ||
++      (count ? !dst : (dst || offset))) return EINVAL;
++  const auto &partition = kFactoryNvPartitions[slot];
++  const uint64_t length = uint64_t(partition.blocks) * kFactoryNvBlockBytes;
++  if (offset > length || count > length - offset) return EINVAL;
++  if (!__atomic_load_n(&gWifiUfsReady, __ATOMIC_ACQUIRE)) return ENXIO;
++  IOLockLock(gHost.lock);
++  int status = factoryNvPrepareLocked();
++  auto *out = static_cast<uint8_t *>(dst);
++  uint32_t remaining = count;
++  while (!status && remaining) {
++    const uint32_t inside = offset % kFactoryNvBlockBytes;
++    const uint32_t payload = remaining < kDataMax - inside ? remaining : kDataMax - inside;
++    const uint32_t blocks = (inside + payload + kFactoryNvBlockBytes - 1) / kFactoryNvBlockBytes;
++    const uint64_t lba = partition.first + offset / kFactoryNvBlockBytes;
++    if (hostRead4kLocked(kFactoryNvLun, lba, blocks) != kIOReturnSuccess) {
++      status = EIO;
++      break;
++    }
++    memcpy(out, gHost.virt + kDataOffset + inside, payload);
++    offset += payload;
++    out += payload;
++    remaining -= payload;
++  }
++  IOLockUnlock(gHost.lock);
++  if (!status) *bytes = length;
++  return status;
++}
+diff --git a/FactoryNvLayout.h b/FactoryNvLayout.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..7898b283a442816c52671cc7c4724cf5e586bfc2
+--- /dev/null
++++ b/FactoryNvLayout.h
+@@ -0,0 +1,77 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++// Included after RootLayout.h. The Thor profile is from the physical LUN 5
++// primary and backup GPT read in Recovery, with both independent CRCs checked.
++static constexpr unsigned kFactoryNvEntryCount = 32;
++static constexpr unsigned kFactoryNvEntryBytes = 128;
++static constexpr unsigned kFactoryNvGptBytes = kFactoryNvEntryCount * kFactoryNvEntryBytes;
++static constexpr uint64_t kFactoryNvLastUsable = 8186;
++static constexpr uint64_t kFactoryNvFirstUsable = 6;
++
++struct FactoryNvPartition {
++  const char *name;
++  uint32_t first;
++  uint32_t blocks;
++};
++
++static constexpr FactoryNvPartition kFactoryNvPartitions[] = {
++  {"modemst1", 256, 2048},
++  {"modemst2", 2304, 2048},
++  {"fsg", 4352, 2048},
++  {"fsc", 6400, 256},
++};
++
++static constexpr unsigned kFactoryNvSlotCount = sizeof(kFactoryNvPartitions) / sizeof(kFactoryNvPartitions[0]);
++
++struct FactoryNvGptIdentity {
++  uint32_t entriesCrc;
++  uint8_t diskGuid[16];
++};
++
++static bool factoryNvHeader(const uint8_t *p, bool backup, FactoryNvGptIdentity &identity)
++{
++  static constexpr uint64_t alternate = kFactoryNvLunBlocks - 1;
++  if (le32(p) != 0x20494645U || le32(p + 4) != 0x54524150U ||
++      le32(p + 8) != 0x00010000U || le32(p + 12) != 92 ||
++      rootCrc32(p, 92, true) != le32(p + 16) || le32(p + 20) != 0 ||
++      le64(p + 24) != (backup ? alternate : 1) || le64(p + 32) != (backup ? 1 : alternate) ||
++      le64(p + 40) != kFactoryNvFirstUsable || le64(p + 48) != kFactoryNvLastUsable ||
++      le64(p + 72) != (backup ? kFactoryNvLastUsable + 1 : 2) ||
++      le32(p + 80) != kFactoryNvEntryCount || le32(p + 84) != kFactoryNvEntryBytes) return false;
++  identity.entriesCrc = le32(p + 88);
++  memcpy(identity.diskGuid, p + 56, sizeof(identity.diskGuid));
++  return true;
++}
++
++static bool factoryNvName(const uint8_t *entry, const char *name)
++{
++  for (unsigned i = 0; i < 36; ++i) {
++    if (entry[56 + 2 * i] != static_cast<uint8_t>(name[i]) || entry[57 + 2 * i] != 0) return false;
++    if (!name[i]) return true;
++  }
++  return false;
++}
++
++static bool factoryNvEntries(const uint8_t *table, uint32_t crc)
++{
++  if (rootCrc32(table, kFactoryNvGptBytes) != crc) return false;
++  unsigned found = 0;
++  for (unsigned index = 0; index < kFactoryNvEntryCount; ++index) {
++    const auto *entry = table + index * kFactoryNvEntryBytes;
++    if (!rootEntryUsed(entry)) continue; // Includes Qualcomm's type-zero last_parti marker.
++    const uint64_t first = le64(entry + 32), last = le64(entry + 40);
++    if (first < kFactoryNvFirstUsable || last < first || last > kFactoryNvLastUsable) return false;
++    for (unsigned prior = 0; prior < index; ++prior) {
++      const auto *other = table + prior * kFactoryNvEntryBytes;
++      if (rootEntryUsed(other) && first <= le64(other + 40) && le64(other + 32) <= last) return false;
++    }
++    for (unsigned slot = 0; slot < kFactoryNvSlotCount; ++slot) {
++      const auto &p = kFactoryNvPartitions[slot];
++      if (!factoryNvName(entry, p.name)) continue;
++      if (index != slot + 2 || first != p.first || last - first + 1 != p.blocks) return false;
++      found |= 1U << slot;
++      break;
++    }
++  }
++  return found == (1U << kFactoryNvSlotCount) - 1;
++}
+diff --git a/ModemFirmwareAccess.h b/ModemFirmwareAccess.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..d99c865c7e4604369762db024ed98eb203897aef
+--- /dev/null
++++ b/ModemFirmwareAccess.h
+@@ -0,0 +1,870 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++
++#include "ModemFirmwareFat.h"
++#include "ModemFirmwareGpt.h"
++#include "ThorWifiFirmware.h"
++#include "ModemFirmwareMetadata.h"
++
++#if __has_include("ThorModemSlot.h")
++#include "ThorModemSlot.h"
++#endif
++
++struct ModemFirmwareProbe {
++  bool admitted;
++  unsigned slot;
++  unsigned reads;
++  unsigned readBudget;
++  uint64_t deadline;
++  unsigned commands, nextCache;
++  uint64_t cachedBlock[2];
++  // Small reads alternate between the primary and mirror FAT during the walk.
++  uint8_t cache[2][kModemFirmwareBlockBytes];
++  uint8_t fatScratch[kModemFirmwareBlockBytes];
++  ThorModemFatMetadata metadata;
++  // The GPT table and streamed FAT clusters reuse the same scratch allocation.
++  uint8_t transferScratch[4 * kModemFirmwareBlockBytes];
++};
++
++// v242: what the last partition-table check of the modem firmware LUN failed on.  v239 and v241, the
++// first two boots from flash, each lost Wi-Fi, the modem and with them the battery to one failed
++// check two seconds into the boot, and nothing recorded which step had failed or what the device said.
++struct ModemFirmwareGptFault {
++  uint32_t step = 0;      // 0: none.  1 TEST UNIT READY, 2 READ CAPACITY, 3 geometry, 4 primary header read,
++                          // 5 primary header, 6 backup header read, 7 backup header, 8 the two differ,
++                          // 9 primary entries read, 10 primary entries, 11 backup entries read, 12 backup entries
++  uint32_t result = 0;    // IOReturn of the failing command
++  uint32_t scsi = 0, sense = 0, residual = 0, protocol = 0, ocs = 0;
++  uint64_t lba = 0;       // the block address of the last read
++  uint32_t signature = 0; // the first four bytes of the payload after the failing read
++  uint32_t detail = 0;    // step 3: the block size; 5 and 7: the failing header checks; 8: the backup's table CRC; 10: the entries' CRC
++  uint32_t first = 0;     // step 3: the last block the device reported; 8: the primary's table CRC
++};
++static ModemFirmwareGptFault gModemFirmwareGptFault;
++constexpr uint64_t kModemFirmwareGptWaitUs = 45000000;   // how long the radio driver waits for the table
++static uint64_t modemFirmwareNowUs(void)
++{
++  uint64_t ns = 0;
++  absolutetime_to_nanoseconds(mach_absolute_time(), &ns);
++  return ns / 1000;
++}
++
++// The checks of modemFirmwareGptHeader, as bits, for the console.
++static uint32_t modemFirmwareGptHeaderFault(const uint8_t *p, bool backup)
++{
++  constexpr uint64_t lastBlock = kModemFirmwareLunBlocks - 1;
++  const uint32_t bytes = le32(p + 12);
++  uint32_t bits = 0;
++  if (memcmp(p, "EFI PART", 8)) bits |= 1u;
++  if (le32(p + 8) != 0x10000) bits |= 2u;
++  if (bytes < 92 || bytes > kModemFirmwareBlockBytes) bits |= 4u;
++  if (le32(p + 20)) bits |= 8u;
++  if (!(bits & 4u) && rootCrc32(p, bytes, true) != le32(p + 16)) bits |= 16u;
++  if (le64(p + 24) != (backup ? lastBlock : 1)) bits |= 32u;
++  if (le64(p + 32) != (backup ? 1 : lastBlock)) bits |= 64u;
++  if (le64(p + 40) != kModemFirmwareFirstUsable || le64(p + 48) != kModemFirmwareLastUsable) bits |= 128u;
++  if (!rootEntryUsed(p + 56)) bits |= 256u;
++  if (le64(p + 72) != (backup ? kModemFirmwareBackupEntries : kModemFirmwarePrimaryEntries)) bits |= 512u;
++  if (le32(p + 80) != kModemFirmwareEntryCount || le32(p + 84) != kModemFirmwareEntrySize) bits |= 1024u;
++  return bits;
++}
++
++// v243: how the backup partition table of the firmware LUN differs from the primary one, examined
++// after the primary has been verified.  LUN 4 is the firmware LUN: boot_a, modem_a and the rest of the
++// A/B partitions live there.  The bootloader rewrites the primary table on every normal boot of a slot
++// that is not marked successful (it counts the slot's retries down there), and the backup lags behind:
++// in all boots from flash of v239 to v242 the two named different CRCs (step 8 in v242), so Wi-Fi, the
++// modem and the battery never came up, while the same v242 image passed when it was temporary-booted.
++struct ModemFirmwareBackupLag {
++  uint32_t bits = 0;        // 1 backup header not read, 2 backup header invalid, 4 its disk GUID or its table CRC
++                            // differs from the primary's, 8 backup entries not read, 16 backup entries differ from
++                            // the CRC their own header names, 32 backup entries differ from the primary ones
++  uint32_t headerFault = 0; // the failing checks of the backup header, as above
++  uint32_t entriesCrc = 0;  // the CRC of the backup entries as read
++  uint32_t bytes = 0;       // how many bytes of the two entry arrays differ
++  uint32_t entry = 0, offset = 0, primary = 0, backup = 0;   // the first difference
++};
++static ModemFirmwareBackupLag gModemFirmwareBackupLag;
++
++static int modemFirmwareGptVerifyLocked(ModemFirmwareProbe &probe)
++{
++  const uint8_t tur[6] = {}, capacity[10] = {0x25};
++  const auto *dma = gHost.virt + kDataOffset;
++  gModemFirmwareGptFault = ModemFirmwareGptFault{};
++  gModemFirmwareBackupLag = ModemFirmwareBackupLag{};
++  const auto note = [&](uint32_t step, IOReturn rc) {
++    auto &f = gModemFirmwareGptFault;
++    f.step = step;
++    f.result = static_cast<uint32_t>(rc);
++    f.scsi = gRootDiagnostic.scsi;
++    f.sense = gRootDiagnostic.sense;
++    f.residual = gRootDiagnostic.residual;
++    f.protocol = gRootDiagnostic.protocol;
++    f.ocs = gRootDiagnostic.ocs;
++    f.lba = gRootDiagnostic.lba;
++    f.signature = loadBe32(dma);
++    return step <= 3 ? ENXIO : EIO;
++  };
++  uint32_t scsi = 0;
++  IOReturn rc = hostScsi(kModemFirmwareLun, tur, sizeof(tur), false, 0, 200000, &scsi);
++  if (rc != kIOReturnSuccess) return note(1, rc);
++  rc = hostScsi(kModemFirmwareLun, capacity, sizeof(capacity), true, 8, 200000, &scsi);
++  if (rc != kIOReturnSuccess) return note(2, rc);
++  if (loadBe32(dma) != kModemFirmwareLunBlocks - 1 || loadBe32(dma + 4) != kModemFirmwareBlockBytes) {
++    gModemFirmwareGptFault.first = loadBe32(dma);
++    gModemFirmwareGptFault.detail = loadBe32(dma + 4);
++    return note(3, kIOReturnSuccess);
++  }
++  gHost.modemFirmwareBlocks = kModemFirmwareLunBlocks;
++
++  // v243: the primary table decides.  It is pinned: a valid header, entries whose CRC that header
++  // names, and exactly the two expected partitions at their expected places.  The backup is examined
++  // too, but whatever is amiss with it is only recorded: no read ever depends on it, and the firmware
++  // read through it is verified against pinned digests afterwards.  Up to v242 a backup that lagged
++  // behind the primary failed the whole check.
++  ModemFirmwareGptIdentity primary{}, backup{};
++  auto &lag = gModemFirmwareBackupLag;
++  if ((rc = hostRead4kLocked(kModemFirmwareLun, 1, 1)) != kIOReturnSuccess) return note(4, rc);
++  if (!modemFirmwareGptHeader(dma, false, primary)) {
++    gModemFirmwareGptFault.detail = modemFirmwareGptHeaderFault(dma, false);
++    return note(5, kIOReturnSuccess);
++  }
++  if ((rc = hostRead4kLocked(kModemFirmwareLun, kModemFirmwareLunBlocks - 1, 1)) != kIOReturnSuccess) {
++    lag.bits |= 1;
++  } else if (!modemFirmwareGptHeader(dma, true, backup)) {
++    lag.bits |= 2;
++    lag.headerFault = modemFirmwareGptHeaderFault(dma, true);
++  } else if (primary.tableCrc != backup.tableCrc ||
++             memcmp(primary.diskGuid, backup.diskGuid, sizeof(primary.diskGuid))) {
++    lag.bits |= 4;
++  }
++  if ((rc = hostRead4kLocked(kModemFirmwareLun, kModemFirmwarePrimaryEntries,
++                             kModemFirmwareEntryBlocks)) != kIOReturnSuccess) return note(9, rc);
++  if (!modemFirmwareGptEntries(dma, primary.tableCrc)) {
++    gModemFirmwareGptFault.detail = rootCrc32(dma, kModemFirmwareEntryBytes);
++    gModemFirmwareGptFault.first = primary.tableCrc;
++    return note(10, kIOReturnSuccess);
++  }
++  static_assert(kModemFirmwareEntryBytes <= sizeof(probe.transferScratch));
++  static_assert(sizeof(probe.transferScratch) <= kDataMax);
++  memcpy(probe.transferScratch, dma, kModemFirmwareEntryBytes);
++  if ((rc = hostRead4kLocked(kModemFirmwareLun, kModemFirmwareBackupEntries,
++                             kModemFirmwareEntryBlocks)) != kIOReturnSuccess) {
++    lag.bits |= 8;
++  } else {
++    lag.entriesCrc = rootCrc32(dma, kModemFirmwareEntryBytes);
++    if (!(lag.bits & 3) && lag.entriesCrc != backup.tableCrc) lag.bits |= 16;
++    for (uint32_t i = 0; i < kModemFirmwareEntryBytes; ++i) {
++      if (probe.transferScratch[i] == dma[i]) continue;
++      if (!lag.bytes++) {
++        lag.entry = i / kModemFirmwareEntrySize;
++        lag.offset = i % kModemFirmwareEntrySize;
++        lag.primary = probe.transferScratch[i];
++        lag.backup = dma[i];
++      }
++    }
++    if (lag.bytes) lag.bits |= 32;
++  }
++  gHost.modemFirmwareGptVerified = true;
++  return 0;
++}
++
++static void modemFirmwareResetReads(ModemFirmwareProbe &probe)
++{
++  probe.reads = probe.commands = probe.nextCache = 0;
++  probe.cachedBlock[0] = probe.cachedBlock[1] = UINT64_MAX;
++}
++
++static bool modemFirmwareReadBlocks(ModemFirmwareProbe &probe, uint64_t lba,
++                                     unsigned blocks, void *out)
++{
++  const unsigned before = probe.reads;
++  probe.reads += blocks;
++  if (probe.reads > probe.readBudget)
++    return false;
++  // Yield once per 256 KiB, with the shared root-storage lock released.
++  if (probe.deadline && before / 64 != probe.reads / 64)
++    IOSleep(1);
++  if (probe.deadline && mach_absolute_time() >= probe.deadline)
++    return false;
++  ++probe.commands;
++  return hostRead4k(kModemFirmwareLun, lba, blocks, out) == kIOReturnSuccess;
++}
++
++static bool modemFirmwareSlotRead(void *context, uint64_t offset, void *to, uint32_t bytes)
++{
++  auto &probe = *static_cast<ModemFirmwareProbe *>(context);
++  if ((probe.deadline && mach_absolute_time() >= probe.deadline) ||
++      !to || !bytes || bytes > sizeof(probe.transferScratch) ||
++      offset > kModemFirmwareSlotBytes || bytes > kModemFirmwareSlotBytes - offset)
++    return false;
++  auto *out = static_cast<uint8_t *>(to);
++  while (bytes) {
++    const uint64_t lba = offset / kModemFirmwareBlockBytes + kModemFirmwareSlotStart[probe.slot];
++    const unsigned inside = offset % kModemFirmwareBlockBytes;
++    unsigned count;
++    if (!inside && bytes >= kModemFirmwareBlockBytes) {
++      const unsigned blocks = bytes / kModemFirmwareBlockBytes;
++      if (!modemFirmwareReadBlocks(probe, lba, blocks, out))
++        return false;
++      count = blocks * kModemFirmwareBlockBytes;
++    } else {
++      unsigned line = 0;
++      if (probe.cachedBlock[0] != lba) {
++        line = 1;
++        if (probe.cachedBlock[1] != lba) {
++          line = probe.nextCache;
++          probe.nextCache ^= 1U;
++          probe.cachedBlock[line] = UINT64_MAX;
++          if (!modemFirmwareReadBlocks(probe, lba, 1, probe.cache[line]))
++            return false;
++          probe.cachedBlock[line] = lba;
++        }
++      }
++      count = kModemFirmwareBlockBytes - inside;
++      if (count > bytes) count = bytes;
++      memcpy(out, probe.cache[line] + inside, count);
++    }
++    out += count;
++    offset += count;
++    bytes -= count;
++  }
++  return true;
++}
++
++static bool modemFirmwareSha384Matches(const void *contents, unsigned bytes,
++                                         const uint8_t *expected)
++{
++  static_assert(SHA384_DIGEST_LENGTH == kThorModemDigestBytes);
++  SHA384_CTX hash;
++  uint8_t digest[SHA384_DIGEST_LENGTH];
++  SHA384_Init(&hash);
++  SHA384_Update(&hash, contents, bytes);
++  SHA384_Final(digest, &hash);
++  return !memcmp(digest, expected, sizeof(digest));
++}
++
++static void modemFirmwarePayloadSamples(ModemFirmwareProbe &probe,
++                                         const ThorModemFat::Volume &volume)
++{
++  static_assert(ThorModemFat::boundedFileBytes <= sizeof(probe.transferScratch));
++  constexpr unsigned sampleLimit = 4;
++  const auto &metadata = probe.metadata;
++  unsigned count = 0, bytes = 0, mask = 0;
++  const char *state = "sample-verified";
++  if (!modemFirmwareSha384Matches(metadata.mdt, kThorModemMdtPrefixBytes,
++                                 thorModemSignedDigest(metadata, 0))) {
++    state = "header-digest-mismatch";
++  } else {
++    for (unsigned i = 1; i < kThorModemMdtHeaders - 1 && count < sampleLimit; ++i) {
++      ThorModemFat::File file{};
++      if (!thorModemSmallPayload(metadata, i, file))
++        continue;
++      if (!volume.readFile(file, probe.transferScratch)) {
++        state = "sample-read-failed";
++        break;
++      }
++      if (!modemFirmwareSha384Matches(probe.transferScratch, file.size,
++                                     thorModemSignedDigest(metadata, i))) {
++        state = "sample-digest-mismatch";
++        break;
++      }
++      ++count;
++      bytes += file.size;
++      mask |= 1U << i;
++    }
++    if (!count && !strcmp(state, "sample-verified"))
++      state = "no-bounded-payload";
++  }
++  IOLog("THOR MODEM FW V164: slot=%c state=%s pieces=%u bytes=%u piece-mask=0x%08x block-reads=%u\n",
++        'a' + probe.slot, state, count, bytes, mask, probe.reads);
++}
++
++static const char *modemFirmwareOpen(ModemFirmwareProbe &probe, ThorModemFat::Volume &volume)
++{
++  if (!thorModemReadFat(modemFirmwareSlotRead, &probe, kModemFirmwareSlotBytes,
++                       probe.metadata, probe.fatScratch, &volume))
++    return "fat-unavailable";
++  SHA256_CTX hash;
++  uint8_t digest[sizeof(kThorModemMdtDigest)];
++  SHA256_Init(&hash);
++  SHA256_Update(&hash, probe.metadata.mdt, sizeof(probe.metadata.mdt));
++  SHA256_Final(digest, &hash);
++  if (memcmp(digest, kThorModemMdtDigest, sizeof(digest)))
++    return "mdt-digest-mismatch";
++  if (!thorModemMdtLayout(probe.metadata))
++    return "mdt-layout-mismatch";
++  return nullptr;
++}
++
++// Firmware readers share the validated, read-only GPT admission. The last
++// reader releases it. Access remains restricted to the two known partitions.
++static unsigned gThorFirmwareReaders;
++static int modemFirmwareAdmit(ModemFirmwareProbe &probe)
++{
++  IOLockLock(gHost.lock);
++  int status = ENXIO;
++  if (gHost.ready && !gHost.poisoned)
++    status = gThorFirmwareReaders ? 0 : modemFirmwareGptVerifyLocked(probe);
++  probe.admitted = status == 0;
++  if (probe.admitted) {
++    ++gThorFirmwareReaders;
++  } else if (!gThorFirmwareReaders) {
++    gHost.modemFirmwareGptVerified = false;
++    gHost.modemFirmwareBlocks = 0;
++  }
++  IOLockUnlock(gHost.lock);
++  return status;
++}
++
++static void modemFirmwareFinish(ModemFirmwareProbe *probe)
++{
++  IOLockLock(gHost.lock);
++  if (probe->admitted && --gThorFirmwareReaders == 0) {
++    gHost.modemFirmwareGptVerified = false;
++    gHost.modemFirmwareBlocks = 0;
++  }
++  IOLockUnlock(gHost.lock);
++  bzero(probe, sizeof(*probe));
++  IOFreeData(probe, sizeof(*probe));
++}
++
++#if defined(THOR_MODEM_PREFLIGHT_SLOT) && (THOR_MODEM_PREFLIGHT_SLOT == 0 || THOR_MODEM_PREFLIGHT_SLOT == 1)
++#include "ThorAdspFirmwareAccess.inc"
++
++// Called once on the full-verification worker after the selected image passed
++// GPT, pinned MDT, segment geometry, and every segment hash.  The selected
++// split MDT already consists of the ELF/program headers followed by the hash
++// segment, as required by Qualcomm's metadata loader.
++static const char *modemFirmwareStageMetadata(const ThorModemFatMetadata &metadata,
++                                             uint64_t &physical)
++{
++  constexpr uint32_t leaseBytes = 0x10000; // kind 0 of thor_modem_dma_lease
++  constexpr uint32_t pageBytes = 4096;
++  constexpr size_t bytes = sizeof(metadata.mdt);
++  constexpr size_t mappedBytes = (bytes + pageBytes - 1) & ~(size_t(pageBytes) - 1);
++  static_assert(bytes % 4 == 0 && mappedBytes <= leaseBytes);
++  physical = 0;
++  uint64_t base = 0;
++  if (!thor_modem_dma_lease || !thor_modem_dma_lease(0, leaseBytes, &base) ||
++      !base || (base & (pageBytes - 1)) || base > 0x100000000ULL - leaseBytes)
++    return "lease-unavailable";
++
++  OSSharedPtr<IOMemoryMap> mapping;
++  const uintptr_t address = mapPhys(base, mappedBytes, mapping);
++  if (!address || !mapping || mapping->getLength() != mappedBytes)
++    return "map-failed";
++  auto *words = reinterpret_cast<volatile uint32_t *>(address);
++  for (size_t off = 0; off < mappedBytes; off += 4)
++    words[off / 4] = off < bytes ? le32(metadata.mdt + off) : 0;
++  __asm__ volatile("dsb sy" ::: "memory");
++  for (size_t off = 0; off < mappedBytes; off += 4) {
++    const uint32_t expected = off < bytes ? le32(metadata.mdt + off) : 0;
++    if (words[off / 4] != expected) {
++      for (size_t i = 0; i < mappedBytes / 4; ++i)
++        words[i] = 0;
++      __asm__ volatile("dsb sy" ::: "memory");
++      return "readback-mismatch";
++    }
++  }
++  physical = base;
++  return "staged";
++}
++
++struct ModemFirmwareLoadCounts {
++  unsigned pieces = 0, bytes = 0, mask = 0, loads = 0;
++  uint64_t zeroBytes = 0;
++};
++
++// Published only after all payload digests and the staged metadata readback.
++static uint32_t gModemFirmwareStaged;
++static uint32_t gModemFirmwareLoading;
++
++static const char *modemFirmwareTransfer(ModemFirmwareProbe &probe,
++    ModemFirmwareLoadCounts &counts, ThorModemWrite write, void *context)
++{
++  const unsigned slot = THOR_MODEM_PREFLIGHT_SLOT;
++  probe.slot = slot;
++  modemFirmwareResetReads(probe);
++  // 109 MB payload plus FAT lookups, with a separate time bound.
++  probe.readBudget = 100000;
++  clock_interval_to_deadline(90, NSEC_PER_SEC, &probe.deadline);
++  const char *error = nullptr;
++  ThorModemFat::Volume volume{};
++  const bool admitted = modemFirmwareAdmit(probe) == 0;
++  if (!admitted)
++    error = "gpt-unavailable";
++  else
++    error = modemFirmwareOpen(probe, volume);
++  if (!error && !modemFirmwareSha384Matches(probe.metadata.mdt, kThorModemMdtPrefixBytes,
++                                            thorModemSignedDigest(probe.metadata, 0)))
++    error = "header-digest-mismatch";
++  if (!error && write)
++    IOLog("THOR MODEM FW V220: stage=begin slot=%c max-read=%zu\n",
++          'a' + slot, sizeof(probe.transferScratch));
++  uint64_t nextProgress = 64ULL * 1024 * 1024;
++  // modemFirmwareOpen verifies the pinned MDT and validates *all* PT_LOAD
++  // ranges, non-overlap and file sizes before exposing any destination offset.
++  for (unsigned index = 1; !error && index < kThorModemMdtHeaders - 1; ++index) {
++    const uint8_t *ph = probe.metadata.mdt + 52 + index * 32;
++    const uint32_t memoryBytes = le32(ph + 20);
++    if (le32(ph) != 1 || !memoryBytes) continue;
++    const uint32_t fileBytes = le32(ph + 16);
++    const uint64_t offset = uint64_t(le32(ph + 12)) - kThorModemBase;
++    if (fileBytes) {
++      ThorModemFat::File file{};
++      if (!thorModemPayload(probe.metadata, index, file))
++        return "unexpected-payload-source";
++      struct Transfer {
++        SHA384_CTX hash;
++        ThorModemWrite write;
++        void *context;
++        uint64_t offset;
++        bool rejected;
++      } transfer{{}, write, context, offset, false};
++      SHA384_Init(&transfer.hash);
++      const auto chunk = [](void *arg, const uint8_t *data, uint32_t size) {
++        auto &t = *static_cast<Transfer *>(arg);
++        if (t.write && !t.write(t.context, t.offset, data, size)) {
++          t.rejected = true;
++          return false;
++        }
++        SHA384_Update(&t.hash, data, size);
++        t.offset += size;
++        return true;
++      };
++      if (!volume.streamFile(file, probe.transferScratch, chunk, &transfer)) {
++        error = transfer.rejected ? "destination-rejected" : "segment-read-failed";
++        break;
++      }
++      uint8_t digest[SHA384_DIGEST_LENGTH];
++      SHA384_Final(digest, &transfer.hash);
++      if (transfer.offset != offset + fileBytes ||
++          memcmp(digest, thorModemSignedDigest(probe.metadata, index), sizeof(digest))) {
++        error = "segment-digest-mismatch";
++        break;
++      }
++      ++counts.pieces;
++      counts.bytes += fileBytes;
++      counts.mask |= 1U << index;
++    }
++    const uint32_t zeroBytes = memoryBytes - fileBytes;
++    if (write) {
++      // Limit individual stores and leave padding/gaps between segments alone.
++      for (uint32_t done = 0; done != zeroBytes;) {
++        if (mach_absolute_time() >= probe.deadline)
++          return "deadline";
++        const uint32_t left = zeroBytes - done;
++        const uint32_t n = left < 65536 ? left : 65536;
++        if (!write(context, offset + fileBytes + done, nullptr, n))
++          return "destination-rejected";
++        done += n;
++      }
++    }
++    ++counts.loads;
++    counts.zeroBytes += zeroBytes;
++    const uint64_t staged = counts.bytes + counts.zeroBytes;
++    if (write && staged >= nextProgress) {
++      IOLog("THOR MODEM FW V220: stage=progress load=%u file=%u zero=%llu commands=%u blocks=%u\n",
++            counts.loads, counts.bytes, static_cast<unsigned long long>(counts.zeroBytes),
++            probe.commands, probe.reads);
++      nextProgress = ((staged >> 26) + 1) << 26;
++    }
++  }
++  if (!error && (counts.loads != 30 || counts.pieces != 27 || counts.bytes != 109060028))
++    error = "segment-coverage-mismatch";
++  // The final destination callback may consume the remaining time after
++  // the last UFS read. Never acknowledge an overdue load as complete.
++  if (mach_absolute_time() >= probe.deadline)
++    error = "deadline";
++  else if (error && probe.reads > probe.readBudget)
++    error = "read-budget";
++  return error;
++}
++
++static int modemFirmwareLoad(uint64_t base, uint64_t length, ThorModemWrite write,
++                             void *context)
++{
++  if (!write || base != kThorModemBase || length != kThorModemEnd - kThorModemBase)
++    return EINVAL;
++  if (!__atomic_load_n(&gModemFirmwareStaged, __ATOMIC_ACQUIRE))
++    return EAGAIN;
++  if (__atomic_exchange_n(&gModemFirmwareLoading, 1U, __ATOMIC_ACQ_REL))
++    return EBUSY;
++  auto *probe = static_cast<ModemFirmwareProbe *>(IOMallocData(sizeof(ModemFirmwareProbe)));
++  int result = ENOMEM;
++  const char *error = "allocation-failed";
++  ModemFirmwareLoadCounts counts{};
++  if (probe) {
++    error = modemFirmwareTransfer(*probe, counts, write, context);
++    result = error ? EIO : 0;
++    modemFirmwareFinish(probe);
++  }
++  IOLog("THOR MODEM FW V186: stream=%s loads=%u file=%u zero=%llu\n",
++        error ? error : "delivered", counts.loads, counts.bytes,
++        static_cast<unsigned long long>(counts.zeroBytes));
++  __atomic_store_n(&gModemFirmwareLoading, 0U, __ATOMIC_RELEASE);
++  return result;
++}
++
++// Sample only the always-on GCC block. Reading PARF, DBI or endpoint BARs
++// before the PCIe power/clock sequence is complete can fault the interconnect.
++static void thorWifiObservePcieClocks()
++{
++  constexpr uint64_t gccPcie0Page = 0x0017b000;
++  constexpr unsigned pageBytes = 4096;
++  IODeviceMemory *memory = IODeviceMemory::withRange(gccPcie0Page, pageBytes);
++  IOMemoryMap *map = memory ?
++      memory->map(kIOMapAnywhere | kIOMapInhibitCache | kIOMapReadOnly) : nullptr;
++  if (memory) memory->release();
++  const auto address = map && map->getLength() == pageBytes ? map->getVirtualAddress() : 0;
++  if (address) {
++    const auto *registers = reinterpret_cast<const volatile uint32_t *>(address);
++    // GCC base 0x100000, PCIe0 GDSCR 0x7b004 and the four CBCR halt registers.
++    const uint32_t gdsc = registers[0x04 / 4];
++    const uint32_t ahb = registers[0x30 / 4];
++    const uint32_t master = registers[0x28 / 4];
++    const uint32_t slave = registers[0x20 / 4];
++    const uint32_t pipe = registers[0x3c / 4];
++    IOLog("THOR WLAN V221: pcie0=gcc-observed gdsc=0x%x cfg-ahb=0x%x master-axi=0x%x slave-axi=0x%x pipe=0x%x\n",
++          gdsc, ahb, master, slave, pipe);
++  } else {
++    IOLog("THOR WLAN V221: pcie0=gcc-map-unavailable\n");
++  }
++  if (map) map->release();
++}
++
++constexpr unsigned kThorWifiVerifySeconds = 3;
++
++// The scheduled worker holds its own validated slot lease during all reads.
++static void thorWifiFirmwareVerify(ModemFirmwareProbe &probe)
++{
++  modemFirmwareResetReads(probe);
++  probe.readBudget = 2048;
++  clock_interval_to_deadline(kThorWifiVerifySeconds, NSEC_PER_SEC, &probe.deadline);
++  ThorModemFat::Volume volume{};
++  volume.read = modemFirmwareSlotRead;
++  volume.context = &probe;
++  volume.bytes = kModemFirmwareSlotBytes;
++  ThorModemFat::File files[ThorWifiFirmware::blobCount]{};
++  const char *state = volume.open(probe.fatScratch) ?
++      ThorWifiFirmware::find(volume, probe.fatScratch, files) : "fat-unavailable";
++  unsigned verified = 0;
++  const char *attempt = "directory";
++  for (unsigned i = 0; !state && i < ThorWifiFirmware::blobCount; ++i) {
++    const auto &expected = ThorWifiFirmware::blobs[i];
++    attempt = expected.name;
++    SHA256_CTX hash;
++    SHA256_Init(&hash);
++    const auto consume = [](void *context, const uint8_t *data, uint32_t size) {
++      SHA256_Update(static_cast<SHA256_CTX *>(context), data, size);
++      return true;
++    };
++    if (!volume.streamFile(files[i], probe.transferScratch, consume, &hash)) {
++      state = "chain-read";
++      break;
++    }
++    uint8_t digest[sizeof(expected.digest)];
++    SHA256_Final(digest, &hash);
++    if (memcmp(digest, expected.digest, sizeof(digest))) state = "content-mismatch";
++    else ++verified;
++  }
++  if (mach_absolute_time() >= probe.deadline) state = "deadline";
++  IOLog("THOR WLAN V221: slot=%c firmware=%s file=%s verified=%u commands=%u blocks=%u\n",
++        'a' + probe.slot, state ? state : "stock-match", attempt, verified,
++        probe.commands, probe.reads);
++  if (!state && verified == ThorWifiFirmware::blobCount && pong_thor_wifi_pcie_host)
++    pong_thor_wifi_pcie_host();
++}
++
++// v229: hand one stock Wi-Fi firmware file to the QCA6490 driver. The driver
++// reads image/qca6490/<NAME> from the installed modem partition at first use, so
++// the kernel carries no radio firmware of its own. Read-only, like the verify
++// pass above; the caller runs on the Wi-Fi worker after UFS is ready.
++static const char *thorWifiFirmwareFind(ThorModemFat::Volume &volume, uint8_t (&scratch)[ThorModemFat::blockSize],
++                                        const char *name, ThorModemFat::File &file)
++{
++  using namespace ThorModemFat;
++  uint16_t image = 0, qca = 0;
++  if (!imageDirectory(volume, scratch, image)) return "image-directory";
++  if (!visitDirectory(volume, image, scratch, [&](const char *entryName, const uint8_t *entry) {
++        if (strcmp(entryName, "QCA6490")) return true;
++        const uint16_t cluster = read16(entry + 26);
++        if (qca || !(entry[11] & 0x10) || read16(entry + 20) || !volume.valid(cluster)) return false;
++        qca = cluster;
++        return true;
++      }) || !qca)
++    return "qca-directory";
++  if (!visitDirectory(volume, qca, scratch, [&](const char *entryName, const uint8_t *entry) {
++        if (strcmp(entryName, name)) return true;
++        const File candidate{read16(entry + 26), read32(entry + 28)};
++        if (file.cluster || (entry[11] & 0x10) || read16(entry + 20) || !volume.valid(candidate.cluster))
++          return false;
++        file = candidate;
++        return true;
++      }))
++    return "qca-entries";
++  return file.cluster ? nullptr : "missing-file";
++}
++
++static int thorWifiFirmwareRead(const char *name, uint8_t *destination, uint32_t capacity, uint32_t *bytes)
++{
++  if (bytes) *bytes = 0;
++  // The stock directory uses 8.3 upper-case names; accept only such a spelling.
++  char upper[48] = {};
++  unsigned n = 0;
++  for (; name[n] && n < sizeof(upper) - 1; ++n) {
++    const char c = name[n];
++    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
++          c == '.' || c == '-' || c == '_'))
++      return EINVAL;
++    upper[n] = c >= 'a' && c <= 'z' ? char(c - 'a' + 'A') : c;
++  }
++  if (!n || name[n] || !destination || !bytes) return EINVAL;
++  auto *probe = static_cast<ModemFirmwareProbe *>(IOMallocData(sizeof(ModemFirmwareProbe)));
++  if (!probe) return ENOMEM;
++  probe->slot = THOR_MODEM_PREFLIGHT_SLOT;
++  int status = modemFirmwareAdmit(*probe);
++  // v242: the partition table of the firmware LUN was not verified on the first two boots from flash
++  // (v239, v241) and the radio stayed off for the whole boot.  Wait a while and ask again: the
++  // modem side's preflight retries the same check, and whichever succeeds first lets the other pass.
++  if (status) {
++    const uint64_t began = modemFirmwareNowUs();
++    unsigned tries = 1;
++    while (status && modemFirmwareNowUs() - began < kModemFirmwareGptWaitUs) {
++      IOSleep(20);
++      status = modemFirmwareAdmit(*probe);
++      ++tries;
++    }
++    if (!status)
++      IOLog("THOR WLAN V242: the partition table of the firmware LUN answered at attempt %u of the radio driver, %llu ms after its first\n",
++            tries, (unsigned long long)((modemFirmwareNowUs() - began) / 1000));
++  }
++  if (status) {
++    modemFirmwareFinish(probe);
++    return status;
++  }
++  modemFirmwareResetReads(*probe);
++  probe->readBudget = 8192;
++  clock_interval_to_deadline(20, NSEC_PER_SEC, &probe->deadline);
++  ThorModemFat::Volume volume{};
++  volume.read = modemFirmwareSlotRead;
++  volume.context = probe;
++  volume.bytes = kModemFirmwareSlotBytes;
++  ThorModemFat::File file{};
++  const char *state = "fat-unavailable";
++  if (volume.open(probe->fatScratch)) state = thorWifiFirmwareFind(volume, probe->fatScratch, upper, file);
++  if (!state) {
++    struct Sink { uint8_t *destination; uint32_t capacity, size; bool tooLarge;} sink{destination, capacity, 0, false};
++    const auto consume = [](void *context, const uint8_t *data, uint32_t size) {
++      auto &s = *static_cast<Sink *>(context);
++      if (size > s.capacity - s.size) { s.tooLarge = true; return false; }
++      memcpy(s.destination + s.size, data, size);
++      s.size += size;
++      return true;
++    };
++    if (!volume.streamFile(file, probe->transferScratch, consume, &sink)) state = sink.tooLarge ? "too-large" : "chain-read";
++    else *bytes = sink.size;
++  }
++  IOLog("THOR WLAN V229: firmware file=%s state=%s bytes=%u commands=%u blocks=%u\n",
++        upper, state ? state : "read", *bytes, probe->commands, probe->reads);
++  modemFirmwareFinish(probe);
++  return state ? EIO : 0;
++}
++
++static void modemFirmwareFullVerify(thread_call_param_t, thread_call_param_t)
++{
++  const unsigned slot = THOR_MODEM_PREFLIGHT_SLOT;
++  auto *probe = static_cast<ModemFirmwareProbe *>(IOMallocData(sizeof(ModemFirmwareProbe)));
++  if (!probe) {
++    IOLog("THOR MODEM FW V174: slot=%c state=allocation-failed\n", 'a' + slot);
++    return;
++  }
++  ModemFirmwareLoadCounts counts{};
++  const char *error = modemFirmwareTransfer(*probe, counts, nullptr, nullptr);
++  if (!error)
++    IOLog("THOR MODEM FW V186: layout=verified loads=%u file=%u zero=%llu gap=%llu\n",
++          counts.loads, counts.bytes, static_cast<unsigned long long>(counts.zeroBytes),
++          static_cast<unsigned long long>(kThorModemEnd - kThorModemBase - counts.bytes - counts.zeroBytes));
++  IOLog("THOR MODEM FW V174: slot=%c state=%s pieces=%u bytes=%u piece-mask=0x%08x block-reads=%u\n",
++        'a' + slot, error ? error : "all-segment-hashes-match", counts.pieces, counts.bytes, counts.mask, probe->reads);
++  uint64_t metadataPhysical = 0;
++  if (!error) {
++    const char *state = modemFirmwareStageMetadata(probe->metadata, metadataPhysical);
++    IOLog("THOR MODEM FW V182: slot=%c pas=4 metadata=%s physical=0x%llx bytes=%zu\n",
++          'a' + slot, state, static_cast<unsigned long long>(metadataPhysical),
++          metadataPhysical ? sizeof(probe->metadata.mdt) : size_t(0));
++  }
++  modemFirmwareFinish(probe);
++  // Staging sets its output address only after readback of the whole image.
++  if (metadataPhysical) {
++    __atomic_store_n(&gModemFirmwareStaged, 1U, __ATOMIC_RELEASE);
++    if (pong_thor_mss_after_metadata)
++      pong_thor_mss_after_metadata();
++  }
++}
++
++// Schedule both phases on a single non-reentrant call. Finish all WLAN I/O
++// and transient power votes before exposing modem metadata to the PAS worker.
++struct ThorFirmwareBootWork {
++  thread_call_t call;
++  uint64_t modemDeadline;
++};
++
++static void thorFirmwareBootWorker(thread_call_param_t context, thread_call_param_t modemPhase)
++{
++  auto *work = static_cast<ThorFirmwareBootWork *>(context);
++  if (modemPhase) {
++    modemFirmwareFullVerify(nullptr, nullptr);
++    thread_call_free(work->call);
++    work->call = nullptr;
++    return;
++  }
++
++  auto *probe = static_cast<ModemFirmwareProbe *>(IOMallocData(sizeof(ModemFirmwareProbe)));
++  if (probe) {
++    probe->slot = THOR_MODEM_PREFLIGHT_SLOT;
++    const int status = modemFirmwareAdmit(*probe);
++    if (!status) {
++      thorWifiObservePcieClocks();
++      thorWifiFirmwareVerify(*probe);
++      const int adsp = thorAdspRead(*probe, nullptr, nullptr, nullptr);
++      IOLog("THOR ADSP FW V226: slot=%c phase=directory-metadata rc=%d\n",
++            'a' + probe->slot, adsp);
++    } else {
++      IOLog("THOR WLAN V222: firmware=gpt-unavailable status=%d\n", status);
++    }
++    modemFirmwareFinish(probe);
++  } else {
++    IOLog("THOR WLAN V222: firmware=allocation-failed\n");
++  }
++  thread_call_enter1_delayed(work->call, work, work->modemDeadline);
++}
++#endif
++
++// v242: the preflight of the modem firmware.  Up to v241 it checked the partition table once, two
++// seconds into the boot, and one failure left Wi-Fi, the modem and with them the battery off for the
++// rest of the boot (v239 and v241, the first two boots from flash: status 5, three times in the first
++// second).  Now a failed check is retried with growing pauses, on a thread call of its own, and every
++// failure records the step and the device's answer.  The rest of the preflight runs at the first
++// success, or after the last attempt as before.
++static const uint32_t kModemFirmwareRetryMs[] = {20, 50, 100, 200, 400, 800, 1600, 3200, 6400,
++                                                12800, 25600, 51200, 102400};
++static thread_call_t gModemFirmwareRetryCall;
++static unsigned gModemFirmwareRetryAttempt;
++static uint64_t gModemFirmwareRetryBeganUs;
++
++static void modemFirmwarePreflightDone(int status, ModemFirmwareProbe *probe)
++{
++  const unsigned attempt = gModemFirmwareRetryAttempt + 1;
++  const unsigned long long waited = (modemFirmwareNowUs() - gModemFirmwareRetryBeganUs) / 1000;
++  if (status) {
++    const auto &f = gModemFirmwareGptFault;
++    IOLog("THOR MODEM FW V242: state=gpt-unavailable status=%d after %u attempts in %llu ms: step=%u rc=%#x "
++          "scsi=%#x sense=%06x residual=%u protocol=%u ocs=%#x lba=%llu sig=%08x detail=%#x first=%#x\n",
++          status, attempt, waited, f.step, f.result, f.scsi, f.sense, f.residual, f.protocol, f.ocs,
++          (unsigned long long)f.lba, f.signature, f.detail, f.first);
++  } else {
++    IOLog("THOR MODEM FW V163: state=gpt-verified lun=4 slots=2 selected=none\n");
++    const auto &lag = gModemFirmwareBackupLag;
++    if (lag.bits)
++      IOLog("THOR MODEM FW V243: the backup table of the firmware LUN differs from the primary one: what=%#x "
++            "header-fault=%#x entries-crc=%08x differing-bytes=%u first=entry %u offset %u primary=%02x "
++            "backup=%02x; the primary decides\n", lag.bits, lag.headerFault, lag.entriesCrc, lag.bytes,
++            lag.entry, lag.offset, lag.primary, lag.backup);
++    if (attempt > 1)
++      IOLog("THOR MODEM FW V242: the partition table answered at attempt %u, %llu ms after the first\n", attempt, waited);
++    for (unsigned slot = 0; slot != 2; ++slot) {
++      probe->slot = slot;
++      modemFirmwareResetReads(*probe);
++      ThorModemFat::Volume volume{};
++      const char *error = modemFirmwareOpen(*probe, volume);
++      IOLog("THOR MODEM FW V163: slot=%c state=%s block-reads=%u\n", 'a' + slot,
++            error ? error : "mdt-and-piece-sizes-verified", probe->reads);
++      if (!error)
++        modemFirmwarePayloadSamples(*probe, volume);
++    }
++  }
++
++  modemFirmwareFinish(probe);
++#if defined(THOR_MODEM_PREFLIGHT_SLOT) && (THOR_MODEM_PREFLIGHT_SLOT == 0 || THOR_MODEM_PREFLIGHT_SLOT == 1)
++  if (status)
++    return;
++  static ThorFirmwareBootWork work{};
++  work.call = thread_call_allocate_with_options(thorFirmwareBootWorker, &work,
++      THREAD_CALL_PRIORITY_LOW, THREAD_CALL_OPTIONS_ONCE);
++  if (!work.call) {
++    IOLog("THOR MODEM FW V174: state=worker-unavailable\n");
++    return;
++  }
++  constexpr unsigned modemDelaySeconds = 30;
++  static_assert(modemDelaySeconds > kThorWifiVerifySeconds);
++  uint64_t wlanDeadline = 0;
++  clock_interval_to_deadline(modemDelaySeconds - kThorWifiVerifySeconds, NSEC_PER_SEC, &wlanDeadline);
++  clock_interval_to_deadline(modemDelaySeconds, NSEC_PER_SEC, &work.modemDeadline);
++  thread_call_enter_delayed(work.call, wlanDeadline);
++  IOLog("THOR MODEM FW V174: slot=%c state=scheduled\n", 'a' + THOR_MODEM_PREFLIGHT_SLOT);
++#endif
++}
++
++static void modemFirmwarePreflightAttempt()
++{
++  auto *probe = static_cast<ModemFirmwareProbe *>(IOMallocData(sizeof(ModemFirmwareProbe)));
++  if (!probe) {
++    IOLog("THOR MODEM FW V163: state=allocation-failed\n");
++    return;
++  }
++  probe->readBudget = 96;
++  probe->deadline = 0;
++  int status = modemFirmwareAdmit(*probe);
++  if (status) {
++    // v242: after the third failure also ask the device once more for its active power mode, as the
++    // transport's bring-up does (the same START STOP UNIT the filter allows), then ask again at once.
++    static uint32_t failed;
++    if (++failed == 3) {
++      uint32_t scsi = 0;
++      const uint8_t ssu[6] = {0x1b, 0, 0, 0, 0x10, 0};
++      IOLockLock(gHost.lock);
++      const IOReturn wake = gHost.ready && !gHost.poisoned ? hostScsi(0xd0, ssu, sizeof(ssu), false, 0, 500000, &scsi) : kIOReturnNotReady;
++      IOLockUnlock(gHost.lock);
++      IOLog("THOR MODEM FW V242: after three failed checks the device was asked for its active power mode again: rc=%#x scsi=%#x\n",
++            static_cast<unsigned>(wake), scsi);
++      status = modemFirmwareAdmit(*probe);
++    }
++  }
++  const auto &f = gModemFirmwareGptFault;
++  if (status && gModemFirmwareRetryCall && gModemFirmwareRetryAttempt < sizeof(kModemFirmwareRetryMs) / sizeof(kModemFirmwareRetryMs[0])) {
++    IOLog("THOR MODEM FW V242: preflight attempt %u failed status=%d step=%u rc=%#x scsi=%#x sense=%06x "
++          "residual=%u protocol=%u ocs=%#x lba=%llu sig=%08x detail=%#x first=%#x; next in %u ms\n",
++          gModemFirmwareRetryAttempt + 1, status, f.step, f.result, f.scsi, f.sense, f.residual, f.protocol,
++          f.ocs, (unsigned long long)f.lba, f.signature, f.detail, f.first, kModemFirmwareRetryMs[gModemFirmwareRetryAttempt]);
++    modemFirmwareFinish(probe);
++    uint64_t deadline = 0;
++    clock_interval_to_deadline(kModemFirmwareRetryMs[gModemFirmwareRetryAttempt++], NSEC_PER_MSEC, &deadline);
++    thread_call_enter_delayed(gModemFirmwareRetryCall, deadline);
++    return;
++  }
++  modemFirmwarePreflightDone(status, probe);
++}
++
++static void modemFirmwarePreflightRetry(thread_call_param_t, thread_call_param_t)
++{
++  modemFirmwarePreflightAttempt();
++}
++
++static void modemFirmwarePreflight()
++{
++  if (!__atomic_load_n(&gWifiUfsReady, __ATOMIC_ACQUIRE)) {
++    IOLog("THOR MODEM FW V163: state=transport-not-ready\n");
++    return;
++  }
++  static uint32_t attempted;
++  if (__atomic_exchange_n(&attempted, 1, __ATOMIC_ACQ_REL)) {
++    return;
++  }
++  gModemFirmwareRetryAttempt = 0;
++  gModemFirmwareRetryBeganUs = modemFirmwareNowUs();
++  gModemFirmwareRetryCall = thread_call_allocate_with_options(modemFirmwarePreflightRetry, nullptr,
++      THREAD_CALL_PRIORITY_KERNEL, THREAD_CALL_OPTIONS_ONCE);
++  modemFirmwarePreflightAttempt();
++}
+diff --git a/ModemFirmwareBounds.h b/ModemFirmwareBounds.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..cf229be933195525edab580c879522dc39b1cdfb
+--- /dev/null
++++ b/ModemFirmwareBounds.h
+@@ -0,0 +1,46 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++
++// Found on the Thor stock LUN4 GPT. Addresses are 4096-byte LBAs.
++static constexpr unsigned kModemFirmwareLun = 4;
++static constexpr uint32_t kModemFirmwareBlockBytes = 4096;
++static constexpr uint32_t kModemFirmwareSlotBlocks = 97280;
++static constexpr uint64_t kModemFirmwareSlotStart[] = {5126, 330539};
++static constexpr uint64_t kModemFirmwareSlotBytes =
++    uint64_t(kModemFirmwareSlotBlocks) * kModemFirmwareBlockBytes;
++
++static bool modemFirmwareWithin(uint64_t lba, uint32_t blocks, uint64_t first, uint64_t limit)
++{
++  return blocks && lba >= first && lba < limit && blocks <= limit - lba;
++}
++
++static constexpr uint64_t kModemFirmwareLunBlocks = 713728;
++static constexpr uint64_t kModemFirmwareFirstUsable = 6;
++static constexpr uint64_t kModemFirmwareLastUsable = 713722;
++static constexpr uint64_t kModemFirmwarePrimaryEntries = 2;
++static constexpr uint64_t kModemFirmwareBackupEntries = 713723;
++static constexpr uint32_t kModemFirmwareEntryCount = 96;
++static constexpr uint32_t kModemFirmwareEntrySize = 128;
++static constexpr uint32_t kModemFirmwareEntryBytes =
++    kModemFirmwareEntryCount * kModemFirmwareEntrySize;
++static constexpr uint32_t kModemFirmwareEntryBlocks =
++    kModemFirmwareEntryBytes / kModemFirmwareBlockBytes;
++static_assert(kModemFirmwareEntryBlocks * kModemFirmwareBlockBytes == kModemFirmwareEntryBytes);
++
++static bool modemFirmwareReadAllowed(uint64_t lba, uint32_t blocks, bool verified)
++{
++  if (modemFirmwareWithin(lba, blocks, 1, 2) ||
++      modemFirmwareWithin(lba, blocks, kModemFirmwareLunBlocks - 1, kModemFirmwareLunBlocks) ||
++      modemFirmwareWithin(lba, blocks, kModemFirmwarePrimaryEntries,
++                         kModemFirmwarePrimaryEntries + kModemFirmwareEntryBlocks) ||
++      modemFirmwareWithin(lba, blocks, kModemFirmwareBackupEntries,
++                         kModemFirmwareBackupEntries + kModemFirmwareEntryBlocks))
++    return true;
++  if (verified) {
++    for (const uint64_t start : kModemFirmwareSlotStart) {
++      if (modemFirmwareWithin(lba, blocks, start, start + kModemFirmwareSlotBlocks))
++        return true;
++    }
++  }
++  return false;
++}
+diff --git a/ModemFirmwareFat.h b/ModemFirmwareFat.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..d5893848124dccdb41b9fbd6ba2c3396ae3228a8
+--- /dev/null
++++ b/ModemFirmwareFat.h
+@@ -0,0 +1,367 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++
++#include <stddef.h>
++#include <stdint.h>
++
++using ThorModemFatRead = bool (*)(void *, uint64_t, void *, uint32_t);
++
++struct ThorModemFatMetadata {
++    uint8_t mdt[5884];
++    uint32_t pieceBytes[32];
++    uint16_t pieceCluster[32];
++    uint32_t pieceMask;
++};
++
++namespace ThorModemFat {
++
++// Stock Thor modem_a and modem_b capacities. Every callback read is bounded
++// to the identified partition and the FAT volume described by its BPB.
++constexpr uint64_t imageSize = 398458880;
++constexpr uint32_t blockSize = 4096;
++constexpr uint32_t boundedFileBytes = 12288;
++constexpr uint32_t directoryLimit = 128 * 1024;
++
++static inline uint16_t read16(const uint8_t *p)
++{
++    return uint16_t(uint16_t(p[0]) | uint16_t(p[1]) << 8);
++}
++
++static inline uint32_t read32(const uint8_t *p)
++{
++    return uint32_t(read16(p)) | uint32_t(read16(p + 2)) << 16;
++}
++
++static inline bool matches(const uint8_t *entry, const char *name, size_t size)
++{
++    for (size_t i = 0; i < size; ++i) {
++        if (entry[i] != static_cast<uint8_t>(name[i])) return false;
++    }
++    return true;
++}
++
++// The stock image uses VFAT names with unrelated generated short aliases.
++struct LongName {
++    bool present = false;
++    bool valid = false;
++    uint8_t checksum = 0;
++    uint8_t remaining = 0;
++    char value[27]{};
++
++    void observe(const uint8_t *entry)
++    {
++        const unsigned tag = entry[0];
++        const unsigned sequence = tag & 0x1f;
++        const bool last = (tag & 0x40) != 0;
++        present = true;
++        valid = false;
++        if (last) {
++            remaining = sequence;
++            checksum = entry[13];
++            for (char &c : value) c = 0;
++        }
++        if ((tag & ~0x5f) || !sequence || sequence > 2 || remaining != sequence ||
++            entry[13] != checksum || entry[12] || read16(entry + 26)) {
++            remaining = 0;
++            return;
++        }
++        static constexpr unsigned positions[] = {1,3,5,7,9,14,16,18,20,22,24,28,30};
++        unsigned index = (sequence - 1) * 13;
++        bool ended = false;
++        // Exactly the highest-numbered slot may contain the terminator/padding.
++        for (const unsigned offset : positions) {
++            const uint16_t c = read16(entry + offset);
++            if (ended ? c != 0xffff : (!c ? !last : c < 0x20 || c > 0x7e)) {
++                remaining = 0;
++                return;
++            }
++            if (!c) ended = true;
++            if (!ended)
++                value[index++] = static_cast<char>(c >= 'a' && c <= 'z' ? c - 'a' + 'A' : c);
++        }
++        valid = --remaining == 0 && value[0];
++    }
++
++    template <size_t capacity>
++    bool name(const uint8_t *entry, char (&out)[capacity])
++    {
++        static_assert(capacity >= 14);
++        if (present) {
++            present = false;
++            remaining = 0;
++            uint8_t sum = 0;
++            for (unsigned i = 0; i != 11; ++i)
++                sum = uint8_t((sum >> 1) + ((sum & 1) << 7) + entry[i]);
++            if (!valid || sum != checksum) return false;
++            for (size_t i = 0; i < capacity && i < sizeof(value); ++i) {
++                out[i] = value[i];
++                if (!value[i]) return true;
++            }
++            return false;
++        }
++        unsigned length = 0;
++        for (unsigned i = 0; i != 8 && entry[i] != ' '; ++i) out[length++] = char(entry[i]);
++        if (entry[8] != ' ') {
++            out[length++] = '.';
++            for (unsigned i = 8; i != 11 && entry[i] != ' '; ++i) out[length++] = char(entry[i]);
++        }
++        out[length] = 0;
++        return true;
++    }
++};
++
++struct File {
++    uint16_t cluster;
++    uint32_t size;
++};
++
++struct Volume {
++    ThorModemFatRead read;
++    void *context;
++    uint64_t bytes;
++    uint64_t fatOffset;
++    uint64_t fatBytes;
++    uint64_t rootOffset;
++    uint64_t dataOffset;
++    uint32_t rootBytes;
++    uint32_t clusterBytes;
++    uint32_t clusters;
++    uint8_t fatCopies;
++
++    bool fetch(uint64_t offset, void *out, uint32_t size) const
++    {
++        return size && size <= blockSize && offset < bytes && size <= bytes - offset &&
++            read(context, offset, out, size);
++    }
++
++    bool valid(uint16_t cluster) const
++    {
++        return cluster >= 2 && cluster < 0xfff0 && cluster <= clusters + 1;
++    }
++
++    uint64_t clusterOffset(uint16_t cluster) const
++    {
++        return dataOffset + uint64_t(cluster - 2) * clusterBytes;
++    }
++
++    bool next(uint16_t cluster, uint16_t &value) const
++    {
++        uint8_t entry[2];
++        const uint64_t offset = fatOffset + uint32_t(cluster) * 2;
++        if (!valid(cluster) || !fetch(offset, entry, sizeof(entry))) return false;
++        value = read16(entry);
++        if (fatCopies == 2 &&
++            (!fetch(offset + fatBytes, entry, sizeof(entry)) || read16(entry) != value)) return false;
++        return value >= 0xfff8 || valid(value);
++    }
++
++    bool open(uint8_t (&scratch)[blockSize])
++    {
++        if (!fetch(0, scratch, 512) || !matches(scratch + 54, "FAT16   ", 8) ||
++            read16(scratch + 510) != 0xaa55) return false;
++        const uint32_t sectorBytes = read16(scratch + 11);
++        const uint32_t clusterSectors = scratch[13];
++        const uint32_t reservedSectors = read16(scratch + 14);
++        const uint32_t rootEntries = read16(scratch + 17);
++        const uint32_t shortSectors = read16(scratch + 19);
++        const uint32_t fatSectors = read16(scratch + 22);
++        const uint32_t longSectors = read32(scratch + 32);
++        fatCopies = scratch[16];
++        if (sectorBytes < 512 || sectorBytes > blockSize || (sectorBytes & (sectorBytes - 1)) ||
++            !clusterSectors || (clusterSectors & (clusterSectors - 1)) ||
++            clusterSectors * sectorBytes > 32768 || !reservedSectors ||
++            !rootEntries || rootEntries > 2048 || !fatSectors ||
++            (fatCopies != 1 && fatCopies != 2) || ((shortSectors == 0) == (longSectors == 0))) return false;
++        const uint32_t totalSectors = shortSectors ? shortSectors : longSectors;
++        const uint64_t volumeBytes = uint64_t(totalSectors) * sectorBytes;
++        rootBytes = rootEntries * 32;
++        const uint32_t rootSectors = (rootBytes + sectorBytes - 1) / sectorBytes;
++        const uint32_t rootSector = reservedSectors + fatCopies * fatSectors;
++        const uint32_t dataSector = rootSector + rootSectors;
++        if (volumeBytes > bytes || dataSector >= totalSectors) return false;
++        clusters = (totalSectors - dataSector) / clusterSectors;
++        if (clusters < 4085 || clusters > 65524 || uint64_t(fatSectors) * sectorBytes < (clusters + 2) * 2)
++            return false;
++        bytes = volumeBytes;
++        fatOffset = uint64_t(reservedSectors) * sectorBytes;
++        fatBytes = uint64_t(fatSectors) * sectorBytes;
++        rootOffset = uint64_t(rootSector) * sectorBytes;
++        dataOffset = uint64_t(dataSector) * sectorBytes;
++        clusterBytes = clusterSectors * sectorBytes;
++        return true;
++    }
++
++    bool readFile(File file, uint8_t *data) const
++    {
++        if (!data || file.size > boundedFileBytes) return false;
++        return visitFile(file, blockSize, [&](uint64_t offset, uint32_t size) {
++            if (!fetch(offset, data, size)) return false;
++            data += size;
++            return true;
++        });
++    }
++
++    using FileSink = bool (*)(void *, const uint8_t *, uint32_t);
++
++    // Chunks are provisional until the entire immutable FAT chain and the
++    // caller's digest have passed. The visitor may abort without reading ahead.
++    template <size_t capacity>
++    bool streamFile(File file, uint8_t (&scratch)[capacity],
++                    FileSink sink, void *sinkContext) const
++    {
++        static_assert(capacity >= blockSize && capacity <= 32768);
++        if (!sink) return false;
++        return visitFile(file, capacity, [&](uint64_t offset, uint32_t size) {
++            return offset < bytes && size <= bytes - offset && read(context, offset, scratch, size) &&
++                sink(sinkContext, scratch, size);
++        });
++    }
++
++private:
++    template <typename Visitor>
++    bool visitFile(File file, uint32_t maxChunk, const Visitor &visit) const
++    {
++        if (!file.size) return file.cluster >= 0xfff8;
++        if (!clusterBytes || file.size > bytes || (file.size - 1) / clusterBytes >= clusters)
++            return false;
++        uint32_t remaining = file.size;
++        uint16_t cluster = file.cluster;
++        while (remaining) {
++            if (!valid(cluster)) return false;
++            const uint32_t bytesHere = remaining < clusterBytes ? remaining : clusterBytes;
++            for (uint32_t offset = 0; offset < bytesHere;) {
++                uint32_t chunk = bytesHere - offset;
++                if (chunk > maxChunk) chunk = maxChunk;
++                if (!visit(clusterOffset(cluster) + offset, chunk)) return false;
++                offset += chunk;
++            }
++            remaining -= bytesHere;
++            if (!next(cluster, cluster)) return false;
++        }
++        // A repeated cluster in immutable FAT cannot reach EOC. This bounded
++        // walk also rules out valid-looking short or overlong file chains.
++        return cluster >= 0xfff8;
++    }
++};
++
++static inline bool regularEntry(const uint8_t *entry)
++{
++    return entry[0] != 0xe5 && !(entry[11] & 0x08);
++}
++
++static inline bool imageDirectory(const Volume &volume, uint8_t (&scratch)[blockSize], uint16_t &cluster)
++{
++    bool end = false;
++    LongName pending;
++    cluster = 0;
++    for (uint32_t offset = 0; offset < volume.rootBytes && !end;) {
++        uint32_t chunk = volume.rootBytes - offset;
++        if (chunk > blockSize) chunk = blockSize;
++        if (!volume.fetch(volume.rootOffset + offset, scratch, chunk)) return false;
++        for (uint32_t i = 0; i < chunk; i += 32) {
++            const auto *entry = scratch + i;
++            if (!entry[0]) {
++                end = true;
++                break;
++            }
++            if (entry[11] == 0x0f) {
++                pending.observe(entry);
++                continue;
++            }
++            char name[14]{};
++            if (!pending.name(entry, name) || !regularEntry(entry) ||
++                !matches(reinterpret_cast<const uint8_t *>(name), "IMAGE", 6)) continue;
++            const uint16_t candidate = read16(entry + 26);
++            if (cluster || !(entry[11] & 0x10) || read16(entry + 20) || !volume.valid(candidate)) return false;
++            cluster = candidate;
++        }
++        offset += chunk;
++    }
++    return cluster != 0;
++}
++
++template <typename Visitor>
++static inline bool visitDirectory(const Volume &volume, uint16_t cluster, uint8_t (&scratch)[blockSize],
++                                  const Visitor &visit)
++{
++    bool end = false;
++    LongName pending;
++    // Continue to FAT end even after the first empty entry. The cap rejects
++    // circular chains even if their directory entries are all empty/deleted.
++    for (uint32_t bytes = 0; bytes < directoryLimit; bytes += volume.clusterBytes) {
++        if (!volume.valid(cluster)) return false;
++        for (uint32_t offset = 0; offset < volume.clusterBytes && !end;) {
++            uint32_t chunk = volume.clusterBytes - offset;
++            if (chunk > blockSize) chunk = blockSize;
++            if (!volume.fetch(volume.clusterOffset(cluster) + offset, scratch, chunk)) return false;
++            for (uint32_t i = 0; i < chunk; i += 32) {
++                const auto *entry = scratch + i;
++                if (!entry[0]) {
++                    end = true;
++                    break;
++                }
++                if (entry[11] == 0x0f) {
++                    pending.observe(entry);
++                    continue;
++                }
++                char name[27]{};
++                if (pending.name(entry, name) && regularEntry(entry) && !visit(name, entry))
++                    return false;
++            }
++            offset += chunk;
++        }
++        if (!volume.next(cluster, cluster)) return false;
++        if (cluster >= 0xfff8) return true;
++    }
++    return false;
++}
++
++static inline bool readDirectory(const Volume &volume, uint16_t cluster, ThorModemFatMetadata &metadata,
++                                 uint8_t (&scratch)[blockSize], File &mdt)
++{
++    return visitDirectory(volume, cluster, scratch, [&](const char *name, const uint8_t *entry) {
++        if (!matches(reinterpret_cast<const uint8_t *>(name), "MODEM.", 6)) return true;
++        const File file{read16(entry + 26), read32(entry + 28)};
++        const bool isMdt = matches(reinterpret_cast<const uint8_t *>(name + 6), "MDT", 4);
++        const bool isPiece = name[6] == 'B' && name[7] >= '0' && name[7] <= '9' &&
++            name[8] >= '0' && name[8] <= '9' && name[9] == 0;
++        if (!isMdt && !isPiece) return true;
++        if (entry[11] & 0x10 || read16(entry + 20) || file.size > volume.bytes ||
++            (file.size ? !volume.valid(file.cluster) : file.cluster != 0)) return false;
++        if (isMdt) {
++            if (mdt.cluster || file.size != sizeof(metadata.mdt)) return false;
++            mdt = file;
++            return true;
++        }
++        const unsigned index = unsigned(name[7] - '0') * 10 + unsigned(name[8] - '0');
++        if (index >= 32 || metadata.pieceMask & (uint32_t(1) << index)) return false;
++        metadata.pieceMask |= uint32_t(1) << index;
++        metadata.pieceBytes[index] = file.size;
++        metadata.pieceCluster[index] = file.cluster;
++        return true;
++    }) && mdt.cluster != 0;
++}
++
++} // namespace ThorModemFat
++
++static inline bool thorModemReadFat(ThorModemFatRead read, void *context, uint64_t imageBytes,
++                                    ThorModemFatMetadata &metadata, uint8_t (&scratch)[4096],
++                                    ThorModemFat::Volume *opened = nullptr)
++{
++    metadata.pieceMask = 0;
++    for (auto &size : metadata.pieceBytes) size = 0;
++    for (auto &cluster : metadata.pieceCluster) cluster = 0;
++    ThorModemFat::Volume volume{};
++    volume.read = read;
++    volume.context = context;
++    volume.bytes = imageBytes;
++    uint16_t directory = 0;
++    ThorModemFat::File mdt{};
++    if (!read || imageBytes != ThorModemFat::imageSize || !volume.open(scratch) ||
++        !ThorModemFat::imageDirectory(volume, scratch, directory) ||
++        !ThorModemFat::readDirectory(volume, directory, metadata, scratch, mdt) ||
++        !volume.readFile(mdt, metadata.mdt))
++        return false;
++    if (opened) *opened = volume;
++    return true;
++}
+diff --git a/ModemFirmwareGpt.h b/ModemFirmwareGpt.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..dc2047dffa1456f9a71ba73cf3d0abd0bba40917
+--- /dev/null
++++ b/ModemFirmwareGpt.h
+@@ -0,0 +1,71 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++
++struct ModemFirmwareGptIdentity {
++  uint8_t diskGuid[16];
++  uint32_t tableCrc;
++};
++
++static bool modemFirmwareGptHeader(const uint8_t *p, bool backup, ModemFirmwareGptIdentity &identity)
++{
++  constexpr uint64_t lastBlock = kModemFirmwareLunBlocks - 1;
++  const uint32_t bytes = le32(p + 12);
++  if (memcmp(p, "EFI PART", 8) || le32(p + 8) != 0x10000 ||
++      bytes < 92 || bytes > kModemFirmwareBlockBytes || le32(p + 20) ||
++      rootCrc32(p, bytes, true) != le32(p + 16) ||
++      le64(p + 24) != (backup ? lastBlock : 1) ||
++      le64(p + 32) != (backup ? 1 : lastBlock) ||
++      le64(p + 40) != kModemFirmwareFirstUsable || le64(p + 48) != kModemFirmwareLastUsable ||
++      !rootEntryUsed(p + 56) ||
++      le64(p + 72) != (backup ? kModemFirmwareBackupEntries : kModemFirmwarePrimaryEntries) ||
++      le32(p + 80) != kModemFirmwareEntryCount || le32(p + 84) != kModemFirmwareEntrySize)
++    return false;
++  memcpy(identity.diskGuid, p + 56, sizeof(identity.diskGuid));
++  identity.tableCrc = le32(p + 88);
++  return true;
++}
++
++static bool modemFirmwareGptName(const uint8_t *name, const char *expected)
++{
++  for (unsigned i = 0; i != 36; ++i) {
++    const uint8_t low = name[2 * i], high = name[2 * i + 1];
++    if (high || low != static_cast<uint8_t>(expected[i]))
++      return false;
++    if (!low)
++      return true;
++  }
++  return false;
++}
++
++static bool modemFirmwareGptEntries(const uint8_t *table, uint32_t crc)
++{
++  if (rootCrc32(table, kModemFirmwareEntryBytes) != crc)
++    return false;
++  static constexpr const char *names[] = {"modem_a", "modem_b"};
++  unsigned found = 0;
++  for (unsigned i = 0; i < kModemFirmwareEntryCount; ++i) {
++    const auto *entry = table + i * kModemFirmwareEntrySize;
++    if (!rootEntryUsed(entry))
++      continue;
++    const uint64_t first = le64(entry + 32), last = le64(entry + 40);
++    if (first < kModemFirmwareFirstUsable || last < first ||
++        last > kModemFirmwareLastUsable || !rootEntryUsed(entry + 16))
++      return false;
++    for (unsigned j = 0; j < i; ++j) {
++      const auto *other = table + j * kModemFirmwareEntrySize;
++      if (rootEntryUsed(other) &&
++          ((first <= le64(other + 40) && le64(other + 32) <= last) ||
++           !memcmp(entry + 16, other + 16, 16)))
++        return false;
++    }
++    for (unsigned slot = 0; slot != sizeof(names) / sizeof(names[0]); ++slot) {
++      if (!modemFirmwareGptName(entry + 56, names[slot]))
++        continue;
++      if ((found & (1U << slot)) || first != kModemFirmwareSlotStart[slot] ||
++          last - first + 1 != kModemFirmwareSlotBlocks)
++        return false;
++      found |= 1U << slot;
++    }
++  }
++  return found == 3;
++}
+diff --git a/ModemFirmwareMetadata.h b/ModemFirmwareMetadata.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..ca7c0a733510474e3eb2bfe83e43ace5891fc599
+--- /dev/null
++++ b/ModemFirmwareMetadata.h
+@@ -0,0 +1,115 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++
++// Pin the stock Thor metadata observed in both original slots.
++static constexpr unsigned kThorModemMdtPrefixBytes = 1076;
++static constexpr unsigned kThorModemDigestTableOffset = kThorModemMdtPrefixBytes + 288;
++static constexpr unsigned kThorModemDigestBytes = 48;
++static constexpr unsigned kThorModemMdtHeaders = 32;
++static constexpr uint64_t kThorModemBase = 0x8bc00000;
++static constexpr uint64_t kThorModemEnd = 0x9ee00000;
++
++static const uint8_t kThorModemMdtDigest[] = {
++    0x11, 0x58, 0x0f, 0x3e, 0xea, 0x62, 0x14, 0x0d,
++    0x0e, 0x7f, 0x67, 0xfb, 0xbd, 0x79, 0x16, 0x69,
++    0x45, 0x34, 0x69, 0x6c, 0x96, 0xa9, 0xed, 0xa3,
++    0x02, 0xf6, 0xbe, 0x30, 0xf3, 0xe3, 0x35, 0xd9,
++};
++
++static uint16_t thorModemMdt16(const uint8_t *p)
++{
++  return uint16_t(uint16_t(p[0]) | (uint16_t(p[1]) << 8));
++}
++
++// Only use after validating the pinned MDT digest and the program headers.
++static const uint8_t *thorModemSignedDigest(const ThorModemFatMetadata &metadata, unsigned index)
++{
++  static_assert(kThorModemDigestTableOffset +
++      kThorModemMdtHeaders * kThorModemDigestBytes <= sizeof(metadata.mdt));
++  return index < kThorModemMdtHeaders ?
++      metadata.mdt + kThorModemDigestTableOffset + index * kThorModemDigestBytes : nullptr;
++}
++
++static bool thorModemMdtLayout(const ThorModemFatMetadata &metadata)
++{
++  const auto *mdt = metadata.mdt;
++  constexpr uint64_t base = kThorModemBase;
++  constexpr uint64_t end = kThorModemEnd;
++  constexpr unsigned headerCount = kThorModemMdtHeaders;
++  constexpr unsigned headerBytes = 32;
++  constexpr unsigned prefixBytes = kThorModemMdtPrefixBytes;
++  constexpr unsigned hashBytes = 4808;
++  if (sizeof(metadata.mdt) != prefixBytes + hashBytes ||
++      memcmp(mdt, "\x7f" "ELF\x01\x01\x01", 7) != 0 ||
++      thorModemMdt16(mdt + 18) != 164 || le32(mdt + 20) != 1 ||
++      le32(mdt + 24) != base || le32(mdt + 28) != 52 ||
++      thorModemMdt16(mdt + 40) != 52 ||
++      thorModemMdt16(mdt + 42) != headerBytes ||
++      thorModemMdt16(mdt + 44) != headerCount)
++    return false;
++
++  const auto *headers = mdt + 52;
++  if (le32(headers + 4) != 0 || le32(headers + 16) != prefixBytes)
++    return false;
++  const auto *hash = headers + (headerCount - 1) * headerBytes;
++  if (((le32(hash + 24) >> 24) & 7U) != 2 || le32(hash + 16) != hashBytes)
++    return false;
++
++  unsigned loads = 0, pieces = 0;
++  uint64_t bytes = 0, lowest = end, highest = base;
++  struct Range { uint64_t first, end; };
++  Range checked[headerCount] = {};
++  for (unsigned index = 0; index < headerCount - 1; ++index) {
++    const auto *ph = headers + index * headerBytes;
++    const uint32_t flags = le32(ph + 24);
++    const uint32_t mem = le32(ph + 20);
++    if (((flags >> 24) & 7U) == 2)
++      return false;
++    if (le32(ph) != 1 || !mem)
++      continue;
++    const uint64_t at = le32(ph + 12);
++    const uint32_t file = le32(ph + 16);
++    const uint64_t offset = le32(ph + 4);
++    if (at < base || at >= end || mem > end - at || file > mem ||
++        !(flags & (1U << 27)))
++      return false;
++    const uint64_t top = at + mem;
++    for (unsigned j = 0; j < loads; ++j) {
++      if (at < checked[j].end && checked[j].first < top)
++        return false;
++    }
++    checked[loads++] = {at, top};
++    if (at < lowest) lowest = at;
++    if (top > highest) highest = top;
++    if (file && offset + file > sizeof(metadata.mdt)) {
++      if (!(metadata.pieceMask & (1U << index)) || metadata.pieceBytes[index] != file)
++        return false;
++      ++pieces;
++      bytes += file;
++    }
++  }
++  return loads == 30 && lowest == base && highest == end &&
++      pieces == 27 && bytes == 109060028;
++}
++
++static bool thorModemPayload(const ThorModemFatMetadata &metadata, unsigned index,
++                                  ThorModemFat::File &file)
++{
++  if (!index || index >= kThorModemMdtHeaders - 1 ||
++      !(metadata.pieceMask & (1U << index)))
++    return false;
++  const auto *ph = metadata.mdt + 52 + index * 32;
++  const uint32_t bytes = le32(ph + 16);
++  if (le32(ph) != 1 || !bytes ||
++      bytes > le32(ph + 20) || metadata.pieceBytes[index] != bytes ||
++      uint64_t(le32(ph + 4)) + bytes <= sizeof(metadata.mdt))
++    return false;
++  file = {metadata.pieceCluster[index], bytes};
++  return true;
++}
++
++static bool thorModemSmallPayload(const ThorModemFatMetadata &metadata, unsigned index,
++                                  ThorModemFat::File &file)
++{
++  return thorModemPayload(metadata, index, file) && file.size <= ThorModemFat::boundedFileBytes;
++}
+diff --git a/PongUfsTransport.cpp b/PongUfsTransport.cpp
+index fcb547e48fea972d6ce5802c26649997bb92b6bd..25c6fb00362efa56f95d617276b869fb59f481a0 100644
+--- a/PongUfsTransport.cpp
++++ b/PongUfsTransport.cpp
+@@ -11,6 +11,7 @@
+ #include <IOKit/IOLib.h>
+ #include <vm/vm_kern.h>
+ #include <kern/clock.h>
++#include <kern/thread_call.h>
+ #include <mach/mach_time.h>
+ #include <libkern/c++/OSBoolean.h>
+ #include <libkern/c++/OSDictionary.h>
+@@ -21,29 +22,42 @@
+ #include <libkern/OSKextLib.h>
+ #include <libkern/crypto/sha2.h>
+ #include <pexpert/pexpert.h>
++#include <sys/errno.h>
+ #include <sys/param.h>
+ #include <sys/types.h>
+ #include "../PongProbe.h"
++#include "ThorModemFirmwareLoad.h"
+ // Power/USB/WLAN share the Apps SMMU. UFS also builds without that optional
+ // aggregate, so weak imports retain the single-owner storage-only profile.
+ extern "C" bool pong_smmu_lease_lock(void) __attribute__((weak_import));
+ extern "C" void pong_smmu_lease_unlock(void) __attribute__((weak_import));
++extern "C" bool thor_modem_dma_lease(unsigned, uint64_t, uint64_t *) __attribute__((weak_import));
++extern "C" void pong_thor_mss_after_metadata(void) __attribute__((weak_import));
++
++extern "C" void pong_thor_wifi_pcie_host(void) __attribute__((weak_import));
++extern "C" void thor_witness_storage(int) __attribute__((weak_import));  // THOR WITNESS V233
+ 
+ namespace {
+ #include "RootTransportLayout.h"
+ #include "RootDiagnostics.h"
+ #include "TransferPoll.h"
+ #include "SmmuTakeover.h"
++#include "ModemFirmwareBounds.h"
++
++// Thor factory NV lives on an independent read-only UFS LUN.
++static constexpr unsigned kFactoryNvLun = 5;
++static constexpr uint64_t kFactoryNvLunBlocks = 8192;
++static constexpr uint32_t kFactoryNvBlockBytes = 4096;
+ static UfsRootDiagnostics gRootDiagnostic;
+ struct UfsHost {
+   OSSharedPtr<IOMemoryMap> hcMap, smmuMap;
+   uintptr_t hc = 0, smmu = 0, cb = 0;
+   IOBufferMemoryDescriptor *dma = nullptr;
+   uint8_t *virt = nullptr;
+-  uint64_t phys = 0, blocks = 0;
++  uint64_t phys = 0, blocks = 0, factoryNvBlocks = 0, modemFirmwareBlocks = 0;
+   IOLock *lock = nullptr;
+   bool ready = false, poisoned = false;
+-  bool writable = false;
++  bool writable = false, modemFirmwareGptVerified = false;
+ };
+ static UfsHost gHost;
+ static uint32_t gWifiUfsReady;
+@@ -115,6 +129,9 @@ static void hostWrite(unsigned offset, uint32_t value) { write32(gHost.hc, offse
+ #include "RootQueue.h"
+ #include "RootCommands.h"
+ #include "RootLayout.h"
++#include "FactoryNvLayout.h"
++#include "FactoryNvAccess.h"
++#include "ModemFirmwareAccess.h"
+ 
+ static bool transportFailure(const char *why) {
+   gHost.ready = false;
+@@ -257,6 +274,8 @@ public:
+   IOReturn reportMediaState(bool *v, bool *changed) override { *v = online && gHost.ready; if (changed) *changed = false; return kIOReturnSuccess; }
+   IOReturn doSynchronizeCache() override { return hostSyncCache(); }
+   IOReturn doSynchronize(UInt64, UInt64, IOOptionBits) override { return doSynchronizeCache(); }
++  uint64_t windowBase() const { return window.baseByte; }  // THOR WITNESS V234: the slot's block map
++  uint64_t windowBytes() const { return window.size; }     // THOR WITNESS V235: bounds of the fallback scan
+   IOReturn getWriteCacheState(bool *v) override { *v = false; return kIOReturnSuccess; }
+   IOReturn setWriteCacheState(bool) override { return kIOReturnNotWritable; }
+   IOReturn doAsyncReadWrite(IOMemoryDescriptor *, UInt64, UInt64, IOStorageAttributes *, IOStorageCompletion *) override;
+@@ -504,6 +523,7 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
+   if (!online || !gHost.ready) return kIOReturnNotReady;
+   uint64_t done = 0, bytes = count * kRootLogicalBlock;
+   IOReturn result = kIOReturnSuccess;
++  bool shortDescriptorCopy = false;
+   IOLockLock(mutex);
+   while (done < bytes) {
+     const uint64_t absolute = window.baseByte + block * kRootLogicalBlock + done;
+@@ -535,8 +555,13 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
+       if (result == kIOReturnSuccess) {
+         uint8_t *data = gHost.virt + kDataOffset + inside;
+         uint64_t copied = write ? buffer->readBytes(done, data, take) : buffer->writeBytes(done, data, take);
+-        if (copied != take) result = kIOReturnUnderrun;
+-        else if (write) result = hostWrite4kLocked(0, absolute / 4096, physicalBlocks);
++        if (copied != take) {
++          // A short caller copy does not affect UFS transport ownership. On a
++          // read, count bytes delivered. On a write, never submit this chunk.
++          shortDescriptorCopy = true;
++          if (!write && copied < take) done += copied;
++          result = kIOReturnUnderrun;
++        } else if (write) result = hostWrite4kLocked(0, absolute / 4096, physicalBlocks);
+       }
+     }
+     IOLockUnlock(gHost.lock);
+@@ -544,11 +569,110 @@ IOReturn PongUfsBlock::doAsyncReadWrite(IOMemoryDescriptor *buffer, UInt64 block
+     done += take;
+   }
+   IOLockUnlock(mutex);
+-  if (result != kIOReturnSuccess && result != kIOReturnNotWritable)
++  if (result != kIOReturnSuccess && result != kIOReturnNotWritable && !shortDescriptorCopy)
+     transportFailure(write ? "block write failed" : "block read failed");
++  // THOR WITNESS V233: "the storage answered this recently" (status 0) or the error it returned.
++  if (&thor_witness_storage) thor_witness_storage((int)result);
+   completion->action(completion->target, completion->parameter, result, done);
+   return kIOReturnSuccess;
+ }
++// THOR WITNESS V234: the panic record's raw channel.
++//
++// A panicking kernel cannot write a file, so the record goes straight to the blocks that APFS
++// has already given to a pre-allocated file (see thor_witness_slot_prepare in kern_exec.c).
++// The owner proves the mapping before any panic by reading blocks back here.  Normal-context
++// calls take the controller lock.  The panic-context write takes none: every other CPU is
++// halted, and the write is refused unless the controller is idle, so a CPU that was halted
++// inside the driver keeps its command and its buffer.
++// THOR WITNESS V235: where the device behind a file system starts inside the UFS LUN.
++//
++// v234 took the window's first byte (thor_ufs_window_of_bsd) as the origin of the file system's
++// blocks and every proof failed ("block 0 does not match its file").  A read-only check from TWRP
++// on 2026-11-25 showed why: the Data window holds a GPT whose single APFS partition begins 1 MiB
++// into the window, and the slot file's blocks sit exactly at partition start + block * 4096.
++// VNOP_BLOCKMAP counts from the container device, which is that partition, not the window.
++// Here the origin is the window start plus the "Base" of every IOMedia between the file system's
++// own device and the window.  The caller still proves the result block by block (the volume's own
++// base and the bare window are kept as alternatives), so nothing is trusted blindly.
++struct thor_ufs_device_place {
++  uint64_t window_base;   /* first byte of the SHNGROOT window inside the UFS LUN */
++  uint64_t window_bytes;  /* its size */
++  uint64_t stack_offset;  /* bytes between the window start and the outermost IOMedia below the device */
++  uint64_t own_base;      /* the device's own IOMedia base, 0 for a whole disk */
++};
++extern "C" int thor_ufs_container_of_bsd (int major, int minor, struct thor_ufs_device_place *place) {
++  // 1 when a SHNGROOT window backs the block device, and *place describes it; 0 otherwise.
++  // IOStorageFamily is a kext loaded at start, so its class is not linked here: an IOMedia in the
++  // chain is recognised by its "Base" and "Size" properties, not by OSDynamicCast.
++  static const auto media_base = [](IOService *service) -> uint64_t {
++    if (!service || !OSDynamicCast (OSNumber, service->getProperty ("Size")))
++      return 0;
++    OSNumber *base = OSDynamicCast (OSNumber, service->getProperty ("Base")    /* kIOMediaBaseKey */);
++    return base ? base->unsigned64BitValue () : 0;
++  };
++  OSDictionary *matching = IOService::serviceMatching ("IOMedia");
++  OSIterator *iterator = matching ? IOService::getMatchingServices (matching) : nullptr;
++  int found = 0;
++  while (iterator && !found) {
++    IOService *media = OSDynamicCast (IOService, iterator->getNextObject ());
++    if (!media) break;
++    OSNumber *maj = OSDynamicCast (OSNumber, media->getProperty (kIOBSDMajorKey));
++    OSNumber *min = OSDynamicCast (OSNumber, media->getProperty (kIOBSDMinorKey));
++    if (!maj || !min || maj->unsigned32BitValue () != uint32_t (major) ||
++        min->unsigned32BitValue () != uint32_t (minor)) continue;
++    uint64_t offset = 0;
++    const uint64_t own = media_base (media);
++    for (IOService *provider = media->getProvider (); provider; provider = provider->getProvider ()) {
++      offset += media_base (provider);
++      PongUfsBlock *block = OSDynamicCast (PongUfsBlock, provider);
++      if (block) {
++        place->window_base = block->windowBase ();
++        place->window_bytes = block->windowBytes ();
++        place->stack_offset = offset;
++        place->own_base = own;
++        found = 1;
++        break;
++      }
++    }
++  }
++  if (iterator) iterator->release ();
++  return found;
++}
++
++extern "C" int thor_ufs_raw_read (uint64_t byte, void *data, uint32_t blocks) {
++  if (!data || (byte & 4095) || !blocks || blocks > kDataMax / 4096) return kIOReturnBadArgument;
++  if (!gHost.lock) return kIOReturnNotReady;
++  IOLockLock (gHost.lock);
++  IOReturn status = hostRead4kLocked (0, byte / 4096, blocks);
++  if (status == kIOReturnSuccess) memcpy (data, gHost.virt + kDataOffset, size_t (blocks) * 4096);
++  IOLockUnlock (gHost.lock);
++  return status;
++}
++
++extern "C" int thor_ufs_raw_write (uint64_t byte, const void *data, uint32_t blocks, int panic) {
++  if (!data || (byte & 4095) || !blocks || blocks > kDataMax / 4096) return kIOReturnBadArgument;
++  if (!panic) {
++    if (!gHost.lock) return kIOReturnNotReady;
++    IOLockLock (gHost.lock);
++  }
++  IOReturn status = kIOReturnSuccess;
++  if (panic && read32 (gHost.hc, 0x58) != 0) status = kIOReturnBusy;  // a command is in flight
++  for (uint32_t i = 0; i < blocks && status == kIOReturnSuccess; ++i) {
++    memcpy (gHost.virt + kDataOffset, static_cast<const uint8_t *> (data) + size_t (i) * 4096, 4096);
++    status = hostWrite4kLocked (0, byte / 4096 + i, 1);  // WRITE(10) with FUA
++  }
++  if (status == kIOReturnSuccess) {
++    // SYNCHRONIZE CACHE(10) without the lock hostSyncCache() takes: the record has to reach
++    // the medium before the phone is reset.
++    uint8_t cdb[10] = { 0x35 };
++    uint32_t scsi = 0;
++    IOReturn sync = hostScsiDir (0, cdb, 10, 0, 0, 10000000, &scsi);
++    if (sync != kIOReturnSuccess && !panic) status = sync;
++  }
++  if (!panic) IOLockUnlock (gHost.lock);
++  return status;
++}
++
+ extern "C" bool pong_ufs_transport_start(IOService *provider) {
+   if (gTransportAttempted) {
+     IOLog("PONG_UFS: transport attempt already completed; skip duplicate match\n");
+@@ -620,3 +744,43 @@ extern "C" bool pong_ufs_transport_start(IOService *provider) {
+ }
+ 
+ extern "C" bool pong_ufs_ready(void) { return __atomic_load_n(&gWifiUfsReady,__ATOMIC_ACQUIRE)!=0; }
++
++// The RMTFS layer supplies a partition slot, never an arbitrary LUN or LBA.
++extern "C" int pong_ufs_factory_nv(unsigned slot, uint64_t offset, void *dst, uint32_t count, uint64_t *bytes)
++{
++  return factoryNvAccess(slot, offset, dst, count, bytes);
++}
++
++extern "C" void pong_thor_modem_fw_preflight(void)
++{
++  modemFirmwarePreflight();
++}
++
++extern "C" int pong_thor_modem_load_firmware(uint64_t base, uint64_t length,
++                                             ThorModemWrite write, void *context)
++{
++#if defined(THOR_MODEM_PREFLIGHT_SLOT) && (THOR_MODEM_PREFLIGHT_SLOT == 0 || THOR_MODEM_PREFLIGHT_SLOT == 1)
++  return modemFirmwareLoad(base, length, write, context);
++#else
++  return ENOTSUP;
++#endif
++}
++
++#if defined(THOR_MODEM_PREFLIGHT_SLOT) && (THOR_MODEM_PREFLIGHT_SLOT == 0 || THOR_MODEM_PREFLIGHT_SLOT == 1)
++extern "C" int pong_thor_wifi_firmware(const char *name, void *destination, uint32_t capacity,
++                                             uint32_t *bytes)
++{
++  if (!name || !destination || !bytes) return EINVAL;
++  return thorWifiFirmwareRead(name, static_cast<uint8_t *>(destination), capacity, bytes);
++}
++extern "C" int pong_thor_adsp_read_metadata(void *destination, uint32_t capacity)
++{
++  if (!destination || capacity < ThorAdspFirmware::mdtBytes) return EINVAL;
++  return thorAdspFirmwareAccess(destination,nullptr,nullptr);
++}
++extern "C" int pong_thor_adsp_load_firmware(uint64_t base, uint64_t size, ThorModemWrite write, void *context)
++{
++  if (base!=ThorAdspFirmware::base || size!=ThorAdspFirmware::size || !write) return EINVAL;
++  return thorAdspFirmwareAccess(nullptr,write,context);
++}
++#endif
+diff --git a/README.md b/README.md
+index a5e0675df2f011bce51eef1a7746bd65fb98c688..3257a170d14bc696718f6fd0bfd76f1d4650acca 100644
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,6 @@
+ # NativeUfs
+ 
+-SM8475 UFS 主控制器传输层与 SMMU takeover：只发只读存储命令，为 XNU 提供根卷传输。
++SM8475 UFS 主控制器传输层与 SMMU takeover：为 XNU 提供根卷传输。SHNGROOT 窗口写入由启动参数控制。
+ 
+ ## 适配硬件
+ 
+@@ -30,6 +30,13 @@ Pong 专属实现，上游没有对应组件（`UniXNU/ShengUfs` 是 SM8550 的
+ - `RootDiagnostics.h`：被动快照格式化，不做任何信任或发布判断。
+ - `SmmuTakeover.h`：从 UEFI 接过 SMMU 的上下文编程，PongPower、PongUsb、PongWifi 共用。
+ 
++### Thor 原厂 NV
++
++`pong_ufs_factory_nv` 为 RMTFS 提供 Thor LUN 5 的四个分区级只读接口，
++依序对应 `modemst1`、`modemst2`、`fsg` 和 `fsc`。首次请求前在现有 UFS
++控制器锁内校验容量和主备 GPT，两份分区表需一致并通过 CRC。读取按分区
++边界和 128 KiB 请求上限约束。数据服务和真机读取尚待验证。
++
+ ## 许可
+ 
+ `LICENSE` 为 BSD-2-Clause-Patent。每个源文件的 SPDX 声明为准。
+diff --git a/RootCommands.h b/RootCommands.h
+index b1f5746928462efe4c613538af1de9b54afcdaf1..53f6a22fa0b77d43f0c4c2b104eec8dd25cd5477 100644
+--- a/RootCommands.h
++++ b/RootCommands.h
+@@ -197,6 +197,34 @@ static IOReturn hostScsiDir (uint8_t lun, const uint8_t *cdb, unsigned cdbLength
+                   cdb[1] == 0x08 && cdb[6] == 0 && cdb[9] == 0 && lun == 0 &&
+                   ((unsigned(cdb[7]) << 8) | cdb[8]) != 0 &&
+                   dataBytes == (((unsigned(cdb[7]) << 8) | cdb[8]) * 4096U));
++  if (lun == kFactoryNvLun) {
++    static constexpr uint8_t tur[6] = {}, capacity[10] = {0x25};
++    allowed = (cdbLength == sizeof(tur) && !direction && !dataBytes &&
++               memcmp(cdb, tur, sizeof(tur)) == 0) ||
++              (cdbLength == sizeof(capacity) && direction == 2 && dataBytes == 8 &&
++               memcmp(cdb, capacity, sizeof(capacity)) == 0);
++    if (cdb[0] == 0x28 && cdbLength == 10 && direction == 2 &&
++        cdb[1] == 0 && cdb[6] == 0 && cdb[9] == 0 && gHost.factoryNvBlocks == kFactoryNvLunBlocks) {
++      const uint64_t lba = loadBe32(cdb + 2);
++      const uint32_t blocks = (uint32_t(cdb[7]) << 8) | cdb[8];
++      allowed = blocks && dataBytes == blocks * kFactoryNvBlockBytes && lba < gHost.factoryNvBlocks &&
++          blocks <= gHost.factoryNvBlocks - lba;
++    }
++  }
++  if (lun == kModemFirmwareLun) {
++    static constexpr uint8_t tur[6] = {}, capacity[10] = {0x25};
++    allowed = (cdbLength == sizeof(tur) && !direction && !dataBytes &&
++               memcmp(cdb, tur, sizeof(tur)) == 0) ||
++              (cdbLength == sizeof(capacity) && direction == 2 && dataBytes == 8 &&
++               memcmp(cdb, capacity, sizeof(capacity)) == 0);
++    if (cdb[0] == 0x28 && cdbLength == 10 && direction == 2 &&
++        !cdb[1] && !cdb[6] && !cdb[9] && gHost.modemFirmwareBlocks == kModemFirmwareLunBlocks) {
++      const uint64_t lba = loadBe32(cdb + 2);
++      const uint32_t blocks = (uint32_t(cdb[7]) << 8) | cdb[8];
++      allowed = dataBytes == blocks * kModemFirmwareBlockBytes &&
++          modemFirmwareReadAllowed(lba, blocks, gHost.modemFirmwareGptVerified);
++    }
++  }
+   if (!allowed) return kIOReturnUnsupported;
+   if (!hostClearUcd ()) return kIOReturnNotReady;
+   uint8_t *ucd = gHost.virt + kUcdOffset;
+@@ -274,8 +302,11 @@ static IOReturn hostQueryRead (uint8_t opcode, uint8_t idn, uint32_t *value)
+ static IOReturn hostRead4kLocked (uint8_t lun, uint64_t lba, uint32_t blocks)
+ {
+   if (!gHost.ready || gHost.poisoned) return kIOReturnNotReady;
++  uint64_t capacity = gHost.blocks;
++  if (lun == kFactoryNvLun) capacity = gHost.factoryNvBlocks;
++  if (lun == kModemFirmwareLun) capacity = gHost.modemFirmwareBlocks;
+   if (!blocks || blocks > kDataMax / 4096 || lba > 0xffffffffULL - (blocks - 1) ||
+-      lba + blocks > gHost.blocks) {
++      lba + blocks > capacity) {
+     return kIOReturnBadArgument;
+   }
+   gRootDiagnostic.lba = lba;
+diff --git a/ThorAdspFirmware.h b/ThorAdspFirmware.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..c98e1092685fd30232aa0a232b53bf204a1b3192
+--- /dev/null
++++ b/ThorAdspFirmware.h
+@@ -0,0 +1,62 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++#include "ModemFirmwareFat.h"
++
++// Thor's signed cape ADSP MDT has a relocatable 49 MiB span. Only the stock
++// active-slot image is admitted. Boot control belongs to the PAS1 owner.
++namespace ThorAdspFirmware {
++constexpr uint64_t base = 0x9fd00000, size = 0x3100000, linkBase = 0x86300000;
++constexpr unsigned mdtBytes = 5404, digestTable = 1172, headers = 26, lastLoad = 24;
++constexpr uint8_t mdtDigest[] = {
++    0xcf,0x11,0x39,0x5d,0x02,0xa6,0xff,0xc2,0x12,0xde,0x4a,0x97,0x48,0x0c,0xdb,0x88,
++    0xb6,0xfa,0xa2,0xd7,0x77,0x7d,0xaf,0x41,0x62,0x6b,0x0f,0x07,0x35,0x6b,0x08,0x10};
++static_assert(digestTable + headers * 48 <= mdtBytes);
++struct Index {
++    ThorModemFat::File mdt{};
++    ThorModemFat::File pieces[headers]{};
++};
++inline bool find(const ThorModemFat::Volume &v, uint8_t (&scratch)[4096], Index &index)
++{
++    using namespace ThorModemFat;
++    uint16_t directory = 0;
++    if (!imageDirectory(v,scratch,directory)) return false;
++    if (!visitDirectory(v,directory,scratch,[&](const char *name,const uint8_t *entry) {
++        if (strncmp(name,"ADSP.",5) != 0) return true;
++        File *file;
++        if (strcmp(name+5,"MDT") == 0) file = &index.mdt;
++        else {
++            if (name[5] != 'B' || name[6] < '0' || name[6] > '9' ||
++                name[7] < '0' || name[7] > '9' || name[8] != 0) return true;
++            const unsigned i = (name[6]-'0')*10 + (name[7]-'0');
++            if (i >= headers) return true;
++            file = &index.pieces[i];
++        }
++        const File f{read16(entry+26),read32(entry+28)};
++        if (file->cluster || (entry[11]&0x10) || read16(entry+20) || !v.valid(f.cluster))
++            return false;
++        *file = f;
++        return true;
++    })) return false;
++    return index.mdt.size == mdtBytes;
++}
++
++inline bool layout(const uint8_t *mdt,const Index &index)
++{
++    using namespace ThorModemFat;
++    if (memcmp(mdt,"\x7f" "ELF\x01\x01\x01",7) != 0 || read16(mdt+18)!=164 ||
++        read32(mdt+28)!=52 || read16(mdt+42)!=32 || read16(mdt+44)!=headers) return false;
++    uint64_t end = 0;
++    for (unsigned i=1;i<=lastLoad;++i) {
++        const auto *p = mdt + 52 + i*32;
++        const uint64_t pa=read32(p+12), file=read32(p+16), mem=read32(p+20);
++        const uint32_t flags=read32(p+24);
++        if (read32(p)!=1 || !(flags & (1U<<27)) || ((flags>>24)&7U)==2 ||
++            !mem || file>mem || pa<linkBase || pa-linkBase<end || pa-linkBase>=size ||
++            mem>size-(pa-linkBase) || (i==1 && pa!=linkBase) ||
++            index.pieces[i].size!=file || (file!=0)!=(index.pieces[i].cluster!=0))
++            return false;
++        end=pa-linkBase+mem;
++    }
++    return end==size;
++}
++}
+diff --git a/ThorAdspFirmwareAccess.inc b/ThorAdspFirmwareAccess.inc
+new file mode 100644
+index 0000000000000000000000000000000000000000..63bc5ce03d4d3df011c95ac522347b3810082d43
+--- /dev/null
++++ b/ThorAdspFirmwareAccess.inc
+@@ -0,0 +1,72 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#include "ThorAdspFirmware.h"
++
++static int thorAdspRead(ModemFirmwareProbe &probe, void *metadata, ThorModemWrite writer, void *context)
++{
++  using namespace ThorAdspFirmware;
++  modemFirmwareResetReads(probe);
++  probe.readBudget = writer ? 24000 : 512;
++  clock_interval_to_deadline(writer ? 30 : 3, NSEC_PER_SEC, &probe.deadline);
++  ThorModemFat::Volume volume{};
++  volume.read = modemFirmwareSlotRead;
++  volume.context = &probe;
++  volume.bytes = kModemFirmwareSlotBytes;
++  Index index{};
++  auto *mdt = probe.metadata.mdt;
++  static_assert(sizeof(probe.metadata.mdt) >= mdtBytes);
++  if (!volume.open(probe.fatScratch) || !find(volume,probe.fatScratch,index) ||
++      !volume.readFile(index.mdt,mdt)) return EIO;
++  SHA256_CTX checksum;
++  uint8_t digest[sizeof(mdtDigest)];
++  SHA256_Init(&checksum);
++  SHA256_Update(&checksum,mdt,mdtBytes);
++  SHA256_Final(digest,&checksum);
++  if (memcmp(digest,mdtDigest,sizeof(digest)) || !layout(mdt,index)) return EINVAL;
++  if (!writer) {
++    if (metadata) memcpy(metadata,mdt,mdtBytes);
++    return 0;
++  }
++  // Output is provisional until all segments and their secure metadata pass.
++  // The caller owns the reserved carveout and must not start a partial load.
++  for (unsigned i=1;i<=lastLoad;++i) {
++    const uint8_t *ph = mdt + 52 + 32*i;
++    const uint64_t offset = uint64_t(le32(ph+12))-linkBase;
++    const uint32_t file = le32(ph+16), memory = le32(ph+20);
++    if (file) {
++      struct Stream { ThorModemWrite write; void *context; uint64_t pos; SHA384_CTX hash; };
++      Stream s{writer,context,offset,{}};
++      SHA384_Init(&s.hash);
++      const auto sink=[](void *arg,const uint8_t *data,uint32_t bytes) {
++        auto &s=*static_cast<Stream *>(arg);
++        if (!s.write(s.context,s.pos,data,bytes)) return false;
++        SHA384_Update(&s.hash,data,bytes);
++        s.pos+=bytes;
++        return true;
++      };
++      if (!volume.streamFile(index.pieces[i],probe.transferScratch,sink,&s)) return EIO;
++      uint8_t segment[SHA384_DIGEST_LENGTH];
++      SHA384_Final(segment,&s.hash);
++      if (s.pos!=offset+file || memcmp(segment,mdt+digestTable+i*sizeof(segment),sizeof(segment))) return EIO;
++    }
++    for (uint32_t done=file;done<memory;) {
++      const uint32_t left=memory-done;
++      const uint32_t take=left<16384U?left:16384U;
++      if (mach_absolute_time()>=probe.deadline || !writer(context,offset+done,nullptr,take)) return EIO;
++      done+=take;
++    }
++  }
++  return 0;
++}
++
++static int thorAdspFirmwareAccess(void *metadata, ThorModemWrite writer, void *context)
++{
++  if (!__atomic_load_n(&gWifiUfsReady,__ATOMIC_ACQUIRE)) return EAGAIN;
++  auto *probe=static_cast<ModemFirmwareProbe *>(IOMallocData(sizeof(ModemFirmwareProbe)));
++  if (!probe) return ENOMEM;
++  probe->slot=THOR_MODEM_PREFLIGHT_SLOT;
++  int rc=modemFirmwareAdmit(*probe);
++  if (!rc) rc=thorAdspRead(*probe,metadata,writer,context);
++  IOLog("THOR ADSP FW V226: slot=%c phase=%s rc=%d\n",'a'+probe->slot,writer?"segments":"metadata",rc);
++  modemFirmwareFinish(probe);
++  return rc;
++}
+diff --git a/ThorModemFirmwareLoad.h b/ThorModemFirmwareLoad.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..80c97a1f3c426d4d295c1bccf3f901c54c5aac3a
+--- /dev/null
++++ b/ThorModemFirmwareLoad.h
+@@ -0,0 +1,13 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++#include <stdint.h>
++
++// The caller owns the quiesced PAS session and maps its MPSS carveout.
++// Offsets are relative to that carveout. A null data pointer requests
++// zero fill. A failed load leaves provisional bytes; never reset/start
++// the modem until this call and the secure firmware authentication succeed.
++using ThorModemWrite = bool (*)(void *context, uint64_t offset,
++                               const uint8_t *data, uint32_t bytes);
++
++extern "C" int pong_thor_modem_load_firmware(uint64_t base, uint64_t length,
++                                             ThorModemWrite write, void *context);
+diff --git a/ThorModemSlot.h b/ThorModemSlot.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..849062d64fe62840f911db53d4c9c9460fe274ac
+--- /dev/null
++++ b/ThorModemSlot.h
+@@ -0,0 +1,2 @@
++// Selected for read-only firmware preflight from this Thor's Recovery bootconfig.
++#define THOR_MODEM_PREFLIGHT_SLOT 0
+diff --git a/ThorWifiFirmware.h b/ThorWifiFirmware.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..74b1f3e75cd5091b22c08c461c05e9be942ece1c
+--- /dev/null
++++ b/ThorWifiFirmware.h
+@@ -0,0 +1,66 @@
++// SPDX-License-Identifier: BSD-2-Clause-Patent
++#pragma once
++#include "ModemFirmwareFat.h"
++
++namespace ThorWifiFirmware {
++
++// The Thor CNSS recovery log selects amss20.bin for the QCA6490 rev 01 endpoint.
++// Stock CNSS requests regdb_xiaomi.bin (the generic file is the same size).
++// Digests describe this device's captured stock modem_a/image/qca6490 contents.
++struct Blob {
++    const char *name;
++    uint32_t size;
++    uint8_t digest[32];
++};
++static constexpr Blob blobs[] = {
++    {"AMSS20.BIN", 5296128, {
++        0x8a, 0x7b, 0xa0, 0x72, 0xff, 0x23, 0x28, 0xae, 0x22, 0xb4, 0xd5, 0x18, 0x86, 0x4d, 0xa9, 0x49,
++        0xdc, 0xf8, 0x6b, 0x34, 0xc3, 0x71, 0xd3, 0x5f, 0x56, 0x1a, 0x38, 0x64, 0x43, 0xd4, 0x08, 0xc3}},
++    {"M3.BIN", 266684, {
++        0xad, 0x23, 0x4a, 0xc8, 0x87, 0x9e, 0x29, 0xa1, 0x13, 0x89, 0x3b, 0x87, 0xdc, 0x90, 0x33, 0x5c,
++        0xff, 0x8e, 0xb8, 0x97, 0x17, 0x58, 0x0d, 0x5a, 0x06, 0xa4, 0x9e, 0x7b, 0x9e, 0x32, 0x2e, 0xd7}},
++    {"REGDB_XIAOMI.BIN", 24278, {
++        0xd2, 0xcf, 0x59, 0xdc, 0x04, 0xe6, 0xe9, 0x2b, 0xfa, 0x67, 0xc6, 0x82, 0xc7, 0x6b, 0x61, 0x7e,
++        0x0e, 0x8c, 0x62, 0x2d, 0x9a, 0x84, 0xb9, 0x24, 0xc2, 0xfc, 0x1d, 0x2b, 0x21, 0x69, 0xe0, 0xda}},
++};
++constexpr unsigned blobCount = sizeof(blobs) / sizeof(blobs[0]);
++
++static inline bool sameName(const char *a, const char *b)
++{
++    while (*a && *a == *b) { ++a; ++b; }
++    return *a == *b;
++}
++
++// Walk only the named directory in the admitted volume. The generic FAT walker
++// checks both mirror links and requires EOC even after a directory's end marker.
++static inline const char *find(const ThorModemFat::Volume &volume, uint8_t (&scratch)[4096],
++                               ThorModemFat::File (&files)[blobCount])
++{
++    using namespace ThorModemFat;
++    uint16_t image = 0, qca = 0;
++    if (!imageDirectory(volume, scratch, image) ||
++        !visitDirectory(volume, image, scratch, [&](const char *name, const uint8_t *entry) {
++            if (!sameName(name, "QCA6490")) return true;
++            const uint16_t cluster = read16(entry + 26);
++            if (qca || !(entry[11] & 0x10) || read16(entry + 20) || !volume.valid(cluster))
++                return false;
++            qca = cluster;
++            return true;
++        }) || !qca)
++        return "qca-directory";
++    if (!visitDirectory(volume, qca, scratch, [&](const char *name, const uint8_t *entry) {
++        for (unsigned i = 0; i != blobCount; ++i) {
++            if (!sameName(name, blobs[i].name)) continue;
++            const File candidate{read16(entry + 26), read32(entry + 28)};
++            if (files[i].cluster || (entry[11] & 0x10) || read16(entry + 20) ||
++                !volume.valid(candidate.cluster) || candidate.size != blobs[i].size)
++                return false;
++            files[i] = candidate;
++        }
++        return true;
++    })) return "qca-entries";
++    for (const auto &file : files)
++        if (!file.cluster) return "missing-file";
++    return nullptr;
++}
++} // namespace ThorWifiFirmware

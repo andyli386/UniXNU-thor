@@ -738,3 +738,17 @@ completion = ["The patch round-trips to the recorded tree hash and its file list
 limits = ["Three generated payload headers stay local: they embed the signed console and UI runtime libraries as byte arrays or name local library paths. Backup and reject files left by the patch tool are not part of the checkpoint."]
 next_action = ["Regenerate the three payload headers from the signed runtime libraries before an independent build."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "patches/xnu-ipados18/checkpoints/thor-v247/manifest.json", result = "Replay of the series and the checkpoint patch reproduces tree a9192b569462."}]
+
+[[area]]
+id = "thor-v247-driver-sources"
+status = "implemented"
+components = ["PongAdreno", "PongPower", "NativeUfs", "PongMetal", "PongWifi", "ArmCpu", "ArmDTPlatform", "AdrenoMetal"]
+paths = ["checkpoints/thor-v247/drivers/*.patch", "checkpoints/thor-v247/drivers/manifest.json"]
+inputs = ["The eight upstream driver commits named in checkpoints/thor-v247/drivers/manifest.json (those of thor-v236)", "The driver sources of the v247 unified recipe"]
+configuration = ["Thor SM8475 with the Adreno 730, iPadOS 18.7.10 / 22H374"]
+procedure = ["Export the named upstream commit of each driver and apply its patch with git apply --index."]
+findings = ["Eight drivers still differ from the commits their repositories pin and four are identical. Five patches are byte-identical to thor-v236: AdrenoMetal, ArmCpu, ArmDTPlatform, PongAdreno, PongMetal.", "Three changed: NativeUfs, PongPower, PongWifi. In PongPower the additions are the read-only camera inventory of v247 (six headers, started from pong_rpmh_init), a free mark outside an SMEM partition refused (v237), the modem's SMEM host id and a 24 s modem trial (v237) and the battery as the power source wifid waits for (v240). In PongWifi: the unattended association fixture fed from a private file (v237), the station's own address (v245) and the request note for the kernel's wifid watchdog (v240). In NativeUfs: a record of what the partition-table check of the modem firmware LUN failed on (v242, v243). The association request, the frame dumps and the retries of v244 to v246 live in the station source generator recipe/v247/device/scripts/build-pong-ath11k.py."]
+completion = ["Every patch round-trips to the recipe source; the patches hold no binary content, local paths or device identifiers."]
+limits = ["These record the working sources; nothing was committed to the upstream driver repositories."]
+next_action = ["Offer the camera inventory, the Wi-Fi station changes and the firmware LUN check upstream once v247 has run on the device."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v247/drivers/manifest.json", result = "Eight patches; each reproduces the recipe source from its pinned commit; three differ from thor-v236."}]

@@ -1,0 +1,77 @@
+diff --git a/GpuScanoutPresenter.h b/GpuScanoutPresenter.h
+index 8c64a98f17b038a09a24f2aec78c9404ca2bd071..a001ddc72be1db51e93dd8bb8ab06aa9eb6febbc 100644
+--- a/GpuScanoutPresenter.h
++++ b/GpuScanoutPresenter.h
+@@ -9,12 +9,13 @@
+ // the kernel blits it. No CPU touches a pixel; there is no staging copy and no software fallback here. Used through the public Metal API, on any device (the native frontend on the tablet, the Mac's device for the host check).
+ #pragma once
+ #import <Metal/Metal.h>
++#include <dispatch/dispatch.h>
+ #include <unistd.h>
+ #include <stdint.h>
+ #include <string.h>
+ #include <atomic>
+-#include "../GopFramebuffer/NativeGOPWire.h"
+-#include "../GopFramebuffer/NativeHalfCodes.h"
++#include "../PongMetal/NativeGOPWire.h"
++#include "../PongMetal/NativeHalfCodes.h"
+ 
+ // The conversion kernel's AIR and the frontend's loader for bare AIR (both in the plugin; weak, so a device without them only blits).
+ extern "C" const void *nmb_scanout_convert_air(size_t *length) __attribute__((weak_import));
+@@ -74,9 +75,7 @@ public:
+             [encoder setBytes:params length:sizeof params atIndex:3];
+             [encoder dispatchThreadgroups:MTLSizeMake((frame.width + 15) / 16, (rows + 7) / 8, 1) threadsPerThreadgroup:MTLSizeMake(16, 8, 1)];
+             [encoder endEncoding];
+-            [commands commit];
+-            [commands waitUntilCompleted];
+-            return commands.status == MTLCommandBufferStatusCompleted ? kOk : kGpuFailed;
++            return submitAndWait(commands) ? kOk : kGpuFailed;
+         }
+         id<MTLCommandBuffer> commands = [queue_ commandBuffer];
+         id<MTLBlitCommandEncoder> blit = commands ? [commands blitCommandEncoder] : nil;
+@@ -102,9 +101,7 @@ public:
+             }
+         }
+         [blit endEncoding];
+-        [commands commit];
+-        [commands waitUntilCompleted];
+-        return commands.status == MTLCommandBufferStatusCompleted ? kOk : kGpuFailed;
++        return submitAndWait(commands) ? kOk : kGpuFailed;
+     }
+     // A half-float frame: one thread per pixel, 16 x 8 threads a group (the kernel skips threads past the edges).
+     Result convert(const Frame &frame) {
+@@ -128,9 +125,7 @@ public:
+         [encoder dispatchThreadgroups:MTLSizeMake((frame.width + 15) / 16, (frame.height + 7) / 8, 1)
+                 threadsPerThreadgroup:MTLSizeMake(16, 8, 1)];
+         [encoder endEncoding];
+-        [commands commit];
+-        [commands waitUntilCompleted];
+-        return commands.status == MTLCommandBufferStatusCompleted ? kOk : kGpuFailed;
++        return submitAndWait(commands) ? kOk : kGpuFailed;
+     }
+     // A kernel of the scanout library, made once; a failure is not retried (every later half-float frame then goes back to the display
+     // driver's own path, every BGRA frame to the blit).
+@@ -159,6 +154,23 @@ public:
+         return buffer;
+     }
+ private:
++    // A scanout worker must be able to report a failed handoff.  Metal's
++    // waitUntilCompleted() has no deadline and would strand this thread if
++    // the queue or command buffer stops retiring.  The completion callback
++    // keeps the command and its imported resources alive after a timeout;
++    // the caller then quarantines the DMA mapping instead of racing CPU copy.
++    static bool submitAndWait(id<MTLCommandBuffer> commands) {
++        if (!commands) return false;
++        dispatch_semaphore_t completed = dispatch_semaphore_create(0);
++        [commands addCompletedHandler:^(id<MTLCommandBuffer>) {
++            dispatch_semaphore_signal(completed);
++        }];
++        [commands commit];
++        constexpr int64_t kTimeoutNs = 500LL * NSEC_PER_MSEC;
++        if (dispatch_semaphore_wait(completed, dispatch_time(DISPATCH_TIME_NOW, kTimeoutNs))) return false;
++        return commands.status == MTLCommandBufferStatusCompleted;
++    }
++
+     // The compositor cycles through a few surfaces and the kernel keeps each one's mapping under one id, so the GPU import (pinning and
+     // mapping the pages, milliseconds per frame otherwise) is made once per surface. The kernel keeps more mappings (6) than kSources, so
+     // every import cached here still has its mapping.
