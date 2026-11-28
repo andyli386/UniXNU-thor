@@ -1,12 +1,12 @@
 [submodule "drivers/ArmCpu"]
 	path = drivers/ArmCpu
-	url = https://github.com/Chengdong-Yu/pong-arm-cpu.git
+	url = git@github.com:andyli386/pong-arm-cpu.git
 [submodule "drivers/ArmDTPlatform"]
 	path = drivers/ArmDTPlatform
-	url = https://github.com/Chengdong-Yu/pong-arm-dt-platform.git
+	url = git@github.com:andyli386/pong-arm-dt-platform.git
 [submodule "drivers/AdrenoMetal"]
 	path = drivers/AdrenoMetal
-	url = https://github.com/Chengdong-Yu/pong-adreno-metal.git
+	url = git@github.com:andyli386/AdrenoMetal.git
 [submodule "drivers/NativeRamBlock"]
 	path = drivers/NativeRamBlock
 	url = https://github.com/Chengdong-Yu/pong-ram-block.git
@@ -15,22 +15,22 @@
 	url = https://github.com/Chengdong-Yu/pong-darwin-boot24.git
 [submodule "drivers/NativeUfs"]
 	path = drivers/NativeUfs
-	url = https://github.com/andyli386/pong-ufs.git
+	url = git@github.com:andyli386/pong-ufs.git
 [submodule "drivers/PongAdreno"]
 	path = drivers/PongAdreno
-	url = https://github.com/Chengdong-Yu/pong-adreno.git
+	url = git@github.com:andyli386/pong-adreno.git
 [submodule "drivers/PongBootCapture"]
 	path = drivers/PongBootCapture
 	url = https://github.com/Chengdong-Yu/pong-boot-capture.git
 [submodule "drivers/PongMetal"]
 	path = drivers/PongMetal
-	url = https://github.com/Chengdong-Yu/pong-metal.git
+	url = git@github.com:andyli386/pong-metal.git
 [submodule "drivers/PongPower"]
 	path = drivers/PongPower
-	url = https://github.com/Chengdong-Yu/pong-power.git
+	url = git@github.com:andyli386/pong-power.git
 [submodule "drivers/PongUsb"]
 	path = drivers/PongUsb
 	url = https://github.com/Chengdong-Yu/pong-usb.git
 [submodule "drivers/PongWifi"]
 	path = drivers/PongWifi
-	url = https://github.com/Chengdong-Yu/pong-wifi.git
+	url = git@github.com:andyli386/pong-wifi.git
