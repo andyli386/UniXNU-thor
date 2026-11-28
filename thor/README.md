@@ -78,6 +78,21 @@ A working copy can be deleted at any time and is back in a few seconds.
    commit and branch of every driver submodule; it refuses uncommitted driver changes.
 7. Commit on `thor/main` in each repository the change belongs to and push to the forks.
 
+## History that was never pushed
+
+Until 2026-11-28 most of the port existed only on one machine: as uncommitted changes and as commits that reached no
+remote. All of it is on `thor/main` of its repository now. The final states are ordinary commits; the older lines
+are merged as history through merge commits whose tree is the branch's tree, so the content of each branch is exactly
+what was built and verified:
+- this repository: the main of a clone of the upstream device repository (2026-10-30 to 11-15), the local
+  repository "UniXNU-thor-18" (2026-11-10), the first local repository called UniXNU-thor (2026-10-29 to 11-12) and
+  the October repository of the same name (the first-generation bring-up tooling, an incomplete clone);
+- the driver repositories: the topic branches of 2026-11-17 and 11-18;
+- `src/UniXNU`: the branch thor-ios16-migration (2026-10-29 to 11-07) and a working copy of October and November.
+In the copied commits a personal author identity is replaced by the noreply one, and the phone's serial, home paths
+and the personal name and e-mail in file contents and messages are replaced by placeholders. The unaltered originals
+stay in bundles under `archive/git-history-20261128/` of the project directory; they are not published.
+
 ## What is where
 
 | File | Content |
