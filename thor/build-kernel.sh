@@ -25,6 +25,9 @@ export PONG_WIFI_BUILD="$tree/build/pong-ath11k"
 export SDKROOT=$(xcrun --sdk iphoneos --show-sdk-path)
 export SKIP_ALL_XNU_PATCHES=1            # the source tree already carries every patch (bootstrap.py checked its hash)
 unset THOR_PERSONA_LAUNCHD THOR_PERSONA_LAUNCHD_SOURCE
+# THOR OS PATCH (v249): the code that applies an OS patch is always in the kernel (bsd/kern/thor_os_patch.h, at the
+# end of bsd/kern/kern_exec.c).  The patch itself is not built in: it is a file of the working copy (os-patch.bin,
+# put there by bootstrap.py) that package.py writes into the image's FAT volume.
 started=$(date +%s)
 "$THOR_PY" -I "$out/device/scripts/build-ipados18-pong-macos.py" --jobs "$THOR_JOBS" --skip-image-verification \
   --tree "$tree" --volume-layout "$THOR_INPUTS/private/volume-layout.json" --config-path "$out/thor-gpu.defconfig" \

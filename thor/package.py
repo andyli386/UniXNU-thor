@@ -11,6 +11,9 @@ Everything comes from the new layout and nothing from an older working copy:
   the libraries           <work>/runtime/ (thor/bootstrap.py: rebuilt from thor/libraries, or inputs/signed)
   the device tree         the parent's, plus the /chosen properties the version file names ("chosen"),
                           minus the ones it takes away ("chosen_removed": [names])
+  the OS patch            when the version names one ("os_patch"): <work>/os-patch.bin becomes a file of the image's
+                          FAT volume (/efi/unixnu/os-patch.bin); the device tree names its place in boot_a, and the
+                          kernel streams it from there at boot (thor/os_patch.py)
   what the version checks thor/versions/vNNN.json: manifest changes, kernel messages that must be new, gone or carried
 
 The image is written next to the working copy with its record (unified-verification.json); --publish copies both
@@ -21,6 +24,7 @@ import hashlib
 import json
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -39,7 +43,11 @@ INPUTS, WORK, IMAGES = ROOT / 'inputs', ROOT / 'work', ROOT / 'images'
 PONG = Path(os.environ.get('THOR_PONG') or ROOT / 'src/UniXNU-thor')          # the device tree
 TEMPLATE = INPUTS / 'image-template' / image.TEMPLATE
 KERNEL = 'kernel/kernel-ipados18-thor.macho'
-TARGET = {name: '::' + name for name in (image.KERNEL_MEMBER, image.KERNEL_MEMBER + '.adt', image.MANIFEST_MEMBER, image.MENU_MEMBER)}
+PATCH_MEMBER = "/efi/unixnu/os-patch.bin"
+PATCH_OFFSET, PATCH_BYTES = "thor-os-patch-offset", "thor-os-patch-bytes"     # /chosen: the patch's place in boot_a
+BOOT_IMAGE = dict(lun=4, first_4k=131334, blocks_4k=49152)                     # boot_a on the firmware LUN
+TARGET = {name: '::' + name for name in (image.KERNEL_MEMBER, image.KERNEL_MEMBER + '.adt', image.MANIFEST_MEMBER, image.MENU_MEMBER,
+                                          PATCH_MEMBER)}
 ADT_MEMBER = image.KERNEL_MEMBER + '.adt'
 os.environ.setdefault('THOR_PONG', str(PONG))
 
@@ -90,8 +98,8 @@ def host_tests(work):
     return results
 
 
-def inputs(version, work):
-    """check every input of the image and return what goes into it"""
+def inputs(version, work, place=0):
+    """check every input of the image and return what goes into it (`place`: where the OS patch is in boot_a)"""
     parent = ROOT / version['parent']
     receipt = json.loads(parent.with_name('unified-verification.json').read_text())
     assert image.sha_file(parent) == version['parent_sha256'] == receipt['image_sha256'], 'the parent image is not the recorded one'
@@ -115,11 +123,28 @@ def inputs(version, work):
     for name in removed:
         assert name in tree['/chosen'] and name not in version['chosen'], f'/chosen {name} cannot be removed'
         del tree['/chosen'][name]
+    kernel = work / KERNEL
+    kernel_blob = kernel.read_bytes()
+    # the OS patch, when the version carries one: a file of the image's FAT volume, which the storage transport
+    # streams from boot_a and applies to the system window before it publishes any window (bsd/kern/thor_os_patch.h).
+    # The device tree names where the file is in boot_a, in bytes; package.py builds once to find that place and
+    # once more to name it (assemble).  The kernel carries the code only, never the patch.
+    patch = None
+    if version.get('os_patch'):
+        patch = (work / 'os-patch.bin').read_bytes()
+        assert patch[:8] == b'THOROSP2' and image.sha(patch) == version['os_patch']['sha256'] and \
+            len(patch) == version['os_patch']['bytes'], 'the OS patch is not the one the version file names'
+        assert len(patch) % 4096 == 0 and 0 <= place <= BOOT_IMAGE['blocks_4k'] * 4096 - len(patch), \
+            'the length of the OS patch is not in whole blocks, or its place is outside boot_a'
+        assert kernel_blob.count(patch[:65536]) == 0, 'the kernel carries the OS patch: it belongs in the image'
+        assert PATCH_OFFSET not in tree['/chosen'] and PATCH_BYTES not in tree['/chosen'], 'the parent names an OS patch'
+        tree['/chosen'][PATCH_OFFSET] = place.to_bytes(4, 'little')
+        tree['/chosen'][PATCH_BYTES] = len(patch).to_bytes(4, 'little')
+    else:
+        assert not (work / 'os-patch.bin').exists(), 'the working copy holds an OS patch and the version names none'
     dt = bytes(image.emit(tree, '/'))
     assert image.parse_adt(dt) == tree
     # the manifest: the parent's with what the version file changes, and what is computed here
-    kernel = work / KERNEL
-    kernel_blob = kernel.read_bytes()
     manifest.update(version['manifest'])
     manifest.update(version=version['version'], release_variant=version['release'], purpose=version['title'],
                     candidate_parent=parent_sha, kernel_source=KERNEL, kernel_sha256=image.sha(kernel_blob),
@@ -129,6 +154,15 @@ def inputs(version, work):
         assert manifest['config_change']['chosen_selectors'].get(name) == version['chosen'][name], f'the manifest does not describe /chosen {name}'
     for name in removed:
         assert manifest['config_change']['chosen_selectors'].get(name) is None, f'the manifest still names /chosen {name}'
+    # the manifest names the patch, so that a log can say which patch a boot applied; the device tree properties
+    # are recorded with the others
+    if patch is not None:
+        manifest['os_patch'] = dict(file=Path(version['os_patch']['file']).name, sha256=image.sha(patch), bytes=len(patch),
+                                    records=struct.unpack_from('<I', patch, 32)[0], what=version['os_patch']['what'],
+                                    window_bytes=struct.unpack_from('<Q', patch, 24)[0], image_offset=place,
+                                    where='a file of the FAT volume of boot_a, read by the kernel at boot (LUN %d)' % BOOT_IMAGE['lun'])
+        manifest['config_change']['chosen_selectors'][PATCH_OFFSET] = place
+        manifest['config_change']['chosen_selectors'][PATCH_BYTES] = len(patch)
     # the libraries: each one is the recorded build, signed, and embedded by the kernel build from this directory
     current = json.loads((work / 'runtime/final-inputs.json').read_text())
     table = json.loads((HERE / 'libraries.json').read_text())
@@ -161,13 +195,18 @@ def inputs(version, work):
     members = {image.KERNEL_MEMBER: kernel_blob, ADT_MEMBER: dt,
                image.MANIFEST_MEMBER: image.json_bytes(manifest), image.MENU_MEMBER: menu}
     changed = {image.KERNEL_MEMBER, image.MANIFEST_MEMBER, image.MENU_MEMBER} | ({ADT_MEMBER} if dt != old[ADT_MEMBER] else set())
+    if patch is not None:
+        members = {PATCH_MEMBER: patch, **members}              # written first: its place is the template's, not the others'
+        changed.add(PATCH_MEMBER)
     return dict(parent=receipt, old=old, firmware=firmware, signature=signature, parent_sha=parent_sha, members=members,
-                changed=changed, qsort=frame, current=current, manifest=manifest, args=args, host_tests=tests)
+                changed=changed, qsort=frame, current=current, manifest=manifest, args=args, host_tests=tests, place=place)
 
 
-def build(where, members):
+def build(folder, members):
     """the template with the members replaced, trimmed to the clusters the volume uses"""
     assert image.sha_file(TEMPLATE) == image.TEMPLATE_SHA256, 'the template image is not the recorded one'
+    where = folder / 'build'
+    where.mkdir(parents=True)
     full, candidate = where / 'full.img', where / 'candidate.img'
     shutil.copyfile(TEMPLATE, full)
     env = dict(os.environ, TZ='UTC', SOURCE_DATE_EPOCH=str(image.PACK_EPOCH))
@@ -180,11 +219,38 @@ def build(where, members):
     return candidate
 
 
+def patch_place(path):
+    """where an image keeps the OS patch, in bytes from the start of boot_a (which is the start of the image): it
+    has to be in one piece, since the kernel reads it from the partition as a raw range and does not parse the
+    volume; its clusters are not aligned with the partition's 4 KiB blocks, and the kernel allows for that"""
+    places = {}
+    image.decode(path, places)
+    spans = places[PATCH_MEMBER]                     # one entry to a cluster of the volume
+    pieces = 1 + sum(1 for before, after in zip(spans, spans[1:]) if after[0] != before[0] + before[1])
+    assert pieces == 1, f'the OS patch is in {pieces} pieces of the volume; it must be one'
+    return spans[0][0]
+
+
+def assemble(folder, version, work, expected):
+    """the image, and the inputs it was built from: built once, and when it carries an OS patch once more, with the
+    device tree naming the place the first build gave it (the file is written first, so the second build gives it
+    the same place)"""
+    candidate = build(folder / 'first', expected['members'])
+    if PATCH_MEMBER not in expected['members']:
+        return candidate, expected
+    place = patch_place(candidate)
+    expected = inputs(version, work, place)
+    candidate = build(folder / 'second', expected['members'])
+    assert patch_place(candidate) == place, 'the OS patch moved between the two builds'
+    return candidate, expected
+
+
 def verify(version, work, path, expected):
     data, firmware, signature, image_sha = image.decode(path)
     old = expected['old']
-    assert old.keys() == data.keys() and (firmware, signature) == (expected['firmware'], expected['signature'])
-    assert {name for name in old if old[name] != data[name]} == expected['changed']
+    assert old.keys() <= data.keys() and (firmware, signature) == (expected['firmware'], expected['signature'])
+    assert {name for name in old if old[name] != data[name]} == expected['changed'] & old.keys()
+    assert set(data) - set(old) == set(expected['members']) - set(old)
     assert all(data[name] == content for name, content in expected['members'].items())
     config = tomllib.loads(data[image.MENU_MEMBER].decode())
     manifest = json.loads(data[image.MANIFEST_MEMBER])
@@ -206,7 +272,13 @@ def verify(version, work, path, expected):
         assert payload.count(needle.encode()) == 1 and old_payload.count(needle.encode()) == 0, needle
     for needle in strings['gone']:
         assert payload.count(needle.encode()) == 0 and old_payload.count(needle.encode()) >= 1, needle
-    # every library is embedded exactly once and is the one recorded for this version
+    # every library is embedded exactly once and is the one recorded for this version; the OS patch is a file of
+    # the volume, in one piece, where the device tree says, and not in the kernel
+    if 'os_patch' in manifest:
+        blob = data[PATCH_MEMBER]
+        assert image.sha(blob) == manifest['os_patch']['sha256'] == version['os_patch']['sha256'], 'the OS patch'
+        assert patch_place(path) == manifest['os_patch']['image_offset'], 'the OS patch is not where the manifest says'
+        assert payload.count(blob[:65536]) == 0, 'the kernel carries the OS patch'
     current = expected['current']
     for name, spec in current['payloads'].items():
         blob = (work / 'runtime' / name).read_bytes()
@@ -219,6 +291,9 @@ def verify(version, work, path, expected):
         assert tree['/chosen'][name] == value.to_bytes(4, 'little')
     for name in version.get('chosen_removed', []):
         assert name not in tree['/chosen'], f'/chosen {name} is still in the device tree'
+    if 'os_patch' in manifest:
+        assert tree['/chosen'][PATCH_OFFSET] == manifest['os_patch']['image_offset'].to_bytes(4, 'little'), '/chosen names another place'
+        assert tree['/chosen'][PATCH_BYTES] == manifest['os_patch']['bytes'].to_bytes(4, 'little'), '/chosen names another length'
     uuids = {uuid_of(work / 'kernel' / f) for f in ('kernel-ipados18-thor.macho', 'mach.development.pong', 'mach.development.pong.unstripped')}
     assert len(uuids) == 1 and uuids != {expected['parent']['kernel_uuid']}
     _, offset, size, _ = image.sections(path)
@@ -240,10 +315,17 @@ def verify(version, work, path, expected):
                   diagnostic_path=current['diagnostic_stage_path'], runtime=current['payloads'],
                   firmware_sha256=firmware, signature_sha256=signature, filesystem_check=0,
                   changed_fat_members=sorted(expected['changed']), hardware_validated=False,
+                  os_patch=manifest.get('os_patch'),
                   probe=manifest['witness'].get('probe'), display=manifest['witness'].get('display'),
                   wifi_daemon=('started and held (wlan node in the device tree)' if version['wlan'] else 'not started (no wlan node)'),
                   host_tests=expected['host_tests'])
     record.update(version['record'])
+    if 'os_patch' in manifest:
+        # where the image keeps the patch, and so which blocks of the firmware LUN hold it
+        at, length = manifest['os_patch']['image_offset'], len(data[PATCH_MEMBER])
+        record['os_patch'] = dict(record['os_patch'], image_offset=at,
+                                  lun4_first_4k=BOOT_IMAGE['first_4k'] + at // 4096,
+                                  lun4_blocks=(at % 4096 + length + 4095) // 4096)
     return record
 
 
@@ -260,11 +342,13 @@ def main():
     expected = inputs(version, work)
     if not target.exists():
         with tempfile.TemporaryDirectory(dir=work, prefix='.package-') as folder:
-            candidate = build(Path(folder), expected['members'])
+            candidate, expected = assemble(Path(folder), version, work, expected)
             record = verify(version, work, candidate, expected)
             (Path(folder) / 'receipt').write_bytes(image.json_bytes(record))
             os.link(candidate, target)
             os.replace(Path(folder) / 'receipt', record_file)
+    elif PATCH_MEMBER in expected['members']:
+        expected = inputs(version, work, patch_place(target))      # the place the image was built with
     record = verify(version, work, target, expected)
     assert record == json.loads(record_file.read_text()), 'the image differs from its record'
     if args.publish:

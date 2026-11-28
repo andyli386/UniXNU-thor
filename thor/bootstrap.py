@@ -13,6 +13,9 @@ The working copy (work/<release>, or work/<name>) is generated; nothing is clone
   prepare/     sources, build scripts and host tests of the injected libraries (thor/libraries)
   runtime/     the libraries: rebuilt from their sources and compared with the recorded digests; the signed ones
                copied from inputs/signed
+  os-patch.bin when the version names an OS patch (thor/os_patch.py): the changed blocks of the system window,
+               checked against the digest in the version file; package.py puts it into the image and the
+               kernel streams it from boot_a at boot
   thor-gpu.defconfig, runtime/env.sh, runtime/final-inputs.json, recipe.json
 """
 import argparse
@@ -23,6 +26,9 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import os_patch as os_patch_format                     # noqa: E402
 
 HERE = Path(__file__).resolve().parent                 # <root>/src/UniXNU-thor/thor
 REPO = HERE.parent
@@ -154,6 +160,27 @@ def libraries(work, env):
                 copied=[name for name, spec in table['libraries'].items() if not spec.get('script')])
 
 
+def os_patch(work, version):
+    """the changed blocks of the system window that the image carries (thor/os_patch.py), when the version names one"""
+    if not version.get('os_patch'):
+        return None
+    source = ROOT / version['os_patch']['file']
+    blob = source.read_bytes()
+    if blob[:8] != b'THOROSP2':
+        raise SystemExit(f'{source} is not an OS patch')
+    if hashlib.sha256(blob).hexdigest() != version['os_patch']['sha256'] or len(blob) != version['os_patch']['bytes']:
+        raise SystemExit(f'{source} is not the OS patch the version file records')
+    try:
+        patch = os_patch_format.load(source)
+    except AssertionError as error:
+        raise SystemExit(f'{source} is not a complete OS patch: {error}')
+    if patch['window_bytes'] != version['os_patch']['window_bytes'] or len(patch['records']) != version['os_patch']['records']:
+        raise SystemExit(f'{source} is not the OS patch the version file describes (window, records)')
+    shutil.copy2(source, work / 'os-patch.bin')
+    return dict(file=version['os_patch']['file'], sha256=version['os_patch']['sha256'], bytes=len(blob),
+                records=len(patch['records']), window_bytes=patch['window_bytes'])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('version', type=Path, help='thor/versions/vNNN.json')
@@ -173,7 +200,9 @@ def main():
     prepare_build_tree(work, env)
     tree = kernel_tree(work, version['checkpoint'], env)
     libs = libraries(work, env)
+    patch = os_patch(work, version)
     record = dict(version=version['version'], release=release, checkpoint=version['checkpoint'], kernel_source_tree=tree, **libs,
+                  os_patch=patch,
                   device_repository=run(['git', '-C', PONG, 'rev-parse', 'HEAD']).stdout.strip(),
                   repository=run(['git', '-C', REPO, 'rev-parse', 'HEAD']).stdout.strip())
     (work / 'recipe.json').write_text(json.dumps(record, indent=2) + '\n')

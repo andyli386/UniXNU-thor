@@ -83,6 +83,48 @@ A working copy can be deleted at any time and is back in a few seconds.
    were restored from git).
 7. Commit on `thor/main` in each repository the change belongs to and push to the forks.
 
+## An OS patch: a change of the system volume travels in the boot image (since v249)
+
+The system volume — the "OS" window of SHNGROOT, a raw APFS image of 0x198000000 bytes — is mounted read-only by the
+port, so a change to it cannot be made on the running phone. It is made in a copy of the window on the Mac, and the
+4 KiB blocks that differ travel as one file in the boot image's FAT volume; at boot the kernel streams that file
+from boot_a and the storage transport applies it before it publishes any window. The first one carries the phone
+keyboard resources of v249.
+
+1. The installed window as a base: `inputs/private/os-window-as-installed.img` (the OS window of the userdata image
+   of 2026-11-14; the port has not written to the window since — it cannot). Take a working copy with `cp -c`
+   (a clone) and attach it read-write: `hdiutil attach -readwrite -nomount -owners on <copy>`, `diskutil mount`.
+2. Add what the change needs. For the phone resources of the keyboard:
+   `python3.13 -I thor/phone_resources.py copy --donor <OS image of the iPhone restore> --manifest <its BuildManifest.plist>
+   --target-root <the mounted copy> --set keyboard --report <json>`. Unmount and detach.
+3. `python3.13 -I thor/os_patch.py make --base <as installed> --modified <the copy> --output <patch> --version NNN`
+   lists the blocks (one record to a block: 925 for v249); `show <patch> --all` prints them. Test the patch with the
+   code the kernel runs: `clang -O1 -o harness thor/tests/os_patch_harness.c -I <kernel tree>/bsd/kern`, then run it
+   on another clone of the base: the copy it leaves equals the modified window and a second run writes nothing;
+   `S<n>` stops after n writes and the next run continues, `T<n>` tears a write. After packaging,
+   `bash thor/tests/loadtest.sh <kernel tree> <binary>` builds the test of the transport's read (a copy of its code
+   that the script compares with the driver) and runs the same apply with the patch taken from the built image.
+4. In the version file: `"os_patch": {"file": "inputs/private/os-patches/…", "sha256": …, "bytes": …, "records": …,
+   "window_bytes": …, "what": …}`. `bootstrap.py` copies the patch into the working copy as `os-patch.bin`;
+   `package.py` writes it into the image as `/efi/unixnu/os-patch.bin` (the first member written, so its place is
+   the template's), builds once more with the device tree naming its place in boot_a (`/chosen thor-os-patch-offset`
+   and `thor-os-patch-bytes`), and checks that it did not move. The manifest and the record name the patch.
+5. In the kernel: `bsd/kern/thor_os_patch.h` (included at the end of `kern_exec.c`; the kernel carries the code
+   only, never the patch: a 3.8 MB payload did not fit under the prelink base). In `drivers/NativeUfs`:
+   `PongUfsTransport.cpp` reads the two properties, asks the firmware LUN and calls the apply before any window is
+   published; `RootCommands.h` allows reads of boot_a inside the patch's blocks only; `ModemFirmwareBounds.h` names
+   the partition (boot_a: 4 KiB blocks 131334..180485 of LUN 4). `PONG_UFS OS PATCH V249:` and `THOR OS PATCH V249:`
+   lines in the boot log say what happened. The kernel does not parse the FAT volume: the file has to be in one
+   piece, which `package.py` checks.
+
+Nothing is written on the phone unless every record is, there, exactly the original bytes or already the new ones,
+and the first blocks of the window are those of the installed image (or already of the new one); otherwise the
+boot goes on unchanged. Every record is read back after it is written. The patch is not atomic: if the phone loses
+power in the middle, the next boot finds part of the records new and writes the rest before anything is mounted.
+If a record does not match (the window on the phone is not the base the patch was made from), capture the window
+read-only through TWRP and make the patch from that: `python3.13 -I thor/os_patch.py apply <patch> --dry-run`
+also works directly against a phone in TWRP (the same checks, the same order) for when an image cannot be booted.
+
 ## History that was never pushed
 
 Until 2026-11-28 most of the port existed only on one machine: as uncommitted changes and as commits that reached no
@@ -107,6 +149,10 @@ stay in bundles under `archive/git-history-20261128/` of the project directory; 
 | `build-kernel.sh` | Compiles the kernel of a working copy and prelinks it |
 | `package.py` | Packages, verifies and publishes the boot image |
 | `checkpoint.py` | Records the kernel tree checkpoint and the driver pins of a version |
+| `os_patch.py` | The changed blocks of the system window as one file: make, show, apply (a phone in TWRP, or an image) |
+| `phone_resources.py` | Adds the resources of an iPhone restore of the same build to the guest's frameworks (the keyboard layouts) |
+| `tests/os_patch_harness.c` | The OS patch code of the kernel, run against an image file on the Mac |
+| `tests/boot_image_loader_test.c`, `tests/loadtest.sh` | The transport's read of the patch from boot_a, run against the built image |
 | `thorimage.py` | The image format without older scripts: Android v4 boot image, the FAT16 volume, trimming, the menu, the Mach-O helpers, the device tree |
 | `libraries.json` | Every library the kernel embeds: where it is built from or copied from, and the recorded digest |
 | `libraries/<name>/` | Sources, build scripts and host tests of the injected libraries (the latest version of each; older ones are in `checkpoints/`) |

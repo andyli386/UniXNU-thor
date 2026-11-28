@@ -54,8 +54,11 @@ U16 = lambda b, o: struct.unpack_from("<H", b, o)[0]
 U32 = lambda b, o: struct.unpack_from("<I", b, o)[0]
 
 
-def decode(path):
-    """(members by lower-case path, firmware digest, signature digest, image digest) of an Android v4 boot image"""
+def decode(path, places=None):
+    """(members by lower-case path, firmware digest, signature digest, image digest) of an Android v4 boot image.
+
+    With `places` (a dict) every file also lands there as the list of its clusters in the image: (byte offset in
+    the image file, bytes) for each; a file of one piece has one entry."""
     raw = Path(path).read_bytes()
     assert raw[:8] == b"ANDROID!" and U32(raw, 40) == 4
     start = 4096 + ((U32(raw, 8) + 4095) // 4096) * 4096
@@ -76,7 +79,7 @@ def decode(path):
     members = {}
     used = set()
 
-    def content(index):
+    def content(index, key=None):
         chunks = []
         while index < 0xfff8:
             assert 2 <= index < 0xfff0 and index not in used
@@ -84,6 +87,8 @@ def decode(path):
             off = first + (index - 2) * cluster
             assert off + cluster <= len(body)
             chunks.append(body[off:off + cluster])
+            if places is not None and key is not None:
+                places.setdefault(key, []).append((start + off, cluster))
             index = U16(table, index * 2)
         return b"".join(chunks)
 
@@ -112,7 +117,7 @@ def decode(path):
                 continue
             key = name + "/" + leaf.casefold()
             cid = U16(entry, 26)
-            data = content(cid) if cid else b""
+            data = content(cid, None if attr & 0x10 else key) if cid else b""
             if attr & 0x10:
                 directory(key, data)
             else:

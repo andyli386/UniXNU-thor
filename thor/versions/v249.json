@@ -1,0 +1,251 @@
+{
+ "version": 249,
+ "release": "v249-unified",
+ "checkpoint": "thor-v249",
+ "title": "Thor v249 - the phone keyboard layouts go into the system volume at boot",
+ "parent": "images/v248-unified/boot-thor-unixnu-v248-unified.img",
+ "parent_sha256": "bd87ca7c1cd5a5196b4c921765aa3b6db72381616aa7a6185f61884fed5635b2",
+ "wlan": true,
+ "chosen": {},
+ "manifest": {
+  "candidate_change": [
+   "The keyboard: the phone layouts of the same build go into the system volume. The iPad restore carries KBLayouts_iPad.dat and no KBLayouts_iPhone.dat, and UIKit on the phone persona asks for a phone layout, so the keyboard never appeared. From the iPhone XR restore of 18.7.10 / 22H374 every resource of TextInputUI, TextInput, TextInputCore and KeyboardServices is added to the same frameworks of the guest (upstream's fix of services112, userland/phone_components18.py; here thor/phone_resources.py): 8 files, 3255032 bytes, 7 of them replacing an iPad file, KBLayouts_iPad.dat kept. The Phone application, the telephone bundles and the carrier bundles are not in this image.",
+   " How it reaches the phone: the system volume (the OS window of SHNGROOT, mounted read-only) was changed in a copy of the installed window on the Mac. The 925 blocks of 4096 bytes that differ (3788800 bytes in 66 runs: 920 data blocks, the newest container superblock, 4 other superblocks) travel as one file in the boot image's FAT volume (/efi/unixnu/os-patch.bin, 3911680 bytes; thor/os_patch.py), and the device tree names its place in boot_a (/chosen thor-os-patch-offset and thor-os-patch-bytes). Before the storage transport publishes any window the kernel streams the file from boot_a, a partition of the firmware LUN, and applies it: nothing is written unless every record is, on the phone, exactly the original or already the new content; the data blocks go first and the newest superblock last; every block is read back (bsd/kern/thor_os_patch.h, called from drivers/NativeUfs/PongUfsTransport.cpp; the read of boot_a is bounded to the file's own blocks in RootCommands.h). On a later boot every record is already new and nothing is written; a patch cut off at any point is continued by the next boot. The same code was run on the Mac against image files: applied, applied again, refused when a block or the first blocks differ, resumed after interruptions and torn writes. Not run on the phone at the time of writing.",
+   "Carried unchanged from v248: the first page of a panic names the fault; the camera inventory does not start (/chosen has no thor-camera); every death by a signal is recorded (PONG DEATH); the log capture library v247 in eight processes; the display library of v246; the UI adapter in PosterBoard; the Wi-Fi station's retries (Wi-Fi joined on v247, reported by the user).  No boot argument changed; the device tree is v248's plus the two /chosen properties that name the OS patch's place in boot_a."
+  ],
+  "candidate_parent_kernel_uuid": "253D732E-FE0B-331B-94D1-3A99C86D4D29",
+  "config_change": {
+   "bootargs_changed": false,
+   "chosen_changed": true,
+   "chosen_selectors": {
+    "thor-adsp-pas1": 1,
+    "thor-bt-probe": 2,
+    "thor-glink-ipcrtr": 1,
+    "thor-glink-version": 1,
+    "thor-panel-power": 1,
+    "thor-pas4-probe": 1,
+    "thor-qrtr-ap-node": 1,
+    "thor-qrtr-pd-state": 1,
+    "thor-qrtr-rx-followup": 1,
+    "thor-qrtr-rx-one": 1,
+    "thor-qrtr-service-window": 1,
+    "thor-qrtr-ssctl-fields": 1,
+    "thor-rmtfs-serve": 1,
+    "thor-wifi": 2
+   },
+   "device_tree_changed": "v248's plus /chosen thor-os-patch-offset and thor-os-patch-bytes (where the image keeps the OS patch in boot_a); no /chosen thor-camera (the camera inventory of v247 does not start); the root node wlan is kept",
+   "menu_title_changed": true,
+   "removed_inject_targets": [
+    "PosterBoard"
+   ],
+   "restored_boot_args": [
+    "tmlow=1",
+    "tmfull=1"
+   ],
+   "thor_cpu_default": 1,
+   "wifid_start": "launchd starts wifid at boot; a library in it waits until configd has published the marker and listed en0 and a power source is on the registry (or 150 s), then wifid runs; killed and started again when it has not asked the driver within 60 s"
+  },
+  "diagnostic_delta": "new: PONG_UFS OS PATCH V249 lines before the windows are published (the firmware LUN answers, or why the patch was not applied) and THOR OS PATCH V249 lines (the records verified, written and read back). Unchanged: THOR PANIC V248 lines on the first page of a panic; PONG DEATH lines; libpong-logcap-v247.dylib in eight processes; libpong-display-v246.dylib in backboardd; the signed UI adapter in PosterBoard; libpong-wifid-v244.dylib in wifid; libpong-probe-v244.dylib in PosterBoard, configd and wifid; Settings diagnostic as v238; console capture as v232",
+  "kernel_change": "THOR V249: the phone keyboard layouts go into the system volume at boot (the OS patch: thor_os_patch.h in kern_exec.c, the file streamed from boot_a and applied by the storage transport before any window is published); carried: everything of v248 to v239, the v236 GPU hook, the v235 witness",
+  "purpose": "Thor v249 - the phone keyboard layouts go into the system volume at boot",
+  "release_variant": "v249-unified",
+  "version": 249,
+  "witness": {
+   "camera": "off: /chosen has no thor-camera, so the inventory of v247 starts nothing (its code is still in the kernel). v247 panicked 43.6 s after boot, when that inventory was due",
+   "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+   "display": "/private/var/pong/libpong-display-v246.dylib in backboardd (-[CADisplay bounds]: the panel's size for {1206, 2622} when the native bounds are the panel's or empty; boot argument pong_ca_native=0 turns it off)",
+   "gpu_trace": "armed by the kernel at start, read into the panic record",
+   "kernel_source": "osfmk/kern/thor_witness_v235.h (v249 line, the panic note), bsd/kern/thor_os_patch.h (the OS patch applied at boot, included at the end of bsd/kern/kern_exec.c), drivers/NativeUfs/PongUfsTransport.cpp, RootCommands.h and ModemFirmwareBounds.h (the file read from boot_a and the call, before any window is published), bsd/kern/kern_exit.c (PONG DEATH line), bsd/kern/kern_exec.c (staging and injection of the libraries)",
+   "log_capture": "/private/var/pong/libpong-logcap-v247.dylib in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform, kbd and MessagesBlastDoorService",
+   "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+   "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+   "patch": "prepare/logcap/logcap247.c; prepare/display/display246.c (as v246); source changes in v247-intake/patches/apply.py",
+   "probe": "/private/var/pong/libpong-probe-v244.dylib in PosterBoard, configd and wifid",
+   "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+   "version_line": "THOR WITNESS V249: ...",
+   "wallpaper": "the signed UI adapter in PosterBoard (its storage adaptation for the data store)",
+   "wifid_hold": "/private/var/pong/libpong-wifid-v244.dylib in wifid (only where the device tree names wlan)",
+   "panic_note": "THOR PANIC V248: the first page of a panic is drawn in the panic hook and names the fault (pc, lr, sp, fp with their symbols, esr, far), the thread and the callers of panic; the panic log and the extras follow when the kernel's own panic path completes",
+   "os_patch": "THOR OS PATCH V249: /efi/unixnu/os-patch.bin in the image, named in /chosen (thor-os-patch-offset and thor-os-patch-bytes), streamed from boot_a and applied to the system window before any window is published; every record must be the original or already the new content before anything is written, and is read back afterwards; a PONG_UFS OS PATCH V249 line says when it was not applied",
+   "keyboard": "the phone keyboard resources of the iPhone XR restore in TextInputUI, TextInput, TextInputCore and KeyboardServices; applied to the system volume by the OS patch of this image"
+  }
+ },
+ "kernel_strings": {
+  "new": [
+   "THOR WITNESS V249: the phone keyboard layouts go into the system volume at boot",
+   "THOR OS PATCH V249: v%u: %u blocks of a window of %llx bytes\n",
+   "APPLIED: %u records written now, %u were already new, %u in all",
+   "is neither the original nor the new content; nothing is written",
+   "PONG_UFS OS PATCH V249: the firmware LUN did not answer (0x%x); nothing is written",
+   "thor-os-patch-offset"
+  ],
+  "gone": [
+   "THOR WITNESS V248: the first page of a panic names the fault"
+  ],
+  "carried": [
+   "THOR BT V230: RUNNING mode=",
+   "THOR AUDIO V230: adsp_apps listener",
+   "THOR CPU V228: governor=load ceiling=request-only",
+   "THOR PAS1 V228: rails=",
+   "THOR SERVE V228: final=",
+   "PongWifi: Thor mode=",
+   "THOR WLAN V229: PCIe0 probes skipped",
+   "THOR WLAN V229: firmware file=",
+   "THOR FB POWER V229: request=",
+   "thor-bt-probe",
+   "thor-wifi\u0000",
+   "thor-panel-power",
+   "THOR WITNESS V233: console mirror thread started",
+   "KERNEL PANIC LOG",
+   "CONSOLE READER AND FRAMES STOPPED",
+   "cpu answered cross-call (1 yes, 0 no): ",
+   "THOR GPU V236: the VM timing hook keeps a copy of the ring clock",
+   "THOR FS V237: protection classes A and B open for every process",
+   "THOR SERVE V237: partition lookup",
+   "V237 association fixture",
+   "MiniIOSurface: set-ownership V237",
+   "PONG PROBE %s[%d]: %s",
+   "THOR WIFI V241: hold library armed",
+   "THOR WIFI V241: wifid may run: ",
+   "THOR WIFI V241: wifid starts (pid",
+   "THOR WIFI V241: wifid asked the driver for something",
+   "THOR WIFI V241: wifid (pid %d) has not asked the driver",
+   "THOR WIFI V241: wifid runs once configd",
+   "THOR MODEM FW V242: preflight attempt",
+   "THOR MODEM FW V242: state=gpt-unavailable status=%d after",
+   "THOR MODEM FW V242: after three failed checks",
+   "THOR MODEM FW V242: the partition table answered",
+   "THOR WLAN V242: the partition table of the firmware LUN answered",
+   "THOR WITNESS V243: the primary partition table of the firmware LUN decides",
+   "THOR MODEM FW V243: the backup table of the firmware LUN differs from the primary one",
+   "THOR PROBE V244: staged ",
+   "/private/var/pong/libpong-probe-v244.dylib",
+   "THOR WIFI V244: staged ",
+   "THOR UI runtime V245: PosterBoard adapter armed",
+   "PongWifi: no unique-chip-id in the device tree",
+   "wifi: association refused: %u (the request was",
+   "THOR DISPLAY V246: staged ",
+   "THOR DISPLAY V246: %s display library armed",
+   "/private/var/pong/libpong-display-v246.dylib",
+   "wifi: joining once more as a plain 802.11g station",
+   "wifi: joining once more on a 5 GHz BSS of the same network",
+   "wifi: the access point accepted the plain request (no HT)",
+   "wifi: the plain request (no HT) was refused too",
+   "THOR LOGCAP V247: staged ",
+   "THOR LOGCAP V247: %s log capture armed",
+   "/private/var/pong/libpong-logcap-v247.dylib",
+   "PONG DEATH %s pid=%d signal=%d",
+   "THOR CAMERA V247: RUNNING mode=%u readonly=%u",
+   "THOR CAMERA V247: %s snapshot done camcc_read=%u writes=0",
+   "THOR PANIC V248: at the panic hook",
+   " callers of panic, newest first (%u):"
+  ],
+  "witness": [
+   "THOR WITNESS V235: monitor started",
+   "THOR WITNESS V235: panic record slot",
+   "THOR WITNESS V235 PANIC EXTRAS",
+   "/private/var/logs/PongPanic-v235-",
+   "/private/var/logs/PongConsole-kernel-v235.txt",
+   "THOR WITNESS V235: console mirror ",
+   "frame records from the fault",
+   "frame records at the panic call",
+   "every block matches",
+   "THOR WITNESS V235"
+  ],
+  "always": [
+   "THOR MODEM FW V163: state=gpt-verified lun=4 slots=2 selected=none",
+   "_pong_wifi_test_reconnect",
+   "_pong_wifi_start_optional",
+   "_pong_wifi_irq_due",
+   "thor_bt_probe"
+  ]
+ },
+ "record": {
+  "candidate_change": [
+   "The keyboard: the phone layouts of the same build go into the system volume. The iPad restore carries KBLayouts_iPad.dat and no KBLayouts_iPhone.dat, and UIKit on the phone persona asks for a phone layout, so the keyboard never appeared. From the iPhone XR restore of 18.7.10 / 22H374 every resource of TextInputUI, TextInput, TextInputCore and KeyboardServices is added to the same frameworks of the guest (upstream's fix of services112, userland/phone_components18.py; here thor/phone_resources.py): 8 files, 3255032 bytes, 7 of them replacing an iPad file, KBLayouts_iPad.dat kept. The Phone application, the telephone bundles and the carrier bundles are not in this image.",
+   " How it reaches the phone: the system volume (the OS window of SHNGROOT, mounted read-only) was changed in a copy of the installed window on the Mac. The 925 blocks of 4096 bytes that differ (3788800 bytes in 66 runs: 920 data blocks, the newest container superblock, 4 other superblocks) travel as one file in the boot image's FAT volume (/efi/unixnu/os-patch.bin, 3911680 bytes; thor/os_patch.py), and the device tree names its place in boot_a (/chosen thor-os-patch-offset and thor-os-patch-bytes). Before the storage transport publishes any window the kernel streams the file from boot_a, a partition of the firmware LUN, and applies it: nothing is written unless every record is, on the phone, exactly the original or already the new content; the data blocks go first and the newest superblock last; every block is read back (bsd/kern/thor_os_patch.h, called from drivers/NativeUfs/PongUfsTransport.cpp; the read of boot_a is bounded to the file's own blocks in RootCommands.h). On a later boot every record is already new and nothing is written; a patch cut off at any point is continued by the next boot. The same code was run on the Mac against image files: applied, applied again, refused when a block or the first blocks differ, resumed after interruptions and torn writes. Not run on the phone at the time of writing.",
+   "Carried unchanged from v248: the first page of a panic names the fault; the camera inventory does not start (/chosen has no thor-camera); every death by a signal is recorded (PONG DEATH); the log capture library v247 in eight processes; the display library of v246; the UI adapter in PosterBoard; the Wi-Fi station's retries (Wi-Fi joined on v247, reported by the user).  No boot argument changed; the device tree is v248's plus the two /chosen properties that name the OS patch's place in boot_a."
+  ],
+  "witness": {
+   "camera": "off: /chosen has no thor-camera, so the inventory of v247 starts nothing (its code is still in the kernel). v247 panicked 43.6 s after boot, when that inventory was due",
+   "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+   "display": "/private/var/pong/libpong-display-v246.dylib in backboardd (-[CADisplay bounds]: the panel's size for {1206, 2622} when the native bounds are the panel's or empty; boot argument pong_ca_native=0 turns it off)",
+   "gpu_trace": "armed by the kernel at start, read into the panic record",
+   "kernel_source": "osfmk/kern/thor_witness_v235.h (v249 line, the panic note), bsd/kern/thor_os_patch.h (the OS patch applied at boot, included at the end of bsd/kern/kern_exec.c), drivers/NativeUfs/PongUfsTransport.cpp, RootCommands.h and ModemFirmwareBounds.h (the file read from boot_a and the call, before any window is published), bsd/kern/kern_exit.c (PONG DEATH line), bsd/kern/kern_exec.c (staging and injection of the libraries)",
+   "log_capture": "/private/var/pong/libpong-logcap-v247.dylib in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform, kbd and MessagesBlastDoorService",
+   "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+   "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+   "patch": "prepare/logcap/logcap247.c; prepare/display/display246.c (as v246); source changes in v247-intake/patches/apply.py",
+   "probe": "/private/var/pong/libpong-probe-v244.dylib in PosterBoard, configd and wifid",
+   "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+   "version_line": "THOR WITNESS V249: ...",
+   "wallpaper": "the signed UI adapter in PosterBoard (its storage adaptation for the data store)",
+   "wifid_hold": "/private/var/pong/libpong-wifid-v244.dylib in wifid (only where the device tree names wlan)",
+   "panic_note": "THOR PANIC V248: the first page of a panic is drawn in the panic hook and names the fault (pc, lr, sp, fp with their symbols, esr, far), the thread and the callers of panic; the panic log and the extras follow when the kernel's own panic path completes",
+   "os_patch": "THOR OS PATCH V249: /efi/unixnu/os-patch.bin in the image, named in /chosen (thor-os-patch-offset and thor-os-patch-bytes), streamed from boot_a and applied to the system window before any window is published; every record must be the original or already the new content before anything is written, and is read back afterwards; a PONG_UFS OS PATCH V249 line says when it was not applied",
+   "keyboard": "the phone keyboard resources of the iPhone XR restore in TextInputUI, TextInput, TextInputCore and KeyboardServices; applied to the system volume by the OS patch of this image"
+  },
+  "wifi_join": {
+   "configured": false,
+   "source": "PONG_WIFI_TEST_CONFIG at build time (absent for this image)",
+   "switch": "/chosen thor-wifi-join = 0"
+  },
+  "wifi_retry": "once more on the network's 5 GHz BSS after a refusal on 2.4 GHz, then as a plain 802.11g station",
+  "camera": "off: /chosen has no thor-camera, so the inventory of v247 starts nothing (its code is still in the kernel). v247 panicked 43.6 s after boot, when that inventory was due",
+  "display": "/private/var/pong/libpong-display-v246.dylib in backboardd (-[CADisplay bounds]: the panel's size for {1206, 2622} when the native bounds are the panel's or empty; boot argument pong_ca_native=0 turns it off)",
+  "keyboard": "the phone keyboard resources of the iPhone XR restore in TextInputUI, TextInput, TextInputCore and KeyboardServices; applied to the system volume by the OS patch of this image",
+  "os_patch": {
+   "file": "inputs/private/os-patches/os-patch-v249.bin",
+   "sha256": "344ae77c4e79b07e027c686d4d221c03318bfb2e6a00b696bbfa45bf3498a54d",
+   "bytes": 3911680,
+   "records": 925,
+   "changed_bytes": 3788800,
+   "runs": 66,
+   "kinds": {
+    "0": 920,
+    "1": 1,
+    "2": 4
+   },
+   "window_bytes": 6845104128,
+   "resources": {
+    "files": 8,
+    "bytes": 3255032,
+    "skipped": {
+     "mach_o": 0,
+     "same": 113
+    }
+   }
+  }
+ },
+ "expected": {
+  "kernel_uuid": "FDF153A9-0741-3666-B298-EA428AFE5666",
+  "kernel_sha256": "2bf6fef72164f4696a1bf63682ff6df0d8eada796a31a32dd7a026bd71a56aab",
+  "image_sha256": "57d375bef6299b324058a6a1e7a3b6be8f5ef55d5851ae37f9e74e37a234777e"
+ },
+ "chosen_removed": [],
+ "os_patch": {
+  "file": "inputs/private/os-patches/os-patch-v249.bin",
+  "sha256": "344ae77c4e79b07e027c686d4d221c03318bfb2e6a00b696bbfa45bf3498a54d",
+  "bytes": 3911680,
+  "records": 925,
+  "changed_bytes": 3788800,
+  "runs": 66,
+  "kinds": {
+   "0": 920,
+   "1": 1,
+   "2": 4
+  },
+  "window_bytes": 6845104128,
+  "resources": {
+   "files": 8,
+   "bytes": 3255032,
+   "skipped": {
+    "mach_o": 0,
+    "same": 113
+   }
+  },
+  "what": "the phone keyboard resources of the iPhone XR restore (18.7.10 / 22H374) in the system volume",
+  "format": "THOROSP2",
+  "resources_report": "inputs/private/phone-resources-22H374/keyboard.json"
+ }
+}
