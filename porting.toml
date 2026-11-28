@@ -766,3 +766,17 @@ completion = ["Every shell script parses and every Python file compiles after th
 limits = ["The compiled host tests and helpers stay out. The scripts need the local layout described in docs/thor-v247-source-checkpoint.md."]
 next_action = ["Use these tools unchanged for the v247 device result."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v247/manifest.json", result = "315 files indexed with SHA-256."}]
+
+[[area]]
+id = "thor-v247-source-checkpoint"
+status = "implemented"
+components = ["PongPlatform24", "PongAdreno", "PongPower", "NativeUfs", "PongMetal", "PongWifi", "ArmCpu", "ArmDTPlatform", "AdrenoMetal"]
+paths = ["docs/thor-v247-source-checkpoint.md", "checkpoints/thor-v247/manifest.json", "checkpoints/thor-v247/**", "patches/xnu-ipados18/checkpoints/thor-v247/**"]
+inputs = ["Apple XNU 43a90889846e00bfb5cf1d255cdc0a701a1e05a4", "The upstream driver commits named in checkpoints/thor-v247/drivers/manifest.json", "Local signed runtime libraries and payload headers"]
+configuration = ["iPadOS 18.7.10 / 22H374 on Thor SM8475; the v237 to v247 unified images"]
+procedure = ["Follow docs/thor-v247-source-checkpoint.md: replay the series and the kernel tree patch, apply the driver patches, apply the thor-v236 device repository record (unchanged), regenerate the local payload headers, build and package with the recorded recipe scripts."]
+findings = ["The checkpoint records what changed since thor-v236 in eleven versions: the kernel tree beyond the series (36 files, five of them changed), eight driver source patches (three changed), the complete v247 recipe with the sources of every injected library, the packaging chain, the intake scripts and patches, the analyses v237 to v247 with four research reports, and 19 evidence tools.", "On the device: v236 ran 7 h 58 min without the freeze. v243 was the first version to boot from flash with the battery and the Wi-Fi firmware published (the firmware LUN check had failed from flash since v239). v244 ran 1 h 41 min and shows the status-bar battery number. v245 reached the desktop: the wallpaper is black because PosterBoard cannot create its data store, Wi-Fi association is refused with status 48, and the Messages app hangs the desktop while its helper dies every ten seconds.", "Open in v247 and not yet run on the phone: the panel size for a display without a mode, crash capture in PosterBoard and the Messages helper, the Wi-Fi retries on 5 GHz and as a plain 802.11g station, a line for every process that dies by a signal, and a read-only camera inventory."]
+completion = ["Host: series replay, kernel tree round trip to tree a9192b569462, each driver patch reproducing its recipe source, scripts parsing, porting record check passing."]
+limits = ["v247 has not been installed. Three generated payload headers, signed libraries, images, logs and snapshots stay local."]
+next_action = ["Install v247 and read its log: PONG DEATH lines, the first swap size, the PosterBoard crash, the Wi-Fi retry that connects."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v247/manifest.json", result = "Every recorded file indexed with SHA-256; images v237 to v247 named by hash."}, {kind = "source", reported_kind = "device-boot", reference = "checkpoints/thor-v247/records/intake-v245/ANALYSIS.md", result = "v245 reached the desktop on 2026-11-27 19:48; wallpaper black, Wi-Fi refused with status 48."}]

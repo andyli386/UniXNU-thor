@@ -1,0 +1,1814 @@
+{
+  "checkpoint": "thor-v247",
+  "date": "2026-11-28",
+  "branch": "thor/main",
+  "description": "Index of the v247 source checkpoint: the state of the Thor port (Xiaomi 12S Ultra, SM8475, iPadOS 18.7.10 / 22H374) as built and analysed on 2026-11-28, eleven versions after thor-v236. See docs/thor-v247-source-checkpoint.md.",
+  "previous_checkpoint": "thor-v236 (2026-11-25)",
+  "images_built_from_these_sources": [
+    {
+      "version": 237,
+      "image": "boot-thor-unixnu-v237-unified.img",
+      "image_sha256": "ee4a590a7b59a7ee8bdba821f19555d6c3514a54eb5481a0f37774a722f26f50",
+      "kernel_uuid": "1E6AA4B2-DC78-364A-B6B7-C0D6C31C402A",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 238,
+      "image": "boot-thor-unixnu-v238-unified.img",
+      "image_sha256": "b7aa6114156fb0277c2c1e202ac6fec1123e372f53aae7d512eb454ea5064886",
+      "kernel_uuid": "F0489283-0567-36F6-AF2A-3B4BD45F068B",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 239,
+      "image": "boot-thor-unixnu-v239-unified.img",
+      "image_sha256": "87d8deff766f0657661fae7652a9a5e015587d1df5e2fb93f5c4f3eab14f8c8e",
+      "kernel_uuid": "FE10C546-52A4-337D-82FC-5368B9090403",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 240,
+      "image": "boot-thor-unixnu-v240-unified.img",
+      "image_sha256": "8fe8943157e300a6dfd3a865c2fb2b47a8bd06a9a585987f24bf441a0814b2fd",
+      "kernel_uuid": "EA56FFD9-0985-3DD2-B8D8-FFF54001A439",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 241,
+      "image": "boot-thor-unixnu-v241-unified.img",
+      "image_sha256": "1502e0062c2d568a015bd6d2ca6fd33319178fff84b116687abf07b7879408df",
+      "kernel_uuid": "5874B07A-A7B8-3341-8673-159073AD7E1A",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 242,
+      "image": "boot-thor-unixnu-v242-unified.img",
+      "image_sha256": "07d615c79a0ef81ea1aa56086c0daf048bd66f165de2ea6af03c38e16579d581",
+      "kernel_uuid": "91842275-FF55-37A3-AC72-E18AC950F4C3",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 243,
+      "image": "boot-thor-unixnu-v243-unified.img",
+      "image_sha256": "15429c8bf22412f1facf79f094115e41bc8a05b06cd03992154605655b977bf0",
+      "kernel_uuid": "7567DC32-EA2D-3298-AC22-0B19EF51B1A1",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 244,
+      "image": "boot-thor-unixnu-v244-unified.img",
+      "image_sha256": "03a5c59c6a06dc59f6de7d224cc673dcdb0c31baadcd15f45a42bb7d26f359b6",
+      "kernel_uuid": "84BD6754-7DEA-3E51-BD26-6AA922E84023",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 245,
+      "image": "boot-thor-unixnu-v245-unified.img",
+      "image_sha256": "ee62dc97b68baf022fa78834b8d5e5c503dea76458287707bd964e153ea11eba",
+      "kernel_uuid": "97961EAC-5BC5-309C-AF8C-63A1E3C0B5DC",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 246,
+      "image": "boot-thor-unixnu-v246-unified.img",
+      "image_sha256": "4b4fae2b67d21e9b54ff20c3b7835df62b84d70e9189a0cfae793aad88d3070a",
+      "kernel_uuid": "ECDC7FAF-CE7B-3F57-B3E9-945A9A7BCE08",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    },
+    {
+      "version": 247,
+      "image": "boot-thor-unixnu-v247-unified.img",
+      "image_sha256": "4092ce88ba0de6bbe6d2bf25ba64c29b69d6e9c7b7b9ab1494054eda9d082d84",
+      "kernel_uuid": "65515F4B-662A-3809-AC0D-B19B4A637B83",
+      "boot_argument_bytes": 1005,
+      "installed": false
+    }
+  ],
+  "kernel_tree": {
+    "replayed": "b8bbd733b4b86bfec6636cc2e63179f5949b4385",
+    "v236": "87b77ec85073b5a7762aa65836c4a0bf8d34bcdf",
+    "v247": "a9192b5694626aef7777003c055dfa7b98d8a76a",
+    "files": 36,
+    "since_v236": [
+      "bsd/kern/kern_exec.c",
+      "bsd/kern/kern_exit.c",
+      "bsd/kern/kern_proc.c",
+      "iokit/Kernel/MiniIOSurface.cpp",
+      "osfmk/kern/thor_witness_v235.h"
+    ]
+  },
+  "drivers": {
+    "patches": 8,
+    "identical_to_the_pinned_commit": [
+      "DarwinBoot24",
+      "NativeRamBlock",
+      "PongBootCapture",
+      "PongUsb"
+    ],
+    "unchanged_since_v236": [
+      "AdrenoMetal",
+      "ArmCpu",
+      "ArmDTPlatform",
+      "PongAdreno",
+      "PongMetal"
+    ],
+    "changed_since_v236": {
+      "NativeUfs": {
+        "changed": [
+          "ModemFirmwareAccess.h"
+        ],
+        "new": []
+      },
+      "PongPower": {
+        "changed": [
+          "PongPlatformResources.cpp",
+          "QcomSmem.c",
+          "ThorBatterySource.cpp",
+          "ThorMssServe.inc"
+        ],
+        "new": [
+          "PongCamBoard.h",
+          "PongCamCc.h",
+          "PongCamCci.h",
+          "PongCamInventory.h",
+          "PongCamPower.h",
+          "PongCamProbe.h"
+        ]
+      },
+      "PongWifi": {
+        "changed": [
+          "PongWifiNet.cpp",
+          "PongWifiPlatform.cpp",
+          "ath11k/compat/PongCompat.h"
+        ],
+        "new": []
+      }
+    }
+  },
+  "device_repositories": "unchanged since thor-v236: the Pong SM8475 device working tree is at the same HEAD (760be3f) with the same 19 modified and 27 new files, and the Thor 18 device repository has the same one change; checkpoints/thor-v236/pong-device and checkpoints/thor-v236/unixnu-thor-18 still describe them.",
+  "parts": {
+    "xnu_series": [
+      "patches/xnu-ipados18/series"
+    ],
+    "xnu_tree": [
+      "patches/xnu-ipados18/checkpoints/thor-v247/manifest.json",
+      "patches/xnu-ipados18/checkpoints/thor-v247/xnu-after-series.patch"
+    ],
+    "drivers": [
+      "checkpoints/thor-v247/drivers/AdrenoMetal.patch",
+      "checkpoints/thor-v247/drivers/ArmCpu.patch",
+      "checkpoints/thor-v247/drivers/ArmDTPlatform.patch",
+      "checkpoints/thor-v247/drivers/NativeUfs.patch",
+      "checkpoints/thor-v247/drivers/PongAdreno.patch",
+      "checkpoints/thor-v247/drivers/PongMetal.patch",
+      "checkpoints/thor-v247/drivers/PongPower.patch",
+      "checkpoints/thor-v247/drivers/PongWifi.patch",
+      "checkpoints/thor-v247/drivers/manifest.json"
+    ],
+    "recipe": [
+      "checkpoints/thor-v247/recipe/intake-v237/auto-boot.sh",
+      "checkpoints/thor-v247/recipe/intake-v237/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v237/boot-v237.sh",
+      "checkpoints/thor-v247/recipe/intake-v237/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v237/record-image.sh",
+      "checkpoints/thor-v247/recipe/intake-v237/serve-tests/run.sh",
+      "checkpoints/thor-v247/recipe/intake-v238/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v238/boot-v238.sh",
+      "checkpoints/thor-v247/recipe/intake-v238/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v238/record-image.sh",
+      "checkpoints/thor-v247/recipe/intake-v239/analyze.sh",
+      "checkpoints/thor-v247/recipe/intake-v239/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v239/auto-flash.sh",
+      "checkpoints/thor-v247/recipe/intake-v239/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v239/flash-boot-a.sh",
+      "checkpoints/thor-v247/recipe/intake-v240/remote-capture/thor-log-capture/capture.sh",
+      "checkpoints/thor-v247/recipe/intake-v240/remote-capture/thor-log-capture/full-snapshot.py",
+      "checkpoints/thor-v247/recipe/intake-v240/remote-capture/thor-log-capture/tools/apfs/apfs.py",
+      "checkpoints/thor-v247/recipe/intake-v240/remote-capture/thor-log-capture/tools/apfs/dmg.py",
+      "checkpoints/thor-v247/recipe/intake-v241/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v241/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v241/flash-fastboot.sh",
+      "checkpoints/thor-v247/recipe/intake-v241/keepalive.sh",
+      "checkpoints/thor-v247/recipe/intake-v241/remote-capture/thor-log-capture/capture.sh",
+      "checkpoints/thor-v247/recipe/intake-v241/remote-capture/thor-log-capture/full-snapshot.py",
+      "checkpoints/thor-v247/recipe/intake-v241/remote-capture/thor-log-capture/tools/apfs/apfs.py",
+      "checkpoints/thor-v247/recipe/intake-v241/remote-capture/thor-log-capture/tools/apfs/dmg.py",
+      "checkpoints/thor-v247/recipe/intake-v241/split.py",
+      "checkpoints/thor-v247/recipe/intake-v242/analyze.sh",
+      "checkpoints/thor-v247/recipe/intake-v242/auto-collect-temp.sh",
+      "checkpoints/thor-v247/recipe/intake-v242/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v242/boot-temp-v242.sh",
+      "checkpoints/thor-v247/recipe/intake-v242/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v242/flash-fastboot.sh",
+      "checkpoints/thor-v247/recipe/intake-v242/keepalive.sh",
+      "checkpoints/thor-v247/recipe/intake-v242/read-gpt.sh",
+      "checkpoints/thor-v247/recipe/intake-v242/split.py",
+      "checkpoints/thor-v247/recipe/intake-v243/auto-collect-wifi.sh",
+      "checkpoints/thor-v247/recipe/intake-v243/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v243/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v243/fastboot-waiter.sh",
+      "checkpoints/thor-v247/recipe/intake-v243/install-image.sh",
+      "checkpoints/thor-v247/recipe/intake-v243/install-v243.sh",
+      "checkpoints/thor-v247/recipe/intake-v243/keepalive.sh",
+      "checkpoints/thor-v247/recipe/intake-v243/patches/apply.py",
+      "checkpoints/thor-v247/recipe/intake-v243/read-gpt.sh",
+      "checkpoints/thor-v247/recipe/intake-v244/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v244/auto-install.sh",
+      "checkpoints/thor-v247/recipe/intake-v244/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v244/install-image.sh",
+      "checkpoints/thor-v247/recipe/intake-v244/keepalive.sh",
+      "checkpoints/thor-v247/recipe/intake-v244/patches/apply.py",
+      "checkpoints/thor-v247/recipe/intake-v244/read-gpt.sh",
+      "checkpoints/thor-v247/recipe/intake-v245/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v245/auto-install.sh",
+      "checkpoints/thor-v247/recipe/intake-v245/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v245/install-image.sh",
+      "checkpoints/thor-v247/recipe/intake-v245/keepalive.sh",
+      "checkpoints/thor-v247/recipe/intake-v245/mac-probe.sh",
+      "checkpoints/thor-v247/recipe/intake-v245/patches/apply.py",
+      "checkpoints/thor-v247/recipe/intake-v245/patches/guards.py",
+      "checkpoints/thor-v247/recipe/intake-v245/patches/mkpackage245.py",
+      "checkpoints/thor-v247/recipe/intake-v245/read-gpt.sh",
+      "checkpoints/thor-v247/recipe/intake-v246/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v246/auto-install.sh",
+      "checkpoints/thor-v247/recipe/intake-v246/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v246/install-image.sh",
+      "checkpoints/thor-v247/recipe/intake-v246/keepalive.sh",
+      "checkpoints/thor-v247/recipe/intake-v246/patches/apply.py",
+      "checkpoints/thor-v247/recipe/intake-v246/patches/apply2.py",
+      "checkpoints/thor-v247/recipe/intake-v246/patches/mkpackage246.py",
+      "checkpoints/thor-v247/recipe/intake-v246/read-gpt.sh",
+      "checkpoints/thor-v247/recipe/intake-v247/auto-collect.sh",
+      "checkpoints/thor-v247/recipe/intake-v247/auto-install.sh",
+      "checkpoints/thor-v247/recipe/intake-v247/collect-full.sh",
+      "checkpoints/thor-v247/recipe/intake-v247/install-image.sh",
+      "checkpoints/thor-v247/recipe/intake-v247/keepalive.sh",
+      "checkpoints/thor-v247/recipe/intake-v247/patches/apply.py",
+      "checkpoints/thor-v247/recipe/intake-v247/patches/mkpackage247.py",
+      "checkpoints/thor-v247/recipe/intake-v247/read-gpt.sh",
+      "checkpoints/thor-v247/recipe/packaging-chain/v152-amp-clusters/prepare-adt-v152.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v203-display-120hz/package-v203.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v206-cellular/trial-image/package-probe.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v206-optimized/package-v206.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v206-optimized/prepare/fat_audit.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v207-metal-display/package-v207.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v210-metal-display/package-v210.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v211-cpu-demand/package-v211.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v212-integrated/package-v212.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v238-unified/package-v238.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v239-unified/package-v239.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v240-unified/package-v240.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v241-unified/package-v241.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v242-unified/package-v242.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v243-unified/package-v243.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v244-unified/package-v244.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v245-unified/package-v245.py",
+      "checkpoints/thor-v247/recipe/packaging-chain/v246-unified/package-v246.py",
+      "checkpoints/thor-v247/recipe/v237/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v237/package-v237.py",
+      "checkpoints/thor-v247/recipe/v237/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v237/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v237/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v237/prepare/settings/replay.py",
+      "checkpoints/thor-v247/recipe/v238/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v238/package-v238.py",
+      "checkpoints/thor-v247/recipe/v238/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v238/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v238/prepare/probe/build-probe.sh",
+      "checkpoints/thor-v247/recipe/v238/prepare/probe/probe238.c",
+      "checkpoints/thor-v247/recipe/v238/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v239/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v239/package-v239.py",
+      "checkpoints/thor-v247/recipe/v239/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v239/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v239/prepare/probe/build-probe.sh",
+      "checkpoints/thor-v247/recipe/v239/prepare/probe/hosttest/main.c",
+      "checkpoints/thor-v247/recipe/v239/prepare/probe/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v239/prepare/probe/probe239.c",
+      "checkpoints/thor-v247/recipe/v239/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v240/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v240/package-v240.py",
+      "checkpoints/thor-v247/recipe/v240/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v240/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v240/prepare/probe/build-probe.sh",
+      "checkpoints/thor-v247/recipe/v240/prepare/probe/hosttest/main.c",
+      "checkpoints/thor-v247/recipe/v240/prepare/probe/probe240.c",
+      "checkpoints/thor-v247/recipe/v240/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v241/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v241/package-v241.py",
+      "checkpoints/thor-v247/recipe/v241/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v241/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v241/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v241/prepare/wallpaper/build-wallpaper.sh",
+      "checkpoints/thor-v247/recipe/v241/prepare/wallpaper/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v241/prepare/wallpaper/stubs/MobileGestalt.framework/MobileGestalt.tbd",
+      "checkpoints/thor-v247/recipe/v241/prepare/wallpaper/wallpaper241.c",
+      "checkpoints/thor-v247/recipe/v242/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v242/package-v242.py",
+      "checkpoints/thor-v247/recipe/v242/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v242/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v242/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/build-wallpaper.sh",
+      "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/hosttest/kit.c",
+      "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/hosttest/main.m",
+      "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/stubs/MobileGestalt.framework/MobileGestalt.tbd",
+      "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/wallpaper242.c",
+      "checkpoints/thor-v247/recipe/v243/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v243/package-v243.py",
+      "checkpoints/thor-v247/recipe/v243/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v243/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v243/prepare/probe/build-probe.sh",
+      "checkpoints/thor-v247/recipe/v243/prepare/probe/probe241.c",
+      "checkpoints/thor-v247/recipe/v243/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v243/prepare/wifid/build-wifid.sh",
+      "checkpoints/thor-v247/recipe/v243/prepare/wifid/wifid241.c",
+      "checkpoints/thor-v247/recipe/v244/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v244/package-v244.py",
+      "checkpoints/thor-v247/recipe/v244/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v244/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v244/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/build-wallpaper.sh",
+      "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/hosttest/kit.m",
+      "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/hosttest/main.m",
+      "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/hosttest/mg.c",
+      "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/stubs/MobileGestalt.tbd",
+      "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/wallpaper243.m",
+      "checkpoints/thor-v247/recipe/v245/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v245/package-v245.py",
+      "checkpoints/thor-v247/recipe/v245/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v245/prepare/display/build-display245.sh",
+      "checkpoints/thor-v247/recipe/v245/prepare/display/display245.c",
+      "checkpoints/thor-v247/recipe/v245/prepare/display/hosttest/main.m",
+      "checkpoints/thor-v247/recipe/v245/prepare/display/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v245/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v245/prepare/logcap/build-logcap.sh",
+      "checkpoints/thor-v247/recipe/v245/prepare/logcap/build-logcap245.sh",
+      "checkpoints/thor-v247/recipe/v245/prepare/logcap/hosttest/main.c",
+      "checkpoints/thor-v247/recipe/v245/prepare/logcap/hosttest/main245.c",
+      "checkpoints/thor-v247/recipe/v245/prepare/logcap/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v245/prepare/logcap/hosttest/run245.sh",
+      "checkpoints/thor-v247/recipe/v245/prepare/logcap/logcap244.c",
+      "checkpoints/thor-v247/recipe/v245/prepare/logcap/logcap245.c",
+      "checkpoints/thor-v247/recipe/v245/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v246/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v246/package-v246.py",
+      "checkpoints/thor-v247/recipe/v246/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v246/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v246/prepare/logcap/build-logcap246.sh",
+      "checkpoints/thor-v247/recipe/v246/prepare/logcap/hosttest/main246.c",
+      "checkpoints/thor-v247/recipe/v246/prepare/logcap/hosttest/run246.sh",
+      "checkpoints/thor-v247/recipe/v246/prepare/logcap/logcap246.c",
+      "checkpoints/thor-v247/recipe/v246/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v247/build-kernel.sh",
+      "checkpoints/thor-v247/recipe/v247/camera-staging/DIFFERENCES.md",
+      "checkpoints/thor-v247/recipe/v247/camera-staging/INTEGRATION.md",
+      "checkpoints/thor-v247/recipe/v247/camera-staging/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v247/camera-staging/hosttest/test_cam.cpp",
+      "checkpoints/thor-v247/recipe/v247/device/configs-thor/thor-wifi-sm8475.json",
+      "checkpoints/thor-v247/recipe/v247/device/scripts/build-pong-ath11k.py",
+      "checkpoints/thor-v247/recipe/v247/device/scripts/build-pong-power-native.py",
+      "checkpoints/thor-v247/recipe/v247/device/scripts/build-pong-wifi-native.py",
+      "checkpoints/thor-v247/recipe/v247/device/scripts/build-xnu-ipados18.sh",
+      "checkpoints/thor-v247/recipe/v247/package-v247.py",
+      "checkpoints/thor-v247/recipe/v247/prepare/build.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/clone.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/display/build-display246.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/display/display246.c",
+      "checkpoints/thor-v247/recipe/v247/prepare/display/hosttest/main246.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/display/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/env.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/logcap/build-logcap247.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/logcap/hosttest/main247.c",
+      "checkpoints/thor-v247/recipe/v247/prepare/logcap/hosttest/run247.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/logcap/logcap247.c",
+      "checkpoints/thor-v247/recipe/v247/prepare/logcap/trace_flags.h",
+      "checkpoints/thor-v247/recipe/v247/prepare/probe/build-probe.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/probe/hosttest/main.c",
+      "checkpoints/thor-v247/recipe/v247/prepare/probe/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/probe/probe244.c",
+      "checkpoints/thor-v247/recipe/v247/prepare/relocate.py",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/about237.patch",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/about238.patch",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/base/build-settings-trace.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/base/general_prefetch223.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/base/navigation_completion185.h",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/base/navigation_completion185.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/base/settings_trace18.c",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/base/window_cpu223.h",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/base/window_cpu223.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/own.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/test.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/test238.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/tick.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/tick238.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/own.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/run.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/test.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/tick.m",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/replay.py",
+      "checkpoints/thor-v247/recipe/v247/prepare/settings/settings.patch",
+      "checkpoints/thor-v247/recipe/v247/prepare/wifid/build-wifid.sh",
+      "checkpoints/thor-v247/recipe/v247/prepare/wifid/wifid244.c",
+      "checkpoints/thor-v247/recipe/v247/thor-gpu.defconfig"
+    ],
+    "records": [
+      "checkpoints/thor-v247/records/intake-v237/ANALYSIS.md",
+      "checkpoints/thor-v247/records/intake-v237/boot-fastboot.txt",
+      "checkpoints/thor-v247/records/intake-v237/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/intake-v237/image-sha256.txt",
+      "checkpoints/thor-v247/records/intake-v237/review.md",
+      "checkpoints/thor-v247/records/intake-v237/serve-tests/QcomUimStatusStub.h",
+      "checkpoints/thor-v247/records/intake-v237/serve-tests/mock.h",
+      "checkpoints/thor-v247/records/intake-v238/boot-fastboot.txt",
+      "checkpoints/thor-v247/records/intake-v238/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/intake-v238/image-sha256.txt",
+      "checkpoints/thor-v247/records/intake-v239/ANALYSIS.md",
+      "checkpoints/thor-v247/records/intake-v239/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/intake-v239/image-sha256.txt",
+      "checkpoints/thor-v247/records/intake-v240/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/intake-v240/image-sha256.txt",
+      "checkpoints/thor-v247/records/intake-v240/remote-capture/thor-log-capture/README.txt",
+      "checkpoints/thor-v247/records/intake-v241/ANALYSIS.md",
+      "checkpoints/thor-v247/records/intake-v241/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/intake-v241/image-sha256.txt",
+      "checkpoints/thor-v247/records/intake-v241/remote-capture/thor-log-capture/README.txt",
+      "checkpoints/thor-v247/records/intake-v241/research/CELLULAR-22H374.md",
+      "checkpoints/thor-v247/records/intake-v241/research/WIFID-22H374.md",
+      "checkpoints/thor-v247/records/intake-v242/ANALYSIS.md",
+      "checkpoints/thor-v247/records/intake-v242/image-sha256.txt",
+      "checkpoints/thor-v247/records/intake-v242/temp-rest-dir.txt",
+      "checkpoints/thor-v247/records/intake-v243/ANALYSIS.md",
+      "checkpoints/thor-v247/records/intake-v243/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/intake-v244/ANALYSIS.md",
+      "checkpoints/thor-v247/records/intake-v244/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/intake-v245/ANALYSIS.md",
+      "checkpoints/thor-v247/records/intake-v245/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/intake-v246/ANALYSIS.md",
+      "checkpoints/thor-v247/records/intake-v246/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/intake-v246/research/CALLS-22H374.md",
+      "checkpoints/thor-v247/records/intake-v246/research/CAMERA-22H374.md",
+      "checkpoints/thor-v247/records/intake-v247/ANALYSIS.md",
+      "checkpoints/thor-v247/records/intake-v247/boot-stack-budget.txt",
+      "checkpoints/thor-v247/records/verification/v237/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v238/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v239/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v240/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v241/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v241/wifi-verification.json",
+      "checkpoints/thor-v247/records/verification/v242/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v243/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v243/wifi-verification.json",
+      "checkpoints/thor-v247/records/verification/v244/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v245/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v246/unified-verification.json",
+      "checkpoints/thor-v247/records/verification/v247/unified-verification.json"
+    ],
+    "tools": [
+      "checkpoints/thor-v247/tools/adt_diff.py",
+      "checkpoints/thor-v247/tools/apfs_macho_uuids.py",
+      "checkpoints/thor-v247/tools/apfs_noverify.py",
+      "checkpoints/thor-v247/tools/apple-binaries.README.md",
+      "checkpoints/thor-v247/tools/calls.py",
+      "checkpoints/thor-v247/tools/dscmap.py",
+      "checkpoints/thor-v247/tools/gpt-mark-ok.py",
+      "checkpoints/thor-v247/tools/gptcmp.py",
+      "checkpoints/thor-v247/tools/kc_calls.py",
+      "checkpoints/thor-v247/tools/kc_kext_dis.py",
+      "checkpoints/thor-v247/tools/kc_string_xrefs.py",
+      "checkpoints/thor-v247/tools/macho.py",
+      "checkpoints/thor-v247/tools/macho_calls.py",
+      "checkpoints/thor-v247/tools/member_extract.py",
+      "checkpoints/thor-v247/tools/objc_methods.py",
+      "checkpoints/thor-v247/tools/osimg.py",
+      "checkpoints/thor-v247/tools/shngvol.sh",
+      "checkpoints/thor-v247/tools/stackshot_stuck.py",
+      "checkpoints/thor-v247/tools/xref.py"
+    ]
+  },
+  "files": {
+    "checkpoints/thor-v247/drivers/AdrenoMetal.patch": {
+      "sha256": "16defcc931eb114f72b6d6c41a53fabbccb9342b200566e3410492efa42d7dd9",
+      "bytes": 4170
+    },
+    "checkpoints/thor-v247/drivers/ArmCpu.patch": {
+      "sha256": "07686f1c84f3ec7d938752777c7cca42c5fa50bf5a7c5ca49daaa9aa9c58f5d4",
+      "bytes": 13000
+    },
+    "checkpoints/thor-v247/drivers/ArmDTPlatform.patch": {
+      "sha256": "a1863d5453e2fd16dd623d6f8cbbfc7db06baddc9ee2b49856dcef06518e92b6",
+      "bytes": 33990
+    },
+    "checkpoints/thor-v247/drivers/NativeUfs.patch": {
+      "sha256": "386b0863724ee091862922af76b072b3265653f3694fb0d7a68eff5098ed5c8f",
+      "bytes": 100278
+    },
+    "checkpoints/thor-v247/drivers/PongAdreno.patch": {
+      "sha256": "37212a08b7adec86c468982b01d0e709212bf231c17f3144bde3920ad3af6556",
+      "bytes": 253680
+    },
+    "checkpoints/thor-v247/drivers/PongMetal.patch": {
+      "sha256": "51ee3c8bec251d00e8df437afbe6a31e8a3a4684647af616c3b694b4a1b72497",
+      "bytes": 19326
+    },
+    "checkpoints/thor-v247/drivers/PongPower.patch": {
+      "sha256": "843f2d9c6b75de1eeeac42f497868929c917daa086450f81a77e091fc8a73f7f",
+      "bytes": 396603
+    },
+    "checkpoints/thor-v247/drivers/PongWifi.patch": {
+      "sha256": "b2903b954120b17b79225ffe5c2552d4be1cd07ee52ba40c329e456bdace12f2",
+      "bytes": 75578
+    },
+    "checkpoints/thor-v247/drivers/manifest.json": {
+      "sha256": "e390be5d665b1de2266d4189112fcfdf11f1644188fb6fd5d73c774f3bb25fd7",
+      "bytes": 10077
+    },
+    "checkpoints/thor-v247/recipe/intake-v237/auto-boot.sh": {
+      "sha256": "45b749e87d7692a3ff2cd31a02c117e4d9289a23a639bc18953fbe7651061e94",
+      "bytes": 3832
+    },
+    "checkpoints/thor-v247/recipe/intake-v237/auto-collect.sh": {
+      "sha256": "1f878457b7f6d375f7024f73dbe61a30375b604e9decfdaa2be743633f78a40a",
+      "bytes": 1150
+    },
+    "checkpoints/thor-v247/recipe/intake-v237/boot-v237.sh": {
+      "sha256": "b6bfd849ac424bca51129ee40fb969d5f9cedd46a4c1373bfe890c1bb942502a",
+      "bytes": 1832
+    },
+    "checkpoints/thor-v247/recipe/intake-v237/collect-full.sh": {
+      "sha256": "fb643d6f6e8b6e884cf70170ca3dd033e889a21017dd2834953e806fe43d2fe5",
+      "bytes": 5622
+    },
+    "checkpoints/thor-v247/recipe/intake-v237/record-image.sh": {
+      "sha256": "5978f7b02a5f6584151521c51a417f4718b1d97f14e328242bd929b7a05d84fa",
+      "bytes": 1042
+    },
+    "checkpoints/thor-v247/recipe/intake-v237/serve-tests/run.sh": {
+      "sha256": "061bbde69c2063853f063edfe28e8b489478de7ffe583143e4fcf3c9c56f18ec",
+      "bytes": 728
+    },
+    "checkpoints/thor-v247/recipe/intake-v238/auto-collect.sh": {
+      "sha256": "c85174faa68773f823b9c4fa005c28b651512c5ce9024ab215cdb5cccbb97425",
+      "bytes": 1150
+    },
+    "checkpoints/thor-v247/recipe/intake-v238/boot-v238.sh": {
+      "sha256": "ae42cc4f0bc661d32927a7ebc8b9242f9704d988d3c5c6c483fc52add793ae50",
+      "bytes": 1832
+    },
+    "checkpoints/thor-v247/recipe/intake-v238/collect-full.sh": {
+      "sha256": "c964c0abdfbc9d65a0514f7e4049c6315067f55652a5bd365cf2170e2d77ae17",
+      "bytes": 5622
+    },
+    "checkpoints/thor-v247/recipe/intake-v238/record-image.sh": {
+      "sha256": "d424485954b6c9b046cae3b9beb5874fee2bf4e1f284e2a31da0f7575c4e75b5",
+      "bytes": 1042
+    },
+    "checkpoints/thor-v247/recipe/intake-v239/analyze.sh": {
+      "sha256": "95860524be8a59f10f01968eeaaa0871c85e58315d30676005d2502b06e8cae5",
+      "bytes": 3820
+    },
+    "checkpoints/thor-v247/recipe/intake-v239/auto-collect.sh": {
+      "sha256": "a63aa0f4d011a74b6cc1c2b2dd2febf5c9d49ceefba27922083559d0129a0b18",
+      "bytes": 1150
+    },
+    "checkpoints/thor-v247/recipe/intake-v239/auto-flash.sh": {
+      "sha256": "eee0e30e9e92823a75281ade7e11afda7395fcbf3b0da908977b617d82fc8bf6",
+      "bytes": 1411
+    },
+    "checkpoints/thor-v247/recipe/intake-v239/collect-full.sh": {
+      "sha256": "13d0e6e4090347e3b920bdf12a5142164ffa6e659eafc5d74a140215c1a78596",
+      "bytes": 5622
+    },
+    "checkpoints/thor-v247/recipe/intake-v239/flash-boot-a.sh": {
+      "sha256": "aa40de12c2f90fbdf6800f852b987d644e2827bd8870eb3fbaf1e82f1d0de604",
+      "bytes": 5709
+    },
+    "checkpoints/thor-v247/recipe/intake-v240/remote-capture/thor-log-capture/capture.sh": {
+      "sha256": "0dbc456f57d89fc29c5bf30ea923c5b5122de2b3710da39b5efc3516e736c27a",
+      "bytes": 5288
+    },
+    "checkpoints/thor-v247/recipe/intake-v240/remote-capture/thor-log-capture/full-snapshot.py": {
+      "sha256": "02daf93c70ce073012f34fcaf7db0c9fae78fb052ca45d25aa2ccbc44e8615af",
+      "bytes": 11620
+    },
+    "checkpoints/thor-v247/recipe/intake-v240/remote-capture/thor-log-capture/tools/apfs/apfs.py": {
+      "sha256": "18a7d38016fc4cfef5534159698324a0bdb5a5b1c35cb9c37da6cca5ff26a552",
+      "bytes": 45401
+    },
+    "checkpoints/thor-v247/recipe/intake-v240/remote-capture/thor-log-capture/tools/apfs/dmg.py": {
+      "sha256": "d7aab6e514a3b6a63cc666bd6129529e315e04fb2eff897b6333ce8d2dba8423",
+      "bytes": 16349
+    },
+    "checkpoints/thor-v247/recipe/intake-v241/auto-collect.sh": {
+      "sha256": "29897780266a3a610e6de1268372f4e694901af92c06a668e5355c587d4e9d10",
+      "bytes": 1150
+    },
+    "checkpoints/thor-v247/recipe/intake-v241/collect-full.sh": {
+      "sha256": "f26ea121900b3675806560c11baeca7c55a26b7c2a7bd49d453a5ad2fc3be22b",
+      "bytes": 5622
+    },
+    "checkpoints/thor-v247/recipe/intake-v241/flash-fastboot.sh": {
+      "sha256": "b05d0f7ab543dfa491abb24d9d17dec70be66a0250126e67c10eaaaab105bb65",
+      "bytes": 3982
+    },
+    "checkpoints/thor-v247/recipe/intake-v241/keepalive.sh": {
+      "sha256": "c8f17094f025574a0dfac3395f64f3f16b956880b4ab9804ee614e00e06acae1",
+      "bytes": 836
+    },
+    "checkpoints/thor-v247/recipe/intake-v241/remote-capture/thor-log-capture/capture.sh": {
+      "sha256": "7c93b9f7dfd99f477bd3c5abbb7e8fb7a40d1ccc5f9071433c99c2caa94978f9",
+      "bytes": 5288
+    },
+    "checkpoints/thor-v247/recipe/intake-v241/remote-capture/thor-log-capture/full-snapshot.py": {
+      "sha256": "02daf93c70ce073012f34fcaf7db0c9fae78fb052ca45d25aa2ccbc44e8615af",
+      "bytes": 11620
+    },
+    "checkpoints/thor-v247/recipe/intake-v241/remote-capture/thor-log-capture/tools/apfs/apfs.py": {
+      "sha256": "18a7d38016fc4cfef5534159698324a0bdb5a5b1c35cb9c37da6cca5ff26a552",
+      "bytes": 45401
+    },
+    "checkpoints/thor-v247/recipe/intake-v241/remote-capture/thor-log-capture/tools/apfs/dmg.py": {
+      "sha256": "d7aab6e514a3b6a63cc666bd6129529e315e04fb2eff897b6333ce8d2dba8423",
+      "bytes": 16349
+    },
+    "checkpoints/thor-v247/recipe/intake-v241/split.py": {
+      "sha256": "1968119ed91291bc00e5750ec9daa8875ff93fab12a93979f848944ce0eaf07c",
+      "bytes": 909
+    },
+    "checkpoints/thor-v247/recipe/intake-v242/analyze.sh": {
+      "sha256": "535a71b693aa1bbbd24bde7ff386a7dee01b8ddc74d22d4273de7b98e1a25d91",
+      "bytes": 3834
+    },
+    "checkpoints/thor-v247/recipe/intake-v242/auto-collect-temp.sh": {
+      "sha256": "c33e8c6961a6bbded7613173db0b5336656a78dc5a7d0554813d4cd4d8f443e2",
+      "bytes": 1268
+    },
+    "checkpoints/thor-v247/recipe/intake-v242/auto-collect.sh": {
+      "sha256": "abd2f77b72121fd2d2c2c15665849bcb0c7c7504ba3845a09f2ccc1ae8b3cefe",
+      "bytes": 1150
+    },
+    "checkpoints/thor-v247/recipe/intake-v242/boot-temp-v242.sh": {
+      "sha256": "26376733ae03a287eaf00f8dcad25e808fe6e84a00428e6ebf0f3b2817206b46",
+      "bytes": 3628
+    },
+    "checkpoints/thor-v247/recipe/intake-v242/collect-full.sh": {
+      "sha256": "38bc6bf7af47c3e9276ba139f84203a6c780387a549f734f51d79df3a1c9ad01",
+      "bytes": 5950
+    },
+    "checkpoints/thor-v247/recipe/intake-v242/flash-fastboot.sh": {
+      "sha256": "124cde742a54cb4d2a38e275f38f8d24a58cdbcc3681eb98170aadefbc5a3b2c",
+      "bytes": 3982
+    },
+    "checkpoints/thor-v247/recipe/intake-v242/keepalive.sh": {
+      "sha256": "c8f17094f025574a0dfac3395f64f3f16b956880b4ab9804ee614e00e06acae1",
+      "bytes": 836
+    },
+    "checkpoints/thor-v247/recipe/intake-v242/read-gpt.sh": {
+      "sha256": "a279a177e5a3bdda1694569d9ad1bfab36a61996d955d3229b64a3302036e03e",
+      "bytes": 2611
+    },
+    "checkpoints/thor-v247/recipe/intake-v242/split.py": {
+      "sha256": "1968119ed91291bc00e5750ec9daa8875ff93fab12a93979f848944ce0eaf07c",
+      "bytes": 909
+    },
+    "checkpoints/thor-v247/recipe/intake-v243/auto-collect-wifi.sh": {
+      "sha256": "7d11ec623f944cdd91050f2ecb32aa56a1550920c2313aecf746bee4eaeebf8e",
+      "bytes": 1189
+    },
+    "checkpoints/thor-v247/recipe/intake-v243/auto-collect.sh": {
+      "sha256": "62376c5de0b4f6ee1f66cbecc54cba80c6b6e50353d789b04394fe77ea1efee2",
+      "bytes": 1161
+    },
+    "checkpoints/thor-v247/recipe/intake-v243/collect-full.sh": {
+      "sha256": "3f52501b9e6f8593524ac76a07f2a7b8e0ae1e24d5c86e788c9bea9c3796345b",
+      "bytes": 5952
+    },
+    "checkpoints/thor-v247/recipe/intake-v243/fastboot-waiter.sh": {
+      "sha256": "f39e8c3d6adb3a4660acc159bb0da31ecd38aa70a0295122b09978527fea24e1",
+      "bytes": 1364
+    },
+    "checkpoints/thor-v247/recipe/intake-v243/install-image.sh": {
+      "sha256": "b18b580e16c3be15bfeadbb21b5306dd5db1aece1d6181ca857361ed6a86afb3",
+      "bytes": 18073
+    },
+    "checkpoints/thor-v247/recipe/intake-v243/install-v243.sh": {
+      "sha256": "248b781c3edd2b8d25b9ecfb30537a3b18ebdb36e076c1903e330d3a805d487d",
+      "bytes": 17776
+    },
+    "checkpoints/thor-v247/recipe/intake-v243/keepalive.sh": {
+      "sha256": "b53aed9d67b3f1cf61e5e55965b0ca0bead1d525e7c15e3fd100df5fd64a80e1",
+      "bytes": 851
+    },
+    "checkpoints/thor-v247/recipe/intake-v243/patches/apply.py": {
+      "sha256": "e8fcbe95ed7fa7e31c32fdabed72d994ebe572542849522cd66a60e24c2c71b5",
+      "bytes": 14402
+    },
+    "checkpoints/thor-v247/recipe/intake-v243/read-gpt.sh": {
+      "sha256": "a279a177e5a3bdda1694569d9ad1bfab36a61996d955d3229b64a3302036e03e",
+      "bytes": 2611
+    },
+    "checkpoints/thor-v247/recipe/intake-v244/auto-collect.sh": {
+      "sha256": "42a89d5eebeed388483a2461695b226fcc48395819e7dafa0bd6ef1da2604416",
+      "bytes": 1161
+    },
+    "checkpoints/thor-v247/recipe/intake-v244/auto-install.sh": {
+      "sha256": "896a5e2a9b8c3ce624586307a97a6c5b755c1ab4f0e67f2b3a583d1041e3f79d",
+      "bytes": 2069
+    },
+    "checkpoints/thor-v247/recipe/intake-v244/collect-full.sh": {
+      "sha256": "20e8e502521d1efb4f8a0dd4ec5d1aa4f0c6bc0ad83f46a6a569e4ad2c3a0cdd",
+      "bytes": 5952
+    },
+    "checkpoints/thor-v247/recipe/intake-v244/install-image.sh": {
+      "sha256": "7341409e8c3fc29a78581bd5f63c7ebc81935456d5d4446dd8e343b8a28538f7",
+      "bytes": 18094
+    },
+    "checkpoints/thor-v247/recipe/intake-v244/keepalive.sh": {
+      "sha256": "b53aed9d67b3f1cf61e5e55965b0ca0bead1d525e7c15e3fd100df5fd64a80e1",
+      "bytes": 851
+    },
+    "checkpoints/thor-v247/recipe/intake-v244/patches/apply.py": {
+      "sha256": "f2c80995d3c74752bf56f3cb65c086e434a72058c67d4f9e0f04d529c483d7a3",
+      "bytes": 12423
+    },
+    "checkpoints/thor-v247/recipe/intake-v244/read-gpt.sh": {
+      "sha256": "a279a177e5a3bdda1694569d9ad1bfab36a61996d955d3229b64a3302036e03e",
+      "bytes": 2611
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/auto-collect.sh": {
+      "sha256": "8fa6bb9b560de740073c46338bcd3e17b8faba9b0f6b7675f67071595d0794d4",
+      "bytes": 1161
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/auto-install.sh": {
+      "sha256": "dbbaececeb5f6a7d4d165a39f9820032403d113cf38ada8578c0a9e174805f2b",
+      "bytes": 2069
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/collect-full.sh": {
+      "sha256": "7de77f9158da3a46d4d459e802d2f428776c779855fa5eff3c80dd226a9123ee",
+      "bytes": 5952
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/install-image.sh": {
+      "sha256": "41653fb418dd4e59be736f14344aefce0506bc07e3ca53a94d2287d236fe8061",
+      "bytes": 18094
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/keepalive.sh": {
+      "sha256": "9b58c8e135a24e799c73111e50f10ba1c4318996c036ad6d2de3811d12fde3f2",
+      "bytes": 851
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/mac-probe.sh": {
+      "sha256": "efb8bc40529e6b96b4b3710d7499de58e22be8e3d0a389dd75803b00774fc80c",
+      "bytes": 4589
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/patches/apply.py": {
+      "sha256": "2d3a16cf0e570c34e1c9012f4bfd0b0cb4a3b8f316f0b3e08b9f1dfd2052287c",
+      "bytes": 22569
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/patches/guards.py": {
+      "sha256": "b79b41107ba7171a30f8b4367e0c5e8403bc41def9d65fe78689a1e1a3594093",
+      "bytes": 2499
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/patches/mkpackage245.py": {
+      "sha256": "5551e1a8b8f9c073e8259a33787f2cd146594e1b52f1154c93060c2799926c12",
+      "bytes": 28139
+    },
+    "checkpoints/thor-v247/recipe/intake-v245/read-gpt.sh": {
+      "sha256": "a279a177e5a3bdda1694569d9ad1bfab36a61996d955d3229b64a3302036e03e",
+      "bytes": 2611
+    },
+    "checkpoints/thor-v247/recipe/intake-v246/auto-collect.sh": {
+      "sha256": "defad44e1a460e453ba982f1409a56975088a504e6ed8e464f3813a903e8867f",
+      "bytes": 1161
+    },
+    "checkpoints/thor-v247/recipe/intake-v246/auto-install.sh": {
+      "sha256": "4cdeb05154cb5f115c1901de1689a62a497d746e610db91329aa913f28fd33b5",
+      "bytes": 2069
+    },
+    "checkpoints/thor-v247/recipe/intake-v246/collect-full.sh": {
+      "sha256": "2e249d749a5dd7f86a9729d58c37ed736ef80e945ad772e1bd99d65deb6c76d7",
+      "bytes": 5952
+    },
+    "checkpoints/thor-v247/recipe/intake-v246/install-image.sh": {
+      "sha256": "2df902fa10eebb1d3ae6b007efcc2d7d38478bbbd311abe8f921b38bd10fbd40",
+      "bytes": 19620
+    },
+    "checkpoints/thor-v247/recipe/intake-v246/keepalive.sh": {
+      "sha256": "a5293f25a1fcdd0a4b73643152bb50e4734b33b3c97df4a26a18886f70a079ab",
+      "bytes": 851
+    },
+    "checkpoints/thor-v247/recipe/intake-v246/patches/apply.py": {
+      "sha256": "d910411067dcb8fd273380062b9528621749b500ba7f3caaaeff306622a695ef",
+      "bytes": 9408
+    },
+    "checkpoints/thor-v247/recipe/intake-v246/patches/apply2.py": {
+      "sha256": "c558f3e947d1c277952eb2b9de3892881962cdb94c2703864f361722893c5332",
+      "bytes": 3272
+    },
+    "checkpoints/thor-v247/recipe/intake-v246/patches/mkpackage246.py": {
+      "sha256": "9ea97572cf07b078350168a5fe6ba7b4dc55f3dd74e7a560241b46469feed3d3",
+      "bytes": 21594
+    },
+    "checkpoints/thor-v247/recipe/intake-v246/read-gpt.sh": {
+      "sha256": "a279a177e5a3bdda1694569d9ad1bfab36a61996d955d3229b64a3302036e03e",
+      "bytes": 2611
+    },
+    "checkpoints/thor-v247/recipe/intake-v247/auto-collect.sh": {
+      "sha256": "24f3876460edd2f205ba9a0cb1e68d3934a99c04f6eefc02b31b5f5ecc3aeaf3",
+      "bytes": 1161
+    },
+    "checkpoints/thor-v247/recipe/intake-v247/auto-install.sh": {
+      "sha256": "0d65aaba7538ad2649ca57de995d6b91863fe4eb5acb507dd2c95460010c8c84",
+      "bytes": 2069
+    },
+    "checkpoints/thor-v247/recipe/intake-v247/collect-full.sh": {
+      "sha256": "8c5c66bcb00abd7332392b015575720d3738749c92469c21c767d51afd637c23",
+      "bytes": 5952
+    },
+    "checkpoints/thor-v247/recipe/intake-v247/install-image.sh": {
+      "sha256": "a288a830409a90fb6e9e9ce11263aeba72de3859e23ea403b8b4675450e0e96f",
+      "bytes": 19620
+    },
+    "checkpoints/thor-v247/recipe/intake-v247/keepalive.sh": {
+      "sha256": "dfbfa771e52e20a836add765b230a3e82c0c660cad559a25e122bed10d2ac3fa",
+      "bytes": 851
+    },
+    "checkpoints/thor-v247/recipe/intake-v247/patches/apply.py": {
+      "sha256": "c84757ccb1c78cd118dc9ba94a3ca4edba98fa95bab059f00a8d5ce986cf049c",
+      "bytes": 8748
+    },
+    "checkpoints/thor-v247/recipe/intake-v247/patches/mkpackage247.py": {
+      "sha256": "d738d75ad418b9fd965aa119b72359f2528f6ead8e1a1cddd5088b22cfca6cf0",
+      "bytes": 19821
+    },
+    "checkpoints/thor-v247/recipe/intake-v247/read-gpt.sh": {
+      "sha256": "a279a177e5a3bdda1694569d9ad1bfab36a61996d955d3229b64a3302036e03e",
+      "bytes": 2611
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v152-amp-clusters/prepare-adt-v152.py": {
+      "sha256": "bbcd29c877fd3e6d7f3660f6d9615bdde15019cf3a3a0845d965652b349b8e8e",
+      "bytes": 2609
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v203-display-120hz/package-v203.py": {
+      "sha256": "cf84a8ae747720aeb0854b4ed3f29641e2a08faca597b2c1d777c9ba94d396e0",
+      "bytes": 12432
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v206-cellular/trial-image/package-probe.py": {
+      "sha256": "f2f648bba0a8bd8af9c56e5fabf7de6781b00d07817a042e7bdd0722dc31b090",
+      "bytes": 6437
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v206-optimized/package-v206.py": {
+      "sha256": "571e02b849a531ecc754712d4006830010e6ffdf4f353437b658a62a3b8a6ed3",
+      "bytes": 6611
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v206-optimized/prepare/fat_audit.py": {
+      "sha256": "d3602d993b173f06cc84e03ea4d26aac5c97d8b4450cf29c574919b6222b6c11",
+      "bytes": 2748
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v207-metal-display/package-v207.py": {
+      "sha256": "03bddf4b1fc22da342ef46aaa3e89fa0ddaf2f482bc9df19fd9dde1a85209228",
+      "bytes": 8528
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v210-metal-display/package-v210.py": {
+      "sha256": "d590e5deaa55c4f2ede404f1d7d53ffd8c25ba2c84039775b2d5260873d121ec",
+      "bytes": 10128
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v211-cpu-demand/package-v211.py": {
+      "sha256": "7eceafa9d33e0aa48829673f656af964a1c344d416d27662cfcf90ca5d22d94f",
+      "bytes": 7218
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v212-integrated/package-v212.py": {
+      "sha256": "bc986dff787d58ff483176c328881e0706487c92b59a2f3937cf9d6af4a2b17e",
+      "bytes": 8650
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v238-unified/package-v238.py": {
+      "sha256": "d6bd8f77f5d62d4d7336282a505cc04241e0b4f69ce226de37bc2310f66ad000",
+      "bytes": 22926
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v239-unified/package-v239.py": {
+      "sha256": "c9de58e6dc1a683a277e4c4a3231cff3433e69899b3fa58917d5806d68b39904",
+      "bytes": 26060
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v240-unified/package-v240.py": {
+      "sha256": "7d98a8acea618116dc9b3a2c7b53c99ea01dce4497f1ef0c6680a3e51a9ae119",
+      "bytes": 27170
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v241-unified/package-v241.py": {
+      "sha256": "847abbfcfcc945f5568094a43772e374ddaaee5c65c4c2cec4bf76c6c2aacb50",
+      "bytes": 29761
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v242-unified/package-v242.py": {
+      "sha256": "ee9fbb1e5f50da90dd2083fec972d5d113249854bb5111fd1b232c729210c453",
+      "bytes": 28864
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v243-unified/package-v243.py": {
+      "sha256": "1759cded7489f49946bc6d56b1242483116320d37decd0f997cf9072d12ed271",
+      "bytes": 30149
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v244-unified/package-v244.py": {
+      "sha256": "4dac4affad643ebbe1501e2db20460f7b19721513fa3b6183b6dc1c03e66d52d",
+      "bytes": 31302
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v245-unified/package-v245.py": {
+      "sha256": "5a39db138f3f5647f21538e3211ec235187f9c66694f030aa6cae285e106c425",
+      "bytes": 35872
+    },
+    "checkpoints/thor-v247/recipe/packaging-chain/v246-unified/package-v246.py": {
+      "sha256": "cf5241fa28d0de9e8353bdf3a6f401cfd9f552c5900683569a7e49419e5001de",
+      "bytes": 35227
+    },
+    "checkpoints/thor-v247/recipe/v237/build-kernel.sh": {
+      "sha256": "8fe9a7641d4cdf3f1c6935b1b839acac96cbcc87f2a19bdba3f856d126757f46",
+      "bytes": 2019
+    },
+    "checkpoints/thor-v247/recipe/v237/package-v237.py": {
+      "sha256": "0623159cc3c54762a45dc50f59446ef9fff0978b1e51b6602093b8d093e47a8f",
+      "bytes": 22443
+    },
+    "checkpoints/thor-v247/recipe/v237/prepare/clone.sh": {
+      "sha256": "ad60003a7e691da302d74d238106b65878631dfcb95b896fbf2e83abff975ba1",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v237/prepare/env.sh": {
+      "sha256": "fdb735ef8e86fc6e9ddda37a39ff1c7cd941dba8e9c3dbbea0d33758bd006c36",
+      "bytes": 930
+    },
+    "checkpoints/thor-v247/recipe/v237/prepare/relocate.py": {
+      "sha256": "bade5bf43028686cecab5f5d179917358a993c1c68f1954d6a9ed1e3f61f3a1f",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v237/prepare/settings/replay.py": {
+      "sha256": "153774b93424a9a236293417ffd7b1c7673137c6abc10a4455ccab993e12cf0e",
+      "bytes": 2069
+    },
+    "checkpoints/thor-v247/recipe/v238/build-kernel.sh": {
+      "sha256": "4c07be560f926308cf7eb238b955da05405e6cb5696761df4c8f01de5813426f",
+      "bytes": 2085
+    },
+    "checkpoints/thor-v247/recipe/v238/package-v238.py": {
+      "sha256": "d6bd8f77f5d62d4d7336282a505cc04241e0b4f69ce226de37bc2310f66ad000",
+      "bytes": 22926
+    },
+    "checkpoints/thor-v247/recipe/v238/prepare/clone.sh": {
+      "sha256": "753dc5e8d777b19727de749d5b1ae172af28766251a0e153762c5a24fc049090",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v238/prepare/env.sh": {
+      "sha256": "0bebf2b435cb36acd32d782a0ce6b54b1e6f4e281404222364b78db75b9d5dd2",
+      "bytes": 930
+    },
+    "checkpoints/thor-v247/recipe/v238/prepare/probe/build-probe.sh": {
+      "sha256": "e9c0b92d15773c289b7de37b9a6a0f0e3ae30800755f626a3bc64c9c7a7fdea7",
+      "bytes": 839
+    },
+    "checkpoints/thor-v247/recipe/v238/prepare/probe/probe238.c": {
+      "sha256": "9afed2db3febde1372081adc3bdec8fcda454ab2481194df20a1e142ab7b9111",
+      "bytes": 14273
+    },
+    "checkpoints/thor-v247/recipe/v238/prepare/relocate.py": {
+      "sha256": "b3983178259db476956a3d128d9153f1802dc2e68caa18259b97d581bed7265c",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v239/build-kernel.sh": {
+      "sha256": "6fe5607366f8b963185e9412b46ac4f9507e824e3137700fc013dc3efbc37ddd",
+      "bytes": 2085
+    },
+    "checkpoints/thor-v247/recipe/v239/package-v239.py": {
+      "sha256": "c9de58e6dc1a683a277e4c4a3231cff3433e69899b3fa58917d5806d68b39904",
+      "bytes": 26060
+    },
+    "checkpoints/thor-v247/recipe/v239/prepare/clone.sh": {
+      "sha256": "beb811861344d95f763d6f729a3e63c6d92a689d00c6e1e3dd3c4aab86e09e3f",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v239/prepare/env.sh": {
+      "sha256": "5082a6845add854800c90258152fc186b39dd6f17aa0ff39c626f018bce0ada6",
+      "bytes": 930
+    },
+    "checkpoints/thor-v247/recipe/v239/prepare/probe/build-probe.sh": {
+      "sha256": "f921859229a773dfcede9e019ae8718a5ea5952b93b396f6bdd8178ccdf3bcea",
+      "bytes": 895
+    },
+    "checkpoints/thor-v247/recipe/v239/prepare/probe/hosttest/main.c": {
+      "sha256": "ea7190d408e16aecd0cedfc3cb253dff60c8aba5d8d76422b3a2cabc17efc65d",
+      "bytes": 1823
+    },
+    "checkpoints/thor-v247/recipe/v239/prepare/probe/hosttest/run.sh": {
+      "sha256": "339db08e66439d34202cdcf04911a2fae1f87f3eafb66140eee59d042a0fc7b1",
+      "bytes": 904
+    },
+    "checkpoints/thor-v247/recipe/v239/prepare/probe/probe239.c": {
+      "sha256": "bceac743a5b2b7463abe03867cf3dbd4792b9be7c43bd970c6911e399a52eaf3",
+      "bytes": 31494
+    },
+    "checkpoints/thor-v247/recipe/v239/prepare/relocate.py": {
+      "sha256": "293802f93531e892a7df01012fbb0eabfabf91f2221b412d688532431ecb0ed0",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v240/build-kernel.sh": {
+      "sha256": "d56c738c00849c20a4141706c42a3d1511a748206b2b8e193d5724e2631c978a",
+      "bytes": 2085
+    },
+    "checkpoints/thor-v247/recipe/v240/package-v240.py": {
+      "sha256": "7d98a8acea618116dc9b3a2c7b53c99ea01dce4497f1ef0c6680a3e51a9ae119",
+      "bytes": 27170
+    },
+    "checkpoints/thor-v247/recipe/v240/prepare/clone.sh": {
+      "sha256": "379f4b65c18f929800fa34556f5417a6e6a5a3632569db74890e7c455109c573",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v240/prepare/env.sh": {
+      "sha256": "3849640edc50a96e7d8d9402e0d5d0a2782bbe0fed93bab2d4fcc7edc6e43e48",
+      "bytes": 930
+    },
+    "checkpoints/thor-v247/recipe/v240/prepare/probe/build-probe.sh": {
+      "sha256": "8b87e22582ff11317df1d791123234fcb5724122e10595e5351550cd7321aed1",
+      "bytes": 933
+    },
+    "checkpoints/thor-v247/recipe/v240/prepare/probe/hosttest/main.c": {
+      "sha256": "309d0d344e3362f78245dc88db7da11d6e55e45287724860c18989b5b749e460",
+      "bytes": 1823
+    },
+    "checkpoints/thor-v247/recipe/v240/prepare/probe/probe240.c": {
+      "sha256": "a966267aff32ed076cd750c6ccf4a58ac20f0ff3f3b854acf9d0bdfb1f4820d4",
+      "bytes": 34076
+    },
+    "checkpoints/thor-v247/recipe/v240/prepare/relocate.py": {
+      "sha256": "f41f3181e16725a4448fc7864d76975633b1d8312f80820f983a3f411ae577a9",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v241/build-kernel.sh": {
+      "sha256": "2a0297424e4b65f3698904be325fb6c2a3d9a58aab949a9a5343dbacb3c6f1a5",
+      "bytes": 2225
+    },
+    "checkpoints/thor-v247/recipe/v241/package-v241.py": {
+      "sha256": "847abbfcfcc945f5568094a43772e374ddaaee5c65c4c2cec4bf76c6c2aacb50",
+      "bytes": 29761
+    },
+    "checkpoints/thor-v247/recipe/v241/prepare/clone.sh": {
+      "sha256": "774e194b34fc807df92e6f563b15fd2085a04e59bafea2cb1ea661681e5faada",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v241/prepare/env.sh": {
+      "sha256": "e0e58725b9ceb2ef9ff58fb11512968799d36dc430c735edfb3c0e187d5f624b",
+      "bytes": 937
+    },
+    "checkpoints/thor-v247/recipe/v241/prepare/relocate.py": {
+      "sha256": "846775038f1b006adef3612d5d336b29bb1d4286715a502dfa3f1c387c30d7c5",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v241/prepare/wallpaper/build-wallpaper.sh": {
+      "sha256": "0be7863a9ede533d0116cdc07a6677d9ec2bfba90e857caad6226efb13954633",
+      "bytes": 1052
+    },
+    "checkpoints/thor-v247/recipe/v241/prepare/wallpaper/hosttest/run.sh": {
+      "sha256": "abc122ede91890a3915c4feca15bf0b9f16132f47dfd2e3347e9a0d3d33ccfdf",
+      "bytes": 1474
+    },
+    "checkpoints/thor-v247/recipe/v241/prepare/wallpaper/stubs/MobileGestalt.framework/MobileGestalt.tbd": {
+      "sha256": "441cbb681879d3737b06d481f194731f402d309704542dd5bfd0e1cda0b48820",
+      "bytes": 310
+    },
+    "checkpoints/thor-v247/recipe/v241/prepare/wallpaper/wallpaper241.c": {
+      "sha256": "1712e4477b602ee8072db32e4743037cbb9f5115f32c4a0bc53a2d8c8ec71760",
+      "bytes": 6864
+    },
+    "checkpoints/thor-v247/recipe/v242/build-kernel.sh": {
+      "sha256": "7a08a54a9c489014e40b1d03dab90444777072d997f14e9fc45132f51fe4d3ad",
+      "bytes": 2225
+    },
+    "checkpoints/thor-v247/recipe/v242/package-v242.py": {
+      "sha256": "ee9fbb1e5f50da90dd2083fec972d5d113249854bb5111fd1b232c729210c453",
+      "bytes": 28864
+    },
+    "checkpoints/thor-v247/recipe/v242/prepare/clone.sh": {
+      "sha256": "868673753305b6e5e3e5490b20ac54e2defca2230c31977040b0467a8504550d",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v242/prepare/env.sh": {
+      "sha256": "13b5b687e1abc5fbf84e93aef0ab29cac63392a7eb89f5143b3f7f6cb2e14e67",
+      "bytes": 937
+    },
+    "checkpoints/thor-v247/recipe/v242/prepare/relocate.py": {
+      "sha256": "62ff4ab2bc8b15198568788c249c1c804672a4036c57cdd0469fe8b652bc6d73",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/build-wallpaper.sh": {
+      "sha256": "091d3937f8e2dafab67fa0629ad7ec0883b992a35088df9a4eca9d4119b5d86c",
+      "bytes": 1573
+    },
+    "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/hosttest/kit.c": {
+      "sha256": "2de72eb73abd47d0d2b8237d27833685841ea13052f318b4525d79bd632b5923",
+      "bytes": 591
+    },
+    "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/hosttest/main.m": {
+      "sha256": "b1cee56cfa978fdd995ee4a2ea7c1df6b752a91bf490dc92e39d727b1da9bd6f",
+      "bytes": 2098
+    },
+    "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/hosttest/run.sh": {
+      "sha256": "3b27775566cddcf0927ae0e7b6eb0b9c262a86a183409a07b19b78ffea5e62e8",
+      "bytes": 1831
+    },
+    "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/stubs/MobileGestalt.framework/MobileGestalt.tbd": {
+      "sha256": "3e9d9ad07741c0581f69df9df6b1e72e694c1b6c18852183f8c6d89c26db2dc9",
+      "bytes": 270
+    },
+    "checkpoints/thor-v247/recipe/v242/prepare/wallpaper/wallpaper242.c": {
+      "sha256": "fcfb9ef219f46c3c2c445f8757eacf073275ca30304e7b857f4ffad4b3f3b97f",
+      "bytes": 7344
+    },
+    "checkpoints/thor-v247/recipe/v243/build-kernel.sh": {
+      "sha256": "35c0dbf75986d42c90b414b377325ae99a74500af2bdcd243cc3004387cf9b2e",
+      "bytes": 2225
+    },
+    "checkpoints/thor-v247/recipe/v243/package-v243.py": {
+      "sha256": "1759cded7489f49946bc6d56b1242483116320d37decd0f997cf9072d12ed271",
+      "bytes": 30149
+    },
+    "checkpoints/thor-v247/recipe/v243/prepare/clone.sh": {
+      "sha256": "153e30ceb98fac99f0387feeebe1ba816ce38320ecfa0aeb90594ed5a1947aad",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v243/prepare/env.sh": {
+      "sha256": "dddc85dd7decba2a210ae1392923212c9364c02907c32059dab30d120a63d42f",
+      "bytes": 937
+    },
+    "checkpoints/thor-v247/recipe/v243/prepare/probe/build-probe.sh": {
+      "sha256": "8c0681304fba58bdfc9ef19be869eb83f7c0f3da5ec8e7f0e00cab84d631d2fa",
+      "bytes": 949
+    },
+    "checkpoints/thor-v247/recipe/v243/prepare/probe/probe241.c": {
+      "sha256": "c159c2b0b8cb037e393de77ed041957946fd62cd05ff7398165dc50d0b01a129",
+      "bytes": 25561
+    },
+    "checkpoints/thor-v247/recipe/v243/prepare/relocate.py": {
+      "sha256": "0dd007e95044768d2e443121de04a37f7c07309f95269ad94088bc02375d92c8",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v243/prepare/wifid/build-wifid.sh": {
+      "sha256": "950de6a450e11be58780873cde807be5decf7894770f8510f3b81fec77dff608",
+      "bytes": 735
+    },
+    "checkpoints/thor-v247/recipe/v243/prepare/wifid/wifid241.c": {
+      "sha256": "e9ada7395a4a9e08bbb8544f2e507773b7edf8a06f53c6e6a868a7270c6adf3c",
+      "bytes": 4392
+    },
+    "checkpoints/thor-v247/recipe/v244/build-kernel.sh": {
+      "sha256": "2025e637d840b9a1f62f56564450acb24dab52601652d9bfbb3230012b361df1",
+      "bytes": 2219
+    },
+    "checkpoints/thor-v247/recipe/v244/package-v244.py": {
+      "sha256": "4dac4affad643ebbe1501e2db20460f7b19721513fa3b6183b6dc1c03e66d52d",
+      "bytes": 31302
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/clone.sh": {
+      "sha256": "8586a7071916244940208fbfc149d5df1b125a70aeda0cf5b5b253f476139ae6",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/env.sh": {
+      "sha256": "4de7fe5c9c7532f298a3db5adc12bc495fdcf7e98d7808595b86008f43612d65",
+      "bytes": 937
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/relocate.py": {
+      "sha256": "5376ea2515bb714c3e4c123300faa6b6d1add39cbcea4b66398a5a168368e472",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/build-wallpaper.sh": {
+      "sha256": "879bfc6a492060893f4572fbd5d2f3aa6b0d72e8b62bdc6c439ad27cfbbc48dc",
+      "bytes": 1404
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/hosttest/kit.m": {
+      "sha256": "f8973e8f1c966922b9ef1183a4d65d1ccf27a311c202d46d12cacd5ee171df03",
+      "bytes": 748
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/hosttest/main.m": {
+      "sha256": "989155e092f64762801e1ba7ee8d4976879bcc5440ef47ef2d36865aa2b98012",
+      "bytes": 1945
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/hosttest/mg.c": {
+      "sha256": "0f114ba0b2311f503804e572873ddcccbd3343f486e4d3de1bc7b36da035ff17",
+      "bytes": 327
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/hosttest/run.sh": {
+      "sha256": "bebe156814d8eb6191c7047e1de8827a019fa3997c9e5b75f25c27f0c2830ba5",
+      "bytes": 1944
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/stubs/MobileGestalt.tbd": {
+      "sha256": "3e9d9ad07741c0581f69df9df6b1e72e694c1b6c18852183f8c6d89c26db2dc9",
+      "bytes": 270
+    },
+    "checkpoints/thor-v247/recipe/v244/prepare/wallpaper/wallpaper243.m": {
+      "sha256": "f3843c42bc59a68ec4c5737c5c94bfc2ab4fb1a43fe8c2af54adc5cbc7764dbd",
+      "bytes": 10306
+    },
+    "checkpoints/thor-v247/recipe/v245/build-kernel.sh": {
+      "sha256": "881ff8f71fd1684f0fa66d10b332c6e43e850cb8187d545cabc627184b5cdbcb",
+      "bytes": 2289
+    },
+    "checkpoints/thor-v247/recipe/v245/package-v245.py": {
+      "sha256": "5a39db138f3f5647f21538e3211ec235187f9c66694f030aa6cae285e106c425",
+      "bytes": 35872
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/clone.sh": {
+      "sha256": "64ea580622ccf6ad33f818b343da77745c62c71bc435b9d25a145cd9e41a9dde",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/display/build-display245.sh": {
+      "sha256": "d590e1ee963d1b5ec344237867c83778b11d469e6fed3f9c1786d7286818b2b6",
+      "bytes": 1215
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/display/display245.c": {
+      "sha256": "b638e3c7f454b1304ae604ecda4955507027121a92df04c28cf855e966d38f30",
+      "bytes": 8656
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/display/hosttest/main.m": {
+      "sha256": "826eecbb75ee77dd23af43dc2b0fc13002827245deaf2bccdad571e29db499d6",
+      "bytes": 2254
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/display/hosttest/run.sh": {
+      "sha256": "da544fe016d42eb068f0b4f7cfae55d797b83e164f7f36c8a2741cd5cc050ceb",
+      "bytes": 864
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/env.sh": {
+      "sha256": "ec24991c772daf5b8d2d8d50cb72f0f647b9555849108d3c892f643bdbf3608a",
+      "bytes": 937
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/logcap/build-logcap.sh": {
+      "sha256": "a7f6c58a07854176673ddf06e40e9bfbb0174868144c58175441f4e6e07f0b97",
+      "bytes": 1098
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/logcap/build-logcap245.sh": {
+      "sha256": "1ba1829dd4cadf9e66863a3e875105fad2794312c15d541a687d2e535adc9753",
+      "bytes": 1129
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/logcap/hosttest/main.c": {
+      "sha256": "3e767e171ee85d5b2841c4f7e229093e55c210e32e279ae9e45497284798c5fb",
+      "bytes": 1307
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/logcap/hosttest/main245.c": {
+      "sha256": "67a20247ba490028891df7a9f313d76bc8c7522c40df64f4dddcb1845ab83149",
+      "bytes": 2536
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/logcap/hosttest/run.sh": {
+      "sha256": "0baa646f93caf7b19cd56682bf24ffc022ca4e2572ee792af4340be423400063",
+      "bytes": 1154
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/logcap/hosttest/run245.sh": {
+      "sha256": "ac8069e5f6159c582bfdf8cda8fcf4b8db5581a663718b82feccbcf0213a0a84",
+      "bytes": 1332
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/logcap/logcap244.c": {
+      "sha256": "a791c8ee2d381c5790d1c256a525830edb0a595ec675b60c802848eccacfa740",
+      "bytes": 13125
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/logcap/logcap245.c": {
+      "sha256": "06a9be1faf0f8cbfd69810ab95e62284e1c09ac9b1333058a7557eb9cd0f732a",
+      "bytes": 18985
+    },
+    "checkpoints/thor-v247/recipe/v245/prepare/relocate.py": {
+      "sha256": "bafe8553e4a8c364804cb2bedf4f4b46a1d29ca748cf516471c2f2e541523138",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v246/build-kernel.sh": {
+      "sha256": "98734a9789f8ffcd762c55fa6c71833d90321b60e4da52fb54d5c0e1c54ab9bf",
+      "bytes": 2289
+    },
+    "checkpoints/thor-v247/recipe/v246/package-v246.py": {
+      "sha256": "cf5241fa28d0de9e8353bdf3a6f401cfd9f552c5900683569a7e49419e5001de",
+      "bytes": 35227
+    },
+    "checkpoints/thor-v247/recipe/v246/prepare/clone.sh": {
+      "sha256": "c2cae27d6cc14bc0c0ed2e4fb5c386622eb8b4873719664ad70e9711b6f97eff",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v246/prepare/env.sh": {
+      "sha256": "043e463c130c4386a2c6b4632e41d9bb6de32c9b219b78d0cf40f56105619d3f",
+      "bytes": 937
+    },
+    "checkpoints/thor-v247/recipe/v246/prepare/logcap/build-logcap246.sh": {
+      "sha256": "11403f2eac2956b6322cc69f6873f1fdfebafbac7e5e84760c95e32c73e806fd",
+      "bytes": 1129
+    },
+    "checkpoints/thor-v247/recipe/v246/prepare/logcap/hosttest/main246.c": {
+      "sha256": "751c34b166f2118bee6f1ee5c8d0d22b881ddf1a56e52d289abf16a86a0ff5ad",
+      "bytes": 2833
+    },
+    "checkpoints/thor-v247/recipe/v246/prepare/logcap/hosttest/run246.sh": {
+      "sha256": "59ed133237159a1b1685f48f367ac81b9f874cd4bbe67e80728bdc6cbd40a7d5",
+      "bytes": 1344
+    },
+    "checkpoints/thor-v247/recipe/v246/prepare/logcap/logcap246.c": {
+      "sha256": "f2db44a5c1c69d1c0bb8afc8d7edbb58cdcd00ce1c6026dc5fec90e6918f4969",
+      "bytes": 19473
+    },
+    "checkpoints/thor-v247/recipe/v246/prepare/relocate.py": {
+      "sha256": "f6b22d298b3354d339bad2f695e2076c890e096f375ea0a92bb50faf5ecadf6b",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v247/build-kernel.sh": {
+      "sha256": "78bf7d5c47d68a4178d6c4590b85991a19235fcae9d7fcb98b95ad17bfe67faf",
+      "bytes": 2289
+    },
+    "checkpoints/thor-v247/recipe/v247/camera-staging/DIFFERENCES.md": {
+      "sha256": "a8f335517cbf94dd5b5175849957140189baf8415a1babf807b9c8d9051c82e8",
+      "bytes": 8531
+    },
+    "checkpoints/thor-v247/recipe/v247/camera-staging/INTEGRATION.md": {
+      "sha256": "fa924acae40c1f47f3134f61e4b2ae2a189c9b9d07789c7d43476802508b394c",
+      "bytes": 16057
+    },
+    "checkpoints/thor-v247/recipe/v247/camera-staging/hosttest/run.sh": {
+      "sha256": "45665146205304170dbb7776824f418a9bec19f50e184585f11e2f0259da68e2",
+      "bytes": 1252
+    },
+    "checkpoints/thor-v247/recipe/v247/camera-staging/hosttest/test_cam.cpp": {
+      "sha256": "9e9bffc4c9e253bfa5450f050132f634d910a82bec7c5e3124a11e5a6394a3e1",
+      "bytes": 35927
+    },
+    "checkpoints/thor-v247/recipe/v247/device/configs-thor/thor-wifi-sm8475.json": {
+      "sha256": "2886d73ab2eaf214f649122bf9853acf2bb3c23934a030739c4f3e4e18cb9d53",
+      "bytes": 10649
+    },
+    "checkpoints/thor-v247/recipe/v247/device/scripts/build-pong-ath11k.py": {
+      "sha256": "a68ac5548aa4fe35be9e5657c113adc5e8b996f2377428bf19aedf308e687a11",
+      "bytes": 27440
+    },
+    "checkpoints/thor-v247/recipe/v247/device/scripts/build-pong-power-native.py": {
+      "sha256": "ad8ab4ed26c3d9589fa1b590cf5b833d295e6e0dafec6b78963c8232a9adbf25",
+      "bytes": 4446
+    },
+    "checkpoints/thor-v247/recipe/v247/device/scripts/build-pong-wifi-native.py": {
+      "sha256": "86be84d87b21382188ce192750fedd02d3abe06cfa2ec0a9bfd7b4b394727649",
+      "bytes": 9088
+    },
+    "checkpoints/thor-v247/recipe/v247/device/scripts/build-xnu-ipados18.sh": {
+      "sha256": "e1ab7804fd0f3d01b14c6e6b7d8a27499678676ec319b1f6b49e78faeaf5e85f",
+      "bytes": 69614
+    },
+    "checkpoints/thor-v247/recipe/v247/package-v247.py": {
+      "sha256": "b841b30d3b91430044721e4c387299d11ba50e9bd9af69451af74f7fca1112b9",
+      "bytes": 36343
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/build.sh": {
+      "sha256": "79272bdd5c22ce0d382d148912cb3ed109f4b5c11bd996c130e4478decab4ab5",
+      "bytes": 310
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/clone.sh": {
+      "sha256": "9e9b810bf819563ccccd5e485b0fe7c597ac47d250ad702ad8d785e6ee80e922",
+      "bytes": 701
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/display/build-display246.sh": {
+      "sha256": "048c8643a2d2e9b31b8a35b82518f57e4d097f307d17dc7242a5e170bf7136de",
+      "bytes": 1215
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/display/display246.c": {
+      "sha256": "2fcec38389f4aa3a9150b47614cf01323099b938e839077c020ad469ba6a0339",
+      "bytes": 9828
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/display/hosttest/main246.m": {
+      "sha256": "ba197b508bed46f0ab43bd5fb163eab2bf17de933cc99c33f36d98db0eb6a4c7",
+      "bytes": 2427
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/display/hosttest/run.sh": {
+      "sha256": "f283931436d3649d6f14eba4be2ec0f0d45573c18c00200f73ff2b377929089b",
+      "bytes": 867
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/env.sh": {
+      "sha256": "724774448c11365457e8cbbaeb5f044158311e5f4a2b64ac945a61a35e844960",
+      "bytes": 937
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/logcap/build-logcap247.sh": {
+      "sha256": "1ddacea563d4846cefeb35d4648b65b50d663bfe1e5b8557694dfdb7e6abb4b5",
+      "bytes": 1129
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/logcap/hosttest/main247.c": {
+      "sha256": "9b37611423a15f094e408c424735d321291ed9b66ebe290ce446ed2eabbf4226",
+      "bytes": 3096
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/logcap/hosttest/run247.sh": {
+      "sha256": "786a663b4c17f69ee8a46db0ecb01a9262135b39a448add7dee052d221049475",
+      "bytes": 1369
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/logcap/logcap247.c": {
+      "sha256": "4f471e7fe06b95d183d73bab7eb96db95b98eed8d8f806ca24cddf2a2e3f18a2",
+      "bytes": 20416
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/logcap/trace_flags.h": {
+      "sha256": "9b4f2dc782634968f5c2b18b8bd4a10d8f99d1db3116d7a2883af731e3f7d81b",
+      "bytes": 3150
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/probe/build-probe.sh": {
+      "sha256": "1816d8c76502766d60be7da664c8d9fea12f9581ed99209aaf32b8521eb51af8",
+      "bytes": 991
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/probe/hosttest/main.c": {
+      "sha256": "7baa152e9a732a588bb0be30bf9f490890be8c9edecc6c738f49d13bdc0e5710",
+      "bytes": 1823
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/probe/hosttest/run.sh": {
+      "sha256": "0395909998f7cea7fa817b5a89d6c44d7d37156c004978df2d69d7b87ca9e1db",
+      "bytes": 707
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/probe/probe244.c": {
+      "sha256": "fda1d19a9650050fdbbeda1ff94467985427a9df75680b8336122011077adcce",
+      "bytes": 24610
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/relocate.py": {
+      "sha256": "37b56d40c0da8771ea8522133f69ab5f85dfc25c9cfd2bba9f1d5d031c45377e",
+      "bytes": 1697
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/about237.patch": {
+      "sha256": "58af83cc9d293478d2bfd993cede9d0b603e65da91e7df8af04db75c93012828",
+      "bytes": 15936
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/about238.patch": {
+      "sha256": "e01bbf543083652bad17b793e978b504c8a81978786c49dacbc75cd8335ccb31",
+      "bytes": 6879
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/base/build-settings-trace.sh": {
+      "sha256": "3fdf13a2d759ddae6792a0f62e40cd285ea69643bb86c7c6c4671fdbf1e81e87",
+      "bytes": 872
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/base/general_prefetch223.m": {
+      "sha256": "dcf814ffc88c9640dee59b9176587c06c62bb50c0778590d367b4509df625ffc",
+      "bytes": 5121
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/base/navigation_completion185.h": {
+      "sha256": "8ac94c8f8ed7618481fc027355797106bca144e6b06ca3abdaef0a1daaf0958d",
+      "bytes": 445
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/base/navigation_completion185.m": {
+      "sha256": "3da5639142e71aa21540ea7f46991bb49191105ef7640d9152936bf0efcc8b1c",
+      "bytes": 1188
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/base/settings_trace18.c": {
+      "sha256": "c38f8827f9bf03f837ecc66f6e1d86eb786f92c5fdd79c085c69e146a73ca778",
+      "bytes": 24537
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/base/window_cpu223.h": {
+      "sha256": "f202e8cc9c45a7f427d1ff07d65163d60317a64babec365a3873c286cb241b91",
+      "bytes": 563
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/base/window_cpu223.m": {
+      "sha256": "de464bd7c5bf2c765089c4dcac644fa86998d4c8862ec3845b24a4481bee3a6f",
+      "bytes": 4982
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/own.m": {
+      "sha256": "63dc58b882719d150a15000929c054b1bae318a38ac40b84e318a73089c6c0af",
+      "bytes": 526
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/test.m": {
+      "sha256": "b18b475da3fa1d83eadc92aa3529759e0e1691441b0859db98e950a1a804f2a9",
+      "bytes": 2186
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/test238.m": {
+      "sha256": "b18b475da3fa1d83eadc92aa3529759e0e1691441b0859db98e950a1a804f2a9",
+      "bytes": 2186
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/tick.m": {
+      "sha256": "efe2ba2faac21426b207848d79da8b76bc3de626e83a741f1d870827e0cc5c72",
+      "bytes": 1487
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/hosttest/tick238.m": {
+      "sha256": "5baf2ffaf9cf4094b3b8f190fe4c20c75bcd1a8c6ff41ffc1d0ad3e7a06d4f85",
+      "bytes": 1480
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/own.m": {
+      "sha256": "63dc58b882719d150a15000929c054b1bae318a38ac40b84e318a73089c6c0af",
+      "bytes": 526
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/run.sh": {
+      "sha256": "20b25e721bd5bbcc188a801c7af42f2662ddc9b40fe62351983a9529a7a03ca3",
+      "bytes": 1468
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/test.m": {
+      "sha256": "b18b475da3fa1d83eadc92aa3529759e0e1691441b0859db98e950a1a804f2a9",
+      "bytes": 2186
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/hosttest/tick.m": {
+      "sha256": "efe2ba2faac21426b207848d79da8b76bc3de626e83a741f1d870827e0cc5c72",
+      "bytes": 1487
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/replay.py": {
+      "sha256": "2807321181215ba915f5c4aea126e71e787f983035067ffc9c3135eec7c63df2",
+      "bytes": 2495
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/settings/settings.patch": {
+      "sha256": "7b058b7f754cc4917535d6401d01fdf71b558e46124d384388bf697647510435",
+      "bytes": 33783
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/wifid/build-wifid.sh": {
+      "sha256": "2947ad187a96f330fec64ebfc7dc16a60459a936e81f962f360666eade312e17",
+      "bytes": 757
+    },
+    "checkpoints/thor-v247/recipe/v247/prepare/wifid/wifid244.c": {
+      "sha256": "914765af28375c6fe6dacc3ff4ab61af70c90cf79e69db53df845b7c4911621c",
+      "bytes": 5044
+    },
+    "checkpoints/thor-v247/recipe/v247/thor-gpu.defconfig": {
+      "sha256": "1e17db889141ef668f61d875abfcfa9b35f4f69e1362dcbdffdbac938d69bd60",
+      "bytes": 1626
+    },
+    "checkpoints/thor-v247/records/intake-v237/ANALYSIS.md": {
+      "sha256": "d9f6ec2fa8ea572181b386f62485e289193ecd2a9b518184bfe55f3a4a6dedf8",
+      "bytes": 13128
+    },
+    "checkpoints/thor-v247/records/intake-v237/boot-fastboot.txt": {
+      "sha256": "8fb373e0c0fdba44c1fa367c3024fc56183d1fc7c527bd47cfe84822ee3f8fd4",
+      "bytes": 163
+    },
+    "checkpoints/thor-v247/records/intake-v237/boot-stack-budget.txt": {
+      "sha256": "a5a7addedfc3f89f2f086fc26919e8dde89d9c312da1dee6183fdd5410f65ea3",
+      "bytes": 561
+    },
+    "checkpoints/thor-v247/records/intake-v237/image-sha256.txt": {
+      "sha256": "75bc682e4f5a0566b26cc07a63cc012920edb1da6519b0d358633c70f4bdc34f",
+      "bytes": 113
+    },
+    "checkpoints/thor-v247/records/intake-v237/review.md": {
+      "sha256": "3474ecba1709e5bacf3386d4cf7ef480ec022175fb1597e4190a1c6fc0565386",
+      "bytes": 7003
+    },
+    "checkpoints/thor-v247/records/intake-v237/serve-tests/QcomUimStatusStub.h": {
+      "sha256": "51df756fd8a9c62aefce005f40dba72226d0a063909913072a8dc809075c8cec",
+      "bytes": 40
+    },
+    "checkpoints/thor-v247/records/intake-v237/serve-tests/mock.h": {
+      "sha256": "c7e8ce2303b71c0751a1ace6c441470f09834f49efab7233374623838d09cc09",
+      "bytes": 3165
+    },
+    "checkpoints/thor-v247/records/intake-v238/boot-fastboot.txt": {
+      "sha256": "ee025c790cf45592769fc687d6ca5a89b575366ad97a281a6cd8cb4bdd6e8ddd",
+      "bytes": 163
+    },
+    "checkpoints/thor-v247/records/intake-v238/boot-stack-budget.txt": {
+      "sha256": "9818e52e41637d85dd0c1e415261817f2fcdebd3f985955ab5ec93791f3f04a2",
+      "bytes": 561
+    },
+    "checkpoints/thor-v247/records/intake-v238/image-sha256.txt": {
+      "sha256": "c70c74858f1d7e55b307405d59d33a23b72839ecfcafe3534aceb5e4a71a7ec1",
+      "bytes": 113
+    },
+    "checkpoints/thor-v247/records/intake-v239/ANALYSIS.md": {
+      "sha256": "776e8b0281fef9db810ea23785641ad36619aa380095827b8a34b164e85eff25",
+      "bytes": 9573
+    },
+    "checkpoints/thor-v247/records/intake-v239/boot-stack-budget.txt": {
+      "sha256": "a03304267a839e3945e8166d5321cbdba1a034afd1e427126373a0cf5b8b65ca",
+      "bytes": 561
+    },
+    "checkpoints/thor-v247/records/intake-v239/image-sha256.txt": {
+      "sha256": "1a7e149bd9787a9fe579f25bcfd0489aa3e669dcb0acde6a4d0a221e63ab10c3",
+      "bytes": 231
+    },
+    "checkpoints/thor-v247/records/intake-v240/boot-stack-budget.txt": {
+      "sha256": "5399ce1053312ec62b5a888438c6c1db2308eabd26c8a0cfbd32b125e0e3dd74",
+      "bytes": 561
+    },
+    "checkpoints/thor-v247/records/intake-v240/image-sha256.txt": {
+      "sha256": "d7366d25fb3deb4ca5efc137cde4b9f8732f3893fce99f0f865c285507d8dda0",
+      "bytes": 231
+    },
+    "checkpoints/thor-v247/records/intake-v240/remote-capture/thor-log-capture/README.txt": {
+      "sha256": "23eb1fd4a78a10f473c879b5e571df9e8bbfac6ffe983b5584cb1559266d6307",
+      "bytes": 1615
+    },
+    "checkpoints/thor-v247/records/intake-v241/ANALYSIS.md": {
+      "sha256": "892c7987c9f8d1484807ef09f22b58e87e5cb1c4be1e2ffd718ab0597f2a0e07",
+      "bytes": 20013
+    },
+    "checkpoints/thor-v247/records/intake-v241/boot-stack-budget.txt": {
+      "sha256": "672bf50055f4fedaa5a1225a68afd847492f48c0d102667fda74d9f44b40054f",
+      "bytes": 557
+    },
+    "checkpoints/thor-v247/records/intake-v241/image-sha256.txt": {
+      "sha256": "f89d0130205ec88e4a3838e8c01201a625b321af64d715648ab758f9bc26f6f5",
+      "bytes": 456
+    },
+    "checkpoints/thor-v247/records/intake-v241/remote-capture/thor-log-capture/README.txt": {
+      "sha256": "2dd8677e25495bd0f46d88466a3905d3c9fac47b599fd3121ddac9038f47b9c2",
+      "bytes": 1828
+    },
+    "checkpoints/thor-v247/records/intake-v241/research/CELLULAR-22H374.md": {
+      "sha256": "e084455357ac5aa2006aa5f118644989cbd799b46c6c9ad26142e07c9b2f06ae",
+      "bytes": 27602
+    },
+    "checkpoints/thor-v247/records/intake-v241/research/WIFID-22H374.md": {
+      "sha256": "e7ad4f97bd6ae5dc9f4b84c8066bfa93464e24f9bff358d755bbe5b7252de3a8",
+      "bytes": 24029
+    },
+    "checkpoints/thor-v247/records/intake-v242/ANALYSIS.md": {
+      "sha256": "175dcc5cbbacf7771c3ba47a5e71542a9f4ccd98ede6fa6993f8c2678f4cdd41",
+      "bytes": 12298
+    },
+    "checkpoints/thor-v247/records/intake-v242/image-sha256.txt": {
+      "sha256": "1f88a70f4673ee2bd267c593a02381c766b35645f35f13ff2744350f738adc87",
+      "bytes": 113
+    },
+    "checkpoints/thor-v247/records/intake-v242/temp-rest-dir.txt": {
+      "sha256": "3b7213e86699de2e8da750027fcfe0dff415ce9c3f7c43aa46fc3f9e9d40ba97",
+      "bytes": 40
+    },
+    "checkpoints/thor-v247/records/intake-v243/ANALYSIS.md": {
+      "sha256": "f32861866acd8ecb9fcb67758d16e7226e1283bec8eb2f593b54698cb80b87cb",
+      "bytes": 9394
+    },
+    "checkpoints/thor-v247/records/intake-v243/boot-stack-budget.txt": {
+      "sha256": "1b3d057f3f17955f1fec66fb1affb526e06500dfcdbb20dd970f93d72fc9df3a",
+      "bytes": 565
+    },
+    "checkpoints/thor-v247/records/intake-v244/ANALYSIS.md": {
+      "sha256": "afbeb4fbdad84e9ca949966bc3d3ad1c1120e296d2a59b2c1f970f8f07b75b4c",
+      "bytes": 7676
+    },
+    "checkpoints/thor-v247/records/intake-v244/boot-stack-budget.txt": {
+      "sha256": "f104e275f861444689ae158b5f2583feed13495f4eddb843c8af059901a212bb",
+      "bytes": 302
+    },
+    "checkpoints/thor-v247/records/intake-v245/ANALYSIS.md": {
+      "sha256": "32388e1c1202172e0b8f81fa67938fed90086019825d74ae684e0f612d8aac9f",
+      "bytes": 9808
+    },
+    "checkpoints/thor-v247/records/intake-v245/boot-stack-budget.txt": {
+      "sha256": "6e5831c73f08eb3982b74ad1d0c2066493dc03d2bb6e8d41e81df6e6f234bc44",
+      "bytes": 298
+    },
+    "checkpoints/thor-v247/records/intake-v246/ANALYSIS.md": {
+      "sha256": "72bf9fc1346ea159c3164e7185670f0b62cfd7c9d748b9b5011ca6c3f6987aea",
+      "bytes": 6296
+    },
+    "checkpoints/thor-v247/records/intake-v246/boot-stack-budget.txt": {
+      "sha256": "845bb5ecdb60742d5789be4df47f8e48b9057db2307fd9dbf68f1e5ebfccb569",
+      "bytes": 204
+    },
+    "checkpoints/thor-v247/records/intake-v246/research/CALLS-22H374.md": {
+      "sha256": "040840eb71c2ebd933736d1e54eae391c53c9a6a23446c35038347e958804397",
+      "bytes": 9779
+    },
+    "checkpoints/thor-v247/records/intake-v246/research/CAMERA-22H374.md": {
+      "sha256": "b13b3b454cd4c6eccc2ae6481e882ae403627f5283e721f827416630833dfe94",
+      "bytes": 13790
+    },
+    "checkpoints/thor-v247/records/intake-v247/ANALYSIS.md": {
+      "sha256": "4498f352ad97bd6cfedf9673455ee793128492664e8ebf317da34b6919764328",
+      "bytes": 5625
+    },
+    "checkpoints/thor-v247/records/intake-v247/boot-stack-budget.txt": {
+      "sha256": "845bb5ecdb60742d5789be4df47f8e48b9057db2307fd9dbf68f1e5ebfccb569",
+      "bytes": 204
+    },
+    "checkpoints/thor-v247/records/verification/v237/unified-verification.json": {
+      "sha256": "d4d4339541d3c407f6af4065978dda339a3cf6c521dd9d188df503a5efef87f0",
+      "bytes": 6974
+    },
+    "checkpoints/thor-v247/records/verification/v238/unified-verification.json": {
+      "sha256": "08d2d02f439b67f6c4516a5482c7c7fca8d97a00d2f25d48530173747bb12a59",
+      "bytes": 7006
+    },
+    "checkpoints/thor-v247/records/verification/v239/unified-verification.json": {
+      "sha256": "49fc0ff2c433bf83e1a9b23a43b303241cebc268a852bfff54345212de4fd604",
+      "bytes": 7626
+    },
+    "checkpoints/thor-v247/records/verification/v240/unified-verification.json": {
+      "sha256": "8db2d0dbdc1de0372f31db0a9bbe53f2e3aae71a9f0fa5a866477d773de26028",
+      "bytes": 8055
+    },
+    "checkpoints/thor-v247/records/verification/v241/unified-verification.json": {
+      "sha256": "fdef6dfc6962075936f6c0eba38fa33bc20fb733bc51402b83f2fd9787e897a9",
+      "bytes": 9164
+    },
+    "checkpoints/thor-v247/records/verification/v241/wifi-verification.json": {
+      "sha256": "2704429b1cfeaaba482ff5c86c67ae6813f47276d44816ded85e2e7a4b40679b",
+      "bytes": 9128
+    },
+    "checkpoints/thor-v247/records/verification/v242/unified-verification.json": {
+      "sha256": "4f018eeea34cdb5103728f1e0d8be237d798208131dd6c3cdb7d37513bee690a",
+      "bytes": 7629
+    },
+    "checkpoints/thor-v247/records/verification/v243/unified-verification.json": {
+      "sha256": "0bc1830b2e78f8d907a5415c482129d32bb68bcfa8d750992717f202c3aebe35",
+      "bytes": 8069
+    },
+    "checkpoints/thor-v247/records/verification/v243/wifi-verification.json": {
+      "sha256": "815c73cf0f20dc9f0653d6009c950a55e1f3a4ecf829a742c089b0c49d703c23",
+      "bytes": 8126
+    },
+    "checkpoints/thor-v247/records/verification/v244/unified-verification.json": {
+      "sha256": "ee875e214ad1f4346f3c9cd5b4dcd8abf18216b3eba98ce4ba9680b9748164fc",
+      "bytes": 8251
+    },
+    "checkpoints/thor-v247/records/verification/v245/unified-verification.json": {
+      "sha256": "d6a0c5adafdec8fdf7eca8eb685f68a17ab8dae26e597cbafcf41c80199701a9",
+      "bytes": 9330
+    },
+    "checkpoints/thor-v247/records/verification/v246/unified-verification.json": {
+      "sha256": "433d30fc59001b227fbaae9fb10defb0896c5cf7ce883b938dcc9ec2983461ef",
+      "bytes": 8735
+    },
+    "checkpoints/thor-v247/records/verification/v247/unified-verification.json": {
+      "sha256": "f75bb57dce5dfd59855e5f9f142290370c4829e56464b727d7a645114e9815fd",
+      "bytes": 9180
+    },
+    "checkpoints/thor-v247/tools/adt_diff.py": {
+      "sha256": "a187ebe5483d397ee22df146e35b2ae9a59cd4e853c926c33dd296b8e3cae4d3",
+      "bytes": 1507
+    },
+    "checkpoints/thor-v247/tools/apfs_macho_uuids.py": {
+      "sha256": "e15d6508bb0653034f1815a4f3d2c9557695334d1cf79bdf2624df7e0d7303f3",
+      "bytes": 2668
+    },
+    "checkpoints/thor-v247/tools/apfs_noverify.py": {
+      "sha256": "98716728685b745c68e887c3f31281db4572323ecf5d62c7d44f2be1a1b73dca",
+      "bytes": 949
+    },
+    "checkpoints/thor-v247/tools/apple-binaries.README.md": {
+      "sha256": "a9c5ccc364d004dbb9405f4ed4a4849d72982baebbaebc02b6e72bed5d91bc36",
+      "bytes": 3020
+    },
+    "checkpoints/thor-v247/tools/calls.py": {
+      "sha256": "be66ab19841aee908da2a2872e37eb89e2be62900f0b2a40efbd7ac8e5b0eeb5",
+      "bytes": 4122
+    },
+    "checkpoints/thor-v247/tools/dscmap.py": {
+      "sha256": "6f860ce4b4d35b49ad33412c6c754526f2a6c056c7f1bb8cbcd398bc2b8800e7",
+      "bytes": 2011
+    },
+    "checkpoints/thor-v247/tools/gpt-mark-ok.py": {
+      "sha256": "471425a603570352b1acbff469367149a65ba1add7d82219be446db414db3b19",
+      "bytes": 8282
+    },
+    "checkpoints/thor-v247/tools/gptcmp.py": {
+      "sha256": "1a2df4d22e234c8ca1156c8c9f9875c6d75eb0063ff87b19f7f6f52341c64617",
+      "bytes": 4119
+    },
+    "checkpoints/thor-v247/tools/kc_calls.py": {
+      "sha256": "9ec2ffe86a1d749de9922e92d1a4473e2765845495a274fd66ccdb089d974071",
+      "bytes": 5283
+    },
+    "checkpoints/thor-v247/tools/kc_kext_dis.py": {
+      "sha256": "468df5db1187619d12e9a4a257d3afdb976fb31051e80016f88abbf58f57b6cc",
+      "bytes": 5695
+    },
+    "checkpoints/thor-v247/tools/kc_string_xrefs.py": {
+      "sha256": "c37edce845f31e00c8fd6485a5fa96182742d850e21045941df43177f30f9480",
+      "bytes": 3982
+    },
+    "checkpoints/thor-v247/tools/macho.py": {
+      "sha256": "92521e03295653d3ef9b17ce82b1ca9284096cf68de178280a7ec394522ad638",
+      "bytes": 4152
+    },
+    "checkpoints/thor-v247/tools/macho_calls.py": {
+      "sha256": "c2d2f8c29ee5aff0fe7a8c3a96f7c82236f8333486c1d510afb5c584058927c0",
+      "bytes": 7641
+    },
+    "checkpoints/thor-v247/tools/member_extract.py": {
+      "sha256": "8cd05ad84bbeb0fcf14bf01f4e742c5ef37d4564dcf61d17b8c3544f7dc4861d",
+      "bytes": 748
+    },
+    "checkpoints/thor-v247/tools/objc_methods.py": {
+      "sha256": "fef724eb72f25738cad378ed7a47c26fbbf59f4fbbfd93cf3dea545e81a10ce7",
+      "bytes": 6754
+    },
+    "checkpoints/thor-v247/tools/osimg.py": {
+      "sha256": "d2240c56284c9987445b743a3038ccc2603546909b14286fba3a52dd274147d5",
+      "bytes": 1267
+    },
+    "checkpoints/thor-v247/tools/shngvol.sh": {
+      "sha256": "c340f942de20196bb344e1ee84686280d2ac618925a338a98fa1651d6e1e18ed",
+      "bytes": 604
+    },
+    "checkpoints/thor-v247/tools/stackshot_stuck.py": {
+      "sha256": "37140fa15da24a17656f526d8d531d062b848e01eb1cbeeff53f2d844ef269ba",
+      "bytes": 3775
+    },
+    "checkpoints/thor-v247/tools/xref.py": {
+      "sha256": "3b74afa42329dd86898596eb33fb3c9caf5df11ca6c942baef70dcfc1649f069",
+      "bytes": 2357
+    },
+    "patches/xnu-ipados18/checkpoints/thor-v247/manifest.json": {
+      "sha256": "76a2ec56fe7fa18143d1ce87f73161ac983c49cc94b5db74336a3b9664938760",
+      "bytes": 24771
+    },
+    "patches/xnu-ipados18/checkpoints/thor-v247/xnu-after-series.patch": {
+      "sha256": "94b24b68c57478cf5e8815ffde0e7abc4ef2eb587d4fc0b9e486f8cdf67b8c8a",
+      "bytes": 482546
+    }
+  },
+  "kept_local": [
+    "boot images and kernels",
+    "signed runtime libraries and the three generated payload headers",
+    "firmware and restore inputs",
+    "logs, snapshots, panic records and photographs (they name the device)",
+    "compiled host tests and helpers",
+    "home directory paths, the phone's fastboot serial and the name of the office wireless network (replaced by THOR_ROOT, THOR_TOOLS, THOR_SERIAL and a placeholder)"
+  ]
+}
