@@ -1,0 +1,23 @@
+{
+  "bridge_uuid": "7AB7B5A9-0B60-3C67-A765-2F7DD9346EB2",
+  "ui_uuid": "70BD1E7D-F365-3819-B166-7EEF6BA8AADD",
+  "metal_pool_name": "thor-metal-pool-7ab7b5a9",
+  "artifacts": {
+    "runtime/PongMetalBridge.dylib": {
+      "bytes": 22811744,
+      "sha256": "b7a81b9d89cca5f0fcf362e1ada66b96d50d701f6adc21dd5989cefeadceb517"
+    },
+    "runtime/libpong-ui.dylib": {
+      "bytes": 262608,
+      "sha256": "a3dc47b69b433eb65d3cf831f55cca602397f4bec4fcf3df5337e6f2115122bf"
+    },
+    "thor_metal_pool_payload.h": {
+      "bytes": 407,
+      "sha256": "cbbc091d22f1d49116195f5bb4c9b56c4d0c237ab9a367e9fd1b86011b1d9ead"
+    },
+    "producer-timing.patch": {
+      "bytes": 11172,
+      "sha256": "d2475472dd8fa9833bab007708c6ac4e50f263dc23c0ed8b3bba26b5011be4a5"
+    }
+  }
+}

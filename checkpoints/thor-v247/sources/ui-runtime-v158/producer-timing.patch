@@ -1,0 +1,220 @@
+--- thor-out/v147-import-concurrency/bridge/NativeBridgeMetalFrontend.mm
++++ bridge/NativeBridgeMetalFrontend.mm
+@@ -47,6 +47,10 @@
+ static bool (*gFrameTransport)(uint32_t,const void *,uint32_t);
+ static std::atomic<uint64_t> gFrameNumber{0},gFrameLost{0};
+ static bool frameTraceOn(){static const bool on=getenv("SHENG_GPU_TRACE")!=nullptr;return on;}
++static bool producerTimingOn() {
++ static const bool compositor=getprogname() && !strcmp(getprogname(),"backboardd");
++ return compositor && gFrameTransport;
++}
+ template<typename... T> static void frameEvent(uint32_t event,T... args) {
+  if(!frameTraceOn() || !gFrameTransport)return;
+  NativeGpuTraceRecord rec{};rec.event=event;const uint64_t values[]={uint64_t(args)...};
+@@ -582,15 +586,16 @@
+  // Merge only covered virtual ranges inside this one maintenance phase;
+  // aliases at different VAs and subsequent commands still get maintenance.
+  // This removes repeated large cache walks without skipping coherency.
+- std::vector<std::pair<uintptr_t,size_t>> merged;
++ size_t merged=0;
+  for(auto it=ranges.begin();it!=last;++it) {
+   if(!it->first || !it->second || it->second>UINTPTR_MAX-it->first)continue;
+-  if(!merged.empty()) {
+-   auto &previous=merged.back();const uintptr_t end=previous.first+previous.second;
++  if(merged) {
++   auto &previous=ranges[merged-1];const uintptr_t end=previous.first+previous.second;
+    if(it->first<=end){previous.second=std::max(end,it->first+it->second)-previous.first;continue;}
+   }
+-  merged.push_back(*it);
+- }
++  ranges[merged++]=*it;
++ }
++ ranges.resize(merged);
+  // Several exact kernel replies can together cover the merged surface
+  // range. Keep the whole fallback when any part lacks confirmed coverage.
+  HostRanges confirmed=kernelSynced;
+@@ -606,7 +611,7 @@
+   confirmed[count++]=range;
+  }
+  confirmed.resize(count);
+- for(const auto &range:merged) {
++ for(const auto &range:ranges) {
+   // Only omit the user VA flush when this exact phase successfully
+   // maintained retained physical imports covering the entire range.
+   // NotFound/unsupported, copied backings and uncovered ranges retain the
+@@ -1081,6 +1086,8 @@
+ @public
+  EncodedWork encodedWork;   // the command buffer's single encoder thread, not global counter deltas
+  uint64_t createdUs,traceNumber;
++@package
++ uint64_t writerBeginUs,submitUs,callbackUs;
+ }
+ @property(nonatomic) NmbCommandBuffer *handle;
+ @property(nonatomic,strong) NBQueue *queue;
+@@ -1838,12 +1845,17 @@
+   self.completionSyncFailed=YES;self.encodeFailure=@"completed host-import acquire failed";
+  }
+  const uint64_t flushBegan=nowUs();flushSurfaces(_surfaces,kernelSynced);
+- frameEvent(61,traceNumber,1,flushBegan-syncBegan,nowUs()-flushBegan,_surfaces.count,_resourceOwners.count,kernelSynced.size());
++ const uint64_t flushDone=nowUs();
++ frameEvent(61,traceNumber,1,flushBegan-syncBegan,flushDone-flushBegan,_surfaces.count,_resourceOwners.count,kernelSynced.size());
+  [self tracePhase:3];
+  if(!self.failedLocally && self.status==MTLCommandBufferStatusCompleted)captureFrameSurfaces(self);
+  const bool failed=self.completionSyncFailed || (!self.failedLocally && self.status!=MTLCommandBufferStatusCompleted);
+  if(failed)reportProducerFailure(_handle,self.commitIndex,runtimeStatus,displayHandoffs,syncFailure);
+- const auto release=pongsurface::complete(displayHandoffs,failed);
++ // Only instrument commands already late enough to miss a 120 Hz display deadline.
++ // The kernel accepts records only during its bounded compositor capture.
++ const bool sample=callbackUs && !displayHandoffs.empty() && nowUs()-self.committedUs>=12000;
++ pongsurface::ReleaseSamples releaseSamples;
++ const auto release=pongsurface::complete(displayHandoffs,failed,sample?&releaseSamples:nullptr,nowUs);
+  if(release.count)reportProducerFailure(_handle,self.commitIndex,runtimeStatus,displayHandoffs,syncFailure,release);
+  // Actual GPU completion (or a local refusal that never submitted) is the
+  // release point. A retained completed command must not pin every old frame.
+@@ -1861,6 +1873,19 @@
+  };
+  dispatch_queue_t queue=_queue.completionQueue;
+  if(queue)dispatch_async(queue,run);else run();
++ // Transport only after all ownership calls and normal handler dispatch.
++ for(size_t i=0;i<releaseSamples.count;++i) {
++  const auto &entry=releaseSamples.samples[i];
++  if(!entry.tick)continue;
++  NativeGpuTraceRecord record{};
++  record.event=64;
++  const uint64_t fields[]={entry.sid,traceNumber,self.committedUs,writerBeginUs,submitUs,callbackUs,
++                           flushBegan,flushDone,entry.beginUs,entry.endUs,
++                           static_cast<uint64_t>(failed || entry.status),entry.tick};
++  static_assert(sizeof(fields)==sizeof(record.value),"producer event fields");
++  memcpy(record.value,fields,sizeof(fields));
++  (void)gFrameTransport(NativeGpuTraceMethod,&record,sizeof(record));
++ }
+ }
+ - (void)commit {
+  if(self.committed){NBLOG(@"native-metal: commit twice");return;}
+@@ -1877,8 +1902,11 @@
+  dispatch_group_enter(_handlers);
+  dispatch_group_enter(_schedulingHandlers);
+  @synchronized(gInFlight){[gInFlight addObject:self];}
+- if(!self.encodeFailure && !pongsurface::begin(_surfaces,displayHandoffs))
+-  [self refuse:@"IOSurface CPU/GPU ownership handoff unavailable"];
++ if(!self.encodeFailure) {
++  if(producerTimingOn() && _surfaces.count)writerBeginUs=nowUs();
++  if(!pongsurface::begin(_surfaces,displayHandoffs))
++   [self refuse:@"IOSurface CPU/GPU ownership handoff unavailable"];
++ }
+  const uint64_t syncBegan=nowUs();
+  HostRanges kernelSynced;
+  if(!self.encodeFailure && !syncActiveImports(_surfaces,_resourceOwners,2,kernelSynced))
+@@ -1889,7 +1917,10 @@
+   // Completion owns this reference; the runtime orders the non-owning scheduled callback before it.
+   void *context=(__bridge_retained void *)self;
+   if(nmb_command_buffer_on_completed(_handle,completed,context) &&
+-     nmb_command_buffer_on_scheduled(_handle,scheduled,context) && nmb_command_buffer_commit(_handle))return;
++     nmb_command_buffer_on_scheduled(_handle,scheduled,context)) {
++   if(writerBeginUs && !displayHandoffs.empty())submitUs=nowUs();
++   if(nmb_command_buffer_commit(_handle))return;
++  }
+   (void)CFBridgingRelease(context);   // refused registration/commit cannot call the registered handlers
+   [self refuse:[@"commit: " stringByAppendingString:lastError()]];
+  }
+@@ -1922,6 +1953,7 @@
+  gCompleted++;
+  NBCommandBuffer *commandBuffer=(__bridge_transfer NBCommandBuffer *)context;
+  const uint64_t callbackBegan=nowUs();
++ if(commandBuffer->submitUs)commandBuffer->callbackUs=callbackBegan;
+  int64_t scheduledUs=-1;
+  {
+   const uint64_t took=nowUs()-commandBuffer.committedUs;
+@@ -2620,16 +2652,18 @@
+  gLoaderPath=loader?loader:"";
+  if(cache && *cache)configureShaderDiskCache(cache);
+  gDevice=nmb_device_open(loader,cache);
+- if(frameTraceOn() && loader) {
++ if(loader && (frameTraceOn() || (getprogname() && !strcmp(getprogname(),"backboardd")))) {
+   void *library=dlopen(loader,RTLD_NOW|RTLD_NOLOAD);
+   if(library)gFrameTransport=(bool (*)(uint32_t,const void *,uint32_t))dlsym(library,"tu_darwin_frame_diagnostic");
+-  nmb_gpu_diagnostic_hook(frameRuntime);
+-  frameText(46,getprogname());frameEvent(48,singleSample(),getenv("SHENG_GPU_PIXELS")!=nullptr);
+-  if(library)if(auto build=(const char *(*)())dlsym(library,"tu_darwin_frame_build_id"))frameText(58,build());
+-  frameText(59,getenv("TU_DEBUG")?getenv("TU_DEBUG"):"default");
++  if(frameTraceOn()) {
++   nmb_gpu_diagnostic_hook(frameRuntime);
++   frameText(46,getprogname());frameEvent(48,singleSample(),getenv("SHENG_GPU_PIXELS")!=nullptr);
++   if(library)if(auto build=(const char *(*)())dlsym(library,"tu_darwin_frame_build_id"))frameText(58,build());
++   frameText(59,getenv("TU_DEBUG")?getenv("TU_DEBUG"):"default");
+ #ifdef NATIVE_METAL_BUILD_ID
+-  frameText(47,NATIVE_METAL_BUILD_ID);
++   frameText(47,NATIVE_METAL_BUILD_ID);
+ #endif
++  }
+  }
+ 
+  if(!gDevice){NBLOG(@"native-metal: device refused: %s",nmb_last_error());return nil;}
+--- thor-out/v98-gpu-present-guard/PongMetal/PongSurfaceHandoff.h
++++ bridge/PongSurfaceHandoff.h
+@@ -24,10 +24,20 @@
+     unsigned entry=service(0,matching("IOCoreSurfaceRoot"));
+     if(entry){(void)connect(entry,mach_task_self(),0,&connection);release(entry);}
+ }
+-static kern_return_t handoff(mach_port_t right,bool end,bool failed) {
++static kern_return_t handoff(mach_port_t right,bool end,bool failed,uint64_t *releaseTick=nullptr) {
+     pthread_once(&once,open);
+     if(!connection||!call)return 0xe00002d8; // native not-ready, never success
+     const uint64_t input[]={right,end?1u:0u,failed?1u:0u};
++    if(releaseTick) {
++        unsigned count=1;
++        const auto result=call(connection,0x504f4701u,input,3,releaseTick,&count);
++        // The legacy selector rejects the extra result before changing ownership.
++        if(static_cast<unsigned>(result)!=0xe00002c2) {
++            if(result || count!=1)*releaseTick=0;
++            return result;
++        }
++        *releaseTick=0;
++    }
+     return call(connection,0x504f4701u,input,3,nullptr,nullptr);
+ }
+ struct HeldSurface {
+@@ -39,10 +49,26 @@
+     uint32_t sid=0;
+     size_t count=0;
+ };
+-static EndFailure complete(std::vector<HeldSurface> &rights,bool failed) {
++struct ReleaseSample {
++    uint64_t beginUs,endUs,tick;
++    uint32_t sid;
++    kern_return_t status;
++};
++struct ReleaseSamples {
++    ReleaseSample samples[8];
++    size_t count=0;
++};
++static EndFailure complete(std::vector<HeldSurface> &rights,bool failed,
++                           ReleaseSamples *timing=nullptr,uint64_t (*nowUs)()=nullptr) {
+     EndFailure failure;
+     for(const auto &held:rights) {
+-        const kern_return_t result=handoff(held.right,true,failed);
++        ReleaseSample *sample=timing && timing->count<8 ? &timing->samples[timing->count++] : nullptr;
++        if(sample)*sample={nowUs(),0,0,held.sid,0};
++        const kern_return_t result=handoff(held.right,true,failed,sample?&sample->tick:nullptr);
++        if(sample) {
++            sample->endUs=nowUs();
++            sample->status=result;
++        }
+         if(result) {
+             if(!failure.count) {
+                 failure.status=result;
+--- thor-out/v156-switcher-cellular/switcher-runtime/ui_compat18-v156.c
++++ ui/ui_compat18-v158.c
+@@ -2239,10 +2239,10 @@
+     if (mh->magic != MH_MAGIC_64 || mh->filetype != MH_DYLIB)
+         return;
+     static const uint8_t known_uuid[][16] = {
+-        {0x8f, 0x86, 0x93, 0xa4, 0xc8, 0x87, 0x34, 0x33, 0xa9, 0x6f, 0xea, 0xe7, 0x40, 0x7d, 0x97, 0x2b},
++        {0x7a, 0xb7, 0xb5, 0xa9, 0x0b, 0x60, 0x3c, 0x67, 0xa7, 0x65, 0x2f, 0x7d, 0xd9, 0x34, 0x6e, 0xb2},
+         {0x1e, 0x0d, 0xe7, 0xf9, 0x5a, 0xf9, 0x35, 0xf1, 0x8c, 0x42, 0x63, 0x18, 0xe3, 0x99, 0xd8, 0xfd},
+     };
+-    static const char *const labels[] = {"8F8693A4-C887-3433-A96F-EAE7407D972B", "1E0DE7F9-5AF9-35F1-8C42-6318E399D8FD"};
++    static const char *const labels[] = {"7AB7B5A9-0B60-3C67-A765-2F7DD9346EB2", "1E0DE7F9-5AF9-35F1-8C42-6318E399D8FD"};
+     const struct mach_header_64 *header = (const void *)mh;
+     const char *next = (const char *)(header + 1);
+     size_t remaining = header->sizeofcmds;

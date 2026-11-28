@@ -780,3 +780,17 @@ completion = ["Host: series replay, kernel tree round trip to tree a9192b569462,
 limits = ["v247 has not been installed. Three generated payload headers, signed libraries, images, logs and snapshots stay local."]
 next_action = ["Install v247 and read its log: PONG DEATH lines, the first swap size, the PosterBoard crash, the Wi-Fi retry that connects."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v247/manifest.json", result = "Every recorded file indexed with SHA-256; images v237 to v247 named by hash."}, {kind = "source", reported_kind = "device-boot", reference = "checkpoints/thor-v247/records/intake-v245/ANALYSIS.md", result = "v245 reached the desktop on 2026-11-27 19:48; wallpaper black, Wi-Fi refused with status 48."}]
+
+[[area]]
+id = "thor-v247-embedded-library-sources"
+status = "implemented"
+components = ["PongPlatform24"]
+paths = ["checkpoints/thor-v247/sources/**"]
+inputs = ["The console capture library the kernel embeds (libpong-console-v205, built from the v232 source)", "The signed UI runtime library libpong-ui (the UI adapter of v158)", "The baseband service sources of the upstream SM8475 port"]
+configuration = ["As embedded in the v247 unified image and as kept for the cellular work"]
+procedure = ["Read the sources; build them with the recorded scripts and THOR_ROOT, THOR_TOOLS and THOR_SERIAL set in the environment."]
+findings = ["55 text files. sources/console holds the source of the console capture library that every image since v232 embeds (console-v205.c of v232 with its staging script) and the earlier versions v171 to v205 with their patches and host tests; these sources lived only in intake and experiment folders, in no recipe and in no repository. sources/ui-runtime-v158 holds the UI adapter (ui_compat18-v158.c) of the signed UI runtime library the kernel embeds and injects into SpringBoard and PosterBoard since v245, with its build script, the producer timing patch and the bridge sources of v158. sources/pong-baseband holds the baseband service of the upstream SM8475 port (registration, SIM, IMS bearer and data) that the cellular and call work starts from."]
+completion = ["Every Python file compiles after the rewriting; every file is UTF-8 text; none holds a local path, the serial or key material."]
+limits = ["The libraries themselves are signed binaries and stay local. The Metal bridge and the Vulkan library the kernel embeds come from the upstream driver repositories."]
+next_action = ["Change the UI adapter here for the PosterBoard data store fix, then rebuild and sign locally."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v247/manifest.json", result = "55 files indexed with SHA-256 under sources/."}]

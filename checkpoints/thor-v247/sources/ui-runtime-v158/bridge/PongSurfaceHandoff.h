@@ -1,0 +1,110 @@
+/* SPDX-License-Identifier: MIT */
+/* Match the Pong IOSurface extension in the Darwin24 patch. Send rights
+ * authenticate storage ownership; real command completion releases it. */
+#pragma once
+#include <mach/mach.h>
+#include <pthread.h>
+#include <vector>
+#include <dlfcn.h>
+#include <unistd.h>
+namespace pongsurface {
+using Call=kern_return_t(*)(unsigned,unsigned,const uint64_t *,unsigned,uint64_t *,unsigned *);
+static unsigned connection;
+static Call call;
+static pthread_once_t once=PTHREAD_ONCE_INIT;
+static void open() {
+    void *io=dlopen("/System/Library/Frameworks/IOKit.framework/IOKit",RTLD_NOW|RTLD_LOCAL);
+    if(!io)return;
+    auto matching=(void *(*)(const char *))dlsym(io,"IOServiceMatching");
+    auto service=(unsigned(*)(unsigned,void *))dlsym(io,"IOServiceGetMatchingService");
+    auto release=(kern_return_t(*)(unsigned))dlsym(io,"IOObjectRelease");
+    auto connect=(kern_return_t(*)(unsigned,mach_port_t,unsigned,unsigned *))dlsym(io,"IOServiceOpen");
+    call=(Call)dlsym(io,"IOConnectCallScalarMethod");
+    if(!matching||!service||!release||!connect||!call)return;
+    unsigned entry=service(0,matching("IOCoreSurfaceRoot"));
+    if(entry){(void)connect(entry,mach_task_self(),0,&connection);release(entry);}
+}
+static kern_return_t handoff(mach_port_t right,bool end,bool failed,uint64_t *releaseTick=nullptr) {
+    pthread_once(&once,open);
+    if(!connection||!call)return 0xe00002d8; // native not-ready, never success
+    const uint64_t input[]={right,end?1u:0u,failed?1u:0u};
+    if(releaseTick) {
+        unsigned count=1;
+        const auto result=call(connection,0x504f4701u,input,3,releaseTick,&count);
+        // The legacy selector rejects the extra result before changing ownership.
+        if(static_cast<unsigned>(result)!=0xe00002c2) {
+            if(result || count!=1)*releaseTick=0;
+            return result;
+        }
+        *releaseTick=0;
+    }
+    return call(connection,0x504f4701u,input,3,nullptr,nullptr);
+}
+struct HeldSurface {
+    mach_port_t right;
+    uint32_t sid;
+};
+struct EndFailure {
+    kern_return_t status=0;
+    uint32_t sid=0;
+    size_t count=0;
+};
+struct ReleaseSample {
+    uint64_t beginUs,endUs,tick;
+    uint32_t sid;
+    kern_return_t status;
+};
+struct ReleaseSamples {
+    ReleaseSample samples[8];
+    size_t count=0;
+};
+static EndFailure complete(std::vector<HeldSurface> &rights,bool failed,
+                           ReleaseSamples *timing=nullptr,uint64_t (*nowUs)()=nullptr) {
+    EndFailure failure;
+    for(const auto &held:rights) {
+        ReleaseSample *sample=timing && timing->count<8 ? &timing->samples[timing->count++] : nullptr;
+        if(sample)*sample={nowUs(),0,0,held.sid,0};
+        const kern_return_t result=handoff(held.right,true,failed,sample?&sample->tick:nullptr);
+        if(sample) {
+            sample->endUs=nowUs();
+            sample->status=result;
+        }
+        if(result) {
+            if(!failure.count) {
+                failure.status=result;
+                failure.sid=held.sid;
+            }
+            ++failure.count;
+        }
+        mach_port_deallocate(mach_task_self(),held.right);
+    }
+    rights.clear();
+    return failure;
+}
+static bool begin(NSMutableSet *textures,std::vector<HeldSurface> &rights) {
+    std::vector<std::pair<uint32_t,IOSurfaceRef>> unique;
+    for(id texture in textures) {
+        IOSurfaceRef surface=[texture iosurface];
+        if(surface)unique.emplace_back(IOSurfaceGetID(surface),surface);
+    }
+    std::sort(unique.begin(),unique.end(),[](const auto &a,const auto &b){return a.first<b.first;});
+    unique.erase(std::unique(unique.begin(),unique.end(),[](const auto &a,const auto &b){return a.first==b.first;}),unique.end());
+    for(unsigned attempt=0;attempt<100;attempt++) {
+        kern_return_t result=0;
+        for(auto &entry:unique) {
+            mach_port_t right=IOSurfaceCreateMachPort(entry.second);
+            if(!right){result=0xe00002bd;break;}
+            result=handoff(right,false,false);
+            if(result){mach_port_deallocate(mach_task_self(),right);break;}
+            rights.push_back({right,entry.first});
+        }
+        if(!result)return true;
+        // No partial acquisition waits on another surface. This avoids
+        // a CPU display reader/GPU multi-surface acquisition deadlock.
+        complete(rights,false);
+        if(unsigned(result)!=0xe00002d5)return false; // only retry busy
+        usleep(1000);
+    }
+    return false;
+}
+}

@@ -1,0 +1,132 @@
+--- a/userland/boot_snapshot18.c
++++ b/userland/boot_snapshot18.c
+@@ -315,6 +315,8 @@
+ #define PONG_KERNMSGBUF_CURSOR 0x54484f52u
+ #define PONG_CONSOLE_READ_BYTES (16u * 1024u)
+ #define PONG_CONSOLE_MAX_BYTES (16 * 1024 * 1024)
++#define PONG_CONSOLE_SYNC_INTERVAL_MS 2000u
++#define PONG_CONSOLE_STATUS_INTERVAL_MS 10000u
+ extern int __proc_info(int32_t call_num, int32_t pid, uint32_t flavor,
+                        uint64_t arg, void *buffer, int32_t buffersize);
+ 
+@@ -417,6 +419,23 @@
+                    vm.free_count, vm.wire_count, vm.compressor_page_count, vm.purgeable_count);
+ }
+ 
++/* Keep periodic fsync off every UI path. A blocked storage sync delays the
++ * capture worker only, and a persistent sync error emits one receipt. */
++static bool console_sync_if_due(int out, uint64_t now, uint64_t *next_sync,
++                               bool *dirty, bool *complained)
++{
++    if (!*dirty || now < *next_sync) return false;
++    *next_sync = now + PONG_CONSOLE_SYNC_INTERVAL_MS;
++    if (fsync(out) == 0) {
++        *dirty = false;
++        *complained = false;
++    } else if (!*complained) {
++        *complained = true;
++        diag_say("Pong console capture: fsync failed errno=%d", errno);
++    }
++    return true;
++}
++
+ static void *console_worker(void *unused)
+ {
+     (void)unused;
+@@ -432,7 +451,8 @@
+         char bytes[PONG_CONSOLE_READ_BYTES];
+     } packet = {0};
+     uint64_t cursor = 0;
+-    bool first = true, complained = false;
++    bool first = true, complained = false, sync_complained = false;
++    bool dirty = false, rotation_due = false, at_line_boundary = true;
+     char boot[64] = "unavailable";
+     size_t length = sizeof(boot);
+     if (sysctlbyname("kern.bootsessionuuid", boot, &length, NULL, 0) != 0)
+@@ -441,12 +461,15 @@
+ 
+     static const unsigned memory_sample_ms[] = {0, 30000, 120000};
+     const uint64_t start_ms = snapshot_clock_ms();
++    uint64_t next_sync_ms = start_ms + PONG_CONSOLE_SYNC_INTERVAL_MS;
++    uint64_t next_status_ms = start_ms + PONG_CONSOLE_STATUS_INTERVAL_MS;
+     size_t sample = 0;
+     for (;;) {
+         const uint64_t now = snapshot_clock_ms();
+         if (sample < sizeof(memory_sample_ms) / sizeof(memory_sample_ms[0]) &&
+             now - start_ms >= memory_sample_ms[sample]) {
+             if (console_write_memory(out, boot, now) < 0) break;
++            dirty = true;
+             sample++;
+         }
+         int got = __proc_info(0x4, 0, PONG_KERNMSGBUF_CURSOR, cursor,
+@@ -462,7 +485,8 @@
+                 complained = true;
+                 diag_say("Pong console capture: cursor read failed result=%d errno=%d", got, errno);
+             }
+-            sleep(30);
++            (void)console_sync_if_due(out, now, &next_sync_ms, &dirty, &sync_complained);
++            sleep(dirty ? 1 : 30);
+             continue;
+         }
+         complained = false;
+@@ -470,18 +494,38 @@
+             first = false;
+             if (dprintf(out, "\nPong console capture BEGIN boot=%s pid=%d first=%llu\n",
+                         boot, getpid(), (unsigned long long)range.start) < 0) break;
+-        }
+-        if (range.start != cursor &&
+-            dprintf(out, cursor < range.start
+-                    ? "\nPong console capture WRAP lost bytes cursor=%llu oldest=%llu\n"
+-                    : "\nPong console capture RESET cursor=%llu oldest=%llu\n",
+-                    (unsigned long long)cursor, (unsigned long long)range.oldest) < 0) break;
+-        if (count && !console_append(out, packet.bytes, count)) break;
+-        if (count) snapshot_observe_console_bytes(packet.bytes, count, range.start == cursor);
++            if (dprintf(out, "Pong console capture POLICY poll_ms=1000 sync_ms=%u status_ms=%u\n",
++                        PONG_CONSOLE_SYNC_INTERVAL_MS, PONG_CONSOLE_STATUS_INTERVAL_MS) < 0) break;
++            dirty = true;
++        }
++        if (range.start != cursor) {
++            if (dprintf(out, cursor < range.start
++                        ? "\nPong console capture WRAP lost bytes cursor=%llu oldest=%llu\n"
++                        : "\nPong console capture RESET cursor=%llu oldest=%llu\n",
++                        (unsigned long long)cursor, (unsigned long long)range.oldest) < 0) break;
++            dirty = true;
++        }
++        if (count) {
++            if (!console_append(out, packet.bytes, count)) break;
++            dirty = true;
++            snapshot_observe_console_bytes(packet.bytes, count, range.start == cursor);
++            at_line_boundary = packet.bytes[count - 1] == '\n';
++        }
+         cursor = range.start + count;
++        if (now >= next_status_ms && cursor == range.end && at_line_boundary) {
++            if (dprintf(out, "\nPong console capture STATUS boot=%s uptime_ms=%llu cursor=%llu end=%llu\n",
++                        boot, (unsigned long long)now, (unsigned long long)cursor,
++                        (unsigned long long)range.end) < 0) break;
++            dirty = true;
++            next_status_ms = now + PONG_CONSOLE_STATUS_INTERVAL_MS;
++        }
+ 
+         struct stat st;
+-        if (count && fstat(out, &st) == 0 && st.st_size >= PONG_CONSOLE_MAX_BYTES) {
++        if (count && fstat(out, &st) == 0 && st.st_size >= PONG_CONSOLE_MAX_BYTES)
++            rotation_due = true;
++        const bool sync_attempted = console_sync_if_due(out, now, &next_sync_ms, &dirty,
++                                                        &sync_complained);
++        if (rotation_due && (!dirty || sync_attempted)) {
+             if (rename(path, previous) != 0) {
+                 diag_say("Pong console capture: rotate failed errno=%d", errno);
+                 break;
+@@ -494,8 +538,10 @@
+             }
+             if (dprintf(out, "\nPong console capture ROTATE next=%llu\n",
+                         (unsigned long long)cursor) < 0) break;
+-        }
+-        sleep(cursor < range.end ? 1 : 10);
++            dirty = true;
++            rotation_due = false;
++        }
++        sleep(1);
+     }
+     diag_say("Pong console capture: output failed errno=%d cursor=%llu",
+              errno, (unsigned long long)cursor);

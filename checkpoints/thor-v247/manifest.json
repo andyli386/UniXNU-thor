@@ -495,6 +495,63 @@
       "checkpoints/thor-v247/tools/shngvol.sh",
       "checkpoints/thor-v247/tools/stackshot_stuck.py",
       "checkpoints/thor-v247/tools/xref.py"
+    ],
+    "sources": [
+      "checkpoints/thor-v247/sources/console/v171/0001-thor-checkpoint-console-capture.patch",
+      "checkpoints/thor-v247/sources/console/v171/build-console-runtime.py",
+      "checkpoints/thor-v247/sources/console/v171/test-checkpoint.c",
+      "checkpoints/thor-v247/sources/console/v171/test-checkpoint.py",
+      "checkpoints/thor-v247/sources/console/v172/0001-thor-runningboardd-console-capture.patch",
+      "checkpoints/thor-v247/sources/console/v172/capture-console-v172.py",
+      "checkpoints/thor-v247/sources/console/v172/console-v172.c",
+      "checkpoints/thor-v247/sources/console/v172/worker-smoke.c",
+      "checkpoints/thor-v247/sources/console/v201/console-v201.c",
+      "checkpoints/thor-v247/sources/console/v202/console-v202.c",
+      "checkpoints/thor-v247/sources/console/v203/console-v203.c",
+      "checkpoints/thor-v247/sources/console/v204/console-v204.c",
+      "checkpoints/thor-v247/sources/console/v205/console-v205.c",
+      "checkpoints/thor-v247/sources/console/v232/console-v205.c",
+      "checkpoints/thor-v247/sources/console/v232/stage-console.py",
+      "checkpoints/thor-v247/sources/pong-baseband/LICENSE",
+      "checkpoints/thor-v247/sources/pong-baseband/LICENSE.tqftpserv",
+      "checkpoints/thor-v247/sources/pong-baseband/PongBaseband22G100.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongBasebandService.cpp",
+      "checkpoints/thor-v247/sources/pong-baseband/PongBasebandService.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongImsDcm.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongIpaFilters.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemControl.cpp",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemControl.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemData.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemDiag.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemFiles.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemIms.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemIpa.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemIpaDma.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemMemshare.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemPdDomains.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemPdc.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemQrtr.cpp",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemQrtr.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemRmtfs.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemRules.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemRuntime.cpp",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemRuntime.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemSim.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemStatus.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemSysmon.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongModemWan.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongNasMultiplexer.h",
+      "checkpoints/thor-v247/sources/pong-baseband/PongPdpInterfaces.h",
+      "checkpoints/thor-v247/sources/pong-baseband/README.md",
+      "checkpoints/thor-v247/sources/ui-runtime-v158/bridge/NativeBridgeMetalFrontend.mm",
+      "checkpoints/thor-v247/sources/ui-runtime-v158/bridge/PongSurfaceHandoff.h",
+      "checkpoints/thor-v247/sources/ui-runtime-v158/bridge/build-command.json",
+      "checkpoints/thor-v247/sources/ui-runtime-v158/build_v158_metal.py",
+      "checkpoints/thor-v247/sources/ui-runtime-v158/producer-timing.patch",
+      "checkpoints/thor-v247/sources/ui-runtime-v158/ui/compile-switcher-runtime.json",
+      "checkpoints/thor-v247/sources/ui-runtime-v158/ui/thor-app-exec.h",
+      "checkpoints/thor-v247/sources/ui-runtime-v158/ui/ui_compat18-v158.c",
+      "checkpoints/thor-v247/sources/ui-runtime-v158/verified-products.json"
     ]
   },
   "files": {
@@ -1717,6 +1774,226 @@
     "checkpoints/thor-v247/records/verification/v247/unified-verification.json": {
       "sha256": "f75bb57dce5dfd59855e5f9f142290370c4829e56464b727d7a645114e9815fd",
       "bytes": 9180
+    },
+    "checkpoints/thor-v247/sources/console/v171/0001-thor-checkpoint-console-capture.patch": {
+      "sha256": "161cc4adef7900ea6063d149f6ede36cc2479f3bb9ec41d0e73abf1fcd4f757b",
+      "bytes": 6089
+    },
+    "checkpoints/thor-v247/sources/console/v171/build-console-runtime.py": {
+      "sha256": "cd4db5bf94c39c7f00de3d00fb0fe1c2b90c89a7b5c206df991eff3bb360c112",
+      "bytes": 3987
+    },
+    "checkpoints/thor-v247/sources/console/v171/test-checkpoint.c": {
+      "sha256": "470ae73c175fffde59ed8b00502d3f2a98ab9578f0840a17cd53995ceb7d8790",
+      "bytes": 10515
+    },
+    "checkpoints/thor-v247/sources/console/v171/test-checkpoint.py": {
+      "sha256": "b4f347fd398aae1dcc5907150ed53b165431c1900db5d232268346291d81bf7f",
+      "bytes": 5341
+    },
+    "checkpoints/thor-v247/sources/console/v172/0001-thor-runningboardd-console-capture.patch": {
+      "sha256": "1b8ac985701b6efbd06592098fe7bde41a61dfa154d813e98f9145570299169d",
+      "bytes": 2581
+    },
+    "checkpoints/thor-v247/sources/console/v172/capture-console-v172.py": {
+      "sha256": "d2a6948c6ac3384b5842c588e9bc29e8c664a57807254529b1ab6be1c7274593",
+      "bytes": 7575
+    },
+    "checkpoints/thor-v247/sources/console/v172/console-v172.c": {
+      "sha256": "4d17c1c39c9f1ef9ecf71c76ca258d33869caf8505d8610b0d905f4cc9241d76",
+      "bytes": 6192
+    },
+    "checkpoints/thor-v247/sources/console/v172/worker-smoke.c": {
+      "sha256": "8fa11a6aff935a1f4f8cea3d95b35da7233909d6a2ae99411ce99e4ad64de686",
+      "bytes": 6303
+    },
+    "checkpoints/thor-v247/sources/console/v201/console-v201.c": {
+      "sha256": "81975f61bfc2cc7b8027b42a465ed2f4775675fc452423675194f254151aa6ac",
+      "bytes": 7312
+    },
+    "checkpoints/thor-v247/sources/console/v202/console-v202.c": {
+      "sha256": "4e94ddfa098c73686568afa1740d6fa86d78e415ce6e5550eeb79a8a3529dc7f",
+      "bytes": 7368
+    },
+    "checkpoints/thor-v247/sources/console/v203/console-v203.c": {
+      "sha256": "3a6d567f4b519576a0e63a849219571b5331d4ae1c8f31918f64c7471c5a7a06",
+      "bytes": 7525
+    },
+    "checkpoints/thor-v247/sources/console/v204/console-v204.c": {
+      "sha256": "3a6d567f4b519576a0e63a849219571b5331d4ae1c8f31918f64c7471c5a7a06",
+      "bytes": 7525
+    },
+    "checkpoints/thor-v247/sources/console/v205/console-v205.c": {
+      "sha256": "3a6d567f4b519576a0e63a849219571b5331d4ae1c8f31918f64c7471c5a7a06",
+      "bytes": 7525
+    },
+    "checkpoints/thor-v247/sources/console/v232/console-v205.c": {
+      "sha256": "30d6c789ee1b31f90997d9096c308e5b1ce91657221e501ae865d34c0d6a4554",
+      "bytes": 10132
+    },
+    "checkpoints/thor-v247/sources/console/v232/stage-console.py": {
+      "sha256": "d552801d9da7a507986880637d1860d69f41a1dbbcad9e2bcb1db04e64b01e92",
+      "bytes": 3856
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/LICENSE": {
+      "sha256": "5b1d3d911103cb0f41641ec0964c5ac1f7e229f57aa072b6ac38bae913a1307b",
+      "bytes": 2673
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/LICENSE.tqftpserv": {
+      "sha256": "a6d7cc7891d16f9c74c9a9c2514805e59bb8758db7690bb7ae065c79cec9515a",
+      "bytes": 1568
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongBaseband22G100.h": {
+      "sha256": "20ba0c9961fa99ad97ca050a2ebf97ae266a402c043ad21dc4d3265d3d630764",
+      "bytes": 2191
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongBasebandService.cpp": {
+      "sha256": "8e07671a22e971521fb888b9a112da51b82e3b82484b34e54f6777b893d647a2",
+      "bytes": 70559
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongBasebandService.h": {
+      "sha256": "b4921de43d8d887e503602620851706890f9ce1c6b15a2593898a7c3963dd4e4",
+      "bytes": 2041
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongImsDcm.h": {
+      "sha256": "ff34ca137cbbf70f7c9d7e1b9eb1b2921bc919bdc6136622094308505e9f25e2",
+      "bytes": 10261
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongIpaFilters.h": {
+      "sha256": "e75779159493806dbe884acc53c0730736a0bc9f63ce541e89ca7585030e4743",
+      "bytes": 7928
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemControl.cpp": {
+      "sha256": "cc752753d84778b1b921a4c0e51f3f7e169f541582f13cb0bb6dc5b9cfdd29d7",
+      "bytes": 10153
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemControl.h": {
+      "sha256": "53e35c3d5cfb4a56b039093923ac121d473c39ad370f145d4c9763842505e8dd",
+      "bytes": 3415
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemData.h": {
+      "sha256": "b42ac50eb4dd0e59caa3b9ec7e952b96f5cdf49f611a01dfbae3ff746e9d3260",
+      "bytes": 6270
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemDiag.h": {
+      "sha256": "d54b38feb7553aaa6db84842cb064e8a4f9572affde858644d1ab2e417ccc41a",
+      "bytes": 5859
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemFiles.h": {
+      "sha256": "20a3f982cb1200074e02194e4071748a824acb78f3f2f902f26019946158e445",
+      "bytes": 15034
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemIms.h": {
+      "sha256": "724b52677c6837dcd6db2b205d2536042fda6e78f0652ed2873f356d660091bd",
+      "bytes": 8334
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemIpa.h": {
+      "sha256": "1908885680f3dd9dbf4998c6f69114374081267d546fdbf0e9f93eec71f74b23",
+      "bytes": 10774
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemIpaDma.h": {
+      "sha256": "4064fe777119ae19b6a7214f3dd9f65c7dbd16697237c50583ac24c1f11043c3",
+      "bytes": 23014
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemMemshare.h": {
+      "sha256": "0131c0e3b50b21fc99a8eea406a9a20309e2dd7591408bd587fff0d08585660c",
+      "bytes": 6539
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemPdDomains.h": {
+      "sha256": "f14990c9adea2ecf8bc921f2e055854b8ef0c42a157e247a5cffacbf99aaa366",
+      "bytes": 777
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemPdc.h": {
+      "sha256": "ba9fd3822aff1160094d722fb30abb48bfbc6acdfe1662b569db1bce96346655",
+      "bytes": 4229
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemQrtr.cpp": {
+      "sha256": "e1f97ea88aca071173342b9453e0bf40bb5456670d676a88f96345449368ebd5",
+      "bytes": 17597
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemQrtr.h": {
+      "sha256": "2f8c701252adabe551392f4e958756d6528b6d2c0e1a04331cc19df4f7be0ba1",
+      "bytes": 2617
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemRmtfs.h": {
+      "sha256": "3a2ad54f3b7d5b9d75a4b3b8dc552fc73344f66ce078f5cacca438ea47c31a00",
+      "bytes": 8486
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemRules.h": {
+      "sha256": "81de9d8a9c0844e9e6c07ac21aac0a592fd89f4734dd0457b24bf16352a0c403",
+      "bytes": 4288
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemRuntime.cpp": {
+      "sha256": "df483e9e35d2fb107dcb4a145227d6d76e68dc88796ad022f28368e1ce8d1274",
+      "bytes": 28932
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemRuntime.h": {
+      "sha256": "dc87624b9fd4487715cceb38852f22e74c763daa1e7393d608e0e9b0d0f512da",
+      "bytes": 1143
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemSim.h": {
+      "sha256": "5e1bcd9ae2ecd259079853db6b44e68ecd4544c9ba15e7a5dd25ae5bf5ac544d",
+      "bytes": 9811
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemStatus.h": {
+      "sha256": "09cc1f168b69c5228a9e046ffe27da6e7fd7f9e57ca92e1ecf5d7014de40fdf8",
+      "bytes": 10316
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemSysmon.h": {
+      "sha256": "d2bd23f80c0639e8eb472489bb68173a941db258fb0bba5cbdc5dd6d33753395",
+      "bytes": 6342
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongModemWan.h": {
+      "sha256": "4ae42e3b26212c13842e2a2206d0f22499fb0085ac97111746272171819a3387",
+      "bytes": 26743
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongNasMultiplexer.h": {
+      "sha256": "87de8faa6d77222efe2b27530a77bfd783908656143af2e548e1d843ec54fa6e",
+      "bytes": 9696
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/PongPdpInterfaces.h": {
+      "sha256": "fce9b8b95bbd824037e24f2ec8352e8ecfe3ff4cae7e9abe4f1d6fb485b9bfef",
+      "bytes": 10523
+    },
+    "checkpoints/thor-v247/sources/pong-baseband/README.md": {
+      "sha256": "4a34ec0e72665b664662ba19fcc5b1cdfe343db7d03faa6e5b2ffe2bf6c2179c",
+      "bytes": 1605
+    },
+    "checkpoints/thor-v247/sources/ui-runtime-v158/bridge/NativeBridgeMetalFrontend.mm": {
+      "sha256": "aebba9fc5af138116bacc9229151e73109cd74736d0cce34f500d404ae0b5bd5",
+      "bytes": 174846
+    },
+    "checkpoints/thor-v247/sources/ui-runtime-v158/bridge/PongSurfaceHandoff.h": {
+      "sha256": "31d1b9a142aa7c4e36b88860b116cc40eb746412db717bf9b7c28ecb9bba04b4",
+      "bytes": 4450
+    },
+    "checkpoints/thor-v247/sources/ui-runtime-v158/bridge/build-command.json": {
+      "sha256": "1b8988923da36d4c4013f67aba6cc7bf17060a0e448a8cd8dd5ae684028b79d0",
+      "bytes": 1338
+    },
+    "checkpoints/thor-v247/sources/ui-runtime-v158/build_v158_metal.py": {
+      "sha256": "bb3f70029801f41aa3ed80cca21b9b2c31837a4688e9b747ced959ee8e161124",
+      "bytes": 12745
+    },
+    "checkpoints/thor-v247/sources/ui-runtime-v158/producer-timing.patch": {
+      "sha256": "d2475472dd8fa9833bab007708c6ac4e50f263dc23c0ed8b3bba26b5011be4a5",
+      "bytes": 11172
+    },
+    "checkpoints/thor-v247/sources/ui-runtime-v158/ui/compile-switcher-runtime.json": {
+      "sha256": "9abae5011794b83d6c42f573a6f90dc4f03f26c3ecf17cfee37102a9cbf2364f",
+      "bytes": 1397
+    },
+    "checkpoints/thor-v247/sources/ui-runtime-v158/ui/thor-app-exec.h": {
+      "sha256": "eb478194d7b55196c30f3cf151ba5a7bc9f1a798374844d7b938aa5b30c5e228",
+      "bytes": 284
+    },
+    "checkpoints/thor-v247/sources/ui-runtime-v158/ui/ui_compat18-v158.c": {
+      "sha256": "853cfbaae735af6be8966e98a642e458c99c0b248cfa81c6e60639bce8e3d3de",
+      "bytes": 205702
+    },
+    "checkpoints/thor-v247/sources/ui-runtime-v158/verified-products.json": {
+      "sha256": "7724e5d43eed688377e44121ffb9431a1f07659f71a282a8119cc84a7eb1537b",
+      "bytes": 772
     },
     "checkpoints/thor-v247/tools/adt_diff.py": {
       "sha256": "a187ebe5483d397ee22df146e35b2ae9a59cd4e853c926c33dd296b8e3cae4d3",
