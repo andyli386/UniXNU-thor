@@ -1,0 +1,199 @@
+{
+ "version": 247,
+ "release": "v247-unified",
+ "checkpoint": "thor-v247",
+ "title": "Thor v247 - every death recorded, Messages helper, camera inventory",
+ "parent": "images/v246/boot-thor-unixnu-v246-unified.img",
+ "parent_sha256": "4b4fae2b67d21e9b54ff20c3b7835df62b84d70e9189a0cfae793aad88d3070a",
+ "wlan": true,
+ "chosen": {
+  "thor-camera": 1
+ },
+ "manifest": {
+  "candidate_change": [
+   "Every process that ends by a core-generating signal prints one line: name, pid, signal, exception, code, address and exit reason (PONG DEATH ...).  The five corpse slots of a boot are gone in its first 80 seconds and the exit line of v73 covers a fixed list of names, so the deaths of kbd, MessagesBlastDoorService and Freeform were never recorded.",
+   "The log capture library v247 goes into MessagesBlastDoorService too (it dies every ten seconds; opened, the Messages app waits for it and the desktop stops): its last lines and the signal, registers and frames of its death are passed on.",
+   "A read-only camera inventory (THOR CAMERA V247) runs once, thirty seconds after the root volume mounts, because /chosen now says thor-camera = 1: camera clocks, power domains, pins, I2C controller and the SPMI channels of the front camera's rails.  It writes nothing.  Not run on the phone before this image.",
+   "Every library the injected libraries load is compared with the names Apple's own binaries use.",
+   "Carried unchanged from v246: the display library (panel's size also for a display without a size of its own), the UI adapter in PosterBoard with crash capture, the Wi-Fi station's retries (5 GHz BSS, then plain 802.11g), the Wi-Fi daemon's library and the probe, the Settings diagnostic, the console capture, the firmware LUN check (v243), the retries and the record of a failed check (v242), the panic record slot (v238), the v236 GPU timing hook, the v235 witness.  No boot argument changed; the device tree gains /chosen thor-camera = 1."
+  ],
+  "candidate_parent_kernel_uuid": "ECDC7FAF-CE7B-3F57-B3E9-945A9A7BCE08",
+  "config_change": {
+   "bootargs_changed": false,
+   "chosen_changed": true,
+   "chosen_selectors": {
+    "thor-adsp-pas1": 1,
+    "thor-bt-probe": 2,
+    "thor-camera": 1,
+    "thor-glink-ipcrtr": 1,
+    "thor-glink-version": 1,
+    "thor-panel-power": 1,
+    "thor-pas4-probe": 1,
+    "thor-qrtr-ap-node": 1,
+    "thor-qrtr-pd-state": 1,
+    "thor-qrtr-rx-followup": 1,
+    "thor-qrtr-rx-one": 1,
+    "thor-qrtr-service-window": 1,
+    "thor-qrtr-ssctl-fields": 1,
+    "thor-rmtfs-serve": 1,
+    "thor-wifi": 2
+   },
+   "device_tree_changed": "v246's with one more /chosen property, thor-camera = 1 (the read-only camera inventory); the root node wlan is kept: launchd runs com.apple.wifid only when the device tree names wlan or marconi-wifi",
+   "menu_title_changed": true,
+   "removed_inject_targets": [
+    "PosterBoard"
+   ],
+   "restored_boot_args": [
+    "tmlow=1",
+    "tmfull=1"
+   ],
+   "thor_cpu_default": 1,
+   "wifid_start": "launchd starts wifid at boot; a library in it waits until configd has published the marker and listed en0 and a power source is on the registry (or 150 s), then wifid runs; killed and started again when it has not asked the driver within 60 s"
+  },
+  "diagnostic_delta": "new: PONG DEATH lines (every process that ends by a core-generating signal: name, pid, signal, exception, code, address, exit reason); libpong-logcap-v247.dylib in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform, kbd and MessagesBlastDoorService (Pong Probe: log v247 ...); THOR CAMERA V247 lines (read-only inventory, /chosen thor-camera = 1).  Gone: libpong-logcap-v246.dylib.  Unchanged: libpong-display-v246.dylib in backboardd, the signed UI adapter in PosterBoard, libpong-wifid-v244.dylib in wifid, libpong-probe-v244.dylib in PosterBoard, configd and wifid; Settings diagnostic as v238; console capture as v232",
+  "kernel_change": "THOR V247: every process that ends by a core-generating signal prints one line (PONG DEATH); the log capture library v247 reports the death of MessagesBlastDoorService; a read-only camera inventory runs when /chosen says thor-camera = 1; carried: everything of v246 to v239, the v236 GPU hook, the v235 witness",
+  "purpose": "Thor v247 - every death recorded, Messages helper, camera inventory",
+  "release_variant": "v247-unified",
+  "version": 247,
+  "witness": {
+   "camera": "read-only inventory of the front camera's clocks, power domains, pins, I2C controller and rails (THOR CAMERA V247), switched by /chosen thor-camera = 1; nothing is written",
+   "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+   "display": "/private/var/pong/libpong-display-v246.dylib in backboardd (-[CADisplay bounds]: the panel's size for {1206, 2622} when the native bounds are the panel's or empty; boot argument pong_ca_native=0 turns it off)",
+   "gpu_trace": "armed by the kernel at start, read into the panic record",
+   "kernel_source": "osfmk/kern/thor_witness_v235.h (v247 line), bsd/kern/kern_exit.c (PONG DEATH line), bsd/kern/kern_exec.c (staging and injection of the libraries), device/drivers/PongPower/PongCam*.h (the camera inventory, staged in v247-camera-staging)",
+   "log_capture": "/private/var/pong/libpong-logcap-v247.dylib in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform, kbd and MessagesBlastDoorService",
+   "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+   "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+   "patch": "prepare/logcap/logcap247.c; prepare/display/display246.c (as v246); source changes in v247-intake/patches/apply.py",
+   "probe": "/private/var/pong/libpong-probe-v244.dylib in PosterBoard, configd and wifid",
+   "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+   "version_line": "THOR WITNESS V247: ...",
+   "wallpaper": "the signed UI adapter in PosterBoard (its storage adaptation for the data store)",
+   "wifid_hold": "/private/var/pong/libpong-wifid-v244.dylib in wifid (only where the device tree names wlan)"
+  }
+ },
+ "kernel_strings": {
+  "new": [
+   "THOR WITNESS V247: every process that dies by a signal prints one line",
+   "THOR LOGCAP V247: staged ",
+   "THOR LOGCAP V247: %s log capture armed",
+   "/private/var/pong/libpong-logcap-v247.dylib",
+   "PONG DEATH %s pid=%d signal=%d",
+   "THOR CAMERA V247: RUNNING mode=%u readonly=%u",
+   "THOR CAMERA V247: %s snapshot done camcc_read=%u writes=0"
+  ],
+  "gone": [
+   "THOR WITNESS V246: the display library in backboardd answers the panel's size",
+   "THOR LOGCAP V246: staged ",
+   "THOR LOGCAP V246: %s log capture armed",
+   "/private/var/pong/libpong-logcap-v246.dylib"
+  ],
+  "carried": [
+   "THOR BT V230: RUNNING mode=",
+   "THOR AUDIO V230: adsp_apps listener",
+   "THOR CPU V228: governor=load ceiling=request-only",
+   "THOR PAS1 V228: rails=",
+   "THOR SERVE V228: final=",
+   "PongWifi: Thor mode=",
+   "THOR WLAN V229: PCIe0 probes skipped",
+   "THOR WLAN V229: firmware file=",
+   "THOR FB POWER V229: request=",
+   "thor-bt-probe",
+   "thor-wifi\u0000",
+   "thor-panel-power",
+   "THOR WITNESS V233: console mirror thread started",
+   "KERNEL PANIC LOG",
+   "CONSOLE READER AND FRAMES STOPPED",
+   "cpu answered cross-call (1 yes, 0 no): ",
+   "THOR GPU V236: the VM timing hook keeps a copy of the ring clock",
+   "THOR FS V237: protection classes A and B open for every process",
+   "THOR SERVE V237: partition lookup",
+   "V237 association fixture",
+   "MiniIOSurface: set-ownership V237",
+   "PONG PROBE %s[%d]: %s",
+   "THOR WIFI V241: hold library armed",
+   "THOR WIFI V241: wifid may run: ",
+   "THOR WIFI V241: wifid starts (pid",
+   "THOR WIFI V241: wifid asked the driver for something",
+   "THOR WIFI V241: wifid (pid %d) has not asked the driver",
+   "THOR WIFI V241: wifid runs once configd",
+   "THOR MODEM FW V242: preflight attempt",
+   "THOR MODEM FW V242: state=gpt-unavailable status=%d after",
+   "THOR MODEM FW V242: after three failed checks",
+   "THOR MODEM FW V242: the partition table answered",
+   "THOR WLAN V242: the partition table of the firmware LUN answered",
+   "THOR WITNESS V243: the primary partition table of the firmware LUN decides",
+   "THOR MODEM FW V243: the backup table of the firmware LUN differs from the primary one",
+   "THOR PROBE V244: staged ",
+   "/private/var/pong/libpong-probe-v244.dylib",
+   "THOR WIFI V244: staged ",
+   "THOR UI runtime V245: PosterBoard adapter armed",
+   "PongWifi: no unique-chip-id in the device tree",
+   "wifi: association refused: %u (the request was",
+   "THOR DISPLAY V246: staged ",
+   "THOR DISPLAY V246: %s display library armed",
+   "/private/var/pong/libpong-display-v246.dylib",
+   "wifi: joining once more as a plain 802.11g station",
+   "wifi: joining once more on a 5 GHz BSS of the same network",
+   "wifi: the access point accepted the plain request (no HT)",
+   "wifi: the plain request (no HT) was refused too"
+  ],
+  "witness": [
+   "THOR WITNESS V235: monitor started",
+   "THOR WITNESS V235: panic record slot",
+   "THOR WITNESS V235 PANIC EXTRAS",
+   "/private/var/logs/PongPanic-v235-",
+   "/private/var/logs/PongConsole-kernel-v235.txt",
+   "THOR WITNESS V235: console mirror ",
+   "frame records from the fault",
+   "frame records at the panic call",
+   "every block matches",
+   "THOR WITNESS V235"
+  ],
+  "always": [
+   "THOR MODEM FW V163: state=gpt-verified lun=4 slots=2 selected=none",
+   "_pong_wifi_test_reconnect",
+   "_pong_wifi_start_optional",
+   "_pong_wifi_irq_due",
+   "thor_bt_probe"
+  ]
+ },
+ "record": {
+  "candidate_change": [
+   "Every process that ends by a core-generating signal prints one line: name, pid, signal, exception, code, address and exit reason (PONG DEATH ...).  The five corpse slots of a boot are gone in its first 80 seconds and the exit line of v73 covers a fixed list of names, so the deaths of kbd, MessagesBlastDoorService and Freeform were never recorded.",
+   "The log capture library v247 goes into MessagesBlastDoorService too (it dies every ten seconds; opened, the Messages app waits for it and the desktop stops): its last lines and the signal, registers and frames of its death are passed on.",
+   "A read-only camera inventory (THOR CAMERA V247) runs once, thirty seconds after the root volume mounts, because /chosen now says thor-camera = 1: camera clocks, power domains, pins, I2C controller and the SPMI channels of the front camera's rails.  It writes nothing.  Not run on the phone before this image.",
+   "Every library the injected libraries load is compared with the names Apple's own binaries use.",
+   "Carried unchanged from v246: the display library (panel's size also for a display without a size of its own), the UI adapter in PosterBoard with crash capture, the Wi-Fi station's retries (5 GHz BSS, then plain 802.11g), the Wi-Fi daemon's library and the probe, the Settings diagnostic, the console capture, the firmware LUN check (v243), the retries and the record of a failed check (v242), the panic record slot (v238), the v236 GPU timing hook, the v235 witness.  No boot argument changed; the device tree gains /chosen thor-camera = 1."
+  ],
+  "witness": {
+   "camera": "read-only inventory of the front camera's clocks, power domains, pins, I2C controller and rails (THOR CAMERA V247), switched by /chosen thor-camera = 1; nothing is written",
+   "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+   "display": "/private/var/pong/libpong-display-v246.dylib in backboardd (-[CADisplay bounds]: the panel's size for {1206, 2622} when the native bounds are the panel's or empty; boot argument pong_ca_native=0 turns it off)",
+   "gpu_trace": "armed by the kernel at start, read into the panic record",
+   "kernel_source": "osfmk/kern/thor_witness_v235.h (v247 line), bsd/kern/kern_exit.c (PONG DEATH line), bsd/kern/kern_exec.c (staging and injection of the libraries), device/drivers/PongPower/PongCam*.h (the camera inventory, staged in v247-camera-staging)",
+   "log_capture": "/private/var/pong/libpong-logcap-v247.dylib in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform, kbd and MessagesBlastDoorService",
+   "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+   "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+   "patch": "prepare/logcap/logcap247.c; prepare/display/display246.c (as v246); source changes in v247-intake/patches/apply.py",
+   "probe": "/private/var/pong/libpong-probe-v244.dylib in PosterBoard, configd and wifid",
+   "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+   "version_line": "THOR WITNESS V247: ...",
+   "wallpaper": "the signed UI adapter in PosterBoard (its storage adaptation for the data store)",
+   "wifid_hold": "/private/var/pong/libpong-wifid-v244.dylib in wifid (only where the device tree names wlan)"
+  },
+  "wifi_join": {
+   "configured": false,
+   "source": "PONG_WIFI_TEST_CONFIG at build time (absent for this image)",
+   "switch": "/chosen thor-wifi-join = 0"
+  },
+  "wifi_retry": "once more on the network's 5 GHz BSS after a refusal on 2.4 GHz, then as a plain 802.11g station",
+  "camera": "read-only inventory of the front camera's clocks, power domains, pins, I2C controller and rails (THOR CAMERA V247), switched by /chosen thor-camera = 1; nothing is written",
+  "display": "/private/var/pong/libpong-display-v246.dylib in backboardd (-[CADisplay bounds]: the panel's size for {1206, 2622} when the native bounds are the panel's or empty; boot argument pong_ca_native=0 turns it off)"
+ },
+ "expected": {
+  "kernel_uuid": "65515F4B-662A-3809-AC0D-B19B4A637B83",
+  "kernel_sha256": "89908e667a33f718455a9da9a85f22e385fd89b9c707033ef968c30e2c0079ed",
+  "image_sha256": "4092ce88ba0de6bbe6d2bf25ba64c29b69d6e9c7b7b9ab1494054eda9d082d84"
+ }
+}

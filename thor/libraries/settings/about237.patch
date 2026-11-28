@@ -1,0 +1,370 @@
+diff -ruN a/about237.c b/about237.c
+--- a/about237.c	1970-01-01 08:00:00
++++ b/about237.c	2026-11-26 13:45:42
+@@ -0,0 +1,318 @@
++/* SPDX-License-Identifier: MIT */
++/* v237: why Settings -> General -> About hung.
++ *
++ * The v234 watchdog report (Preferences, 0x8BADF00D) shows the thread
++ * "com.apple.SettingsApp.PrimaryListLoading" inside
++ *   [[PSSystemConfigurationDynamicStoreEthernetWatcher sharedManager] hasEthernetNetworkInterfaces]
++ * (return address 0xba1c of the Settings binary, right after that objc_msgSend): a synchronous
++ * call that never returns.  The main thread's PSGAboutDataSource _loadValues then waits for the
++ * lock that thread holds.  This device has no Ethernet, so the question is answered here with NO.
++ *
++ * If About still hangs, the watchdog below prints every thread that has a frame in Settings or
++ * PreferencesUI, with image names and offsets (the kernel stackshot has bare addresses only). */
++#include <dispatch/dispatch.h>
++#include <dlfcn.h>
++#include <inttypes.h>
++#include <mach/arm/thread_status.h>
++#include <mach/mach.h>
++#include <objc/runtime.h>
++#include <pthread.h>
++#include <stdatomic.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
++#include "about237.h"
++
++#define ABOUT_PREFIX "Pong Settings: about237 "
++#define ABOUT_THREADS 64
++#define ABOUT_FRAMES 14
++#define ABOUT_SHOWN 12
++#define ABOUT_HANGS 3
++#define ABOUT_NOTE 160
++
++struct about_thread {
++    uint64_t id;
++    int run_state;
++    bool main;
++    bool shown;
++    unsigned frames;
++    char name[24];
++    uint64_t stack[ABOUT_FRAMES];
++};
++
++static const unsigned about_delays[] = {0, 1000, 3000, 8000, 20000};
++
++static thread_t about_main;
++static dispatch_queue_t about_queue;
++static void (*about_report)(char *, int);
++static _Atomic(uint64_t) about_beats;
++static _Atomic(unsigned) about_hangs;
++static struct about_thread about_threads[ABOUT_THREADS];
++static unsigned about_count, about_total;
++
++static uint64_t about_ms(void)
++{
++    struct timespec now = {0};
++    (void)clock_gettime(CLOCK_MONOTONIC, &now);
++    return (uint64_t)now.tv_sec * 1000 + (uint64_t)now.tv_nsec / 1000000;
++}
++
++static bool about_is_answer_method(Method method)
++{
++    /* -hasEthernetNetworkInterfaces: no arguments beyond self and _cmd, a BOOL result. */
++    char encoding[8] = {0};
++    if (!method || method_getNumberOfArguments(method) != 2)
++        return false;
++    method_getReturnType(method, encoding, sizeof(encoding));
++    return encoding[0] == 'B' || encoding[0] == 'c';
++}
++
++static BOOL about_has_ethernet(id self, SEL selector)
++{
++    (void)self;
++    (void)selector;
++    return false;
++}
++
++/* The note is one of the static attempt buffers, so nothing has to be freed here. */
++static void about_note(void *context)
++{
++    char line[256];
++    int length = snprintf(line, sizeof(line), ABOUT_PREFIX "%s", (const char *)context);
++    about_report(line, length);
++}
++
++static bool about_replace_ethernet_answer(char *note, size_t capacity)
++{
++    Class watcher = objc_lookUpClass("PSSystemConfigurationDynamicStoreEthernetWatcher");
++    if (!watcher) {
++        snprintf(note, capacity, "ethernet watcher class is not mapped");
++        return false;
++    }
++    SEL selector = sel_registerName("hasEthernetNetworkInterfaces");
++    Method method = class_getInstanceMethod(watcher, selector);
++    if (!about_is_answer_method(method)) {
++        snprintf(note, capacity, "hasEthernetNetworkInterfaces keeps its implementation: "
++                                 "method=%d", method ? 1 : 0);
++        return false;
++    }
++    /* A method of a superclass is overridden on the watcher itself, never patched above it. */
++    if (class_addMethod(watcher, selector, (IMP)about_has_ethernet, method_getTypeEncoding(method)))
++        snprintf(note, capacity, "hasEthernetNetworkInterfaces answers NO on this device (override added)");
++    else {
++        unsigned own_count = 0;
++        Method *own = class_copyMethodList(watcher, &own_count);
++        bool owned = false;
++        for (unsigned i = 0; i < own_count; ++i)
++            owned |= own[i] == method;
++        free(own);
++        if (!owned) {
++            snprintf(note, capacity, "hasEthernetNetworkInterfaces is not the watcher's own method");
++            return false;
++        }
++        if (!method_setImplementation(method, (IMP)about_has_ethernet)) {
++            snprintf(note, capacity, "hasEthernetNetworkInterfaces could not be replaced");
++            return false;
++        }
++        snprintf(note, capacity, "hasEthernetNetworkInterfaces answers NO on this device (replaced)");
++    }
++    return true;
++}
++
++static void about_install(void *attempt)
++{
++    static _Atomic(bool) done;
++    static char notes[sizeof(about_delays) / sizeof(about_delays[0])][ABOUT_NOTE];
++    if (atomic_load_explicit(&done, memory_order_acquire))
++        return;
++    unsigned index = (unsigned)(uintptr_t)attempt - 1;
++    if (index >= sizeof(notes) / sizeof(notes[0]))
++        return;
++    if (about_replace_ethernet_answer(notes[index], sizeof(notes[index])))
++        atomic_store_explicit(&done, true, memory_order_release);
++    else {
++        size_t length = strnlen(notes[index], sizeof(notes[index]));
++        snprintf(notes[index] + length, sizeof(notes[index]) - length, " (attempt %u)", index + 1);
++    }
++    dispatch_async_f(about_queue, notes[index], about_note);
++}
++
++static const char *about_basename(const char *path)
++{
++    const char *slash = strrchr(path, '/');
++    return slash ? slash + 1 : path;
++}
++
++/* Settings itself and the framework of its panes: the stacks the kernel report cannot name. */
++static bool about_interesting(const struct about_thread *thread)
++{
++    for (unsigned i = 0; i < thread->frames; ++i) {
++        Dl_info info = {0};
++        if (dladdr((const void *)(uintptr_t)thread->stack[i], &info) && info.dli_fname &&
++            !strncmp(about_basename(info.dli_fname), "Preferences", 11))
++            return true;
++    }
++    return false;
++}
++
++/* Diagnostic queue. */
++static void about_emit(void *unused)
++{
++    (void)unused;
++    const unsigned hang = atomic_load_explicit(&about_hangs, memory_order_relaxed);
++    unsigned shown = 0;
++    for (unsigned t = 0; t < about_count; ++t) {
++        struct about_thread *thread = &about_threads[t];
++        thread->shown = thread->main || (shown + 1 < ABOUT_SHOWN && about_interesting(thread));
++        shown += thread->shown;
++    }
++    char line[256];
++    int length = snprintf(line, sizeof(line), ABOUT_PREFIX
++                          "hang=%u threads=%u collected=%u shown=%u", hang, about_total, about_count, shown);
++    about_report(line, length);
++    for (unsigned t = 0; t < about_count; ++t) {
++        const struct about_thread *thread = &about_threads[t];
++        if (!thread->shown)
++            continue;
++        length = snprintf(line, sizeof(line), ABOUT_PREFIX "hang=%u tid=%" PRIu64 " name=%.23s run=%d%s frames=%u:",
++                          hang, thread->id, thread->name, thread->run_state, thread->main ? " main" : "",
++                          thread->frames);
++        for (unsigned i = 0; i < thread->frames; ++i) {
++            char frame[48];
++            Dl_info info = {0};
++            if (dladdr((const void *)(uintptr_t)thread->stack[i], &info) && info.dli_fname && info.dli_fbase)
++                snprintf(frame, sizeof(frame), " %.28s+0x%" PRIx64, about_basename(info.dli_fname),
++                         thread->stack[i] - (uint64_t)info.dli_fbase);
++            else
++                snprintf(frame, sizeof(frame), " %" PRIx64, thread->stack[i]);
++            if (length > 0 && (size_t)length + strlen(frame) >= sizeof(line) - 1) {
++                about_report(line, length);
++                length = snprintf(line, sizeof(line), ABOUT_PREFIX "hang=%u tid=%" PRIu64 " +%u:", hang,
++                                  thread->id, i);
++            }
++            if (length > 0 && (size_t)length < sizeof(line))
++                length += snprintf(line + length, sizeof(line) - (size_t)length, "%s", frame);
++        }
++        about_report(line, length);
++    }
++}
++
++/* Watchdog queue.  Every thread is stopped for its state and frame records only; names and
++ * image offsets are resolved on the diagnostic queue once they all run again. */
++static void about_collect(void)
++{
++    thread_act_array_t list = NULL;
++    mach_msg_type_number_t count = 0;
++    about_count = about_total = 0;
++    if (task_threads(mach_task_self(), &list, &count) != KERN_SUCCESS)
++        return;
++    about_total = count;
++    const thread_t self = mach_thread_self();
++    for (mach_msg_type_number_t i = 0; i < count && about_count < ABOUT_THREADS; ++i) {
++        const thread_t thread = list[i];
++        if (thread == self || !MACH_PORT_VALID(thread))
++            continue;
++        struct about_thread *slot = &about_threads[about_count];
++        memset(slot, 0, sizeof(*slot));
++        if (thread_suspend(thread) != KERN_SUCCESS)
++            continue;
++        arm_thread_state64_t state = {0};
++        mach_msg_type_number_t words = ARM_THREAD_STATE64_COUNT;
++        const kern_return_t result = thread_get_state(thread, ARM_THREAD_STATE64, (thread_state_t)&state, &words);
++        thread_basic_info_data_t info = {0};
++        words = THREAD_BASIC_INFO_COUNT;
++        (void)thread_info(thread, THREAD_BASIC_INFO, (thread_info_t)&info, &words);
++        if (result == KERN_SUCCESS) {
++            const uint64_t sp = arm_thread_state64_get_sp(state);
++            uint64_t cursor = arm_thread_state64_get_fp(state);
++            slot->stack[slot->frames++] = arm_thread_state64_get_pc(state) & UINT64_C(0x0000ffffffffffff);
++            for (unsigned guard = 0; slot->frames < ABOUT_FRAMES && guard < ABOUT_FRAMES; ++guard) {
++                uint64_t pair[2] = {0, 0};
++                vm_size_t size = 0;
++                if (!sp || cursor < sp || cursor - sp >= 8 * 1024 * 1024 || (cursor & 15))
++                    break;
++                if (vm_read_overwrite(mach_task_self(), (vm_address_t)cursor, sizeof(pair),
++                                      (vm_address_t)(uintptr_t)pair, &size) != KERN_SUCCESS || size != sizeof(pair))
++                    break;
++                slot->stack[slot->frames++] = pair[1] & UINT64_C(0x0000ffffffffffff);
++                if (pair[0] <= cursor)
++                    break;
++                cursor = pair[0];
++            }
++            slot->run_state = info.run_state;
++        }
++        thread_resume(thread);
++        if (result != KERN_SUCCESS)
++            continue;                       /* a thread that is leaving: no state to read */
++        thread_identifier_info_data_t identity = {0};
++        mach_msg_type_number_t id_words = THREAD_IDENTIFIER_INFO_COUNT;
++        if (thread_info(thread, THREAD_IDENTIFIER_INFO, (thread_info_t)&identity, &id_words) == KERN_SUCCESS)
++            slot->id = identity.thread_id;
++        slot->main = thread == about_main;
++        pthread_t pthread = pthread_from_mach_thread_np(thread);
++        if (pthread)
++            (void)pthread_getname_np(pthread, slot->name, sizeof(slot->name));
++        ++about_count;
++    }
++    if (MACH_PORT_VALID(self))
++        (void)mach_port_deallocate(mach_task_self(), self);
++    for (mach_msg_type_number_t i = 0; i < count; ++i)
++        (void)mach_port_deallocate(mach_task_self(), list[i]);
++    vm_deallocate(mach_task_self(), (vm_address_t)list, count * sizeof(*list));
++}
++
++static void about_main_probe(void *unused)
++{
++    (void)unused;
++    atomic_fetch_add_explicit(&about_beats, 1, memory_order_release);
++}
++
++/* A hang is a main queue that has not run the probe block for three seconds. */
++static void about_tick(void *unused)
++{
++    (void)unused;
++    static uint64_t seen, unanswered_since, last_ms;
++    static bool primed;
++    const uint64_t now = about_ms();
++    const uint64_t beats = atomic_load_explicit(&about_beats, memory_order_acquire);
++    if (!primed || now - last_ms > 1500) {
++        /* First tick, or the clock jumped: the process was suspended, nothing is known yet. */
++        primed = true;
++        seen = beats;
++        unanswered_since = now;
++    } else if (beats != seen) {
++        seen = beats;
++        unanswered_since = now;
++    }
++    last_ms = now;
++    dispatch_async_f(dispatch_get_main_queue(), NULL, about_main_probe);
++    if (now - unanswered_since < 3000)
++        return;
++    unanswered_since = now;
++    if (atomic_fetch_add(&about_hangs, 1) >= ABOUT_HANGS)
++        return;
++    about_collect();
++    dispatch_async_f(about_queue, NULL, about_emit);
++}
++
++void about237_start(thread_t main_thread, dispatch_queue_t queue, void (*report)(char *, int))
++{
++    about_main = main_thread;
++    about_queue = queue;
++    about_report = report;
++    for (unsigned i = 0; i < sizeof(about_delays) / sizeof(about_delays[0]); ++i)
++        dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, (int64_t)about_delays[i] * NSEC_PER_MSEC),
++                         dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), (void *)(uintptr_t)(i + 1),
++                         about_install);
++    dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
++                                                     dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
++    if (!timer)
++        return;
++    dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_SEC),
++                              400 * NSEC_PER_MSEC, 100 * NSEC_PER_MSEC);
++    dispatch_source_set_event_handler_f(timer, about_tick);
++    dispatch_resume(timer);
++}
+diff -ruN a/about237.h b/about237.h
+--- a/about237.h	1970-01-01 08:00:00
++++ b/about237.h	2026-11-26 13:41:31
+@@ -0,0 +1,13 @@
++/* SPDX-License-Identifier: MIT */
++#ifndef ABOUT237_H
++#define ABOUT237_H
++
++#include <dispatch/dispatch.h>
++#include <mach/mach.h>
++
++/* v237: the About hang.  Starts the Ethernet answer, the main-queue watchdog and the thread
++ * snapshot printer of the Settings diagnostic.  The report callback runs on the diagnostic queue
++ * only, so every line is handed to that queue. */
++void about237_start(thread_t main_thread, dispatch_queue_t queue, void (*report)(char *, int));
++
++#endif
+diff -ruN a/build-settings-trace.sh b/build-settings-trace.sh
+--- a/build-settings-trace.sh	2026-11-26 13:43:18
++++ b/build-settings-trace.sh	2026-11-26 13:43:18
+@@ -7,7 +7,7 @@
+ trap 'rm -rf "$tmp"' EXIT
+ xcrun --sdk iphoneos clang -target arm64-apple-ios18.0 -Os -dynamiclib -Wall -Wextra -Werror \
+   -Wl,-no_fixup_chains -install_name /pong/libpong-settings-v185.dylib \
+-  -lobjc -framework UIKit -framework Foundation -fblocks settings_trace18.c navigation_completion185.m general_prefetch223.m window_cpu223.m tap_pc225.c return225.c -o "$tmp/libpong-settings-v185.dylib"
++  -lobjc -framework UIKit -framework Foundation -fblocks settings_trace18.c navigation_completion185.m general_prefetch223.m window_cpu223.m tap_pc225.c return225.c about237.c -o "$tmp/libpong-settings-v185.dylib"
+ codesign --force --sign - --pagesize 4096 "$tmp/libpong-settings-v185.dylib"
+ codesign --verify --strict "$tmp/libpong-settings-v185.dylib"
+ xcrun dyld_info -validate_only "$tmp/libpong-settings-v185.dylib"
+diff -ruN a/settings_trace18.c b/settings_trace18.c
+--- a/settings_trace18.c	2026-11-26 13:43:18
++++ b/settings_trace18.c	2026-11-26 13:43:18
+@@ -8,6 +8,7 @@
+ #include "window_cpu223.h"
+ #include "tap_pc225.h"
+ #include "return225.h"
++#include "about237.h"
+ #include <mach-o/dyld.h>
+ #include <mach-o/loader.h>
+ #include <objc/runtime.h>
+@@ -569,6 +570,7 @@
+     }
+     settings_pc225_init(main_thread,trace_queue,report);
+     return225_init(main_thread);
++    about237_start(main_thread, trace_queue, report);
+     dispatch_async_f(trace_queue, NULL, started_report);
+     _dyld_register_func_for_add_image(image_added);
+ }

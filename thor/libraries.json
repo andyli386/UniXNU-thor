@@ -1,0 +1,73 @@
+{
+  "pool_path": "/private/var/thor-metal-pool-v227-52943f65d3b86181b8724863fc9fec17",
+  "metal_pool_name": "thor-metal-pool-v227-52943f65d3b86181b8724863fc9fec17",
+  "console_stage_path": "/private/var/thor-console-v232/libpong-console-v205.dylib",
+  "libraries": {
+    "PongMetalBridge.dylib": {
+      "sha256": "95aaa62d506e5d4e46c423b1732c869938c545dea394f20bc10d930de85f712d",
+      "uuid": "5A47441E-45CF-3075-A379-4AAAAD412727",
+      "bytes": 22802560,
+      "input": "inputs/signed/PongMetalBridge.dylib",
+      "note": "embedded with .incbin (thor_metal_pool_payload.h)"
+    },
+    "libpong-settings-v185.dylib": {
+      "sha256": "c2c4970e9e29dc246b6719e157d6fecf76ce33b4a2fa2593fc09719e1146f5be",
+      "uuid": "6F2172F6-7B7C-3EE6-8A1D-35B598A033A9",
+      "bytes": 115504,
+      "script": "prepare/settings/build.sh",
+      "variable": "THOR_SETTINGS_RUNTIME"
+    },
+    "libpong-ui.dylib": {
+      "sha256": "a3dc47b69b433eb65d3cf831f55cca602397f4bec4fcf3df5337e6f2115122bf",
+      "uuid": "70BD1E7D-F365-3819-B166-7EEF6BA8AADD",
+      "bytes": 262608,
+      "input": "inputs/signed/libpong-ui.dylib",
+      "variable": "THOR_UI_RUNTIME",
+      "note": "the signed UI adapter (sources/console and sources/ui-runtime-v158 of the checkpoint); embedded by the kernel build"
+    },
+    "libvulkan_freedreno.dylib": {
+      "sha256": "4ba7707807e2dc0a019abf686585cb6c0a124562caf3a1f2ef790ee84cda8aab",
+      "uuid": "C99998C4-FFDA-3730-9274-75B17AF2E72F",
+      "bytes": 18072848,
+      "input": "inputs/signed/libvulkan_freedreno.dylib",
+      "note": "embedded with .incbin (thor_metal_pool_payload.h)"
+    },
+    "libpong-console-v205.dylib": {
+      "sha256": "95d959b0a59ebe0fddb1691d13e82e6ca22587ab12081f7f29e712c395c01be1",
+      "uuid": "CFF4812C-65DC-30B6-9FC3-825D68FDEA38",
+      "bytes": 124496,
+      "input": "inputs/signed/libpong-console-v205.dylib",
+      "note": "embedded as a byte array (thor_console_v172_payload.h); source: sources/console/v232"
+    },
+    "libpong-probe-v244.dylib": {
+      "sha256": "128c2052be76c97b50ef74a16fcecf24583fa4d512f9e73dd495638431a0735f",
+      "uuid": "F9E8230F-560A-3AC3-B7DC-7048CB5ABC31",
+      "bytes": 90064,
+      "script": "prepare/probe/build-probe.sh",
+      "variable": "THOR_PROBE_RUNTIME"
+    },
+    "libpong-wifid-v244.dylib": {
+      "sha256": "5634ff6330a6e03421022a7450c3a0490488f8fdd60d99757d74a3cf5932117d",
+      "uuid": "5E9E158E-85BC-36C8-BD9B-8AFD3DDABD22",
+      "bytes": 86000,
+      "script": "prepare/wifid/build-wifid.sh",
+      "variable": "THOR_WIFID_RUNTIME"
+    },
+    "libpong-display-v246.dylib": {
+      "sha256": "3f85c08ea4fadc1bf3a572cc292af768196269dcdbd628b9e75cb98a361e7bd4",
+      "uuid": "98FDAA3F-940E-312B-B318-F36C5F7F405E",
+      "bytes": 85824,
+      "script": "prepare/display/build-display246.sh",
+      "variable": "THOR_DISPLAY_RUNTIME",
+      "host_test": "prepare/display/hosttest/run.sh"
+    },
+    "libpong-logcap-v247.dylib": {
+      "sha256": "16691f8755527993e28719660717a2c5cb67e00f719f27b6734831463bea58c2",
+      "uuid": "B0434E92-8C45-3D38-A851-F4F35011B202",
+      "bytes": 87632,
+      "script": "prepare/logcap/build-logcap247.sh",
+      "variable": "THOR_LOGCAP_RUNTIME",
+      "host_test": "prepare/logcap/hosttest/run247.sh"
+    }
+  }
+}

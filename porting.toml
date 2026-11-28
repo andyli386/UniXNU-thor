@@ -794,3 +794,17 @@ completion = ["Every Python file compiles after the rewriting; every file is UTF
 limits = ["The libraries themselves are signed binaries and stay local. The Metal bridge and the Vulkan library the kernel embeds come from the upstream driver repositories."]
 next_action = ["Change the UI adapter here for the PosterBoard data store fix, then rebuild and sign locally."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v247/manifest.json", result = "55 files indexed with SHA-256 under sources/."}]
+
+[[area]]
+id = "thor-build-layout"
+status = "implemented"
+components = ["PongPlatform24"]
+paths = ["thor/**"]
+inputs = ["One directory tree, described by thor/env.sh: this repository, the device repository with its driver repositories and reference sources, the decrypted IPSW components, the signed libraries, the private firmware inputs and the image template"]
+configuration = ["Self-contained: a working copy is generated from the sources and the inputs; nothing is read from an older working copy or an older packaging script"]
+procedure = ["bootstrap.py creates the working copy, build-kernel.sh compiles the kernel, package.py packages and verifies the image; checkpoint.py records the sources of a version; see thor/README.md."]
+findings = ["The working copy is generated in seconds: the kernel source tree is the pinned Apple XNU checkout with the recorded patch series and the version's checkpoint and is compared with the recorded tree hash; the five rebuilt libraries are compared with their recorded digests; the four signed ones are inputs.", "Packaging needs no script older than this directory: the image format helpers are in thor/thorimage.py. Packaging the members of the v247 image as shipped reproduces that image byte for byte (sha256 4092ce88..., 95,490,048 bytes).", "A kernel rebuilt from scratch is not byte-identical to the one v247 shipped: the source trees are equal and 1032 of 1044 compiled objects carry the same code and data, but eleven differ because the old build's sanitizer ignore list named the tree's directory of v202 and so matched nothing, which compiled clock, ledger, debug, the kdp files and video_console with integer-overflow checks the sources exclude. The rebuilt kernel follows the sources. It has not run on the device."]
+completion = ["bootstrap.py, build-kernel.sh and package.py succeed in a sandbox that denies access to the old project directories; the image passes every check of package.py; checkpoint.py records the rebuilt working copy as the thor-v247 kernel patch and driver patches, byte for byte."]
+limits = ["The install and collect scripts of the phone are not ported into this directory yet. The first kernel built here differs from the shipped one as described and has not run on the device."]
+next_action = ["Port the install and collect scripts, then make and install the next version from this directory."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "thor/README.md", result = "Bootstrap, kernel build and packaging ran in a sandbox without the old directories; the v247 image was reproduced byte for byte from its shipped members."}]
