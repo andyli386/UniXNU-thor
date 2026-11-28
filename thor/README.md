@@ -10,6 +10,14 @@ The build system of the port. It needs one directory tree and nothing else:
 <root>/images/<release>/    boot images with their kernels and records
 ```
 
+Seven GitHub repositories meet here, each with two remotes: `origin` is the upstream, `fork` the copy under
+`github.com/andyli386/`. This repository (`UniXNU-thor`); the five driver repositories inside the device tree
+(`src/UniXNU-pong/drivers/{PongPower,NativeUfs,PongMetal,PongAdreno,DarwinBoot24}`, forks of `pong-power`,
+`pong-ufs`, `pong-metal`, `pong-adreno`, `pong-darwin-boot24`); and `src/uefi-pong`. Thor's current driver changes
+are uncommitted in those working trees and recorded as patches in `checkpoints/`; the earlier `thor/*` branches are
+local branches there. `src/uefi-publish-20261117/` holds the working source of the loader that is flashed (not in any
+repository on GitHub).
+
 `thor/env.sh` finds the root from its own location and exports it (`THOR_ROOT`, `THOR_REPO`, `THOR_PONG`,
 `THOR_INPUTS`, `THOR_WORK`, `THOR_IMAGES`, `THOR_PY`, `THOR_JOBS`, and the `PONG_*` inputs the device
 repository's scripts look for). No file here names a machine or a user.
