@@ -1,0 +1,198 @@
+{
+ "version": 248,
+ "release": "v248-unified",
+ "checkpoint": "thor-v248",
+ "title": "Thor v248 - camera inventory off, the first page of a panic names the fault",
+ "parent": "images/v247/boot-thor-unixnu-v247-unified.img",
+ "parent_sha256": "4092ce88ba0de6bbe6d2bf25ba64c29b69d6e9c7b7b9ab1494054eda9d082d84",
+ "wlan": true,
+ "chosen": {},
+ "manifest": {
+  "candidate_change": [
+   "The camera inventory of v247 does not run: /chosen thor-camera is gone from the device tree. The kernel's code of v247 stays and starts nothing without the property. v247 was flashed on 2026-11-28 at 18:31 and panicked about 43.6 s after boot. The inventory of v247 was due at 43.6 s (thirty seconds after the root volume mounts, at 13.6 s) and no THOR CAMERA line reached the panel; every register read of the inventory comes before its first log line. Not a proof: this image is the test.",
+   "The first page of a panic (drawn in the panic hook, before the kernel's own panic path) names the fault: pc, lr, sp and fp with their symbols, esr and far, the thread, and the callers of panic (THOR PANIC V248). Until now the page held only the unformatted panic string. In the panic of v247 the kernel stopped in its own panic path: the panic log never came and no record is known. Once the page is drawn the monitor no longer draws a hang report over it.",
+   "The kernel is built in the new layout for the first time: the sources of v247 plus the two changes above. A kernel rebuilt here equals the shipped v247 kernel in 1032 of 1044 objects; the others differ only in integer-overflow checks that the sources exclude.",
+   "Carried unchanged from v247: every process that ends by a core-generating signal prints one line (PONG DEATH ...); the log capture library v247 in eight processes including MessagesBlastDoorService; the display library (the panel's size also for a display without a size of its own); the UI adapter in PosterBoard with crash capture; the Wi-Fi station's retries (5 GHz BSS, then plain 802.11g); the Wi-Fi daemon's library and the probe; the Settings diagnostic; the console capture; the firmware LUN check (v243); the retries and the record of a failed check (v242); the panic record slot (v238); the v236 GPU timing hook; the v235 witness.  No boot argument changed; the device tree loses /chosen thor-camera."
+  ],
+  "candidate_parent_kernel_uuid": "65515F4B-662A-3809-AC0D-B19B4A637B83",
+  "config_change": {
+   "bootargs_changed": false,
+   "chosen_changed": true,
+   "chosen_selectors": {
+    "thor-adsp-pas1": 1,
+    "thor-bt-probe": 2,
+    "thor-glink-ipcrtr": 1,
+    "thor-glink-version": 1,
+    "thor-panel-power": 1,
+    "thor-pas4-probe": 1,
+    "thor-qrtr-ap-node": 1,
+    "thor-qrtr-pd-state": 1,
+    "thor-qrtr-rx-followup": 1,
+    "thor-qrtr-rx-one": 1,
+    "thor-qrtr-service-window": 1,
+    "thor-qrtr-ssctl-fields": 1,
+    "thor-rmtfs-serve": 1,
+    "thor-wifi": 2
+   },
+   "device_tree_changed": "v247's without /chosen thor-camera: the camera inventory of v247 does not start; the root node wlan is kept: launchd runs com.apple.wifid only when the device tree names wlan or marconi-wifi",
+   "menu_title_changed": true,
+   "removed_inject_targets": [
+    "PosterBoard"
+   ],
+   "restored_boot_args": [
+    "tmlow=1",
+    "tmfull=1"
+   ],
+   "thor_cpu_default": 1,
+   "wifid_start": "launchd starts wifid at boot; a library in it waits until configd has published the marker and listed en0 and a power source is on the registry (or 150 s), then wifid runs; killed and started again when it has not asked the driver within 60 s"
+  },
+  "diagnostic_delta": "new: THOR PANIC V248 lines on the first page of a panic (the fault with its symbols, the thread, the callers of panic). Gone: THOR CAMERA V247 lines (the inventory does not start: /chosen has no thor-camera). Unchanged: PONG DEATH lines; libpong-logcap-v247.dylib in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform, kbd and MessagesBlastDoorService (Pong Probe: log v247 ...); libpong-display-v246.dylib in backboardd; the signed UI adapter in PosterBoard; libpong-wifid-v244.dylib in wifid; libpong-probe-v244.dylib in PosterBoard, configd and wifid; Settings diagnostic as v238; console capture as v232",
+  "kernel_change": "THOR V248: the first page of a panic names the fault (pc, lr, sp, fp with their symbols, esr, far), the thread and the callers of panic; the monitor leaves that page alone; the camera inventory does not start (/chosen has no thor-camera); carried: every death by a signal prints one line (PONG DEATH), the log capture library v247, the display library, the UI adapter in PosterBoard, the Wi-Fi station's retries, everything of v247 to v239, the v236 GPU hook, the v235 witness",
+  "purpose": "Thor v248 - camera inventory off, the first page of a panic names the fault",
+  "release_variant": "v248-unified",
+  "version": 248,
+  "witness": {
+   "camera": "off: /chosen has no thor-camera, so the inventory of v247 starts nothing (its code is still in the kernel). v247 panicked 43.6 s after boot, when that inventory was due",
+   "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+   "display": "/private/var/pong/libpong-display-v246.dylib in backboardd (-[CADisplay bounds]: the panel's size for {1206, 2622} when the native bounds are the panel's or empty; boot argument pong_ca_native=0 turns it off)",
+   "gpu_trace": "armed by the kernel at start, read into the panic record",
+   "kernel_source": "osfmk/kern/thor_witness_v235.h (v248 line, the panic note), bsd/kern/kern_exit.c (PONG DEATH line), bsd/kern/kern_exec.c (staging and injection of the libraries), device/drivers/PongPower/PongCam*.h (the camera inventory of v247, not started)",
+   "log_capture": "/private/var/pong/libpong-logcap-v247.dylib in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform, kbd and MessagesBlastDoorService",
+   "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+   "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+   "patch": "prepare/logcap/logcap247.c; prepare/display/display246.c (as v246); source changes in v247-intake/patches/apply.py",
+   "probe": "/private/var/pong/libpong-probe-v244.dylib in PosterBoard, configd and wifid",
+   "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+   "version_line": "THOR WITNESS V248: ...",
+   "wallpaper": "the signed UI adapter in PosterBoard (its storage adaptation for the data store)",
+   "wifid_hold": "/private/var/pong/libpong-wifid-v244.dylib in wifid (only where the device tree names wlan)",
+   "panic_note": "THOR PANIC V248: the first page of a panic is drawn in the panic hook and names the fault (pc, lr, sp, fp with their symbols, esr, far), the thread and the callers of panic; the panic log and the extras follow when the kernel's own panic path completes"
+  }
+ },
+ "kernel_strings": {
+  "new": [
+   "THOR WITNESS V248: the first page of a panic names the fault",
+   "THOR PANIC V248: at the panic hook",
+   " callers of panic, newest first (%u):"
+  ],
+  "gone": [
+   "THOR WITNESS V247: every process that dies by a signal prints one line"
+  ],
+  "carried": [
+   "THOR BT V230: RUNNING mode=",
+   "THOR AUDIO V230: adsp_apps listener",
+   "THOR CPU V228: governor=load ceiling=request-only",
+   "THOR PAS1 V228: rails=",
+   "THOR SERVE V228: final=",
+   "PongWifi: Thor mode=",
+   "THOR WLAN V229: PCIe0 probes skipped",
+   "THOR WLAN V229: firmware file=",
+   "THOR FB POWER V229: request=",
+   "thor-bt-probe",
+   "thor-wifi\u0000",
+   "thor-panel-power",
+   "THOR WITNESS V233: console mirror thread started",
+   "KERNEL PANIC LOG",
+   "CONSOLE READER AND FRAMES STOPPED",
+   "cpu answered cross-call (1 yes, 0 no): ",
+   "THOR GPU V236: the VM timing hook keeps a copy of the ring clock",
+   "THOR FS V237: protection classes A and B open for every process",
+   "THOR SERVE V237: partition lookup",
+   "V237 association fixture",
+   "MiniIOSurface: set-ownership V237",
+   "PONG PROBE %s[%d]: %s",
+   "THOR WIFI V241: hold library armed",
+   "THOR WIFI V241: wifid may run: ",
+   "THOR WIFI V241: wifid starts (pid",
+   "THOR WIFI V241: wifid asked the driver for something",
+   "THOR WIFI V241: wifid (pid %d) has not asked the driver",
+   "THOR WIFI V241: wifid runs once configd",
+   "THOR MODEM FW V242: preflight attempt",
+   "THOR MODEM FW V242: state=gpt-unavailable status=%d after",
+   "THOR MODEM FW V242: after three failed checks",
+   "THOR MODEM FW V242: the partition table answered",
+   "THOR WLAN V242: the partition table of the firmware LUN answered",
+   "THOR WITNESS V243: the primary partition table of the firmware LUN decides",
+   "THOR MODEM FW V243: the backup table of the firmware LUN differs from the primary one",
+   "THOR PROBE V244: staged ",
+   "/private/var/pong/libpong-probe-v244.dylib",
+   "THOR WIFI V244: staged ",
+   "THOR UI runtime V245: PosterBoard adapter armed",
+   "PongWifi: no unique-chip-id in the device tree",
+   "wifi: association refused: %u (the request was",
+   "THOR DISPLAY V246: staged ",
+   "THOR DISPLAY V246: %s display library armed",
+   "/private/var/pong/libpong-display-v246.dylib",
+   "wifi: joining once more as a plain 802.11g station",
+   "wifi: joining once more on a 5 GHz BSS of the same network",
+   "wifi: the access point accepted the plain request (no HT)",
+   "wifi: the plain request (no HT) was refused too",
+   "THOR LOGCAP V247: staged ",
+   "THOR LOGCAP V247: %s log capture armed",
+   "/private/var/pong/libpong-logcap-v247.dylib",
+   "PONG DEATH %s pid=%d signal=%d",
+   "THOR CAMERA V247: RUNNING mode=%u readonly=%u",
+   "THOR CAMERA V247: %s snapshot done camcc_read=%u writes=0"
+  ],
+  "witness": [
+   "THOR WITNESS V235: monitor started",
+   "THOR WITNESS V235: panic record slot",
+   "THOR WITNESS V235 PANIC EXTRAS",
+   "/private/var/logs/PongPanic-v235-",
+   "/private/var/logs/PongConsole-kernel-v235.txt",
+   "THOR WITNESS V235: console mirror ",
+   "frame records from the fault",
+   "frame records at the panic call",
+   "every block matches",
+   "THOR WITNESS V235"
+  ],
+  "always": [
+   "THOR MODEM FW V163: state=gpt-verified lun=4 slots=2 selected=none",
+   "_pong_wifi_test_reconnect",
+   "_pong_wifi_start_optional",
+   "_pong_wifi_irq_due",
+   "thor_bt_probe"
+  ]
+ },
+ "record": {
+  "candidate_change": [
+   "The camera inventory of v247 does not run: /chosen thor-camera is gone from the device tree. The kernel's code of v247 stays and starts nothing without the property. v247 was flashed on 2026-11-28 at 18:31 and panicked about 43.6 s after boot. The inventory of v247 was due at 43.6 s (thirty seconds after the root volume mounts, at 13.6 s) and no THOR CAMERA line reached the panel; every register read of the inventory comes before its first log line. Not a proof: this image is the test.",
+   "The first page of a panic (drawn in the panic hook, before the kernel's own panic path) names the fault: pc, lr, sp and fp with their symbols, esr and far, the thread, and the callers of panic (THOR PANIC V248). Until now the page held only the unformatted panic string. In the panic of v247 the kernel stopped in its own panic path: the panic log never came and no record is known. Once the page is drawn the monitor no longer draws a hang report over it.",
+   "The kernel is built in the new layout for the first time: the sources of v247 plus the two changes above. A kernel rebuilt here equals the shipped v247 kernel in 1032 of 1044 objects; the others differ only in integer-overflow checks that the sources exclude.",
+   "Carried unchanged from v247: every process that ends by a core-generating signal prints one line (PONG DEATH ...); the log capture library v247 in eight processes including MessagesBlastDoorService; the display library (the panel's size also for a display without a size of its own); the UI adapter in PosterBoard with crash capture; the Wi-Fi station's retries (5 GHz BSS, then plain 802.11g); the Wi-Fi daemon's library and the probe; the Settings diagnostic; the console capture; the firmware LUN check (v243); the retries and the record of a failed check (v242); the panic record slot (v238); the v236 GPU timing hook; the v235 witness.  No boot argument changed; the device tree loses /chosen thor-camera."
+  ],
+  "witness": {
+   "camera": "off: /chosen has no thor-camera, so the inventory of v247 starts nothing (its code is still in the kernel). v247 panicked 43.6 s after boot, when that inventory was due",
+   "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+   "display": "/private/var/pong/libpong-display-v246.dylib in backboardd (-[CADisplay bounds]: the panel's size for {1206, 2622} when the native bounds are the panel's or empty; boot argument pong_ca_native=0 turns it off)",
+   "gpu_trace": "armed by the kernel at start, read into the panic record",
+   "kernel_source": "osfmk/kern/thor_witness_v235.h (v248 line, the panic note), bsd/kern/kern_exit.c (PONG DEATH line), bsd/kern/kern_exec.c (staging and injection of the libraries), device/drivers/PongPower/PongCam*.h (the camera inventory of v247, not started)",
+   "log_capture": "/private/var/pong/libpong-logcap-v247.dylib in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform, kbd and MessagesBlastDoorService",
+   "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+   "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+   "patch": "prepare/logcap/logcap247.c; prepare/display/display246.c (as v246); source changes in v247-intake/patches/apply.py",
+   "probe": "/private/var/pong/libpong-probe-v244.dylib in PosterBoard, configd and wifid",
+   "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+   "version_line": "THOR WITNESS V248: ...",
+   "wallpaper": "the signed UI adapter in PosterBoard (its storage adaptation for the data store)",
+   "wifid_hold": "/private/var/pong/libpong-wifid-v244.dylib in wifid (only where the device tree names wlan)",
+   "panic_note": "THOR PANIC V248: the first page of a panic is drawn in the panic hook and names the fault (pc, lr, sp, fp with their symbols, esr, far), the thread and the callers of panic; the panic log and the extras follow when the kernel's own panic path completes"
+  },
+  "wifi_join": {
+   "configured": false,
+   "source": "PONG_WIFI_TEST_CONFIG at build time (absent for this image)",
+   "switch": "/chosen thor-wifi-join = 0"
+  },
+  "wifi_retry": "once more on the network's 5 GHz BSS after a refusal on 2.4 GHz, then as a plain 802.11g station",
+  "camera": "off: /chosen has no thor-camera, so the inventory of v247 starts nothing (its code is still in the kernel). v247 panicked 43.6 s after boot, when that inventory was due",
+  "display": "/private/var/pong/libpong-display-v246.dylib in backboardd (-[CADisplay bounds]: the panel's size for {1206, 2622} when the native bounds are the panel's or empty; boot argument pong_ca_native=0 turns it off)"
+ },
+ "expected": {
+  "kernel_uuid": "253D732E-FE0B-331B-94D1-3A99C86D4D29",
+  "kernel_sha256": "9611eed757d0a9021cc77ef46e5d6f292a2f9397cd2d5ce9bb6d50239293bd47",
+  "image_sha256": "bd87ca7c1cd5a5196b4c921765aa3b6db72381616aa7a6185f61884fed5635b2"
+ },
+ "chosen_removed": [
+  "thor-camera"
+ ]
+}

@@ -65,6 +65,8 @@ A working copy can be deleted at any time and is back in a few seconds.
 
 1. Copy `thor/versions/v247.json` to the next number and change `version`, `release`, `title`, `parent` (the previous
    image in `images/`), `parent_sha256`, `chosen` and `manifest` (what the image's manifest says about this version).
+   `chosen` adds `/chosen` properties to the parent's device tree; `"chosen_removed": ["name", ...]` takes ones away
+   (v248 took `thor-camera`); the manifest's `chosen_selectors` must then name exactly what is left.
 2. Add to `kernel_strings`: `new` for messages this kernel prints and its parent did not, `gone` for the parent's
    that are no longer there; move earlier `new` ones into `carried`.
 3. `bootstrap.py` with the new file (the `checkpoint` is still the previous one, so the tree starts from it).
@@ -73,9 +75,12 @@ A working copy can be deleted at any time and is back in a few seconds.
    entry in `thor/libraries.json` with its digest after the first build; `runtime/env.sh`, made by `bootstrap.py`,
    tells the kernel build which library is embedded.
 5. `build-kernel.sh`, then `package.py --publish`.
-6. Record the kernel tree: `$THOR_PY -I thor/checkpoint.py thor/versions/vNNN.json --work $THOR_WORK/vNNN-unified`
-   writes `patches/xnu-ipados18/checkpoints/<checkpoint>/` (the tree beyond the series, round-trip checked) and the
-   commit and branch of every driver submodule; it refuses uncommitted driver changes.
+6. Record the kernel tree: **first set `"checkpoint"` in the version file to the new name (`thor-vNNN`)**, then
+   `$THOR_PY -I thor/checkpoint.py thor/versions/vNNN.json --work $THOR_WORK/vNNN-unified` writes
+   `patches/xnu-ipados18/checkpoints/<checkpoint>/` (the tree beyond the series, round-trip checked) and the
+   commit and branch of every driver submodule; it refuses uncommitted driver changes and never replaces a
+   checkpoint that exists (on 2026-11-28 a run with the old name left in the file overwrote the v247 files; they
+   were restored from git).
 7. Commit on `thor/main` in each repository the change belongs to and push to the forks.
 
 ## History that was never pushed
@@ -127,8 +132,13 @@ stay in bundles under `archive/git-history-20261128/` of the project directory; 
   the build time and the source paths embedded in the kernel. That kernel has not run on the phone.
 - The record of v247 as shipped names the log capture library's digest under `console_sha256`; the new packaging
   writes the console library's.
+- v247 was installed from `images/v247/` on 2026-11-28 at 18:31: its first boot panicked about 43.6 s after boot, the
+  second reached the system and Wi-Fi joined. v248 is the first version made here (`images/v248-unified/`, sha256
+  `bd87ca7c…`, kernel UUID `253D732E-…`): the same kernel sources except `osfmk/kern/thor_witness_v235.h` (the first
+  page of a panic names the fault) and a device tree without `/chosen thor-camera`, so the camera inventory of v247
+  does not start. It passed every check of `package.py`; it has not run on the phone at the time of writing.
 
 ## Not here yet
 
 The install and collect scripts for the phone, and the boot-stack budget tool, are records in `checkpoints/` (copies
-from the old tree). Port them into this directory before the first version that is installed from here.
+from the old tree). Port them into this directory: v248 was installed with copies of the old tree's scripts.

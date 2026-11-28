@@ -1,0 +1,50 @@
+{
+  "drivers/AdrenoMetal": {
+    "commit": "8ca095ba9629e8f181a8269de981d0d7d070571",
+    "branch": "thor/main"
+  },
+  "drivers/ArmCpu": {
+    "commit": "27a5b4bd64ec3d59de4f6c69a3d5a8b9a53c9824",
+    "branch": "thor/main"
+  },
+  "drivers/ArmDTPlatform": {
+    "commit": "68d4def022a30fd22162c7f9e2677c03229ff414",
+    "branch": "thor/main"
+  },
+  "drivers/DarwinBoot24": {
+    "commit": "86d300d3b21489b473973199b5b4ff3e77acfb2a",
+    "branch": "main"
+  },
+  "drivers/NativeRamBlock": {
+    "commit": "eebcdb67e990a262293463e4e73e83859a39a9b4",
+    "branch": "main"
+  },
+  "drivers/NativeUfs": {
+    "commit": "0c6c93eeb168446179cfb13f5931697f3eae07a2",
+    "branch": "thor/main"
+  },
+  "drivers/PongAdreno": {
+    "commit": "7981d61872cea3076036afb1106277503e638cdc",
+    "branch": "thor/main"
+  },
+  "drivers/PongBootCapture": {
+    "commit": "af2c5ca0653f0ce9b44ee7f8ac0895cb2cde7ef8",
+    "branch": "main"
+  },
+  "drivers/PongMetal": {
+    "commit": "6d21c95e3e6cb9f55349b8d51f017dfcc639ea1a",
+    "branch": "thor/main"
+  },
+  "drivers/PongPower": {
+    "commit": "bc6084181ae30edf1ec448c6b5acf452467f92e6",
+    "branch": "thor/main"
+  },
+  "drivers/PongUsb": {
+    "commit": "6070a991b58f03f7062f6c9757343ffaceb1f631",
+    "branch": "main"
+  },
+  "drivers/PongWifi": {
+    "commit": "b52c5436d906f914f6f8ae3b8865f5d37baa6f03",
+    "branch": "thor/main"
+  }
+}

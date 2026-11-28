@@ -93,13 +93,20 @@ def replay(scratch, upstream):
 def kernel(version, work, scratch, previous, upstream):
     name = version['checkpoint']
     target = SERIES_DIR / 'checkpoints' / name
+    if (target / 'manifest.json').exists():
+        # 2026-11-28: a run with "checkpoint": "thor-v247" left in versions/v248.json overwrote the v247 patch and
+        # manifest (restored from git); a recorded checkpoint is never replaced
+        raise SystemExit(f'{target} already holds a checkpoint: name the new one in the version file ("checkpoint")')
     tree = work / 'build-tree/.cache/xnu-work'
     if not (tree / '.git').exists():
         raise SystemExit(f'{tree} is not the kernel source tree of a working copy')
     before = None
     if previous:
         was = json.loads((SERIES_DIR / f'checkpoints/{previous}/manifest.json').read_text())
-        before = was[next(k for k in was if re.fullmatch(r'v\d+_tree', k))]
+        key = previous.split('-', 1)[1] + '_tree'        # thor-v247 -> v247_tree (a manifest also keeps older vNNN_tree keys)
+        before = was.get(key)
+        if not before:
+            raise SystemExit(f'{previous}/manifest.json has no {key}')
     base, t0 = replay(scratch, upstream)
     if previous and was['replayed_tree'] != t0:
         raise SystemExit('the replay differs from the previous checkpoint: the patch series changed')
@@ -177,9 +184,15 @@ def drivers(version):
     pins = {}
     for line in out(['git', 'submodule', 'status', '--', 'drivers'], PONG).split('\n'):
         if line:
-            state, commit, path = line[0], line.split()[1], line.split()[2]
+            # " <commit> <path> (<describe>)": the state column is a space for an initialised submodule
+            m = re.match(r'^(.)([0-9a-f]+)\s+(\S+)\s*(.*)$', line)
+            if not m:
+                raise SystemExit(f'cannot read this line of "git submodule status": {line!r}')
+            state, commit, path, describe = m.groups()
             pins[path] = dict(commit=commit, branch=out(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], PONG / path))
     manifest = REPO / 'checkpoints' / version['checkpoint'] / 'drivers' / 'manifest.json'
+    if manifest.exists():
+        raise SystemExit(f'{manifest} already exists: a recorded checkpoint is never replaced')
     dump(manifest, pins)
     return {k: v['branch'] for k, v in pins.items()}
 

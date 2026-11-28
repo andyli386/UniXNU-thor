@@ -9,7 +9,8 @@ Everything comes from the new layout and nothing from an older working copy:
   the template image      inputs/image-template/ (the firmware and the EFI tree every version keeps)
   the kernel              <work>/kernel/kernel-ipados18-thor.macho (thor/build-kernel.sh)
   the libraries           <work>/runtime/ (thor/bootstrap.py: rebuilt from thor/libraries, or inputs/signed)
-  the device tree         the parent's, plus the /chosen properties the version file names
+  the device tree         the parent's, plus the /chosen properties the version file names ("chosen"),
+                          minus the ones it takes away ("chosen_removed": [names])
   what the version checks thor/versions/vNNN.json: manifest changes, kernel messages that must be new, gone or carried
 
 The image is written next to the working copy with its record (unified-verification.json); --publish copies both
@@ -109,6 +110,11 @@ def inputs(version, work):
     for name, value in version['chosen'].items():
         assert name not in tree['/chosen'] or tree['/chosen'][name] != value.to_bytes(4, 'little'), name
         tree['/chosen'][name] = value.to_bytes(4, 'little')
+    # ... minus the /chosen properties the version file takes away ("chosen_removed": [names])
+    removed = version.get('chosen_removed', [])
+    for name in removed:
+        assert name in tree['/chosen'] and name not in version['chosen'], f'/chosen {name} cannot be removed'
+        del tree['/chosen'][name]
     dt = bytes(image.emit(tree, '/'))
     assert image.parse_adt(dt) == tree
     # the manifest: the parent's with what the version file changes, and what is computed here
@@ -121,6 +127,8 @@ def inputs(version, work):
                     hardware_validated=False, flash_performed=False, fastboot_boot_performed=False, adt_sha256=image.sha(dt))
     for name in version['chosen']:
         assert manifest['config_change']['chosen_selectors'].get(name) == version['chosen'][name], f'the manifest does not describe /chosen {name}'
+    for name in removed:
+        assert manifest['config_change']['chosen_selectors'].get(name) is None, f'the manifest still names /chosen {name}'
     # the libraries: each one is the recorded build, signed, and embedded by the kernel build from this directory
     current = json.loads((work / 'runtime/final-inputs.json').read_text())
     table = json.loads((HERE / 'libraries.json').read_text())
@@ -209,6 +217,8 @@ def verify(version, work, path, expected):
     assert ('/wlan' in tree) == version['wlan']
     for name, value in version['chosen'].items():
         assert tree['/chosen'][name] == value.to_bytes(4, 'little')
+    for name in version.get('chosen_removed', []):
+        assert name not in tree['/chosen'], f'/chosen {name} is still in the device tree'
     uuids = {uuid_of(work / 'kernel' / f) for f in ('kernel-ipados18-thor.macho', 'mach.development.pong', 'mach.development.pong.unstripped')}
     assert len(uuids) == 1 and uuids != {expected['parent']['kernel_uuid']}
     _, offset, size, _ = image.sections(path)
