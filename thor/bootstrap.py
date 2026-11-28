@@ -5,8 +5,8 @@
 
 The working copy (work/<release>, or work/<name>) is generated; nothing is cloned from an older working copy:
 
-  device/      the device repository (src/UniXNU-pong) through links, with a real copy of scripts/, so that the
-               build outputs land here and not in the source tree
+  device/      the device repository (src/UniXNU-thor, THOR_PONG) through links, with a real copy of scripts/, so
+               that the build outputs land here and not in the source tree
   build-tree/  made by the device repository's own build script (links and the three build scripts); the kernel
                source tree build-tree/.cache/xnu-work is then made from the pinned Apple XNU checkout, the recorded
                patch series and the kernel tree checkpoint of the version, and compared with the recorded tree hash
@@ -28,7 +28,7 @@ HERE = Path(__file__).resolve().parent                 # <root>/src/UniXNU-thor/
 REPO = HERE.parent
 ROOT = REPO.parent.parent                              # <root>
 SRC, INPUTS, WORK = ROOT / 'src', ROOT / 'inputs', ROOT / 'work'
-PONG = SRC / 'UniXNU-pong'
+PONG = Path(os.environ.get('THOR_PONG') or SRC / 'UniXNU-thor')      # the device tree is this repository itself
 XNU = PONG / 'refer/ipados18/xnu-11417.140.69'
 
 

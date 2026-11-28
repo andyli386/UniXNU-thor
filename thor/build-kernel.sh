@@ -9,6 +9,10 @@ out=${1:?the working copy, for example work/v247-unified}
 out=$(cd "$out" && pwd -P)
 test -d "$out/build-tree/.cache/xnu-work/.git" || { echo "not a working copy made by bootstrap.py: $out" >&2; exit 2; }
 test -s "$out/runtime/final-inputs.json"
+# apple/ in the device tree is the device repository's own place for fetched Apple components (ignored by git);
+# the UFS driver's build and the prelink step read the decompressed kernelcache of the 22H374 restore from it.
+closure="$THOR_PONG/apple/ipados18-22H374/components/kernelcache.release.ipad7c.decompressed/kernelcache.release.ipad7c.decompressed"
+test -s "$closure" || { echo "apple/ is missing in the device tree: the decompressed kernelcache of the 22H374 restore" >&2; exit 2; }
 export PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
 source "$out/runtime/env.sh"
 tree="$out/build-tree"
@@ -26,7 +30,10 @@ started=$(date +%s)
   --tree "$tree" --volume-layout "$THOR_INPUTS/private/volume-layout.json" --config-path "$out/thor-gpu.defconfig" \
   --artifact-dir "$artifact" --thor-ui-runtime "$out/runtime/libpong-ui.dylib" --thor-ui-runtime-tag "$(cat "$out/runtime/ui-tag.txt")"
 cp -p "$tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_PONG/mach.development.pong.unstripped" "$artifact/"
+# The storage bindings are the ones this build just made; the Apple kext closure is an input.
 "$THOR_PY" -I "$THOR_PONG/scripts/prelink-thor-kernel.py" --gpu --native "$artifact/mach.development.pong" \
+  --bindings "$out/device/mac-build/native-ufs/bindings.json" \
+  --original "$closure" \
   --output "$artifact/kernel-ipados18-thor.macho" --plan-json "$artifact/prelink-thor.json"
 xcrun dwarfdump --uuid "$artifact/kernel-ipados18-thor.macho"
 shasum -a 256 "$artifact/kernel-ipados18-thor.macho"

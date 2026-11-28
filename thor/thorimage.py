@@ -215,7 +215,7 @@ def new_menu(raw, cfg):
 
 def _device_script(name):
     """import one of the device repository's own scripts"""
-    pong = Path(os.environ['THOR_PONG'])
+    pong = Path(os.environ.get('THOR_PONG') or Path(__file__).resolve().parents[2] / 'UniXNU-thor')
     if str(pong / 'scripts') not in sys.path:
         sys.path.insert(0, str(pong / 'scripts'))
     return importlib.import_module(name)

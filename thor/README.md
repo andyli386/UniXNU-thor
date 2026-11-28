@@ -1,45 +1,60 @@
 # Building the Thor port
 
-The build system of the port. It needs one directory tree and nothing else:
+Everything of the port lives in one directory tree and, inside it, in a few git repositories that all keep
+upstream's layout, so that a change can be offered upstream as a pull request from the fork:
 
 ```
-<root>/src/UniXNU-thor      this repository (branch thor/main); thor/ is this directory
-<root>/src/UniXNU-pong      the device repository with the driver repositories and the pinned reference sources
+<root>/src/UniXNU-thor      this repository: the Thor device repository (fork of SFZ97/UniXNU-thor). thor/ is this directory
+   drivers/<D>/             twelve driver submodules; eight of them on thor/main of their own forks (Thor's change), four at upstream commits
+   refer/, apple/           ignored local folders: the pinned reference sources and Apple's components
+<root>/src/uefi-pong        the UEFI firmware (fork of Chengdong-Yu/uefi-pong)
+<root>/src/UniXNU           the upstream build-system repository (fork of UniXNU/UniXNU)
+<root>/src/uefi-publish-20261117/darwinboot   the loader (a worktree on thor/main of the fork of Chengdong-Yu/pong-darwin-boot24)
 <root>/inputs/              decrypted IPSW components, signed libraries, private firmware inputs, tools, the image template
 <root>/work/<release>/      working copies: generated, disposable
 <root>/images/<release>/    boot images with their kernels and records
 ```
 
-Seven GitHub repositories meet here, each with two remotes: `origin` is the upstream, `fork` the copy under
-`github.com/andyli386/`. This repository (`UniXNU-thor`); the five driver repositories inside the device tree
-(`src/UniXNU-pong/drivers/{PongPower,NativeUfs,PongMetal,PongAdreno,DarwinBoot24}`, forks of `pong-power`,
-`pong-ufs`, `pong-metal`, `pong-adreno`, `pong-darwin-boot24`); and `src/uefi-pong`. Thor's current driver changes
-are uncommitted in those working trees and recorded as patches in `checkpoints/`; the earlier `thor/*` branches are
-local branches there. `src/uefi-publish-20261117/` holds the working source of the loader that is flashed (not in any
-repository on GitHub).
+`thor/env.sh` finds the root from its own location and exports it (`THOR_ROOT`, `THOR_REPO`, `THOR_PONG` — the
+device tree, which is this repository —, `THOR_INPUTS`, `THOR_WORK`, `THOR_IMAGES`, `THOR_PY`, `THOR_JOBS`, and the
+`PONG_*` inputs the device scripts look for). No file here names a machine or a user.
 
-`thor/env.sh` finds the root from its own location and exports it (`THOR_ROOT`, `THOR_REPO`, `THOR_PONG`,
-`THOR_INPUTS`, `THOR_WORK`, `THOR_IMAGES`, `THOR_PY`, `THOR_JOBS`, and the `PONG_*` inputs the device
-repository's scripts look for). No file here names a machine or a user.
+## One branch in every repository: `thor/main`
+
+Each repository has the user's fork as `origin` (`git@github.com:andyli386/<name>.git`) and the upstream as
+`upstream`; its local `main` mirrors the upstream. Every fix is committed on `thor/main` in the repository it
+belongs to, and pushed to the fork once it is verified. No other branch is made.
+
+| Change | Where it is committed |
+|---|---|
+| The device tree (scripts, kits, configurations, userland sources), the kernel patch series, the records, this build system | this repository |
+| A driver | the driver's submodule, on `thor/main` of its own fork |
+| The UEFI platform for the phone | `src/uefi-pong` |
+| The loader | `src/uefi-publish-20261117/darwinboot` (the fork of `pong-darwin-boot24`) |
+| The build system of the upstream project | `src/UniXNU` |
+
+A pull request to an upstream repository is opened from `thor/main` of its fork. The old `thor/*` topic branches of
+2026-11-17 that still exist on the forks are not used.
 
 ## One version, three commands
 
 ```sh
 source thor/env.sh
 $THOR_PY -I thor/bootstrap.py thor/versions/v247.json                 # 1. create work/v247-unified
-thor/build-kernel.sh $THOR_WORK/v247-unified                          # 2. compile the kernel (about two minutes from scratch)
+thor/build-kernel.sh $THOR_WORK/v247-unified                          # 2. compile the kernel (two to four minutes from scratch)
 $THOR_PY -I thor/package.py thor/versions/v247.json --work $THOR_WORK/v247-unified --publish    # 3. package, verify, publish
 ```
 
-1. `bootstrap.py` creates the working copy from the sources and the inputs; nothing is cloned from an older
-   working copy. It makes `device/` (the device repository through links, with a real copy of `scripts/` so that
-   build outputs stay out of the source tree), the build-tree skeleton (the device repository's own
+1. `bootstrap.py` creates the working copy from the sources and the inputs; nothing is cloned from an older working
+   copy. It makes `device/` (the device repository through links, with a real copy of `scripts/` so that build
+   outputs stay out of the source tree), the build-tree skeleton (the device repository's own
    `build-ipados18-pong-macos.py --prepare-only`), the kernel source tree (the pinned Apple XNU checkout, the recorded
    patch series, the version's kernel tree checkpoint — **compared with the recorded tree hash**) and `runtime/`
    (the libraries rebuilt from `thor/libraries/` and compared with the digests in `thor/libraries.json`, the signed
    ones copied from `inputs/signed/`). It writes `recipe.json`.
 2. `build-kernel.sh` compiles the kernel with the device repository's build script (`SKIP_ALL_XNU_PATCHES=1`: the tree
-   already carries every patch) and prelinks it to `kernel/kernel-ipados18-thor.macho`.
+   already carries every patch) and prelinks it, with the storage bindings this build made and the Apple kext closure
+   from `apple/` in the device tree.
 3. `package.py` takes the parent image from `images/`, replaces the kernel, the device tree, the manifest and the
    menu of the template image, trims the volume, verifies the result and writes the image and its record. It needs no
    older packaging script: the format helpers are in `thor/thorimage.py`.
@@ -53,15 +68,15 @@ A working copy can be deleted at any time and is back in a few seconds.
 2. Add to `kernel_strings`: `new` for messages this kernel prints and its parent did not, `gone` for the parent's
    that are no longer there; move earlier `new` ones into `carried`.
 3. `bootstrap.py` with the new file (the `checkpoint` is still the previous one, so the tree starts from it).
-4. Change the kernel under `work/<release>/build-tree/.cache/xnu-work/`, drivers under
-   `src/UniXNU-pong/drivers/<driver>/`, library sources under `thor/libraries/`. A library that changes gets a new
-   name (and a new entry in `thor/libraries.json` with its digest after the first build); `runtime/env.sh`, made by
-   `bootstrap.py`, tells the kernel build which library is embedded.
+4. Change the kernel under `work/<release>/build-tree/.cache/xnu-work/`; drivers in their submodules under
+   `src/UniXNU-thor/drivers/`; library sources under `thor/libraries/`. A library that changes gets a new name and an
+   entry in `thor/libraries.json` with its digest after the first build; `runtime/env.sh`, made by `bootstrap.py`,
+   tells the kernel build which library is embedded.
 5. `build-kernel.sh`, then `package.py --publish`.
-6. Record the sources: the kernel tree as a new checkpoint
-   (`patches/xnu-ipados18/checkpoints/thor-vNNN/xnu-after-series.patch`: pristine XNU + the series, then everything
-   the tree adds) and the drivers as one patch each against their pinned upstream commit
-   (`checkpoints/thor-vNNN/drivers/`), as thor-v247 was recorded; commit.
+6. Record the kernel tree: `$THOR_PY -I thor/checkpoint.py thor/versions/vNNN.json --work $THOR_WORK/vNNN-unified`
+   writes `patches/xnu-ipados18/checkpoints/<checkpoint>/` (the tree beyond the series, round-trip checked) and the
+   commit and branch of every driver submodule; it refuses uncommitted driver changes.
+7. Commit on `thor/main` in each repository the change belongs to and push to the forks.
 
 ## What is where
 
@@ -71,7 +86,7 @@ A working copy can be deleted at any time and is back in a few seconds.
 | `bootstrap.py` | Creates a working copy from the sources and the inputs |
 | `build-kernel.sh` | Compiles the kernel of a working copy and prelinks it |
 | `package.py` | Packages, verifies and publishes the boot image |
-| `checkpoint.py` | Records the kernel tree and the driver sources of a working copy as the version's checkpoint, verified by round trips |
+| `checkpoint.py` | Records the kernel tree checkpoint and the driver pins of a version |
 | `thorimage.py` | The image format without older scripts: Android v4 boot image, the FAT16 volume, trimming, the menu, the Mach-O helpers, the device tree |
 | `libraries.json` | Every library the kernel embeds: where it is built from or copied from, and the recorded digest |
 | `libraries/<name>/` | Sources, build scripts and host tests of the injected libraries (the latest version of each; older ones are in `checkpoints/`) |
@@ -81,24 +96,24 @@ A working copy can be deleted at any time and is back in a few seconds.
 
 ## What was verified on 2026-11-28
 
-- All three steps ran in a sandbox that denied every access to the old project directories.
-- Packaging the members of the v247 image as shipped reproduces that image byte for byte
-  (sha256 `4092ce88…`, 95,490,048 bytes).
+- Bootstrap, kernel build and packaging ran in a sandbox that denied every access to the old project directories.
+- Packaging the members of the v247 image as shipped reproduces that image byte for byte (sha256 `4092ce88…`).
 - `bootstrap.py` reproduces the v247 kernel source tree exactly (tree `a9192b569462…`) and the five rebuilt libraries
   byte for byte.
-- The kernel rebuilt from scratch is not byte-identical to the one v247 shipped. The source trees are the same and
-  1032 of 1044 compiled objects carry the same code and data. Eleven objects differ (`osfmk/kern/clock.c`,
+- With this repository as the device tree and the drivers as submodules: the same kernel as with the tree the
+  images were built from so far — 1043 of 1044 compiled objects identical (the last is `version.o`, the build time),
+  all 53 members of the seven native driver archives identical, the prelinked kernel different only in the version
+  time and the working copy's path.
+- A kernel rebuilt from scratch is not byte-identical to the one v247 shipped. The source trees are the same and
+  1032 of 1044 objects carry the same code and data as the shipped kernel's. Eleven objects differ (`osfmk/kern/clock.c`,
   `ledger.c`, `debug.c`, the six `kdp` files, `console/video_console.c`): the old build's sanitizer ignore list
   named the tree's location of v202, so it matched nothing and those files were compiled with integer-overflow
   checks the sources mean to exclude; the new build follows the sources and is about 8 KB smaller there. The rest is
   the build time and the source paths embedded in the kernel. That kernel has not run on the phone.
 - The record of v247 as shipped names the log capture library's digest under `console_sha256`; the new packaging
   writes the console library's.
-- `checkpoint.py` records the rebuilt working copy as the same kernel tree patch (tree `a9192b569462…`) and the same
-  eight driver patches as the thor-v247 checkpoint, byte for byte.
 
 ## Not here yet
 
-The install and collect scripts for the phone, and the boot-stack budget tool, still live in the old project tree
-(per-version intake folders and its tools folder) and in `checkpoints/`. They are records there; port them into this
-directory before the first version that is installed from here.
+The install and collect scripts for the phone, and the boot-stack budget tool, are records in `checkpoints/` (copies
+from the old tree). Port them into this directory before the first version that is installed from here.

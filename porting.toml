@@ -808,3 +808,17 @@ completion = ["bootstrap.py, build-kernel.sh and package.py succeed in a sandbox
 limits = ["The install and collect scripts of the phone are not ported into this directory yet. The first kernel built here differs from the shipped one as described and has not run on the device."]
 next_action = ["Port the install and collect scripts, then make and install the next version from this directory."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "thor/README.md", result = "Bootstrap, kernel build and packaging ran in a sandbox without the old directories; the v247 image was reproduced byte for byte from its shipped members."}]
+
+[[area]]
+id = "thor-device-repository"
+status = "implemented"
+components = ["PongPlatform24"]
+paths = ["thor/**", ".gitmodules", "drivers/PongPower", "drivers/NativeUfs", "drivers/PongAdreno", "drivers/PongWifi", "drivers/PongMetal", "drivers/ArmDTPlatform", "drivers/ArmCpu", "drivers/AdrenoMetal"]
+inputs = ["The device tree as the v247 image was built from (it lived as uncommitted changes in a clone of the upstream device repository)", "The eight driver repositories with Thor's changes, each on thor/main of a fork of its own"]
+configuration = ["One branch, thor/main, in every repository; the driver submodules at Thor's commits, their sources the forks"]
+procedure = ["Check out this repository with its submodules, source thor/env.sh, then bootstrap.py, build-kernel.sh and package.py as thor/README.md describes."]
+findings = ["This repository is the device tree: the scripts, kits, configurations and userland sources of v247 are committed here, and the twelve drivers are submodules. With this tree the build gives the same kernel as with the tree the images were built from so far: 1043 of 1044 compiled objects identical (version.o is the build time), all 53 members of the seven native driver archives identical.", "The whole pipeline ran in a sandbox that denied access to the old project directories and to the former device tree.", "Thor's driver changes are one commit each on thor/main of a fork: pong-power (46 files), pong-ufs (16), pong-adreno (22), pong-wifi (8), pong-metal (4), pong-arm-dt-platform (2), pong-arm-cpu (1), AdrenoMetal (1). pong-power and pong-ufs each had never-pushed commits on their main that the thor-v247 record named as upstream commits; they are part of those commits now."]
+completion = ["Bootstrap, kernel build and packaging succeed with the sandbox denying the old directories; the image passes every check of package.py."]
+limits = ["The upstream device repository no longer exists on GitHub; the build reads ignored local folders of this repository (refer/, apple/) that are not in git. AdrenoMetal is based on the last commit of its earlier repository line."]
+next_action = ["Port the install and collect scripts, then make and install the next version from here."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "thor/README.md", result = "Same kernel as with the previous device tree; the pipeline ran without the old directories."}]

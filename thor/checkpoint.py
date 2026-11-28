@@ -7,12 +7,11 @@ Writes, in this repository:
   patches/xnu-ipados18/checkpoints/<checkpoint>/   xnu-after-series.patch and manifest.json: everything between
                                                  "pristine Apple XNU + the recorded patch series" and the kernel
                                                  source tree of the working copy
-  checkpoints/<checkpoint>/drivers/               one patch per driver that differs from the commit its upstream
-                                                 repository pins, and a manifest
+  checkpoints/<checkpoint>/drivers/manifest.json  the commit and branch each driver submodule is at (the drivers
+                                                 themselves are committed on thor/main of their own repositories)
 
 The version file names the checkpoint.  It is verified as it is made: the kernel patch round-trips to the recorded
-tree hash on a fresh replay, and each driver patch applies to a fresh export of its pinned commit and equals the
-working tree file for file.  Generated payload headers (they embed signed libraries or name local paths) and the
+tree hash on a fresh replay.  Generated payload headers (they embed signed libraries or name local paths) and the
 backup and reject files of the patch tool stay out.  bootstrap.py builds working copies from a checkpoint.
 """
 import argparse
@@ -27,7 +26,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 ROOT = REPO.parent.parent
-PONG, WORK = ROOT / 'src/UniXNU-pong', ROOT / 'work'
+PONG, WORK = Path(os.environ.get('THOR_PONG') or ROOT / 'src/UniXNU-thor'), ROOT / 'work'
 SERIES_DIR = REPO / 'patches/xnu-ipados18'
 XNU = PONG / 'refer/ipados18/xnu-11417.140.69'
 GITENV = dict(os.environ, GIT_AUTHOR_NAME='checkpoint', GIT_AUTHOR_EMAIL='checkpoint@localhost',
@@ -168,61 +167,21 @@ def kernel(version, work, scratch, previous, upstream):
 
 
 # ---------------------------------------------------------------------------------------------- drivers
-def drivers(version, previous):
-    """one patch per driver that differs from the commit its repository pins"""
-    name = version['checkpoint']
-    target = REPO / 'checkpoints' / name / 'drivers'
-    old_path = REPO / f'checkpoints/{previous}/drivers/manifest.json'
-    old = json.loads(old_path.read_text()) if old_path.exists() else {}
-    result = {}
-    for driver in sorted(os.listdir(PONG / 'drivers')):
-        repo = PONG / 'drivers' / driver
-        if not (repo / '.git').exists():
-            continue
-        commit = out(['git', 'rev-parse', 'HEAD'], repo)
-        index = WORK / f'.index-{driver}'
-        env = dict(GITENV, GIT_INDEX_FILE=str(index))
-        run(['git', 'read-tree', 'HEAD'], repo, env)
-        run(['git', 'add', '-A', '--', '.', ':!*.orig', ':!*.rej', ':!.DS_Store'], repo, env)
-        absent = []
-        deleted = out(['git', 'diff', '--cached', '--name-only', '--diff-filter=D'], repo, env).split('\n')
-        for rel in [d for d in deleted if d]:       # upstream files the working tree no longer carries stay out of the patch
-            run(['git', 'reset', '-q', 'HEAD', '--', rel], repo, env)
-            absent.append(rel)
-        patch = run(['git', 'diff', '--cached', '--no-color', '--full-index'], repo, env).stdout
-        status = [l for l in out(['git', 'diff', '--cached', '--name-status', '--no-color'], repo, env).split('\n') if l]
-        index.unlink(missing_ok=True)
-        if not patch:
-            continue
-        if b'Binary files' in patch or b'/Users/' in patch:
-            raise SystemExit(f'{driver}: binary content or a local path would go into the checkpoint patch')
-        target.mkdir(parents=True, exist_ok=True)
-        (target / f'{driver}.patch').write_bytes(patch)
-        # the round trip: a fresh export of the pinned commit with the patch equals the working tree
-        fresh = WORK / f'.export-{driver}'
-        shutil.rmtree(fresh, ignore_errors=True)
-        fresh.mkdir()
-        run(['bash', '-c', f'git -C "{repo}" archive {commit} | tar -x -C "{fresh}"'])
-        git_repo(fresh)
-        run(['git', 'apply', '--index', target / f'{driver}.patch'], fresh)
-        left_out = []
-        for rel in files_under(repo):
-            if rel == '.git' or (repo / rel).is_dir():
-                continue
-            if rel.endswith(LEFTOVER):
-                left_out.append(rel)
-                continue
-            if (fresh / rel).read_bytes() != (repo / rel).read_bytes():
-                raise SystemExit(f'{driver}: {rel} is not reproduced by its patch')
-        shutil.rmtree(fresh)
-        result[driver] = dict(upstream_repository=old.get(driver, {}).get('upstream_repository') or
-                              run(['git', 'remote', 'get-url', 'origin'], repo, check=False).stdout.decode().strip(),
-                              upstream_commit=commit, patch=f'{driver}.patch', sha256=sha(patch), bytes=len(patch),
-                              files=[l.split('\t')[1] for l in status], new_files=[l.split('\t')[1] for l in status if l.startswith('A\t')],
-                              upstream_files_absent_from_the_working_tree=absent, left_out=left_out,
-                              **({'unchanged_since_' + previous: sha(patch) == old[driver]['sha256']} if driver in old else {}))
-    dump(target / 'manifest.json', result)
-    return {d: dict(bytes=v['bytes'], files=len(v['files'])) for d, v in result.items()}
+def drivers(version):
+    """the drivers are submodules of the device repository, each on thor/main of its own repository: everything of
+    them must be committed there before a checkpoint is recorded"""
+    status = [l for l in out(['git', 'status', '--porcelain', '--', 'drivers'], PONG).split('\n') if l]
+    if status:
+        raise SystemExit('uncommitted driver changes; commit them on thor/main of the driver repository first:\n   ' +
+                         '\n   '.join(status))
+    pins = {}
+    for line in out(['git', 'submodule', 'status', '--', 'drivers'], PONG).split('\n'):
+        if line:
+            state, commit, path = line[0], line.split()[1], line.split()[2]
+            pins[path] = dict(commit=commit, branch=out(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], PONG / path))
+    manifest = REPO / 'checkpoints' / version['checkpoint'] / 'drivers' / 'manifest.json'
+    dump(manifest, pins)
+    return {k: v['branch'] for k, v in pins.items()}
 
 
 def main():
@@ -231,7 +190,7 @@ def main():
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--previous', help='the checkpoint before this one (default: thor-v<version - 1>)')
     parser.add_argument('--kernel-only', action='store_true')
-    parser.add_argument('--drivers-only', action='store_true')
+    parser.add_argument('--drivers-only', action='store_true', help='only check the driver submodules')
     args = parser.parse_args()
     version = json.loads(args.version.read_text())
     work = args.work.resolve()
@@ -245,7 +204,7 @@ def main():
     if not args.drivers_only:
         report['kernel'] = kernel(version, work, scratch, previous, upstream)
     if not args.kernel_only:
-        report['drivers'] = drivers(version, previous)
+        report['drivers'] = drivers(version)
     print(json.dumps(report, indent=1))
 
 

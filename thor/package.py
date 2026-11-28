@@ -35,7 +35,7 @@ import thorimage as image                                        # noqa: E402
 REPO = HERE.parent
 ROOT = REPO.parent.parent
 INPUTS, WORK, IMAGES = ROOT / 'inputs', ROOT / 'work', ROOT / 'images'
-PONG = ROOT / 'src/UniXNU-pong'
+PONG = Path(os.environ.get('THOR_PONG') or ROOT / 'src/UniXNU-thor')          # the device tree
 TEMPLATE = INPUTS / 'image-template' / image.TEMPLATE
 KERNEL = 'kernel/kernel-ipados18-thor.macho'
 TARGET = {name: '::' + name for name in (image.KERNEL_MEMBER, image.KERNEL_MEMBER + '.adt', image.MANIFEST_MEMBER, image.MENU_MEMBER)}
