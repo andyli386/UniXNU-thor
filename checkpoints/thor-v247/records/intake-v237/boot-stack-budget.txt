@@ -1,0 +1,5 @@
+v237-unified startup entries 6453: qsort depth 10 = 0x3c00 bytes, chain [6453, 3018, 1079, 539, 196, 42, 24, 15, 9, 4]
+   kernel + kexts (macho_list order)    n=1743 depth=10 stack=0x03c00 (15360 B) calls= 16310 chain=[1743, 735, 249, 185, 105, 64, 35, 14, 9, 3]
+v237-unified: qsort frame 0x90, swapfunc frame 0x80, comparator frame 0x20, boot stack 0x4000
+  startup table sort     depth 10  frames below qsort 0x2d0  worst 0x08f0 of 0x4000  free 14096 B  OK
+  kalloc-type view sort  depth 10  frames below qsort 0x3f0  worst 0x0a10 of 0x4000  free 13808 B  OK

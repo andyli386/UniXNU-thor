@@ -1,0 +1,118 @@
+{
+  "adt_sha256": "b0423f1a3665e6cf7b4380e902865a29bbd1b2d354e49d1ef3f5d2b6659faf47",
+  "boot_args": "panic_on_crash_disabled=1 arp0=thor debug=0x14e -v pong_allow_unauthenticated_root=1 cs_enforcement_disable=1 cs_library_val_enable=0 amfi_get_out_of_my_way=1 -apfs_shared_datavolume pong_disable_swap=1 pong_skip_setup=1 pong_ufs_readwrite=1 ignition_level=1 dyld_flags=0x8 launchd_rd=md0 pong_software_keybag=1 pong_display=1 pong_software_ui=1 pong_touch=1 pong_buttons=1 pong_build=ipados18-22H374 launchd_unsecure_cache=1 io_throttle_period_tier1=1 io_throttle_period_tier2=1 io_throttle_period_tier3=1 pong_platform_uuid=cec07c12-bd31-53ef-91a1-84ce8f3ac203 vm_compressor=2 pong_stage_ui_v77=1 fb_threads=4 fb_filter=0 tmlow=1 memlog=1 tmfull=1 pong_exec_inject=/private/var/pong/libpong-ui18.dylib,SpringBoard,backboardd,containermanagerd,runningboardd,usermanagerd,lsd,com.apple.datamigrator,com.apple.migrationpluginwrapper,datamigratorhelper,fairplayd.A2,filecoordinationd,mediaremoted,audiomxd,Preferences fb_hz=120 pong_bo_prewarm=2 fb_copy=0 pong_metal=1 pong_adreno_start=1 pong_gpu_scanout=1",
+  "boot_argument_bytes": 1005,
+  "boot_stack_bytes": 16384,
+  "candidate_change": [
+    "The wallpaper catalog library is not injected any more.  WallpaperKit never looked for a catalog while it was there (v242, v243), and those are the first boots in which the render server draws in software at 1206x2622 instead of 1440x3200 (v237 to v243: native frames).  Whether the frame size returns to native is to be read from the first swaps of this image.",
+    "A log capture library (libpong-logcap-v244) is in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform and kbd: it switches libsystem_trace to mirroring os_log to the process's error output (the environment variable OS_ACTIVITY_DT_MODE did nothing for wifid on 2026-11-27), filters it and passes it on through the kernel's diagnostic channel; for Freeform and kbd it keeps the last lines and passes them on when the process is about to die.",
+    "The Wi-Fi daemon's own library (libpong-wifid-v244) sets the same switch when it releases the daemon and keeps its output for the life of the process; the probe (libpong-probe-v244) samples wifid's threads.",
+    "Every library the injected libraries load is compared with the names Apple's own binaries use.",
+    "Carried unchanged: the firmware LUN check with the primary table deciding (v243), the retries and the record of a failed check (v242), the interface-namer marker and the en0 listing in configd (Settings -> About), the panic record slot (v238), the Settings hang dump with symbols (v238), protection classes A and B open for every process and IOSurface selector 21 (v237), the v236 GPU timing hook, the v235 witness.  No boot argument changed."
+  ],
+  "changed_fat_members": [
+    "/efi/unixnu/payloads/kernel.macho",
+    "/efi/unixnu/payloads/kernel.macho.adt",
+    "/efi/unixnu/pong-boot-manifest.json",
+    "/efi/unixnu/unixnu.toml"
+  ],
+  "chosen_selectors": {
+    "thor-adsp-pas1": 1,
+    "thor-bt-probe": 2,
+    "thor-glink-ipcrtr": 1,
+    "thor-glink-version": 1,
+    "thor-panel-power": 1,
+    "thor-pas4-probe": 1,
+    "thor-qrtr-ap-node": 1,
+    "thor-qrtr-pd-state": 1,
+    "thor-qrtr-rx-followup": 1,
+    "thor-qrtr-rx-one": 1,
+    "thor-qrtr-service-window": 1,
+    "thor-qrtr-ssctl-fields": 1,
+    "thor-rmtfs-serve": 1,
+    "thor-wifi": 2
+  },
+  "console_sha256": "5634ff6330a6e03421022a7450c3a0490488f8fdd60d99757d74a3cf5932117d",
+  "console_stage_path": "/private/var/thor-console-v232/libpong-console-v205.dylib",
+  "console_uuid": "5E9E158E-85BC-36C8-BD9B-8AFD3DDABD22",
+  "diagnostic_path": "/private/var/thor-console-v232/libpong-console-v205.dylib",
+  "embedded_release_id": "v244-unified",
+  "filesystem_check": 0,
+  "firmware_sha256": "7cc8de7e4400a97d604d5ec645ddcd1a2ebdf5c219c3cc284f3bf0f98b18f321",
+  "hardware_validated": false,
+  "image": "boot-thor-unixnu-v244-unified.img",
+  "image_bytes": 95391744,
+  "image_sha256": "03a5c59c6a06dc59f6de7d224cc673dcdb0c31baadcd15f45a42bb7d26f359b6",
+  "kernel_sha256": "340820e653136ca8626a20a53742dca8ba6793aba1dc42bff21b30f9c5c92cc6",
+  "kernel_uuid": "84BD6754-7DEA-3E51-BD26-6AA922E84023",
+  "parent_kernel_uuid": "7567DC32-EA2D-3298-AC22-0B19EF51B1A1",
+  "parent_sha256": "15429c8bf22412f1facf79f094115e41bc8a05b06cd03992154605655b977bf0",
+  "pool_path": "/private/var/thor-metal-pool-v227-52943f65d3b86181b8724863fc9fec17",
+  "probe": "/private/var/pong/libpong-probe-v244.dylib in PosterBoard, configd and wifid",
+  "qsort_frame_bytes": 144,
+  "runtime": {
+    "PongMetalBridge.dylib": {
+      "bytes": 22802560,
+      "sha256": "95aaa62d506e5d4e46c423b1732c869938c545dea394f20bc10d930de85f712d",
+      "uuid": "5A47441E-45CF-3075-A379-4AAAAD412727"
+    },
+    "libpong-console-v205.dylib": {
+      "bytes": 124496,
+      "sha256": "95d959b0a59ebe0fddb1691d13e82e6ca22587ab12081f7f29e712c395c01be1",
+      "uuid": "CFF4812C-65DC-30B6-9FC3-825D68FDEA38"
+    },
+    "libpong-logcap-v244.dylib": {
+      "bytes": 86864,
+      "sha256": "0956680f8f565b7eea96f09f499b977f1ce88de724439e19cb7238e302c0ad26",
+      "uuid": "0C624339-7487-3EE4-9470-40DD39E7B0CC"
+    },
+    "libpong-probe-v244.dylib": {
+      "bytes": 90064,
+      "sha256": "128c2052be76c97b50ef74a16fcecf24583fa4d512f9e73dd495638431a0735f",
+      "uuid": "F9E8230F-560A-3AC3-B7DC-7048CB5ABC31"
+    },
+    "libpong-settings-v185.dylib": {
+      "bytes": 115504,
+      "sha256": "c2c4970e9e29dc246b6719e157d6fecf76ce33b4a2fa2593fc09719e1146f5be",
+      "uuid": "6F2172F6-7B7C-3EE6-8A1D-35B598A033A9"
+    },
+    "libpong-ui.dylib": {
+      "bytes": 262608,
+      "sha256": "a3dc47b69b433eb65d3cf831f55cca602397f4bec4fcf3df5337e6f2115122bf",
+      "uuid": "70BD1E7D-F365-3819-B166-7EEF6BA8AADD"
+    },
+    "libpong-wifid-v244.dylib": {
+      "bytes": 86000,
+      "sha256": "5634ff6330a6e03421022a7450c3a0490488f8fdd60d99757d74a3cf5932117d",
+      "uuid": "5E9E158E-85BC-36C8-BD9B-8AFD3DDABD22"
+    },
+    "libvulkan_freedreno.dylib": {
+      "bytes": 18072848,
+      "sha256": "4ba7707807e2dc0a019abf686585cb6c0a124562caf3a1f2ef790ee84cda8aab",
+      "uuid": "C99998C4-FFDA-3730-9274-75B17AF2E72F"
+    }
+  },
+  "signature_sha256": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+  "variant": "unified",
+  "version": 244,
+  "wifi_daemon": "started and held (wlan node in the device tree)",
+  "wifi_join": {
+    "configured": false,
+    "source": "PONG_WIFI_TEST_CONFIG at build time (absent for this image)",
+    "switch": "/chosen thor-wifi-join = 0"
+  },
+  "witness": {
+    "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+    "gpu_trace": "armed by the kernel at start, read into the panic record",
+    "kernel_source": "osfmk/kern/thor_witness_v235.h (v244 line), bsd/kern/kern_exec.c (staging and injection of the libraries, wifid start bookkeeping and watchdog, kern.pong_wifi_gate), bsd/kern/kern_exit.c (diagnostic channel, gate signal), device/drivers/NativeUfs/ModemFirmwareAccess.h (partition-table check: the primary decides, the retries, the radio driver's wait)",
+    "log_capture": "/private/var/pong/libpong-logcap-v244.dylib in SpringBoard, backboardd, PosterBoard, CollectionsPoster, PowerUIAgent, Freeform and kbd",
+    "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+    "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+    "patch": "prepare/logcap/logcap244.c; prepare/logcap/trace_flags.h; prepare/wifid/wifid244.c; prepare/probe/probe244.c; prepare/settings/about238.patch (carried); kernel edits recorded in ANALYSIS.md",
+    "probe": "/private/var/pong/libpong-probe-v244.dylib in PosterBoard, configd and wifid",
+    "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+    "version_line": "THOR WITNESS V244: ...",
+    "wallpaper": "not injected (v242 and v243 had libpong-wallpaper in SpringBoard: no catalog lookup happened while it was there)",
+    "wifid_hold": "/private/var/pong/libpong-wifid-v244.dylib in wifid (only where the device tree names wlan)"
+  }
+}

@@ -1,0 +1,4 @@
+v244-unified: qsort frame 0x90, swapfunc frame 0x80, comparator frame 0x20, boot stack 0x4000
+  startup table sort     depth  9  frames below qsort 0x2d0  worst 0x0860 of 0x4000  free 14240 B  OK
+  kalloc-type view sort  depth 10  frames below qsort 0x3f0  worst 0x0a10 of 0x4000  free 13808 B  OK
+rc=

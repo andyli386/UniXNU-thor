@@ -1,0 +1,122 @@
+{
+  "adt_sha256": "b0423f1a3665e6cf7b4380e902865a29bbd1b2d354e49d1ef3f5d2b6659faf47",
+  "boot_args": "panic_on_crash_disabled=1 arp0=thor debug=0x14e -v pong_allow_unauthenticated_root=1 cs_enforcement_disable=1 cs_library_val_enable=0 amfi_get_out_of_my_way=1 -apfs_shared_datavolume pong_disable_swap=1 pong_skip_setup=1 pong_ufs_readwrite=1 ignition_level=1 dyld_flags=0x8 launchd_rd=md0 pong_software_keybag=1 pong_display=1 pong_software_ui=1 pong_touch=1 pong_buttons=1 pong_build=ipados18-22H374 launchd_unsecure_cache=1 io_throttle_period_tier1=1 io_throttle_period_tier2=1 io_throttle_period_tier3=1 pong_platform_uuid=cec07c12-bd31-53ef-91a1-84ce8f3ac203 vm_compressor=2 pong_stage_ui_v77=1 fb_threads=4 fb_filter=0 tmlow=1 memlog=1 tmfull=1 pong_exec_inject=/private/var/pong/libpong-ui18.dylib,SpringBoard,backboardd,containermanagerd,runningboardd,usermanagerd,lsd,com.apple.datamigrator,com.apple.migrationpluginwrapper,datamigratorhelper,fairplayd.A2,filecoordinationd,mediaremoted,audiomxd,Preferences fb_hz=120 pong_bo_prewarm=2 fb_copy=0 pong_metal=1 pong_adreno_start=1 pong_gpu_scanout=1",
+  "boot_argument_bytes": 1005,
+  "boot_stack_bytes": 16384,
+  "candidate_change": [
+    "Battery number back: v239 lost it when wifid came up in the first second.  wifid now starts only after configd has prepared en0 and a power source is on the registry (or 150 seconds into the boot), and a wifid that has not asked the Wi-Fi driver for anything 60 seconds after it started is stopped and refused for the rest of the boot, so nothing that asks Wi-Fi is left waiting.",
+    "No library goes into wifid or airportd any more, and no thread of configd is sampled: v239 loaded the probe into wifid, redirected its output and sampled both daemons while they were starting.",
+    "Settings -> About stays fixed: configd publishes the interface-namer marker as soon as its own server answers, then every ten seconds for as long as it lives (the naming plugin drops it on its updates).",
+    "Wi-Fi: the kernel tells when wifid starts, when it first asks the driver, and why the gate opened; the driver logs each request with the caller's name.  configd lists en0, gives it a network service and asks the Wi-Fi manager for power once wifid is up.",
+    "Carried unchanged: the panic record slot (v238), the Settings hang dump with symbols (v238), protection classes A and B open for every process and IOSurface selector 21 (v237), the v236 GPU timing hook, the v235 witness.  The device tree keeps the wlan node.  No boot argument changed."
+  ],
+  "changed_fat_members": [
+    "/efi/unixnu/payloads/kernel.macho",
+    "/efi/unixnu/pong-boot-manifest.json",
+    "/efi/unixnu/unixnu.toml"
+  ],
+  "chosen_selectors": {
+    "thor-adsp-pas1": 1,
+    "thor-bt-probe": 2,
+    "thor-glink-ipcrtr": 1,
+    "thor-glink-version": 1,
+    "thor-panel-power": 1,
+    "thor-pas4-probe": 1,
+    "thor-qrtr-ap-node": 1,
+    "thor-qrtr-pd-state": 1,
+    "thor-qrtr-rx-followup": 1,
+    "thor-qrtr-rx-one": 1,
+    "thor-qrtr-service-window": 1,
+    "thor-qrtr-ssctl-fields": 1,
+    "thor-rmtfs-serve": 1,
+    "thor-wifi": 2
+  },
+  "console_sha256": "95d959b0a59ebe0fddb1691d13e82e6ca22587ab12081f7f29e712c395c01be1",
+  "console_stage_path": "/private/var/thor-console-v232/libpong-console-v205.dylib",
+  "console_uuid": "CFF4812C-65DC-30B6-9FC3-825D68FDEA38",
+  "diagnostic_path": "/private/var/thor-console-v232/libpong-console-v205.dylib",
+  "embedded_release_id": "v240-unified",
+  "filesystem_check": 0,
+  "firmware_sha256": "7cc8de7e4400a97d604d5ec645ddcd1a2ebdf5c219c3cc284f3bf0f98b18f321",
+  "flash_image": {
+    "firmware_sha256": "7cc8de7e4400a97d604d5ec645ddcd1a2ebdf5c219c3cc284f3bf0f98b18f321",
+    "image": "boot-thor-unixnu-v240-unified-full.img",
+    "image_bytes": 168046592,
+    "image_sha256": "129baf6ca23a548103183e72099f8c12878a409713477e190220e6fc210529a1",
+    "members_sha256": {
+      "/efi/unixnu/payloads/kernel.macho": "7ec171e08c657be95e9779731e0ba883bf70ffbc44672511f19d9008d43905f6",
+      "/efi/unixnu/payloads/kernel.macho.adt": "b0423f1a3665e6cf7b4380e902865a29bbd1b2d354e49d1ef3f5d2b6659faf47",
+      "/efi/unixnu/pong-boot-manifest.json": "921b134d8d36ea26f3a9ab86df0ab45ccef0d0ea2bcaa393c64a9d52b9bf7404",
+      "/efi/unixnu/unixnu.toml": "c62f207fed19c511f758b27d69516a02ee47164fdbead32037b56f483edb84ae"
+    },
+    "signature_sha256": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7"
+  },
+  "hardware_validated": false,
+  "image": "boot-thor-unixnu-v240-unified.img",
+  "image_bytes": 95203328,
+  "image_sha256": "8fe8943157e300a6dfd3a865c2fb2b47a8bd06a9a585987f24bf441a0814b2fd",
+  "kernel_sha256": "7ec171e08c657be95e9779731e0ba883bf70ffbc44672511f19d9008d43905f6",
+  "kernel_uuid": "EA56FFD9-0985-3DD2-B8D8-FFF54001A439",
+  "parent_kernel_uuid": "FE10C546-52A4-337D-82FC-5368B9090403",
+  "parent_sha256": "87d8deff766f0657661fae7652a9a5e015587d1df5e2fb93f5c4f3eab14f8c8e",
+  "pool_path": "/private/var/thor-metal-pool-v227-52943f65d3b86181b8724863fc9fec17",
+  "probe": "/private/var/pong/libpong-probe-v240.dylib in PosterBoard and configd",
+  "qsort_frame_bytes": 144,
+  "runtime": {
+    "PongMetalBridge.dylib": {
+      "bytes": 22802560,
+      "sha256": "95aaa62d506e5d4e46c423b1732c869938c545dea394f20bc10d930de85f712d",
+      "uuid": "5A47441E-45CF-3075-A379-4AAAAD412727"
+    },
+    "libpong-console-v205.dylib": {
+      "bytes": 124496,
+      "sha256": "95d959b0a59ebe0fddb1691d13e82e6ca22587ab12081f7f29e712c395c01be1",
+      "uuid": "CFF4812C-65DC-30B6-9FC3-825D68FDEA38"
+    },
+    "libpong-probe-v240.dylib": {
+      "bytes": 91792,
+      "sha256": "a17a799d82aba6ae2127d083340ba9c23704e49e13c6943878604f3aeed2b819",
+      "uuid": "98147B5A-F9F9-3B14-A60F-78FE3C497378"
+    },
+    "libpong-settings-v185.dylib": {
+      "bytes": 115504,
+      "sha256": "c2c4970e9e29dc246b6719e157d6fecf76ce33b4a2fa2593fc09719e1146f5be",
+      "uuid": "6F2172F6-7B7C-3EE6-8A1D-35B598A033A9"
+    },
+    "libpong-ui.dylib": {
+      "bytes": 262608,
+      "sha256": "a3dc47b69b433eb65d3cf831f55cca602397f4bec4fcf3df5337e6f2115122bf",
+      "uuid": "70BD1E7D-F365-3819-B166-7EEF6BA8AADD"
+    },
+    "libvulkan_freedreno.dylib": {
+      "bytes": 18072848,
+      "sha256": "4ba7707807e2dc0a019abf686585cb6c0a124562caf3a1f2ef790ee84cda8aab",
+      "uuid": "C99998C4-FFDA-3730-9274-75B17AF2E72F"
+    },
+    "thor-apps-install": {
+      "bytes": 111104,
+      "offset": 40998689,
+      "sha256": "3c8ff5f6b384cd2b268667ae38ebe0cbfa5a22e3342cf2171b15b774421d0fef",
+      "uuid": "F315AD70-A4DA-3015-BC1F-C4BC9537441D"
+    }
+  },
+  "signature_sha256": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+  "variant": "unified",
+  "version": 240,
+  "wifi_join": {
+    "configured": false,
+    "source": "PONG_WIFI_TEST_CONFIG at build time (absent for this image)",
+    "switch": "/chosen thor-wifi-join = 0"
+  },
+  "witness": {
+    "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+    "gpu_trace": "armed by the kernel at start, read into the panic record",
+    "kernel_source": "osfmk/kern/thor_witness_v235.h (v240 line), bsd/kern/kern_exec.c (wifid gate and watchdog, probe staging and injection), bsd/kern/kern_exit.c (probe channel and gate signal), PongWifi/PongWifiNet.cpp and PongPower/ThorBatterySource.cpp (driver notes); carried: slot choice, kern_proc.c, MiniIOSurface.cpp",
+    "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+    "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+    "patch": "prepare/probe/probe240.c (probe and Wi-Fi bootstrap); prepare/settings/about238.patch (Settings diagnostic, carried); kernel source edits recorded in ANALYSIS.md",
+    "probe": "/private/var/pong/libpong-probe-v240.dylib in PosterBoard and configd",
+    "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+    "version_line": "THOR WITNESS V240: ..."
+  }
+}

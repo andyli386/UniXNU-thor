@@ -1,0 +1,854 @@
+--- a/build-settings-trace.sh
++++ b/build-settings-trace.sh
+@@ -7,7 +7,7 @@
+ trap 'rm -rf "$tmp"' EXIT
+ xcrun --sdk iphoneos clang -target arm64-apple-ios18.0 -Os -dynamiclib -Wall -Wextra -Werror \
+   -Wl,-no_fixup_chains -install_name /pong/libpong-settings-v185.dylib \
+-  -lobjc -framework UIKit -framework Foundation -fblocks settings_trace18.c navigation_completion185.m general_prefetch223.m window_cpu223.m -o "$tmp/libpong-settings-v185.dylib"
++  -lobjc -framework UIKit -framework Foundation -fblocks settings_trace18.c navigation_completion185.m general_prefetch223.m window_cpu223.m tap_pc225.c return225.c -o "$tmp/libpong-settings-v185.dylib"
+ codesign --force --sign - --pagesize 4096 "$tmp/libpong-settings-v185.dylib"
+ codesign --verify --strict "$tmp/libpong-settings-v185.dylib"
+ xcrun dyld_info -validate_only "$tmp/libpong-settings-v185.dylib"
+--- /dev/null
++++ b/edge_window225.inc
+@@ -0,0 +1,64 @@
++/* Observe only the Settings window's left-edge contact after native navigation
++ * has started. The original UIKit IMP still receives every UIEvent exactly once. */
++static uintptr_t observed_touch,observed_window;
++static unsigned observed_token;
++static double began_x,began_y;
++static bool dragged;
++struct return_delivery { unsigned token,phase; };
++
++static struct return_delivery edge_event(UIWindow *window,UIEvent *event)
++{
++    struct return_delivery result={0,0};
++    if(!return225_watching() || !event || event.type!=UIEventTypeTouches)return result;
++    NSSet *touches=event.allTouches;
++    UITouch *touch=touches.count==1?touches.anyObject:nil;
++    if(!touch || touch.window!=window) {
++        observed_token=0;return225_invalidate_edge();return result;
++    }
++    UITouchPhase phase=touch.phase;
++    if(phase==UITouchPhaseBegan){
++        observed_token=0;return225_invalidate_edge();
++        if(!return225_room())return result;
++        CGPoint loc=[touch locationInView:window];
++        CGFloat width=window.bounds.size.width;
++        /* Coordinates are in window points. Require a genuine leading-edge start. */
++        if(!(width>=100) || !(loc.x>=0 && loc.x<=24 && loc.x<=width*0.08))return result;
++        double timestamp=touch.timestamp;
++        if(!(timestamp>0 && timestamp<315360000))return result;
++        uint64_t ui=(uint64_t)(timestamp*1000000);
++        observed_token=return225_edge(ui,settings_trace_uptime223());
++        observed_touch=(uintptr_t)touch;observed_window=(uintptr_t)window;
++        began_x=loc.x;began_y=loc.y;dragged=false;
++        result=(struct return_delivery){observed_token,ReturnDown};
++    } else if(observed_token && observed_touch==(uintptr_t)touch && observed_window==(uintptr_t)window){
++        if(phase==UITouchPhaseMoved && !dragged){
++            CGPoint loc=[touch locationInView:window];
++            double dx=loc.x-began_x,dy=loc.y-began_y;
++            if(dx>=12 && dx>=2.0*fabs(dy)){
++                dragged=true;
++                result=(struct return_delivery){observed_token,ReturnDrag};
++            }
++        } else if(phase==UITouchPhaseEnded || phase==UITouchPhaseCancelled){
++            result=(struct return_delivery){observed_token,phase==UITouchPhaseEnded?ReturnEnd:ReturnCancel};
++            observed_token=0;
++            if(phase==UITouchPhaseCancelled)return225_invalidate_edge();
++        }
++    }
++    return result;
++}
++
++static void observe_window(UIWindow *window,SEL selector,UIEvent *event)
++{
++    if(!pthread_main_np() || !return225_watching()) {
++        observe_event223(window,selector,event);return;
++    }
++    struct return_delivery d=edge_event(window,event);
++    if(!d.token){observe_event223(window,selector,event);return;}
++    return225_delivery(d.token,d.phase,true,false);
++    bool completed=false;
++    @try {observe_event223(window,selector,event);completed=true;}
++    @finally {
++        if(!completed){observed_token=0;return225_invalidate_edge();}
++        return225_delivery(d.token,d.phase,false,completed);
++    }
++}
+--- a/navigation_completion185.h
++++ b/navigation_completion185.h
+@@ -8,4 +8,4 @@
+ };
+ typedef void (*navigation_observer)(void *, enum navigation_outcome);
+ void observe_navigation_completion(id owner, id target, bool pushing, bool animated,
+-                                  void *context, navigation_observer observer);
++                                  void *context, navigation_observer observer, unsigned return_token);
+--- a/navigation_completion185.m
++++ b/navigation_completion185.m
+@@ -1,28 +1,36 @@
+ #import <UIKit/UIKit.h>
+ #include "navigation_completion185.h"
++#include "return225.h"
++
++static void finish(void *ctx,navigation_observer observer,unsigned token,enum navigation_outcome outcome)
++{
++    if(observer)observer(ctx,outcome);
++    if(token)return225_outcome(token,outcome);
++}
+ 
+ void observe_navigation_completion(id owner, id target, bool pushing, bool animated,
+-                                  void *context, navigation_observer observer)
++                                  void *context, navigation_observer observer,unsigned return_token)
+ {
+     if (!animated) {
+-        observer(context, NAV_NOT_ANIMATED);
++        finish(context,observer,return_token,NAV_NOT_ANIMATED);
+         return;
+     }
+     id<UIViewControllerTransitionCoordinator> coordinator = [(UIViewController *)owner transitionCoordinator];
+     if (!coordinator || ![coordinator isAnimated]) {
+-        observer(context, NAV_NO_COORDINATOR);
++        finish(context,observer,return_token,NAV_NO_COORDINATOR);
+         return;
+     }
+     UITransitionContextViewControllerKey key = pushing ? UITransitionContextToViewControllerKey
+                                                       : UITransitionContextFromViewControllerKey;
+     if (!target || [coordinator viewControllerForKey:key] != target) {
+-        observer(context, NAV_OTHER_TARGET);
++        finish(context,observer,return_token,NAV_OTHER_TARGET);
+         return;
+     }
++    if(!pushing && [coordinator isInteractive])return_token=return225_interactive(return_token);
+     BOOL registered = [coordinator animateAlongsideTransition:nil
+         completion:^(id<UIViewControllerTransitionCoordinatorContext> result) {
+-            observer(context, [result isCancelled] ? NAV_CANCELLED : NAV_FINISHED);
++            finish(context,observer,return_token,[result isCancelled] ? NAV_CANCELLED : NAV_FINISHED);
+         }];
+     if (!registered)
+-        observer(context, NAV_DECLINED);
++        finish(context,observer,return_token,NAV_DECLINED);
+ }
+--- /dev/null
++++ b/return225.c
+@@ -0,0 +1,181 @@
++/* SPDX-License-Identifier: MIT */
++#include "return225.h"
++#include "return_store225.h"
++#include "window_cpu223.h"
++#include <execinfo.h>
++#include <inttypes.h>
++#include <mach/arm/thread_status.h>
++#include <stdatomic.h>
++#include <sys/sysctl.h>
++#include <uuid/uuid.h>
++
++enum { Events=4, Deadlines=4, GlobalSamples=6, MaxSamplesPerEvent=2 };
++static const unsigned delay_ms[Deadlines]={500,1500,3000,5000};
++struct check {
++    unsigned index, token;
++    uint64_t posted;
++    _Atomic(uint64_t) ack;
++};
++struct attempt {
++    uint64_t touch, window;
++    unsigned token, samples;
++    struct check checks[Deadlines];
++};
++static struct attempt attempts[Events];
++static unsigned used,latest,total_samples;
++static bool enabled;
++static dispatch_queue_t diagnostics,writer;
++static thread_t main_port;
++static int store_fd=-1;
++static char session[64];
++static bool dirty;
++static uint64_t flushes;
++static void flush(void *unused)
++{
++    (void)unused;dirty=false;
++    if(store_fd<0)return;
++    if(!thor_journal_sync(store_fd)){close(store_fd);store_fd=-1;}
++    else ++flushes;
++}
++
++static uint64_t now(void){return settings_trace_uptime223();}
++
++/* Called on the file queue. Never opens or syncs a file on the main or timer queue. */
++static void persist(const char *line)
++{
++    if(store_fd<0){
++        if(!session[0]) {
++            size_t n=sizeof session;
++            if(sysctlbyname("kern.bootsessionuuid",session,&n,NULL,0) || !n || n>sizeof session ||
++               !thor_journal_uuid(session)){session[0]=0;return;}
++        }
++#ifdef THOR_RETURN_DIR
++        store_fd=thor_journal_open_in(THOR_RETURN_DIR,"Preferences",session);
++#else
++        store_fd=thor_journal_open_in("/private/var/mobile/Library/Logs","Preferences",session);
++#endif
++    }
++    if(store_fd<0)return;
++    if(!thor_stall_write(store_fd,line,strlen(line))){close(store_fd);store_fd=-1;return;}
++    if(!dirty){
++        dirty=true;
++        dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,25*NSEC_PER_MSEC),writer,NULL,flush);
++    }
++}
++
++static void emit(unsigned token,const char *stage,uint64_t at,unsigned arg,uint64_t origin)
++{
++    if(!token || token>Events)return;
++    dispatch_async(writer,^{
++        const struct attempt *a=&attempts[token-1];
++        char line[220];
++        int n=snprintf(line,sizeof line,"return225 token=%u touch=%" PRIu64
++            " window=%" PRIu64 " stage=%s at=%" PRIu64 " arg=%u origin=%" PRIu64 "\n",
++            token,a->touch,a->window,stage,at,arg,origin);
++        if(n>0 && (size_t)n<sizeof line)persist(line);
++    });
++}
++
++static void label(const struct image_offset *a,char out[48])
++{
++    if(uuid_is_null(a->uuid)){strcpy(out,"-");return;}
++    uuid_string_t u;uuid_unparse_upper(a->uuid,u);
++    snprintf(out,48,"%s+%" PRIx32,u,a->offset);
++}
++
++/* The main-queue probe is still pending on both sides of thread_get_state
++ * and UUID projection. Do not diagnose if it was acknowledged during sampling. */
++static void delayed(void *context)
++{
++    struct check *c=context;
++    struct attempt *a=&attempts[c->token-1];
++    uint64_t start=now();
++    if(!c->posted || start<c->posted || start-c->posted<95000 ||
++       atomic_load_explicit(&c->ack,memory_order_acquire))return;
++    emit(c->token,"delayed",start,c->index,c->posted);
++    if(total_samples>=GlobalSamples || a->samples>=MaxSamplesPerEvent)return;
++    ++total_samples;++a->samples;
++    arm_thread_state64_t state={0};mach_msg_type_number_t words=ARM_THREAD_STATE64_COUNT;
++    if(thread_get_state(main_port,ARM_THREAD_STATE64,(thread_state_t)&state,&words)!=KERN_SUCCESS ||
++       words!=ARM_THREAD_STATE64_COUNT)return;
++    void *pcs[2]={(void*)arm_thread_state64_get_pc(state),(void*)arm_thread_state64_get_lr(state)};
++    struct image_offset addresses[2]={0};backtrace_image_offsets(pcs,addresses,2);
++    uint64_t finish=now();
++    if(finish<start || atomic_load_explicit(&c->ack,memory_order_acquire))return;
++    /* Keep immutable image-relative addresses; formatting/fsync happens off the sampler. */
++    struct image_offset pc=addresses[0],lr=addresses[1];
++    dispatch_async(writer,^{
++        char p[48],l[48],line[320];label(&pc,p);label(&lr,l);
++        int n=snprintf(line,sizeof line,"return225 token=%u touch=%" PRIu64
++            " window=%" PRIu64 " stage=sample at=%" PRIu64 " arg=%u origin=%" PRIu64
++            " last=%" PRIu64 " pc=%s lr=%s\n",a->token,a->touch,a->window,start,
++            c->index,c->posted,finish,p,l);
++        if(n>0 && (size_t)n<sizeof line)persist(line);
++    });
++}
++static void acknowledge(void *context)
++{
++    struct check *c=context;
++    uint64_t stamp=now();
++    atomic_store_explicit(&c->ack,stamp,memory_order_release);
++    emit(c->token,"ack",stamp,c->index,c->posted);
++}
++static void probe(void *context)
++{
++    struct check *c=context;
++    c->posted=now();
++    dispatch_async_f(dispatch_get_main_queue(),c,acknowledge);
++    emit(c->token,"probe",c->posted,c->index,0);
++    dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,100*NSEC_PER_MSEC),diagnostics,c,delayed);
++}
++void return225_init(thread_t main)
++{
++    if(!MACH_PORT_VALID(main))return;
++    main_port=main;
++    diagnostics=dispatch_queue_create("org.unixnu.settings.return.probe",DISPATCH_QUEUE_SERIAL);
++    writer=dispatch_queue_create("org.unixnu.settings.return.store",DISPATCH_QUEUE_SERIAL);
++}
++void return225_enable(void){enabled=true;}
++bool return225_watching(void){return enabled && diagnostics && writer;}
++void return225_invalidate_edge(void){latest=0;}
++bool return225_room(void){return used<Events;}
++static unsigned start(uint64_t touch,uint64_t window,const char *stage)
++{
++    if(!return225_watching() || used>=Events || !window)return 0;
++    struct attempt *a=&attempts[used];
++    unsigned token=++used;
++    a->token=token;a->touch=touch;a->window=window;
++    emit(token,stage,window,0,0);
++    for(unsigned i=0;i<Deadlines;i++){
++        struct check *c=&a->checks[i];c->token=token;c->index=i;
++        dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,(int64_t)delay_ms[i]*NSEC_PER_MSEC),
++                         diagnostics,c,probe);
++    }
++    return token;
++}
++unsigned return225_edge(uint64_t touch,uint64_t window)
++{
++    latest=touch && touch<=window ? start(touch,window,"edge") : 0;
++    return latest;
++}
++void return225_delivery(unsigned token,unsigned phase,bool entering,bool completed)
++{
++    emit(token,entering?"handler-enter":(completed?"handler-return":"handler-throw"),now(),phase,0);
++}
++unsigned return225_pop_enter(void)
++{
++    if(!latest)return 0;
++    unsigned t=latest;latest=0;
++    uint64_t at=now(),w=attempts[t-1].window;
++    if(at<w || at-w>1500000)return 0;
++    emit(t,"pop-enter",at,0,0);
++    return t;
++}
++void return225_pop_return(unsigned token){emit(token,"pop-return",now(),0,0);}
++unsigned return225_interactive(unsigned token)
++{
++    if(!token)token=start(0,now(),"native-interactive");
++    if(token)emit(token,"interactive",now(),0,0);
++    return token;
++}
++void return225_outcome(unsigned token,unsigned outcome){emit(token,"outcome",now(),outcome,0);}
+--- /dev/null
++++ b/return225.h
+@@ -0,0 +1,15 @@
++#pragma once
++#include "tap_pc225.h"
++#include <stdbool.h>
++enum { ReturnDown=1, ReturnDrag, ReturnEnd, ReturnCancel };
++PC225_LOCAL void return225_init(thread_t main);
++PC225_LOCAL void return225_enable(void);
++PC225_LOCAL bool return225_watching(void);
++PC225_LOCAL void return225_invalidate_edge(void);
++PC225_LOCAL bool return225_room(void);
++PC225_LOCAL unsigned return225_edge(uint64_t touch, uint64_t window);
++PC225_LOCAL void return225_delivery(unsigned token,unsigned phase,bool entering,bool completed);
++PC225_LOCAL unsigned return225_pop_enter(void);
++PC225_LOCAL void return225_pop_return(unsigned token);
++PC225_LOCAL unsigned return225_interactive(unsigned token);
++PC225_LOCAL void return225_outcome(unsigned token,unsigned outcome);
+--- /dev/null
++++ b/return_store225.h
+@@ -0,0 +1,188 @@
++/* Sparse APFS journal for Thor freeze events. Include in the C TU owning the writer. */
++#ifndef THOR_STALL_STORE_H
++#define THOR_STALL_STORE_H
++
++#include <errno.h>
++#include <fcntl.h>
++#include <pthread.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <string.h>
++#include <sys/file.h>
++#include <sys/stat.h>
++#include <unistd.h>
++
++enum { thor_slot_bytes = 512, thor_slots = 128, thor_line_max = 383 };
++struct thor_journal_owner {
++    int fd;
++    uint64_t sequence, instance;
++    char boot[36];
++    bool active;
++};
++static struct thor_journal_owner thor_journal_owners[4];
++static pthread_mutex_t thor_journal_lock = PTHREAD_MUTEX_INITIALIZER;
++static const char *const thor_journal_roles[] = {"runningboardd", "SpringBoard", "backboardd","Preferences"};
++
++static inline uint32_t thor_journal_crc(const unsigned char *data, size_t n)
++{
++    uint32_t v = UINT32_MAX;
++    for (size_t i = 0; i < n; ++i) {
++        v ^= data[i];
++        for (unsigned b = 0; b < 8; ++b)
++            v = (v >> 1) ^ (0xedb88320u & (0u - (v & 1)));
++    }
++    return ~v;
++}
++
++static inline bool thor_journal_uuid(const char *s)
++{
++    if (!s || strnlen(s, 37) != 36) return false;
++    for (unsigned i = 0; i < 36; ++i) {
++        if (i == 8 || i == 13 || i == 18 || i == 23) {
++            if (s[i] != '-') return false;
++        } else if (!(s[i] >= '0' && s[i] <= '9') &&
++                   !(s[i] >= 'a' && s[i] <= 'f') &&
++                   !(s[i] >= 'A' && s[i] <= 'F')) return false;
++    }
++    return true;
++}
++
++static inline bool thor_journal_sync(int fd)
++{
++#ifdef F_FULLFSYNC
++    for (;;) {
++        if (fcntl(fd, F_FULLFSYNC) == 0) return true;
++        if (errno == EINTR) continue;
++        if (errno != ENOTSUP && errno != EINVAL && errno != ENOTTY &&
++            errno != EOPNOTSUPP) return false;
++        break;
++    }
++#endif
++    for (;;) {
++        if (fsync(fd) == 0) return true;
++        if (errno != EINTR) return false;
++    }
++}
++
++static inline uint64_t thor_journal_seq(const unsigned char *buf, size_t slot, int role)
++{
++    uint64_t seq;
++    uint32_t crc;
++    uint16_t n;
++    memcpy(&seq, buf + 8, sizeof(seq));
++    memcpy(&n, buf + 30, sizeof(n));
++    memcpy(&crc, buf + 508, sizeof(crc));
++    if (memcmp(buf, "TSJ1", 4) || buf[28] != role || !seq ||
++        (seq - 1) % thor_slots != slot || !n || n > thor_line_max ||
++        buf[68+n-1] != '\n' || crc != thor_journal_crc(buf, 508)) return 0;
++    return seq;
++}
++
++static inline int thor_journal_open_in(const char *dir, const char *role, const char *boot)
++{
++    if (!role || !thor_journal_uuid(boot)) return -1;
++    int id = 0;
++    while (id < 4 && strcmp(role, thor_journal_roles[id])) ++id;
++    if (id == 4) return -1;
++    int directory = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
++    if (directory < 0) return -1;
++    char name[48];
++    int n = id == 3 ? snprintf(name, sizeof(name), "ThorSettingsReturn-v225.bin") :
++        snprintf(name, sizeof(name), "ThorStall-v220-%s.bin", role);
++    if (n <= 0 || (size_t)n >= sizeof(name)) { close(directory); return -1; }
++    int flags = O_RDWR | O_NOFOLLOW | O_CLOEXEC;
++    int fd = openat(directory, name, flags | O_CREAT | O_EXCL, 0600);
++    const bool created = fd >= 0;
++    if (fd < 0 && errno == EEXIST) fd = openat(directory, name, flags);
++    if (created) {
++        /* Persist the directory entry where the filesystem supports it. */
++        while (fsync(directory) != 0 && errno == EINTR) {}
++    }
++    close(directory);
++    if (fd < 0) return -1;
++    struct stat st;
++    if (fstat(fd, &st) || !S_ISREG(st.st_mode) || st.st_nlink != 1 ||
++        st.st_uid != geteuid() || (st.st_mode & 0777) != 0600 ||
++        st.st_size < 0 || st.st_size > thor_slots * thor_slot_bytes ||
++        flock(fd, LOCK_EX | LOCK_NB) != 0) { close(fd); return -1; }
++    uint64_t last = 0;
++    for (size_t i = 0; (off_t)((i + 1) * thor_slot_bytes) <= st.st_size; ++i) {
++        unsigned char record[thor_slot_bytes];
++        size_t used = 0;
++        while (used < sizeof(record)) {
++            ssize_t got = pread(fd, record + used, sizeof(record) - used, (off_t)(i * sizeof(record) + used));
++            if (got < 0 && errno == EINTR) continue;
++            if (got <= 0) { close(fd); return -1; }
++            used += (size_t)got;
++        }
++        uint64_t seq = thor_journal_seq(record, i, id);
++        if (seq > last) last = seq;
++    }
++    if (last == UINT64_MAX) { close(fd); return -1; }
++    pthread_mutex_lock(&thor_journal_lock);
++    /* The runtime can reopen a role after a write error. A descriptor number
++     * recycled by the kernel must refer only to its new journal. */
++    for (unsigned i = 0; i < 4; ++i)
++        if (thor_journal_owners[i].active && thor_journal_owners[i].fd == fd)
++            thor_journal_owners[i].active = false;
++    struct thor_journal_owner *owner = &thor_journal_owners[id];
++    owner->fd = fd;
++    owner->sequence = owner->instance = last + 1;
++    memcpy(owner->boot, boot, sizeof(owner->boot));
++    owner->active = true;
++    pthread_mutex_unlock(&thor_journal_lock);
++    return fd;
++}
++
++static inline int thor_stall_open(const char *role, const char *boot)
++{
++    uid_t uid = geteuid();
++    if (uid != 0 && uid != 501) return -1;
++    return thor_journal_open_in(uid == 0 ? "/private/var/logs" : "/private/var/mobile/Library/Logs", role, boot);
++}
++
++static inline bool thor_stall_write(int fd, const char *line, size_t length)
++{
++    if (fd < 0 || !line || !length || length > thor_line_max || line[length-1] != '\n' ||
++        memchr(line, 0, length) || memchr(line, '\n', length-1)) return false;
++    pthread_mutex_lock(&thor_journal_lock);
++    int id = 0;
++    while (id < 4 && (!thor_journal_owners[id].active || thor_journal_owners[id].fd != fd)) ++id;
++    bool ok = false;
++    if (id < 4) {
++        struct thor_journal_owner *owner = &thor_journal_owners[id];
++        if (owner->sequence != UINT64_MAX) {
++            unsigned char record[thor_slot_bytes] = {0};
++            uint32_t pid = (uint32_t)getpid();
++            uint16_t n = (uint16_t)length;
++            memcpy(record, "TSJ1", 4);
++            memcpy(record + 8, &owner->sequence, 8);
++            memcpy(record + 16, &owner->instance, 8);
++            memcpy(record + 24, &pid, 4);
++            record[28] = (unsigned char)id;
++            memcpy(record + 30, &n, 2);
++            memcpy(record + 32, owner->boot, 36);
++            memcpy(record + 68, line, length);
++            uint32_t crc = thor_journal_crc(record, 508);
++            memcpy(record + 508, &crc, 4);
++            off_t off = (off_t)((owner->sequence-1) % thor_slots) * thor_slot_bytes;
++            size_t used = 0;
++            while (used < sizeof(record)) {
++                ssize_t put = pwrite(fd, record + used, sizeof(record) - used, off + (off_t)used);
++                if (put < 0 && errno == EINTR) continue;
++                if (put <= 0) break;
++                used += (size_t)put;
++            }
++            if (used == sizeof(record)) {
++                /* A later event must not overwrite a complete but unacknowledged write. */
++                ++owner->sequence;
++                ok = true; /* The serial writer groups adjacent records for one durable flush. */
++            }
++        }
++    }
++    pthread_mutex_unlock(&thor_journal_lock);
++    return ok;
++}
++
++#endif
+--- a/settings_trace18.c
++++ b/settings_trace18.c
+@@ -6,6 +6,8 @@
+ #include <mach/mach_time.h>
+ #include "navigation_completion185.h"
+ #include "window_cpu223.h"
++#include "tap_pc225.h"
++#include "return225.h"
+ #include <mach-o/dyld.h>
+ #include <mach-o/loader.h>
+ #include <objc/runtime.h>
+@@ -249,6 +251,7 @@
+             " send_cpu_us=%" PRId64 " in_window=%u", span->sequence,span->thread_id,
+             r->touch_us,r->window_us,span->nav_started_us,r->cpu_us,r->send_wall_us,r->send_cpu_us,r->in_window);
+         report(line,n);
++        settings_pc225_report(r->pc_token,span->sequence,r->touch_us,r->window_us,span->nav_started_us);
+     }
+ }
+ 
+@@ -319,6 +322,7 @@
+     if (navigation) {
+         span->nav_started_us = uptime_us();
+         if(method==NAV_PUSH)match_window_cpu223(span->nav_started_us,&span->window_cpu);
++        else (void)settings_pc225_end();
+         if(slot+1==TRACE_NAV_SPANS)stop_window_cpu223();
+     }
+     span->started_ms = monotonic_ms();
+@@ -376,21 +380,25 @@
+ 
+ static void observe_push(id self, SEL selector, id controller, BOOL animated)
+ {
++    if(pthread_main_np()){return225_invalidate_edge();return225_enable();}
+     struct trace_span *span = begin_span(self, NAV_PUSH, controller);
+     IMP original = atomic_load_explicit(&originals[NAV_PUSH], memory_order_acquire);
+     ((void (*)(id, SEL, id, BOOL))original)(self, selector, controller, animated);
+     end_span(span);
+     if (span)
+-        observe_navigation_completion(self, controller, true, animated, span, navigation_finished);
++        observe_navigation_completion(self, controller, true, animated, span, navigation_finished,0);
+ }
+ static id observe_pop(id self, SEL selector, BOOL animated)
+ {
++    bool main=pthread_main_np();
++    unsigned token=main?return225_pop_enter():0;
+     struct trace_span *span = begin_span(self, NAV_POP, nil);
+     IMP original = atomic_load_explicit(&originals[NAV_POP], memory_order_acquire);
+     id result = ((id (*)(id, SEL, BOOL))original)(self, selector, animated);
+     end_span(span);
+-    if (span)
+-        observe_navigation_completion(self, result, false, animated, span, navigation_finished);
++    if(token)return225_pop_return(token);
++    if (span || token || (main && return225_watching() && return225_room()))
++        observe_navigation_completion(self,result,false,animated,span,span?navigation_finished:NULL,token);
+     return result;
+ }
+ OBJECT_OBSERVER(observe_about_init, ABOUT_INIT)
+@@ -559,6 +567,8 @@
+         (void)mach_port_deallocate(mach_task_self(), main_thread);
+         return;
+     }
++    settings_pc225_init(main_thread,trace_queue,report);
++    return225_init(main_thread);
+     dispatch_async_f(trace_queue, NULL, started_report);
+     _dyld_register_func_for_add_image(image_added);
+ }
+--- /dev/null
++++ b/tap_pc225.c
+@@ -0,0 +1,145 @@
++/* SPDX-License-Identifier: MIT */
++#include "tap_pc225.h"
++#include "window_cpu223.h"
++#include <execinfo.h>
++#include <inttypes.h>
++#include <mach/arm/thread_status.h>
++#include <stdatomic.h>
++#include <stdbool.h>
++#include <stdio.h>
++#include <string.h>
++#include <uuid/uuid.h>
++
++enum { TapBudget = 6, Points = 2, LatestUs = 350000 };
++static const unsigned delays_ms[Points] = {45, 145};
++
++struct pc_point {
++    unsigned token;
++    uint64_t first_us, last_us;
++    struct image_offset addresses[2];
++};
++
++struct pc_event {
++    uint64_t touch_us, window_us;
++    struct pc_point points[Points];
++};
++
++/* The main thread publishes each slot once. Only the serial diagnostic
++ * queue writes the point times/addresses and later emits them at a matched push. */
++static struct pc_event events[TapBudget];
++static unsigned used;
++static _Atomic(unsigned) active;
++static thread_t main_port;
++static dispatch_queue_t diagnostic_queue;
++static void (*write_line)(char *, int);
++
++void settings_pc225_init(thread_t port, dispatch_queue_t queue, void (*writer)(char *, int))
++{
++    main_port = port;
++    diagnostic_queue = queue;
++    write_line = writer;
++}
++
++unsigned settings_pc225_end(void)
++{
++    return atomic_exchange_explicit(&active, 0, memory_order_acq_rel);
++}
++
++#ifndef THOR_PC225_TEST
++static bool sample_registers(struct image_offset addresses[2])
++{
++    arm_thread_state64_t state = {0};
++    mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
++    if (thread_get_state(main_port, ARM_THREAD_STATE64, (thread_state_t)&state, &count) != KERN_SUCCESS ||
++        count != ARM_THREAD_STATE64_COUNT)
++        return false;
++    void *pcs[2] = {(void *)arm_thread_state64_get_pc(state), (void *)arm_thread_state64_get_lr(state)};
++    backtrace_image_offsets(pcs, addresses, 2);
++    return true;
++}
++#else
++static bool sample_registers(struct image_offset addresses[2]);
++#endif
++
++static void capture(void *arg)
++{
++    struct pc_point *point = arg;
++    unsigned token = point->token;
++    if (atomic_load_explicit(&active, memory_order_acquire) != token)
++        return;
++    const uint64_t window = events[token - 1].window_us;
++    uint64_t first = settings_trace_uptime223();
++    if (first < window || first - window > LatestUs)
++        return;
++
++    struct image_offset addresses[2] = {0};
++    if (!sample_registers(addresses))
++        return;
++    uint64_t last = settings_trace_uptime223();
++    if (last < first || last - window > LatestUs ||
++        atomic_load_explicit(&active, memory_order_acquire) != token)
++        return;
++    memcpy(point->addresses, addresses, sizeof addresses);
++    point->first_us = first;
++    point->last_us = last;
++}
++
++#ifndef THOR_PC225_TEST
++static void schedule(unsigned delay, struct pc_point *point)
++{
++    dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, (int64_t)delay * NSEC_PER_MSEC),
++        diagnostic_queue, point, capture);
++}
++#else
++static void schedule(unsigned delay, struct pc_point *point);
++#endif
++
++void settings_pc225_arm(uint64_t touch, uint64_t window)
++{
++    if (used == TapBudget || !diagnostic_queue || !MACH_PORT_VALID(main_port) ||
++        !touch || !window || touch > window)
++        return;
++    unsigned token = ++used;
++    struct pc_event *event = &events[token - 1];
++    event->window_us = window;
++    event->touch_us = touch;
++    for (unsigned i = 0; i < Points; ++i)
++        event->points[i].token = token;
++    atomic_store_explicit(&active, token, memory_order_release);
++    for (unsigned i = 0; i < Points; ++i)
++        schedule(delays_ms[i], &event->points[i]);
++}
++
++static void image_label(const struct image_offset *addr, char out[48])
++{
++    if (uuid_is_null(addr->uuid)) {
++        strcpy(out, "-");
++        return;
++    }
++    uuid_string_t uuid;
++    uuid_unparse_upper(addr->uuid, uuid);
++    (void)snprintf(out, 48, "%s+%" PRIx32, uuid, addr->offset);
++}
++
++void settings_pc225_report(unsigned token, unsigned id, uint64_t touch,
++                           uint64_t window, uint64_t push)
++{
++    if (!token || token > TapBudget || !write_line)
++        return;
++    const struct pc_event *event = &events[token - 1];
++    if (touch != event->touch_us || window != event->window_us || push < window)
++        return;
++    for (unsigned i = 0; i < Points; ++i) {
++        const struct pc_point *p = &event->points[i];
++        if (!p->first_us || p->first_us < window || p->last_us < p->first_us || p->last_us >= push)
++            continue;
++        char pc[48], lr[48], line[256];
++        image_label(&p->addresses[0], pc);
++        image_label(&p->addresses[1], lr);
++        int len = snprintf(line, sizeof line, "Pong Settings: Trace tapPC225 id=%u ui=%" PRIu64
++            " w=%" PRIu64 " push=%" PRIu64 " n=%u first=%" PRIu64 " last=%" PRIu64
++            " pc=%s lr=%s", id, touch, window, push, i + 1, p->first_us, p->last_us, pc, lr);
++        if (len > 0 && (size_t)len < sizeof line)
++            write_line(line, len);
++    }
++}
+--- /dev/null
++++ b/tap_pc225.h
+@@ -0,0 +1,14 @@
++#ifndef THOR_TAP_PC225_H
++#define THOR_TAP_PC225_H
++#include <stdint.h>
++#include <dispatch/dispatch.h>
++#include <mach/mach.h>
++
++#define PC225_LOCAL __attribute__((visibility("hidden")))
++PC225_LOCAL void settings_pc225_init(thread_t main_port, dispatch_queue_t diagnostic_queue,
++    void (*write_line)(char *, int));
++PC225_LOCAL void settings_pc225_arm(uint64_t touch_us, uint64_t window_us);
++PC225_LOCAL unsigned settings_pc225_end(void);
++PC225_LOCAL void settings_pc225_report(unsigned token, unsigned nav_id, uint64_t touch_us,
++    uint64_t window_us, uint64_t push_us);
++#endif
+--- a/window_cpu223.h
++++ b/window_cpu223.h
+@@ -6,7 +6,7 @@
+ struct window_cpu_receipt {
+     uint64_t touch_us, window_us;
+     int64_t cpu_us, send_wall_us, send_cpu_us;
+-    unsigned in_window;
++    unsigned in_window, pc_token;
+ };
+ THOR_WINDOW_LOCAL bool install_window_cpu223(void);
+ THOR_WINDOW_LOCAL void match_window_cpu223(uint64_t push_us, struct window_cpu_receipt *result);
+--- a/window_cpu223.m
++++ b/window_cpu223.m
+@@ -1,12 +1,16 @@
+ #include "window_cpu223.h"
++#include "tap_pc225.h"
++#include "return225.h"
++#include <math.h>
+ #ifndef THOR_WINDOW_HOST
+ #import <UIKit/UIKit.h>
+ #else
+ #import <Foundation/Foundation.h>
+ typedef long UIEventType,UITouchPhase;
+-enum { UIEventTypeTouches=0, UITouchPhaseEnded=3 };
++enum { UIEventTypeTouches=0,UITouchPhaseBegan=0,UITouchPhaseMoved=1,UITouchPhaseEnded=3,UITouchPhaseCancelled=4 };
+ @class UIWindow, UIEvent;
+ @interface UITouch:NSObject
++-(CGPoint)locationInView:(UIWindow *)window;
+ @property(nonatomic,assign) UIWindow *window;
+ @property(nonatomic,assign) UITouchPhase phase;
+ @property(nonatomic,assign) NSTimeInterval timestamp;
+@@ -16,6 +20,7 @@
+ @property(nonatomic,retain) NSSet *allTouches;
+ @end
+ @interface UIWindow:NSObject
++@property(nonatomic,assign) CGRect bounds;
+ -(void)sendEvent:(UIEvent *)event;
+ @end
+ #endif
+@@ -55,7 +60,7 @@
+     return a==UINT64_MAX || b==UINT64_MAX || b<a || b-a>INT64_MAX ? -1:(int64_t)(b-a);
+ }
+ 
+-static void observe_window(UIWindow *window,SEL selector,UIEvent *event)
++static void observe_event223(UIWindow *window,SEL selector,UIEvent *event)
+ {
+     WindowSend send=atomic_load_explicit(&previousWindow,memory_order_acquire);
+     if(!pthread_main_np() || stopped || !event || event.type!=UIEventTypeTouches) {
+@@ -65,6 +70,7 @@
+     // Any intervening touch invalidates the previous association, including
+     // a nested dispatch, a second finger or delivery to another window.
+     pending.start=0;
++    (void)settings_pc225_end();
+     if(accepted>=WindowBudget) {
+         send(window,selector,event);
+         return;
+@@ -84,6 +90,7 @@
+                 pending.cpu=cpu_clock();
+                 pending.end=0;
+                 pending.end_cpu=UINT64_MAX;
++                settings_pc225_arm(stamp,pending.start);
+             } else stamp=0;
+         }
+     }
+@@ -94,7 +101,7 @@
+         returned=true;
+     } @finally {
+         --depth;
+-        if(!returned)pending.start=0;
++        if(!returned){pending.start=0;(void)settings_pc225_end();}
+         if(returned && stamp && pending.start && pending.timestamp==stamp) {
+             pending.end_cpu=cpu_clock();
+             pending.end=settings_trace_uptime223();
+@@ -102,13 +109,17 @@
+     }
+ }
+ 
++#include "edge_window225.inc"
++
+ void match_window_cpu223(uint64_t push_us,struct window_cpu_receipt *out)
+ {
+     if(!pthread_main_np() || !out || !pending.start) return;
++    unsigned token=settings_pc225_end();
+     uint64_t start=pending.start;
+     pending.start=0;
+     if(depth>1 || push_us<start || push_us-start>MaxAgeUs) return;
+     uint64_t now=cpu_clock();
++    out->pc_token=token;
+     out->touch_us=pending.timestamp;
+     out->window_us=start;
+     out->cpu_us=delta_us(pending.cpu,now);
+@@ -119,7 +130,7 @@
+ }
+ void stop_window_cpu223(void)
+ {
+-    if(pthread_main_np()) {stopped=true;pending.start=0;}
++    if(pthread_main_np()) {stopped=true;pending.start=0;(void)settings_pc225_end();}
+ }
+ 
+ bool install_window_cpu223(void)

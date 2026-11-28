@@ -1,0 +1,116 @@
+{
+  "adt_sha256": "b0423f1a3665e6cf7b4380e902865a29bbd1b2d354e49d1ef3f5d2b6659faf47",
+  "boot_args": "panic_on_crash_disabled=1 arp0=thor debug=0x14e -v pong_allow_unauthenticated_root=1 cs_enforcement_disable=1 cs_library_val_enable=0 amfi_get_out_of_my_way=1 -apfs_shared_datavolume pong_disable_swap=1 pong_skip_setup=1 pong_ufs_readwrite=1 ignition_level=1 dyld_flags=0x8 launchd_rd=md0 pong_software_keybag=1 pong_display=1 pong_software_ui=1 pong_touch=1 pong_buttons=1 pong_build=ipados18-22H374 launchd_unsecure_cache=1 io_throttle_period_tier1=1 io_throttle_period_tier2=1 io_throttle_period_tier3=1 pong_platform_uuid=cec07c12-bd31-53ef-91a1-84ce8f3ac203 vm_compressor=2 pong_stage_ui_v77=1 fb_threads=4 fb_filter=0 tmlow=1 memlog=1 tmfull=1 pong_exec_inject=/private/var/pong/libpong-ui18.dylib,SpringBoard,backboardd,containermanagerd,runningboardd,usermanagerd,lsd,com.apple.datamigrator,com.apple.migrationpluginwrapper,datamigratorhelper,fairplayd.A2,filecoordinationd,mediaremoted,audiomxd,Preferences fb_hz=120 pong_bo_prewarm=2 fb_copy=0 pong_metal=1 pong_adreno_start=1 pong_gpu_scanout=1",
+  "boot_argument_bytes": 1005,
+  "boot_stack_bytes": 16384,
+  "candidate_change": [
+    "The primary partition table of the firmware LUN decides.  Booted from flash, v242 failed its check in all fourteen attempts because the primary and the backup header named different CRCs for the partition entries; temporary-booted, the same image passed and the battery came up.  The bootloader rewrites the primary table on every normal boot of a slot that is not marked successful (slot a: six retries left on 2026-11-27) and the backup lags behind.  The primary is pinned (valid header, entries matching the CRC it names, the two expected partitions at their expected places); whatever is amiss with the backup is recorded (THOR MODEM FW V243), no read depends on it, and the firmware is verified by pinned digests.",
+    "The wallpaper library answers where WallpaperKit builds its catalog file names: -[NSString lowercaseString] is replaced on the class that implements it, and a call from WallpaperKit on \"iPhone\" gets \"ipad\".  The interpose entry of v241 and v242 could not take effect (WallpaperKit's calls into MobileGestalt are fixed jumps inside the shared cache).  The library now needs Foundation only and goes to SpringBoard and CollectionsPoster; chronod and PosterBoard no longer get it.",
+    "Every library the injected libraries load is compared with the names Apple's own binaries use.",
+    "Carried unchanged: the retries and the record of a failed check (v242), the interface-namer marker and the en0 listing in configd (Settings -> About), the panic record slot (v238), the Settings hang dump with symbols (v238), protection classes A and B open for every process and IOSurface selector 21 (v237), the v236 GPU timing hook, the v235 witness.  No boot argument changed."
+  ],
+  "changed_fat_members": [
+    "/efi/unixnu/payloads/kernel.macho",
+    "/efi/unixnu/payloads/kernel.macho.adt",
+    "/efi/unixnu/pong-boot-manifest.json",
+    "/efi/unixnu/unixnu.toml"
+  ],
+  "chosen_selectors": {
+    "thor-adsp-pas1": 1,
+    "thor-bt-probe": 2,
+    "thor-glink-ipcrtr": 1,
+    "thor-glink-version": 1,
+    "thor-panel-power": 1,
+    "thor-pas4-probe": 1,
+    "thor-qrtr-ap-node": 1,
+    "thor-qrtr-pd-state": 1,
+    "thor-qrtr-rx-followup": 1,
+    "thor-qrtr-rx-one": 1,
+    "thor-qrtr-service-window": 1,
+    "thor-qrtr-ssctl-fields": 1,
+    "thor-rmtfs-serve": 1,
+    "thor-wifi": 2
+  },
+  "console_sha256": "7c4a531422aa86ed19a977899e72fadc3f0b90c436b14c43f8a21a6d06404316",
+  "console_stage_path": "/private/var/thor-console-v232/libpong-console-v205.dylib",
+  "console_uuid": "1A955EE7-3257-309E-A155-CC76635D555A",
+  "diagnostic_path": "/private/var/thor-console-v232/libpong-console-v205.dylib",
+  "embedded_release_id": "v243-wifi",
+  "filesystem_check": 0,
+  "firmware_sha256": "7cc8de7e4400a97d604d5ec645ddcd1a2ebdf5c219c3cc284f3bf0f98b18f321",
+  "hardware_validated": false,
+  "image": "boot-thor-unixnu-v243-wifi.img",
+  "image_bytes": 95391744,
+  "image_sha256": "375b07cc4f6da6a2703daf3c214046f141cfde82e27357a8d0159c4bd122e24c",
+  "kernel_sha256": "e36a86301ae9d521b7d8f914e5bfcbc19457495fb866835bf37ae43ca21fa1c1",
+  "kernel_uuid": "7567DC32-EA2D-3298-AC22-0B19EF51B1A1",
+  "parent_kernel_uuid": "91842275-FF55-37A3-AC72-E18AC950F4C3",
+  "parent_sha256": "07d615c79a0ef81ea1aa56086c0daf048bd66f165de2ea6af03c38e16579d581",
+  "pool_path": "/private/var/thor-metal-pool-v227-52943f65d3b86181b8724863fc9fec17",
+  "probe": "/private/var/pong/libpong-probe-v241.dylib in PosterBoard and configd",
+  "qsort_frame_bytes": 144,
+  "runtime": {
+    "PongMetalBridge.dylib": {
+      "bytes": 22802560,
+      "sha256": "95aaa62d506e5d4e46c423b1732c869938c545dea394f20bc10d930de85f712d",
+      "uuid": "5A47441E-45CF-3075-A379-4AAAAD412727"
+    },
+    "libpong-console-v205.dylib": {
+      "bytes": 124496,
+      "sha256": "95d959b0a59ebe0fddb1691d13e82e6ca22587ab12081f7f29e712c395c01be1",
+      "uuid": "CFF4812C-65DC-30B6-9FC3-825D68FDEA38"
+    },
+    "libpong-probe-v241.dylib": {
+      "bytes": 89968,
+      "sha256": "5fb2bbbe1c9f3e050d5507dbe58f3d8fc910bb1396ff53418b28dc0da5cfa3e4",
+      "uuid": "817BC256-1FC0-33D5-9E17-06331CAB82B3"
+    },
+    "libpong-settings-v185.dylib": {
+      "bytes": 115504,
+      "sha256": "c2c4970e9e29dc246b6719e157d6fecf76ce33b4a2fa2593fc09719e1146f5be",
+      "uuid": "6F2172F6-7B7C-3EE6-8A1D-35B598A033A9"
+    },
+    "libpong-ui.dylib": {
+      "bytes": 262608,
+      "sha256": "a3dc47b69b433eb65d3cf831f55cca602397f4bec4fcf3df5337e6f2115122bf",
+      "uuid": "70BD1E7D-F365-3819-B166-7EEF6BA8AADD"
+    },
+    "libpong-wallpaper-v243.dylib": {
+      "bytes": 87440,
+      "sha256": "7c4a531422aa86ed19a977899e72fadc3f0b90c436b14c43f8a21a6d06404316",
+      "uuid": "1A955EE7-3257-309E-A155-CC76635D555A"
+    },
+    "libpong-wifid-v241.dylib": {
+      "bytes": 85440,
+      "sha256": "ecb7e3176ef93a3f0a92f29d25390af7d161a9b109e6212461ed66a4f71518f8",
+      "uuid": "5CD2E571-2C8E-3832-B718-6342BEA2920C"
+    },
+    "libvulkan_freedreno.dylib": {
+      "bytes": 18072848,
+      "sha256": "4ba7707807e2dc0a019abf686585cb6c0a124562caf3a1f2ef790ee84cda8aab",
+      "uuid": "C99998C4-FFDA-3730-9274-75B17AF2E72F"
+    }
+  },
+  "signature_sha256": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+  "variant": "wifi",
+  "version": 243,
+  "wifi_daemon": "started and held (wlan node in the device tree)",
+  "wifi_join": {
+    "configured": false,
+    "source": "PONG_WIFI_TEST_CONFIG at build time (absent for this image)",
+    "switch": "/chosen thor-wifi-join = 0"
+  },
+  "witness": {
+    "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+    "gpu_trace": "armed by the kernel at start, read into the panic record",
+    "kernel_source": "osfmk/kern/thor_witness_v235.h (v243 line), bsd/kern/kern_exec.c (staging and injection of the libraries, wifid start bookkeeping and watchdog, kern.pong_wifi_gate), bsd/kern/kern_exit.c (diagnostic channel, gate signal), device/drivers/NativeUfs/ModemFirmwareAccess.h (partition-table check: the primary decides, the retries, the radio driver's wait)",
+    "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+    "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+    "patch": "prepare/wallpaper/wallpaper243.m; prepare/wifid/wifid241.c; prepare/probe/probe241.c; prepare/settings/about238.patch (carried); kernel and driver edits recorded in ANALYSIS.md",
+    "probe": "/private/var/pong/libpong-probe-v241.dylib in PosterBoard and configd",
+    "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+    "version_line": "THOR WITNESS V243: ...",
+    "wallpaper": "/private/var/pong/libpong-wallpaper-v243.dylib in SpringBoard and CollectionsPoster",
+    "wifid_hold": "/private/var/pong/libpong-wifid-v241.dylib in wifid (only where the device tree names wlan)"
+  }
+}

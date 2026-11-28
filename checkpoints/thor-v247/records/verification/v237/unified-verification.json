@@ -1,0 +1,102 @@
+{
+  "adt_sha256": "a8164f4d9c29d2ee3d1c963bc35e7b4a83ab2b152941a1e711c5b0c4aede816c",
+  "boot_args": "panic_on_crash_disabled=1 arp0=thor debug=0x14e -v pong_allow_unauthenticated_root=1 cs_enforcement_disable=1 cs_library_val_enable=0 amfi_get_out_of_my_way=1 -apfs_shared_datavolume pong_disable_swap=1 pong_skip_setup=1 pong_ufs_readwrite=1 ignition_level=1 dyld_flags=0x8 launchd_rd=md0 pong_software_keybag=1 pong_display=1 pong_software_ui=1 pong_touch=1 pong_buttons=1 pong_build=ipados18-22H374 launchd_unsecure_cache=1 io_throttle_period_tier1=1 io_throttle_period_tier2=1 io_throttle_period_tier3=1 pong_platform_uuid=cec07c12-bd31-53ef-91a1-84ce8f3ac203 vm_compressor=2 pong_stage_ui_v77=1 fb_threads=4 fb_filter=0 tmlow=1 memlog=1 tmfull=1 pong_exec_inject=/private/var/pong/libpong-ui18.dylib,SpringBoard,backboardd,containermanagerd,runningboardd,usermanagerd,lsd,com.apple.datamigrator,com.apple.migrationpluginwrapper,datamigratorhelper,fairplayd.A2,filecoordinationd,mediaremoted,audiomxd,Preferences fb_hz=120 pong_bo_prewarm=2 fb_copy=0 pong_metal=1 pong_adreno_start=1 pong_gpu_scanout=1",
+  "boot_argument_bytes": 1005,
+  "boot_stack_bytes": 16384,
+  "candidate_change": [
+    "Settings -> General -> About hung on every launch: a Settings thread waited inside hasEthernetNetworkInterfaces (a synchronous call that is never answered) while the main thread waited for its lock.  The injected Settings diagnostic answers that question with NO for the process and, if anything hangs again, prints every thread with a frame in Settings or PreferencesUI as image and offset.",
+    "Wallpaper: the data volume is not content protected, so the prelinked apfs kext refused to open protection class A and B items for every ordinary process (apfs_is_valid_class:2452, 94 times in one v235 boot).  proc_ignores_content_protection() now answers yes for every process; apfs is its only importer.  IOSurface selector 21 (set-ownership), refused as unsupported up to v236 and first called by PosterBoard 30 ms after it started, is answered like selector 44 with a task port in place of the task identity token; its first calls are logged.",
+    "Wi-Fi: the driver joins the private network of a local build-time file when one is configured (a scanned BSS only, retries with a directed scan); with no file nothing is joined.  The station code (authentication, association, four-way handshake, keys) was already compiled in and had never been started.",
+    "Modem: the trial's server looked up the shared-memory partition with the modem's QRTR node id instead of its SMEM host id (rc=-2 on every boot).  The trial is held to 24 s so the audio processor and the battery service do not wait longer.",
+    "Kept unchanged: the v236 GPU timing hook, the panic record to storage, the fault and panic backtraces, the panic log on the panel, the kernel hang report, the kernel console mirror.  No boot argument and no device tree property changed."
+  ],
+  "changed_fat_members": [
+    "/efi/unixnu/payloads/kernel.macho",
+    "/efi/unixnu/pong-boot-manifest.json",
+    "/efi/unixnu/unixnu.toml"
+  ],
+  "chosen_selectors": {
+    "thor-adsp-pas1": 1,
+    "thor-bt-probe": 2,
+    "thor-glink-ipcrtr": 1,
+    "thor-glink-version": 1,
+    "thor-panel-power": 1,
+    "thor-pas4-probe": 1,
+    "thor-qrtr-ap-node": 1,
+    "thor-qrtr-pd-state": 1,
+    "thor-qrtr-rx-followup": 1,
+    "thor-qrtr-rx-one": 1,
+    "thor-qrtr-service-window": 1,
+    "thor-qrtr-ssctl-fields": 1,
+    "thor-rmtfs-serve": 1,
+    "thor-wifi": 2
+  },
+  "console_sha256": "95d959b0a59ebe0fddb1691d13e82e6ca22587ab12081f7f29e712c395c01be1",
+  "console_stage_path": "/private/var/thor-console-v232/libpong-console-v205.dylib",
+  "console_uuid": "CFF4812C-65DC-30B6-9FC3-825D68FDEA38",
+  "diagnostic_path": "/private/var/thor-console-v232/libpong-console-v205.dylib",
+  "embedded_release_id": "v237-unified",
+  "filesystem_check": 0,
+  "firmware_sha256": "7cc8de7e4400a97d604d5ec645ddcd1a2ebdf5c219c3cc284f3bf0f98b18f321",
+  "hardware_validated": false,
+  "image": "boot-thor-unixnu-v237-unified.img",
+  "image_bytes": 95105024,
+  "image_sha256": "ee4a590a7b59a7ee8bdba821f19555d6c3514a54eb5481a0f37774a722f26f50",
+  "kernel_sha256": "9c4e942748150350bd5920fed47730d18232a30c31e8abf32cb60866db4b390e",
+  "kernel_uuid": "1E6AA4B2-DC78-364A-B6B7-C0D6C31C402A",
+  "parent_kernel_uuid": "BBA25C2A-7B62-346F-9FBE-BE0D263AFE59",
+  "parent_sha256": "c3049c63145f01780f1dbd6774bd056b1cb65137b67cfe7cc09976a9cf02b347",
+  "pool_path": "/private/var/thor-metal-pool-v227-52943f65d3b86181b8724863fc9fec17",
+  "qsort_frame_bytes": 144,
+  "runtime": {
+    "PongMetalBridge.dylib": {
+      "bytes": 22802560,
+      "sha256": "95aaa62d506e5d4e46c423b1732c869938c545dea394f20bc10d930de85f712d",
+      "uuid": "5A47441E-45CF-3075-A379-4AAAAD412727"
+    },
+    "libpong-console-v205.dylib": {
+      "bytes": 124496,
+      "sha256": "95d959b0a59ebe0fddb1691d13e82e6ca22587ab12081f7f29e712c395c01be1",
+      "uuid": "CFF4812C-65DC-30B6-9FC3-825D68FDEA38"
+    },
+    "libpong-settings-v185.dylib": {
+      "bytes": 115440,
+      "sha256": "82bb1690d6a763c9b5f4d2957e30d1845d82c7d5c352526c343077f0a47d2917",
+      "uuid": "C0590443-884A-3DCB-AA1C-FDC6A44A991E"
+    },
+    "libpong-ui.dylib": {
+      "bytes": 262608,
+      "sha256": "a3dc47b69b433eb65d3cf831f55cca602397f4bec4fcf3df5337e6f2115122bf",
+      "uuid": "70BD1E7D-F365-3819-B166-7EEF6BA8AADD"
+    },
+    "libvulkan_freedreno.dylib": {
+      "bytes": 18072848,
+      "sha256": "4ba7707807e2dc0a019abf686585cb6c0a124562caf3a1f2ef790ee84cda8aab",
+      "uuid": "C99998C4-FFDA-3730-9274-75B17AF2E72F"
+    },
+    "thor-apps-install": {
+      "bytes": 111104,
+      "offset": 40998689,
+      "sha256": "3c8ff5f6b384cd2b268667ae38ebe0cbfa5a22e3342cf2171b15b774421d0fef",
+      "uuid": "F315AD70-A4DA-3015-BC1F-C4BC9537441D"
+    }
+  },
+  "signature_sha256": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+  "variant": "unified",
+  "version": 237,
+  "wifi_join": {
+    "configured": false,
+    "source": "PONG_WIFI_TEST_CONFIG at build time (absent for this image)",
+    "switch": "/chosen thor-wifi-join = 0"
+  },
+  "witness": {
+    "console_mirror": "/private/var/logs/PongConsole-kernel-v235.txt",
+    "gpu_trace": "armed by the kernel at start, read into the panic record",
+    "kernel_source": "osfmk/kern/thor_witness_v235.h (v237 line added), bsd/kern/kern_proc.c, iokit/Kernel/MiniIOSurface.cpp",
+    "panic_record": "/private/var/logs/PongPanic-v235-N.bin (256 KiB, raw block writes; origin from the device stack, every block proven, window search as last resort)",
+    "panic_screen": "panic log, then panic extras (fault backtrace, panic backtrace, stack words, GPU trace), on the panel, 15 s per page",
+    "patch": "prepare/settings/about237.patch (Settings diagnostic); kernel source edits recorded in ANALYSIS.md",
+    "report_trigger": "console unread for 3 s, or a touch with no frame for 3 s",
+    "version_line": "THOR WITNESS V237: ..."
+  }
+}

@@ -1,0 +1,132 @@
+diff -ruN a/about237.c b/about237.c
+--- a/about237.c	2026-11-26 21:37:09
++++ b/about237.c	2026-11-26 21:38:43
+@@ -29,7 +29,8 @@
+ #define ABOUT_PREFIX "Pong Settings: about237 "
+ #define ABOUT_THREADS 64
+ #define ABOUT_FRAMES 14
+-#define ABOUT_SHOWN 12
++#define ABOUT_SHOWN 24
++#define ABOUT_DUMP "Pong Settings: About v238 "   /* the kernel keeps its own budget for "About" lines */
+ #define ABOUT_HANGS 3
+ #define ABOUT_NOTE 160
+ 
+@@ -140,61 +141,78 @@
+     dispatch_async_f(about_queue, notes[index], about_note);
+ }
+ 
+-static const char *about_basename(const char *path)
++/* v238: the exported symbol dladdr knows, when there is one below the address.  The v237 dump could
++ * only place the main thread of the hung About pane in "SystemConfiguration+0x10918"; a name tells
++ * which call has to be answered or bypassed.  The image is left out when it is the one before. */
++static void about_describe(uint64_t address, char *out, size_t capacity, const char *last_image, char *image, size_t image_capacity)
+ {
+-    const char *slash = strrchr(path, '/');
+-    return slash ? slash + 1 : path;
+-}
+-
+-/* Settings itself and the framework of its panes: the stacks the kernel report cannot name. */
+-static bool about_interesting(const struct about_thread *thread)
+-{
+-    for (unsigned i = 0; i < thread->frames; ++i) {
+-        Dl_info info = {0};
+-        if (dladdr((const void *)(uintptr_t)thread->stack[i], &info) && info.dli_fname &&
+-            !strncmp(about_basename(info.dli_fname), "Preferences", 11))
+-            return true;
++    Dl_info info = {0};
++    image[0] = 0;
++    if (dladdr((const void *)(uintptr_t)address, &info) && info.dli_fname && info.dli_fbase) {
++        const char *slash = strrchr(info.dli_fname, '/');
++        snprintf(image, image_capacity, "%.24s", slash ? slash + 1 : info.dli_fname);
++        (void)last_image;
++        if (info.dli_sname && (uint64_t)info.dli_saddr <= address && strlen(info.dli_sname) < 72) {
++            snprintf(out, capacity, "%.70s+0x%" PRIx64, info.dli_sname, address - (uint64_t)info.dli_saddr);
++        } else {
++            snprintf(out, capacity, "+0x%" PRIx64, address - (uint64_t)info.dli_fbase);
++        }
++    } else {
++        snprintf(out, capacity, "%" PRIx64, address);
+     }
+-    return false;
+ }
+ 
+-/* Diagnostic queue. */
++/* Diagnostic queue.  Every thread that has a stack is printed, the main thread first, with the
++ * symbol each frame is in.  In v236's kernel report a thread of Settings named "WFWiFiStateMonitor
++ * callback thread" had stopped at the same moment as the one in the Ethernet question, and the v237
++ * dump did not show it. */
+ static void about_emit(void *unused)
+ {
+     (void)unused;
+     const unsigned hang = atomic_load_explicit(&about_hangs, memory_order_relaxed);
+-    unsigned shown = 0;
++    char line[256], frame[120], image[32], last_image[32], heading[112], continuation[96];
++    /* The main thread first, then the rest as collected. */
++    for (unsigned t = 1; t < about_count; ++t) {
++        if (about_threads[t].main) {
++            struct about_thread first = about_threads[t];
++            for (unsigned k = t; k > 0; --k) about_threads[k] = about_threads[k - 1];
++            about_threads[0] = first;
++            break;
++        }
++    }
++    unsigned shown = 0, waiting = 0;
+     for (unsigned t = 0; t < about_count; ++t) {
+-        struct about_thread *thread = &about_threads[t];
+-        thread->shown = thread->main || (shown + 1 < ABOUT_SHOWN && about_interesting(thread));
+-        shown += thread->shown;
++        waiting += about_threads[t].run_state == 3 && about_threads[t].frames > 1;
+     }
+-    char line[256];
+-    int length = snprintf(line, sizeof(line), ABOUT_PREFIX
+-                          "hang=%u threads=%u collected=%u shown=%u", hang, about_total, about_count, shown);
++    int length = snprintf(line, sizeof(line), ABOUT_DUMP "hang=%u threads=%u collected=%u waiting=%u",
++                          hang, about_total, about_count, waiting);
+     about_report(line, length);
+-    for (unsigned t = 0; t < about_count; ++t) {
++    for (unsigned t = 0; t < about_count && shown < ABOUT_SHOWN; ++t) {
+         const struct about_thread *thread = &about_threads[t];
+-        if (!thread->shown)
+-            continue;
+-        length = snprintf(line, sizeof(line), ABOUT_PREFIX "hang=%u tid=%" PRIu64 " name=%.23s run=%d%s frames=%u:",
+-                          hang, thread->id, thread->name, thread->run_state, thread->main ? " main" : "",
+-                          thread->frames);
++        if (thread->frames < 2 && !thread->main) {
++            continue;                       /* a thread that is just starting or leaving */
++        }
++        ++shown;
++        snprintf(heading, sizeof(heading), ABOUT_DUMP "hang=%u tid=%" PRIu64 " name=%.20s run=%d%s frames=%u",
++                 hang, thread->id, thread->name, thread->run_state, thread->main ? " main" : "", thread->frames);
++        snprintf(continuation, sizeof(continuation), ABOUT_DUMP "hang=%u tid=%" PRIu64, hang, thread->id);
++        length = snprintf(line, sizeof(line), "%s:", heading);
++        last_image[0] = 0;
+         for (unsigned i = 0; i < thread->frames; ++i) {
+-            char frame[48];
+-            Dl_info info = {0};
+-            if (dladdr((const void *)(uintptr_t)thread->stack[i], &info) && info.dli_fname && info.dli_fbase)
+-                snprintf(frame, sizeof(frame), " %.28s+0x%" PRIx64, about_basename(info.dli_fname),
+-                         thread->stack[i] - (uint64_t)info.dli_fbase);
+-            else
+-                snprintf(frame, sizeof(frame), " %" PRIx64, thread->stack[i]);
+-            if (length > 0 && (size_t)length + strlen(frame) >= sizeof(line) - 1) {
++            about_describe(thread->stack[i], frame, sizeof(frame), last_image, image, sizeof(image));
++            char text[152];
++            snprintf(text, sizeof(text), " %s", image[0] && strcmp(image, last_image) ? image : "");
++            if (*text) {
++                strlcat(text, "!", sizeof(text));
++            }
++            strlcat(text, frame, sizeof(text));
++            if (length > 0 && (size_t)length + strlen(text) >= sizeof(line) - 1) {
+                 about_report(line, length);
+-                length = snprintf(line, sizeof(line), ABOUT_PREFIX "hang=%u tid=%" PRIu64 " +%u:", hang,
+-                                  thread->id, i);
++                length = snprintf(line, sizeof(line), "%s +%u:", continuation, i);
+             }
+-            if (length > 0 && (size_t)length < sizeof(line))
+-                length += snprintf(line + length, sizeof(line) - (size_t)length, "%s", frame);
++            if (length > 0 && (size_t)length < sizeof(line)) {
++                length += snprintf(line + length, sizeof(line) - (size_t)length, "%s", text);
++            }
+         }
+         about_report(line, length);
+     }
