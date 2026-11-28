@@ -724,3 +724,17 @@ completion = ["Host: series replay, kernel tree round trip to tree 87b77ec85073,
 limits = ["The v236 fix was built on the host only at the time of the checkpoint. Three generated payload headers, signed libraries, images, logs and panic records stay local."]
 next_action = ["Confirm v236 on the device from a temporary boot, then continue with the Settings About hang and the per-submission cache maintenance cost."]
 evidence = [{kind = "source", reported_kind = "host-build", reference = "checkpoints/thor-v236/manifest.json", result = "Every recorded file indexed with SHA-256; images v235 and v236 named by hash."}, {kind = "source", reported_kind = "device-boot", reference = "checkpoints/thor-v236/records/analysis/v236/ANALYSIS.md", result = "v235 booted to the desktop and froze after about five minutes; its panic record was stored and decoded."}]
+
+[[area]]
+id = "thor-v247-xnu-tree"
+status = "implemented"
+components = ["PongPlatform24"]
+paths = ["patches/xnu-ipados18/checkpoints/thor-v247/xnu-after-series.patch", "patches/xnu-ipados18/checkpoints/thor-v247/manifest.json"]
+inputs = ["Apple XNU 43a90889846e00bfb5cf1d255cdc0a701a1e05a4 with the recorded thor-v236-xnu-series applied (the series is unchanged)"]
+configuration = ["The kernel tree of the v247 unified image (iPadOS 18.7.10 / 22H374) as built on 2026-11-28"]
+procedure = ["Replay the recorded series on the pristine tree, delete the backup and reject files of the patch tool, then apply xnu-after-series.patch with git apply --index."]
+findings = ["Eleven versions after thor-v236 the series is unchanged and the replay is the same tree b8bbd733b4b8. The checkpoint patch carries 36 files (the 35 of thor-v236 and bsd/kern/kern_proc.c) and reproduces the v247 build tree: tree a9192b5694626aef7777003c055dfa7b98d8a76a, 5531 files equal.", "Five files differ from the v236 tree 87b77ec85073b5a7762aa65836c4a0bf8d34bcdf. bsd/kern/kern_exec.c (+469/-1) stages and injects the probe, the log capture and display libraries and the UI adapter in PosterBoard, and opens the Wi-Fi start gate. bsd/kern/kern_exit.c (+75/-4) passes the probe's console lines under their own budget, signals the Wi-Fi gate from configd, takes the graphics bridge's lines from Freeform and kbd and, since v247, prints one line for every process that dies by a core-generating signal. bsd/kern/kern_proc.c (+16/-1) opens protection classes A and B for every process because the data volume is not content protected (v237). iokit/Kernel/MiniIOSurface.cpp (+69) answers user-client selector 21, set-ownership, which PosterBoard calls (v237). osfmk/kern/thor_witness_v235.h (+16) carries the witness lines v237 to v247."]
+completion = ["The patch round-trips to the recorded tree hash and its file list equals that of the build tree."]
+limits = ["Three generated payload headers stay local: they embed the signed console and UI runtime libraries as byte arrays or name local library paths. Backup and reject files left by the patch tool are not part of the checkpoint."]
+next_action = ["Regenerate the three payload headers from the signed runtime libraries before an independent build."]
+evidence = [{kind = "source", reported_kind = "host-build", reference = "patches/xnu-ipados18/checkpoints/thor-v247/manifest.json", result = "Replay of the series and the checkpoint patch reproduces tree a9192b569462."}]
