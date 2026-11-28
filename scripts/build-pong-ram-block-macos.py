@@ -23,8 +23,8 @@ def main():
     parser.add_argument('--skip-image-verification', action='store_true')
     args = parser.parse_args()
     tree = args.tree.resolve()
-    if platform.system() != 'Darwin' or platform.machine() != 'x86_64':
-        raise SystemExit('This continuation uses the Intel macOS toolchain')
+    if platform.system() != 'Darwin' or platform.machine() not in ('x86_64', 'arm64'):
+        raise SystemExit('This continuation uses a macOS Xcode toolchain')
     out = tree / 'build/native-ram-block'
     out.mkdir(parents=True, exist_ok=True)
     source = DEVICE / 'drivers/NativeRamBlock/NativeRamBlock.cpp'
@@ -44,7 +44,8 @@ def main():
         '-I' + str(tree / '.cache/xnu-work/EXTERNAL_HEADERS'),
         '-I' + str(framework / 'PrivateHeaders'), '-I' + str(framework / 'Headers'),
         '-Wall', '-Wextra', '-Werror', '-Wno-deprecated-declarations',
-        '-Wno-unused-parameter', '-c', str(source), '-o', str(obj),
+        '-Wno-unused-parameter', '-Wno-reorder-init-list', '-Wno-c99-designator',
+        '-Wno-unnecessary-virtual-specifier', '-c', str(source), '-o', str(obj),
     ]
     result = subprocess.run(command, capture_output=True, text=True, env=env)
     (out / 'build.log').write_text(result.stdout + result.stderr)

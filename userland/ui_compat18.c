@@ -15,8 +15,11 @@
 #include <mach-o/loader.h>
 #include <objc/message.h>
 #include <objc/runtime.h>
+#include <pthread.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +28,7 @@
 #include <sys/mount.h>
 #include <sys/sysctl.h>
 #include <sys/ucontext.h>
+#include <time.h>
 #include <unistd.h>
 #include <notify.h>
 #include "touch.h"
@@ -35,6 +39,7 @@ static bool renderer_installed;
 static bool format_installed;
 static bool personas_installed;
 static bool springboard_process;
+static bool backboard_process;
 static bool phone_ui_process;
 static bool skip_setup;
 static IMP setup_reason_original;
@@ -43,6 +48,7 @@ static ptrdiff_t activation_offset;
 static bool launchservices_process, launchservices_installed;
 static bool installd_process, installd_directory_installed;
 static bool pluginkit_process, pluginkit_directory_attempted;
+static bool fairplay_process;
 static CFURLRef ls_base, ls_system, ls_user, ls_shared;
 static CFURLRef installd_library;
 static CFURLRef pluginkit_container;
@@ -73,11 +79,825 @@ static void phone_gestalt_image(const struct mach_header *,intptr_t);
 static void phone_repair_actual_bar(void *);
 static void stui_repair_bar(id);
 static bool boot_option(const char *option);
-void thor_switcher_timing_start(void);
 static bool own_directory(const char *path);
 void pong_boot_snapshot_start(const char *name);
+void pong_boot_console_start(void);
 void pong_settings18_start(void);
+#if defined(PONG_THOR_METAL_CLIENT_SMOKE)
+void pong_preferences_metal_smoke_start(bool run_probe);
+#endif
+#if defined(PONG_THOR_SETTINGS_WATCHDOG)
+void pong_settings_watchdog18_start(void (*receipt)(const char *, ...));
+void pong_settings_watch_stack_start(void);
+#endif
 void pong_audio_volume18_start(void);
+
+/* THOR v62: key receipts also go to /dev/console. Services spawned via
+ * xpcproxy inherit stdio on /dev/null, so stderr-only receipts never reach
+ * the photographed screen; v59 field evidence showed the console write
+ * works for the mobile uid as well as root. */
+void pong_console_line(const char *line);
+static void pong_say(const char *format,...)
+{
+    char line[512];
+    va_list arguments;
+    va_start(arguments,format);
+    vsnprintf(line,sizeof(line),format,arguments);
+    va_end(arguments);
+    fprintf(stderr,"%s\n",line);
+    pong_console_line(line);
+}
+
+/* fairplayd.A2 runtime evidence. Field data (v65/v66): A2 exits 0
+ * within seconds, 36-43x per run. The 1029 iOS16 line hit the same
+ * wall and its author attributed it to the missing kernel kext
+ * com.apple.driver.FairPlayIOKit (present in Apple's stock 22H374
+ * kernelcache as an IOResources software driver, absent from ours).
+ * That remains a LEADING CANDIDATE, not a proven cause: client-side
+ * waiting cannot distinguish "request never received" from "received
+ * then blocked" from "received then exited without reply" - these
+ * hooks exist to tell those apart. The __interpose pairs are
+ * process-wide but inert in every other injected process: each wrapper
+ * forwards the CORRECT contract immediately when the flag is off.
+ * Under the two-level namespace our own calls to the originals bind
+ * straight to libSystem, so no recursion. A2 runs as mobile
+ * (UserName=mobile) and the root-owned 0600 PongDiag.txt is not
+ * writable for it - every A2 line goes to its own mobile-owned,
+ * collector-visible file instead. */
+extern void pong_console_line(const char *line);
+extern kern_return_t bootstrap_check_in(mach_port_t,char *,mach_port_t *);
+typedef mach_port_t pong_io_object_t;
+extern pong_io_object_t IOServiceGetMatchingService(mach_port_t,CFDictionaryRef);
+extern kern_return_t IOServiceOpen(pong_io_object_t,mach_port_t,uint32_t,pong_io_object_t *);
+#define PONG_INTERPOSE(tag,replacement,replacee) \
+    __attribute__((used)) static const void *const pong_interpose_##tag[2] \
+    __attribute__((section("__DATA,__interpose"))) = { \
+        (const void *)&(replacement),(const void *)&(replacee) }
+
+static void pong_a2_line(const char *text)
+{
+    char path[96];
+    snprintf(path,sizeof(path),"/private/var/mobile/Library/Logs/PongA2-%d.txt",getpid());
+    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC,0600);
+    if(fd>=0){
+        dprintf(fd,"[%lld] pid=%d euid=%d %s\n",
+                (long long)time(NULL),getpid(),geteuid(),text);
+        close(fd);
+    }else{
+        char trouble[160];
+        int n=snprintf(trouble,sizeof(trouble),
+                       "Pong A2 log open errno=%d",errno);
+        if(n>0)pong_console_line(trouble);
+    }
+    pong_console_line(text);
+}
+
+/* datamigrator diagnostics hook (see the constructor branch for the
+ * firmware evidence). Receipts go to a per-pid mobile-owned file like
+ * the A2 channel. */
+static bool method_abi(Method method,const char *result,unsigned argc,const char *arguments);
+static dispatch_queue_t dm_log_queue;
+static unsigned dm_log_count;
+static const unsigned dm_log_limit=512;
+
+struct dm_log_entry {
+    char line[640];
+    size_t size;
+};
+
+static void pong_dm_write(void *context)
+{
+    struct dm_log_entry *entry=context;
+    char path[128];
+    const char *dir=geteuid()==0?"/private/var/logs":"/private/var/mobile/Library/Logs";
+    snprintf(path,sizeof(path),"%s/PongDM-%d.txt",dir,getpid());
+    int fd=open(path,O_WRONLY|O_CREAT|O_APPEND|O_CLOEXEC|O_NOFOLLOW,0600);
+    if(fd>=0) {
+        const char *position=entry->line;
+        size_t remaining=entry->size;
+        while(remaining) {
+            ssize_t written=write(fd,position,remaining);
+            if(written<0 && errno==EINTR)continue;
+            if(written<=0)break;
+            position+=written;
+            remaining-=(size_t)written;
+        }
+        close(fd);
+    }
+    entry->line[entry->size-1]='\0';
+    pong_console_line(entry->line);
+    free(entry);
+}
+
+static void pong_dm_line(const char *format,...)
+{
+    const int saved_errno=errno;
+    if(dm_log_queue && __atomic_fetch_add(&dm_log_count,1,__ATOMIC_RELAXED)<dm_log_limit) {
+        struct dm_log_entry *entry=malloc(sizeof(*entry));
+        if(entry) {
+            char event[512];
+            va_list args;
+            va_start(args,format);
+            vsnprintf(event,sizeof(event),format,args);
+            va_end(args);
+            uint64_t tid=0;
+            (void)pthread_threadid_np(NULL,&tid);
+            int length=snprintf(entry->line,sizeof(entry->line),"[%lld] pid=%d tid=%llu mono_ns=%llu %s\n",
+                (long long)time(NULL),getpid(),(unsigned long long)tid,
+                (unsigned long long)clock_gettime_nsec_np(CLOCK_MONOTONIC),event);
+            if(length>0 && (size_t)length<sizeof(entry->line)) {
+                entry->size=(size_t)length;
+                dispatch_async_f(dm_log_queue,entry,pong_dm_write);
+            } else free(entry);
+        }
+    }
+    errno=saved_errno;
+}
+
+/* These observers run only in the enabled UI processes. The caller records a
+ * small bounded receipt in memory and calls the real API with its original
+ * errno. The existing snapshot worker owns all formatting and file writes. */
+enum ui_observer_role { OBSERVER_OFF, OBSERVER_SB, OBSERVER_BBD };
+enum ui_observer_call { OBSERVER_STAT, OBSERVER_LSTAT, OBSERVER_GROUP_WAIT };
+enum ui_observer_state { SLOT_FREE, SLOT_RESERVED, SLOT_PENDING, SLOT_FINISHED };
+
+#define UI_OBSERVER_SLOTS 64
+
+struct ui_observer_slot {
+    _Atomic(unsigned) state;
+    _Atomic(unsigned) kind;
+    _Atomic(uint64_t) call, tid, started, argument, timeout, caller;
+    _Atomic(uint64_t) elapsed;
+    _Atomic(long) result;
+    _Atomic(int) error;
+};
+
+static struct ui_observer_slot ui_observer_slots[UI_OBSERVER_SLOTS];
+static _Atomic(unsigned) ui_observer_role;
+static _Atomic(uint64_t) ui_observer_next;
+static _Atomic(unsigned) ui_observer_overflow;
+static _Thread_local bool ui_observing;
+
+static uint64_t ui_observer_ms(void)
+{
+    struct timespec now;
+    if(clock_gettime(CLOCK_MONOTONIC,&now)!=0)return 0;
+    return (uint64_t)now.tv_sec*1000+(uint64_t)now.tv_nsec/1000000;
+}
+
+/* Only a few startup receipts are expected. Reserve each slot once and let
+ * the snapshot worker log it without putting the main queue on APFS. */
+static struct {
+    _Atomic(bool) ready;
+    uint64_t time_ms;
+    char text[512];
+} sb_receipts[16];
+static _Atomic(unsigned) sb_receipt_index;
+
+static void pong_sb_note(const char *format,...)
+{
+    if(atomic_load_explicit(&ui_observer_role,memory_order_relaxed)!=OBSERVER_SB)return;
+    int saved_errno=errno;
+    unsigned i=atomic_fetch_add_explicit(&sb_receipt_index,1,memory_order_relaxed);
+    if(i<sizeof(sb_receipts)/sizeof(sb_receipts[0])){
+        va_list arguments;
+        va_start(arguments,format);
+        vsnprintf(sb_receipts[i].text,sizeof(sb_receipts[i].text),format,arguments);
+        va_end(arguments);
+        sb_receipts[i].time_ms=ui_observer_ms();
+        atomic_store_explicit(&sb_receipts[i].ready,true,memory_order_release);
+    }
+    errno=saved_errno;
+}
+
+static void pong_sb_drain(int fd)
+{
+    static unsigned next;
+    static bool overflow_reported;
+    while(next<sizeof(sb_receipts)/sizeof(sb_receipts[0])&&
+          atomic_load_explicit(&sb_receipts[next].ready,memory_order_acquire)){
+        dprintf(fd,"Pong SB receipt: pid=%d time_ms=%llu %s\n",
+                getpid(),sb_receipts[next].time_ms,sb_receipts[next].text);
+        pong_console_line(sb_receipts[next].text);
+        next++;
+    }
+    if(!overflow_reported&&atomic_load_explicit(&sb_receipt_index,memory_order_relaxed)>
+       sizeof(sb_receipts)/sizeof(sb_receipts[0])){
+        dprintf(fd,"Pong SB receipt budget exhausted: pid=%d\n",getpid());
+        overflow_reported=true;
+    }
+}
+
+static struct ui_observer_slot *ui_observer_begin(
+    unsigned kind,uint64_t argument,uint64_t timeout,const void *caller)
+{
+    uint64_t call=atomic_fetch_add_explicit(&ui_observer_next,1,memory_order_relaxed)+1;
+    unsigned first=(unsigned)(call%UI_OBSERVER_SLOTS);
+    for(unsigned offset=0;offset<UI_OBSERVER_SLOTS;offset++){
+        struct ui_observer_slot *slot=&ui_observer_slots[(first+offset)%UI_OBSERVER_SLOTS];
+        unsigned free=SLOT_FREE;
+        if(!atomic_compare_exchange_strong_explicit(&slot->state,&free,SLOT_RESERVED,
+                                                    memory_order_acquire,memory_order_relaxed))
+            continue;
+        uint64_t tid=0;
+        (void)pthread_threadid_np(NULL,&tid);
+        atomic_store_explicit(&slot->call,call,memory_order_relaxed);
+        atomic_store_explicit(&slot->kind,kind,memory_order_relaxed);
+        atomic_store_explicit(&slot->tid,tid,memory_order_relaxed);
+        atomic_store_explicit(&slot->argument,argument,memory_order_relaxed);
+        atomic_store_explicit(&slot->timeout,timeout,memory_order_relaxed);
+        atomic_store_explicit(&slot->caller,(uintptr_t)caller,memory_order_relaxed);
+        atomic_store_explicit(&slot->started,ui_observer_ms(),memory_order_relaxed);
+        atomic_store_explicit(&slot->state,SLOT_PENDING,memory_order_release);
+        return slot;
+    }
+    atomic_fetch_add_explicit(&ui_observer_overflow,1,memory_order_relaxed);
+    return NULL;
+}
+
+static void ui_observer_end(struct ui_observer_slot *slot,long result,int error,
+                            unsigned threshold,bool retain_failure)
+{
+    if(!slot)return;
+    uint64_t started=atomic_load_explicit(&slot->started,memory_order_relaxed);
+    uint64_t now=ui_observer_ms();
+    uint64_t elapsed=started&&now>=started?now-started:0;
+    if(elapsed<threshold&&!(retain_failure&&result!=0)){
+        atomic_store_explicit(&slot->state,SLOT_FREE,memory_order_release);
+        return;
+    }
+    atomic_store_explicit(&slot->result,result,memory_order_relaxed);
+    atomic_store_explicit(&slot->error,error,memory_order_relaxed);
+    atomic_store_explicit(&slot->elapsed,elapsed,memory_order_relaxed);
+    atomic_store_explicit(&slot->state,SLOT_FINISHED,memory_order_release);
+}
+
+/* Read only from the sampler and stay inside the first pointer page.
+ * An untrusted pointer or a disappearing mapping must not fault the UI. */
+static void ui_observer_path(uint64_t argument,char *path,size_t size)
+{
+    if(!argument||!vm_page_size)return;
+    vm_size_t available=vm_page_size-argument%vm_page_size;
+    vm_size_t limit=available<size-1?available:size-1;
+    vm_size_t got=0;
+    if(vm_read_overwrite(mach_task_self(),(vm_address_t)argument,limit,
+                         (vm_address_t)path,&got)!=KERN_SUCCESS||got>limit){
+        path[0]='\0';
+        return;
+    }
+    path[got]='\0';
+    for(vm_size_t i=0;i<got&&path[i];i++){
+        unsigned char c=(unsigned char)path[i];
+        if(c<32||c>=127||c=='"')path[i]='?';
+    }
+}
+
+static void ui_observer_write(int fd,const struct ui_observer_slot *slot,unsigned state,
+                              uint64_t call,uint64_t now,uint64_t *reported)
+{
+    static const char *const labels[]={"stat","lstat","group_wait"};
+    unsigned kind=atomic_load_explicit(&slot->kind,memory_order_relaxed);
+    uint64_t started=atomic_load_explicit(&slot->started,memory_order_relaxed);
+    uint64_t tid=atomic_load_explicit(&slot->tid,memory_order_relaxed);
+    uint64_t argument=atomic_load_explicit(&slot->argument,memory_order_relaxed);
+    uint64_t timeout=atomic_load_explicit(&slot->timeout,memory_order_relaxed);
+    uint64_t caller=atomic_load_explicit(&slot->caller,memory_order_relaxed);
+    if(state==SLOT_PENDING&&(!started||now<started||now-started<150||*reported==call))return;
+
+    /* An in-flight fast call may return and free/reuse the slot while we
+     * sample it. Recheck state and generation after loading the fields. */
+    if(atomic_load_explicit(&slot->state,memory_order_acquire)!=state||
+       atomic_load_explicit(&slot->call,memory_order_relaxed)!=call||
+       kind>=sizeof(labels)/sizeof(labels[0]))return;
+    if(state==SLOT_PENDING){
+        char path[96]={0};
+        if(kind!=OBSERVER_GROUP_WAIT)ui_observer_path(argument,path,sizeof(path));
+        if(atomic_load_explicit(&slot->state,memory_order_acquire)!=SLOT_PENDING||
+           atomic_load_explicit(&slot->call,memory_order_relaxed)!=call)return;
+        *reported=call;
+        dprintf(fd,"Pong UI call pending: pid=%d tid=%llu id=%llu op=%s start_ms=%llu now_ms=%llu arg=0x%llx timeout=%llu caller=0x%llx path_prefix=\"%s\"\n",
+                getpid(),tid,call,labels[kind],started,now,argument,timeout,caller,path);
+    }else{
+        uint64_t elapsed=atomic_load_explicit(&slot->elapsed,memory_order_relaxed);
+        long result=atomic_load_explicit(&slot->result,memory_order_relaxed);
+        int error=atomic_load_explicit(&slot->error,memory_order_relaxed);
+        dprintf(fd,"Pong UI call end: pid=%d tid=%llu id=%llu op=%s start_ms=%llu elapsed_ms=%llu arg=0x%llx timeout=%llu caller=0x%llx result=%ld errno=%d\n",
+                getpid(),tid,call,labels[kind],started,elapsed,argument,timeout,caller,result,error);
+    }
+}
+
+/* Single consumer: the process-local snapshot worker. Completed stat paths
+ * retain only their addresses because the caller may already have freed them. */
+void pong_ui_observer_drain(int fd)
+{
+    unsigned role=atomic_load_explicit(&ui_observer_role,memory_order_relaxed);
+    if(!role)return;
+    if(role==OBSERVER_SB)pong_sb_drain(fd);
+    static uint64_t reported[UI_OBSERVER_SLOTS];
+    static unsigned budget=900, overflow_reported;
+    uint64_t now=ui_observer_ms();
+    for(unsigned i=0;i<UI_OBSERVER_SLOTS;i++){
+        struct ui_observer_slot *slot=&ui_observer_slots[i];
+        unsigned state=atomic_load_explicit(&slot->state,memory_order_acquire);
+        if(state!=SLOT_PENDING&&state!=SLOT_FINISHED)continue;
+        uint64_t call=atomic_load_explicit(&slot->call,memory_order_relaxed);
+        if(budget&&(state==SLOT_FINISHED||reported[i]!=call)){
+            ui_observer_write(fd,slot,state,call,now,&reported[i]);
+            if(state==SLOT_FINISHED||reported[i]==call)budget--;
+        }
+        if(state==SLOT_FINISHED)atomic_store_explicit(&slot->state,SLOT_FREE,memory_order_release);
+    }
+    unsigned overflow=atomic_load_explicit(&ui_observer_overflow,memory_order_relaxed);
+    if(budget&&overflow_reported!=overflow){
+        dprintf(fd,"Pong UI call overflow: pid=%d count=%u\n",getpid(),overflow);
+        overflow_reported=overflow;
+        budget--;
+    }
+    static bool announced_exhaustion;
+    if(!budget&&!announced_exhaustion){
+        dprintf(fd,"Pong UI call observation budget exhausted: pid=%d\n",getpid());
+        announced_exhaustion=true;
+    }
+}
+
+static int pong_observed_stat(unsigned kind,int (*original)(const char *,struct stat *),
+                              const char *path,struct stat *st,const void *caller)
+{
+    if(atomic_load_explicit(&ui_observer_role,memory_order_relaxed)!=OBSERVER_SB)
+        return original(path,st);
+    int incoming_errno=errno;
+    if(ui_observing){
+        errno=incoming_errno;
+        return original(path,st);
+    }
+    ui_observing=true;
+    struct ui_observer_slot *slot=ui_observer_begin(kind,(uintptr_t)path,0,caller);
+    errno=incoming_errno;
+    int result=original(path,st);
+    int saved_errno=errno;
+    ui_observer_end(slot,result,result?saved_errno:0,20,false);
+    ui_observing=false;
+    errno=saved_errno;
+    return result;
+}
+
+static int pong_sb_lstat(const char *path,struct stat *st)
+{
+    return pong_observed_stat(OBSERVER_LSTAT,lstat,path,st,__builtin_return_address(0));
+}
+
+static int pong_sb_stat(const char *path,struct stat *st)
+{
+    return pong_observed_stat(OBSERVER_STAT,stat,path,st,__builtin_return_address(0));
+}
+
+static long pong_bbd_group_wait(dispatch_group_t group,dispatch_time_t timeout)
+{
+    if(atomic_load_explicit(&ui_observer_role,memory_order_relaxed)!=OBSERVER_BBD)
+        return dispatch_group_wait(group,timeout);
+    int incoming_errno=errno;
+    if(ui_observing){
+        errno=incoming_errno;
+        return dispatch_group_wait(group,timeout);
+    }
+    ui_observing=true;
+    struct ui_observer_slot *slot=ui_observer_begin(OBSERVER_GROUP_WAIT,(uintptr_t)group,
+                                                   timeout,__builtin_return_address(0));
+    errno=incoming_errno;
+    long result=dispatch_group_wait(group,timeout);
+    int saved_errno=errno;
+    ui_observer_end(slot,result,saved_errno,50,true);
+    ui_observing=false;
+    errno=saved_errno;
+    return result;
+}
+
+PONG_INTERPOSE(sb_lstat,pong_sb_lstat,lstat);
+PONG_INTERPOSE(sb_stat,pong_sb_stat,stat);
+PONG_INTERPOSE(group_wait,pong_bbd_group_wait,dispatch_group_wait);
+
+static bool dm_diagnostics_swizzled;
+static bool dm_progress_swizzled,dm_progress_enabled;
+static IMP dm_capture_original;
+static IMP dm_will_run_original,dm_did_finish_original,dm_results_original;
+static SEL dm_plugin_id,dm_plugin_name,dm_plugin_dependency,dm_incident_kind,dm_incident_details;
+
+static SEL pong_dm_getter(Class cls,const char *name,const char *result)
+{
+    SEL selector=sel_registerName(name);
+    if(method_abi(cls?class_getInstanceMethod(cls,selector):NULL,result,0,""))
+        return selector;
+    return NULL;
+}
+
+static void pong_dm_text(id value,char *text,size_t size)
+{
+    if(!value || CFGetTypeID((CFTypeRef)value)!=CFStringGetTypeID() ||
+       !CFStringGetCString((CFStringRef)value,text,size,kCFStringEncodingUTF8))
+        strlcpy(text,"-",size);
+    for(char *c=text;*c;c++) {
+        if((unsigned char)*c<32 || *c=='"')*c=' ';
+    }
+}
+
+static void pong_dm_get_text(id value,SEL selector,char *text,size_t size)
+{
+    pong_dm_text(value && selector?((id(*)(id,SEL))objc_msgSend)(value,selector):nil,text,size);
+}
+
+static unsigned pong_dm_kind(id incident)
+{
+    return incident && dm_incident_kind
+        ? ((unsigned(*)(id,SEL))objc_msgSend)(incident,dm_incident_kind) : 0;
+}
+
+static void pong_dm_will_run(id self,SEL command,id plugin,id phase)
+{
+    const int saved_errno=errno;
+    char identifier[96],name[96],dependency[96];
+    pong_dm_get_text(plugin,dm_plugin_id,identifier,sizeof(identifier));
+    pong_dm_get_text(plugin,dm_plugin_name,name,sizeof(name));
+    pong_dm_get_text(plugin,dm_plugin_dependency,dependency,sizeof(dependency));
+    pong_dm_line("Pong DM: plugin begin id=\"%s\" name=\"%s\" dependency=\"%s\"",identifier,name,dependency);
+    errno=saved_errno;
+    ((void(*)(id,SEL,id,id))dm_will_run_original)(self,command,plugin,phase);
+}
+
+static void pong_dm_did_finish(id self,SEL command,id plugin,BOOL success,double duration,id incident,id phase)
+{
+    ((void(*)(id,SEL,id,BOOL,double,id,id))dm_did_finish_original)(self,command,plugin,success,duration,incident,phase);
+    const int saved_errno=errno;
+    char identifier[96],details[192];
+    pong_dm_get_text(plugin,dm_plugin_id,identifier,sizeof(identifier));
+    pong_dm_get_text(incident,dm_incident_details,details,sizeof(details));
+    pong_dm_line("Pong DM: plugin end id=\"%s\" success=%d duration_s=%.3f incident=%u details=\"%s\"",
+        identifier,(int)success,duration,pong_dm_kind(incident),details);
+    errno=saved_errno;
+}
+
+static void pong_dm_results(id self,SEL command,BOOL success,id build)
+{
+    ((void(*)(id,SEL,BOOL,id))dm_results_original)(self,command,success,build);
+    const int saved_errno=errno;
+    char version[32];
+    pong_dm_text(build,version,sizeof(version));
+    pong_dm_line("Pong DM: client results sent success=%d build=\"%s\"",(int)success,version);
+    errno=saved_errno;
+}
+
+static void pong_dm_progress_install(void)
+{
+    if(!dm_progress_enabled || dm_progress_swizzled)return;
+    Class state=objc_lookUpClass("DMMigrationState");
+    Class plugin=objc_lookUpClass("DataMigrationPlugin");
+    Class incident=objc_lookUpClass("DMIncident");
+    if(!state || !plugin || !incident)return;
+    Method begin=class_getInstanceMethod(state,sel_registerName("pluginWillRun:migrationPhaseDescription:"));
+    Method end=class_getInstanceMethod(state,sel_registerName("pluginDidFinish:withSuccess:duration:incident:migrationPhaseDescription:"));
+    Method results=class_getInstanceMethod(state,sel_registerName("sendMigrationResultsToClientInvocationsWithSuccess:buildVersion:"));
+    /* 22H374 method metadata: v32@0:8@16@24, v52@0:8@16B24d28@36@44,
+     * v28@0:8B16@20. Forward the real outcomes and arguments unchanged. */
+    if(!method_abi(begin,"v",2,"@@") || !method_abi(end,"v",5,"@Bd@@") ||
+       !method_abi(results,"v",2,"B@"))return;
+    dm_plugin_id=pong_dm_getter(plugin,"identifier","@");
+    dm_plugin_name=pong_dm_getter(plugin,"name","@");
+    dm_plugin_dependency=pong_dm_getter(plugin,"identifierOfDependency","@");
+    dm_incident_kind=pong_dm_getter(incident,"kind","I");
+    dm_incident_details=pong_dm_getter(incident,"details","@");
+    if(!dm_plugin_id)return;
+    dm_will_run_original=method_getImplementation(begin);
+    dm_did_finish_original=method_getImplementation(end);
+    dm_results_original=method_getImplementation(results);
+    method_setImplementation(begin,(IMP)pong_dm_will_run);
+    method_setImplementation(end,(IMP)pong_dm_did_finish);
+    method_setImplementation(results,(IMP)pong_dm_results);
+    dm_progress_swizzled=true;
+    pong_dm_line("Pong DM: native plugin and client result receipts enabled");
+}
+
+static void pong_dm_capture(id self,SEL command,id incident,BOOL async)
+{
+    const int saved_errno=errno;
+    char details[192];
+    pong_dm_get_text(incident,dm_incident_details,details,sizeof(details));
+    pong_dm_line("Pong DM: diagnostics incident=%u async=%d -> forcing async=1 details=\"%s\"",
+        pong_dm_kind(incident),(int)async,details);
+    errno=saved_errno;
+    if(dm_capture_original)
+        ((void(*)(id,SEL,id,BOOL))dm_capture_original)(self,command,incident,YES);
+}
+
+static void pong_dm_image(const struct mach_header *header,intptr_t slide)
+{
+    (void)header;(void)slide;
+    pong_dm_progress_install();
+    if(dm_diagnostics_swizzled)return;
+    Class cls=objc_lookUpClass("DMDiagnostics");
+    if(!cls)return;
+    Method method=class_getInstanceMethod(cls,
+        sel_registerName("captureDiagnosticsForIncident:async:"));
+    if(!method_abi(method,"v",2,"@B"))return;
+    dm_capture_original=method_getImplementation(method);
+    method_setImplementation(method,(IMP)pong_dm_capture);
+    dm_diagnostics_swizzled=true;
+    pong_dm_line("Pong DM: diagnostics swizzled to the native async path");
+}
+
+static void dm_diagnostics_install(bool progress_receipts)
+{
+    dm_log_queue=dispatch_queue_create("com.pong.datamigrator.receipts",DISPATCH_QUEUE_SERIAL);
+    dm_progress_enabled=progress_receipts && dm_log_queue;
+    if(!dm_diagnostics_swizzled)
+        _dyld_register_func_for_add_image(pong_dm_image);
+}
+
+static void fairplay_exit_site(int status,const char *kind)
+{
+    char line[560];
+    int n=snprintf(line,sizeof(line),"Pong A2: %s(%d) site:",kind,status);
+    void *frame=__builtin_frame_address(0);
+    for(unsigned i=0;n>0&&(size_t)n<sizeof(line)-24&&frame&&i<12;i++) {
+        void **pair=(void **)frame;
+        uintptr_t site=(uintptr_t)pair[1];
+        /* v66 bug: the filter was written at 1-3 TiB while real user
+         * code addresses (executable, cache, this library) sit between
+         * 4 and 12 GiB - every frame was dropped. Bound to that range
+         * and stop at the first implausible value. */
+        if(site<0x100000000ULL||site>=0x300000000ULL)break;
+        n+=snprintf(line+n,sizeof(line)-(size_t)n," %llx",
+                    (unsigned long long)site);
+        frame=pair[0];
+    }
+    if(n>0)pong_a2_line(line);
+}
+
+static void pong_a2_exit(int status)
+{
+    if(fairplay_process)fairplay_exit_site(status,"exit");
+    exit(status);
+    while(1);
+}
+static void pong_a2_exit_raw(int status)
+{
+    if(fairplay_process)fairplay_exit_site(status,"_exit");
+    _exit(status);
+    while(1);
+}
+static kern_return_t pong_a2_check_in(mach_port_t port,char *service,
+                                      mach_port_t *service_port)
+{
+    /* v66 bug fixed here: the contract is (bootstrap_port, name,
+     * mach_port_t *sp) and the pair installs in every injected process;
+     * v69 adds begin/end receipts so a hang inside the call is visible. */
+    if(fairplay_process){
+        char begin[192];
+        int b=snprintf(begin,sizeof(begin),"Pong A2: bootstrap_check_in %s begin",
+                       service?service:"(null)");
+        if(b>0)pong_a2_line(begin);
+    }
+    kern_return_t result=bootstrap_check_in(port,service,service_port);
+    if(fairplay_process){
+        char line[256];
+        int n=snprintf(line,sizeof(line),
+                       "Pong A2: bootstrap_check_in %s -> %d sp=%u",
+                       service?service:"(null)",result,
+                       (service_port&&result==KERN_SUCCESS)?*service_port:0);
+        if(n>0)pong_a2_line(line);
+    }
+    return result;
+}
+static pong_io_object_t pong_a2_matching(mach_port_t port,CFDictionaryRef matching)
+{
+    /* IOServiceGetMatchingService CONSUMES the dictionary reference, so
+     * every string we want to log must be copied out BEFORE the call. */
+    char text[3][64]={{0},{0},{0}};
+    if(matching){
+        static const char *keys[3]={"IOProviderClass","IOClass","IOUserClientClass"};
+        for(unsigned k=0;k<3;k++){
+            CFStringRef key=CFStringCreateWithCString(NULL,keys[k],
+                kCFStringEncodingASCII);
+            CFTypeRef value=key?CFDictionaryGetValue(matching,key):NULL;
+            if(key)CFRelease(key);
+            if(value&&CFGetTypeID(value)==CFStringGetTypeID())
+                CFStringGetCString(value,text[k],sizeof(text[k]),
+                                   kCFStringEncodingUTF8);
+        }
+    }
+    pong_io_object_t service=IOServiceGetMatchingService(port,matching);
+    if(fairplay_process){
+        char line[320];
+        int n=snprintf(line,sizeof(line),
+                       "Pong A2: matching provider=%s class=%s uc=%s -> service=%u",
+                       text[0][0]?text[0]:"-",text[1][0]?text[1]:"-",
+                       text[2][0]?text[2]:"-",service);
+        if(n>0)pong_a2_line(line);
+    }
+    return service;
+}
+static kern_return_t pong_a2_open(pong_io_object_t service,mach_port_t owner,
+                                  uint32_t type,pong_io_object_t *connect)
+{
+    if(fairplay_process){
+        char begin[160];
+        int b=snprintf(begin,sizeof(begin),
+                       "Pong A2: IOServiceOpen begin service=%u type=%u",service,type);
+        if(b>0)pong_a2_line(begin);
+    }
+    kern_return_t result=IOServiceOpen(service,owner,type,connect);
+    if(fairplay_process){
+        char line[192];
+        int n=snprintf(line,sizeof(line),
+            "Pong A2: IOServiceOpen service=%u type=%u -> %d%s%u",
+            service,type,result,
+            result==KERN_SUCCESS?" connect=":" (output invalid)",
+            (result==KERN_SUCCESS&&connect)?*connect:0);
+        if(n>0)pong_a2_line(line);
+    }
+    return result;
+}
+extern pong_io_object_t IOServiceGetMatchingServices(mach_port_t,CFDictionaryRef,pong_io_object_t *);
+extern CFMutableDictionaryRef IOServiceMatching(const char *);
+static kern_return_t pong_a2_matchings(mach_port_t port,CFDictionaryRef matching,
+                                        pong_io_object_t *iterator)
+{
+    /* A2 actually calls the PLURAL variant; it consumes the dictionary
+     * exactly like the singular one, so copy strings before the call. */
+    char text[3][64]={{0},{0},{0}};
+    if(fairplay_process)
+        pong_a2_line("Pong A2: matchings begin");
+    if(matching){
+        static const char *keys[3]={"IOProviderClass","IOClass","IOUserClientClass"};
+        for(unsigned k=0;k<3;k++){
+            CFStringRef key=CFStringCreateWithCString(NULL,keys[k],
+                kCFStringEncodingASCII);
+            CFTypeRef value=key?CFDictionaryGetValue(matching,key):NULL;
+            if(key)CFRelease(key);
+            if(value&&CFGetTypeID(value)==CFStringGetTypeID())
+                CFStringGetCString(value,text[k],sizeof(text[k]),
+                                   kCFStringEncodingUTF8);
+        }
+    }
+    kern_return_t result=IOServiceGetMatchingServices(port,matching,iterator);
+    if(fairplay_process){
+        char line[320];
+        int n=snprintf(line,sizeof(line),
+                       "Pong A2: matchings provider=%s class=%s uc=%s -> %d iter=%u",
+                       text[0][0]?text[0]:"-",text[1][0]?text[1]:"-",
+                       text[2][0]?text[2]:"-",
+                       result,(result==KERN_SUCCESS&&iterator)?*iterator:0);
+        if(n>0)pong_a2_line(line);
+    }
+    return result;
+}
+static CFMutableDictionaryRef pong_a2_matching_dict(const char *name)
+{
+    CFMutableDictionaryRef dictionary=IOServiceMatching(name);
+    if(fairplay_process){
+        char line[192];
+        int n=snprintf(line,sizeof(line),"Pong A2: IOServiceMatching %s -> %p",
+                       name?name:"(null)",dictionary);
+        if(n>0)pong_a2_line(line);
+    }
+    return dictionary;
+}
+PONG_INTERPOSE(exit,pong_a2_exit,exit);
+PONG_INTERPOSE(raw_exit,pong_a2_exit_raw,_exit);
+PONG_INTERPOSE(check_in,pong_a2_check_in,bootstrap_check_in);
+PONG_INTERPOSE(matching,pong_a2_matching,IOServiceGetMatchingService);
+PONG_INTERPOSE(matchings,pong_a2_matchings,IOServiceGetMatchingServices);
+PONG_INTERPOSE(matchdict,pong_a2_matching_dict,IOServiceMatching);
+PONG_INTERPOSE(open,pong_a2_open,IOServiceOpen);
+
+/* v69: the v68 in-process walker was wrong six ways (external review:
+ * __PAGEZERO taken as base (+4 GiB), pointer format 6 rejected, slots
+ * already resolved by dyld, mangled import names unmatched, dlsym
+ * assumptions, and success receipts without readback). It is replaced
+ * by an OFFLINE-parsed, UUID-locked slot table generated from the
+ * shipped /usr/sbin/fairplayd.A2 (parser: thor tools; addend
+ * 0x77dc76ff for _IOServiceOpen matches the firmware review). At
+ * runtime: find the image by UUID, verify the slot really holds
+ * original+addend, patch to wrapper+addend, read back, and report each
+ * step. exit/_exit are NOT in A2 import table - the exit call comes
+ * from libdyld's start glue - so exit evidence stays with the watcher
+ * kqueue. Pages are left RW after patching: the kernel may still be
+ * page-in-linking unapplied chains in __DATA_CONST. */
+static const struct { uint64_t vm; unsigned hook; uint64_t addend; }
+pong_a2_slots[]={
+    {0x101138a48ULL,4,0x6da5e697ULL},   /* _IOServiceGetMatchingServices */
+    {0x10113cda8ULL,2,0x6c4fc59bULL},   /* _bootstrap_check_in */
+    {0x10113d208ULL,6,0x77dc76ffULL},   /* _IOServiceOpen */
+    {0x10113ff90ULL,5,0x69a8ca62ULL},   /* _IOServiceMatching */
+};
+static const unsigned char pong_a2_uuid[16]={
+    0x2c,0x3c,0x86,0x43,0x26,0x12,0x30,0xa5,
+    0x8f,0xdf,0xc6,0x26,0x88,0x4d,0x86,0x76};
+
+static bool pong_mach_uuid(const struct mach_header *header,unsigned char out[16])
+{
+    if(!header||header->magic!=MH_MAGIC_64||header->sizeofcmds>0x400000)return false;
+    const struct load_command *scan=(const void *)((const uint8_t *)header+sizeof(struct mach_header_64));
+    for(uint32_t c=0;c<header->ncmds;c++){
+        if(scan->cmdsize<sizeof(*scan))return false;
+        if(scan->cmd==LC_UUID&&scan->cmdsize>=sizeof(struct uuid_command)){
+            memcpy(out,((const struct uuid_command *)scan)->uuid,16);
+            return true;
+        }
+        scan=(const void *)((const uint8_t *)scan+scan->cmdsize);
+    }
+    return false;
+}
+
+static void pong_a2_apply_slots(void)
+{
+    const struct mach_header *header=NULL;
+    unsigned char uuid[16];
+    for(uint32_t i=0,n=_dyld_image_count();i<n;i++){
+        const struct mach_header *candidate=_dyld_get_image_header(i);
+        if(pong_mach_uuid(candidate,uuid)&&
+           !memcmp(uuid,pong_a2_uuid,sizeof uuid)){
+            header=candidate;
+            break;
+        }
+    }
+    if(!header){
+        pong_a2_line("Pong A2: slot patch: UUID image not found");
+        return;
+    }
+    /* A2 __TEXT vmaddr is 0x100000000; the slide follows from the header.
+     * v69 bug: dlsym(RTLD_DEFAULT) returned OUR wrapper (interposition
+     * applies to dlsym), so every slot verified as MISMATCH against
+     * wrapper+addend (field data: 128 mismatches, 32x "0 of 4", with the
+     * reconstructed base matching _pong_a2_open exactly). The ORIGINAL
+     * address must come from this dylib's own two-level bindings, which
+     * interposition does not redirect: the address of each extern
+     * reference below is libSystem/IOKit's real function. */
+    intptr_t slide=(intptr_t)((const uint8_t *)header)-0x100000000LL;
+    struct { const char *name; void *wrapper; void *original; } hooks[]={
+        {"exit",(void *)pong_a2_exit,(void *)&exit},
+        {"_exit",(void *)pong_a2_exit_raw,(void *)&_exit},
+        {"bootstrap_check_in",(void *)pong_a2_check_in,(void *)&bootstrap_check_in},
+        {"IOServiceGetMatchingService",(void *)pong_a2_matching,(void *)&IOServiceGetMatchingService},
+        {"IOServiceGetMatchingServices",(void *)pong_a2_matchings,(void *)&IOServiceGetMatchingServices},
+        {"IOServiceMatching",(void *)pong_a2_matching_dict,(void *)&IOServiceMatching},
+        {"IOServiceOpen",(void *)pong_a2_open,(void *)&IOServiceOpen},
+    };
+    unsigned patched=0;
+    for(unsigned s=0;s<sizeof(pong_a2_slots)/sizeof(pong_a2_slots[0]);s++){
+        const char *name=hooks[pong_a2_slots[s].hook].name;
+        void *wrapper=hooks[pong_a2_slots[s].hook].wrapper;
+        uintptr_t original=(uintptr_t)hooks[pong_a2_slots[s].hook].original;
+        uintptr_t addend=(uintptr_t)pong_a2_slots[s].addend;
+        uintptr_t address=(uintptr_t)((int64_t)pong_a2_slots[s].vm+slide);
+        uintptr_t expected=original+addend;
+        uintptr_t current=0;
+        vm_size_t got=0;
+        char line[256];
+        if(vm_read_overwrite(mach_task_self(),(vm_address_t)address,
+                             sizeof current,(vm_address_t)&current,&got)!=KERN_SUCCESS||
+           got!=sizeof current){
+            snprintf(line,sizeof(line),"Pong A2: slot %s read failed",name);
+            pong_a2_line(line);
+            continue;
+        }
+        if(current!=expected){
+            snprintf(line,sizeof(line),
+                     "Pong A2: slot %s addend=0x%llx MISMATCH current=0x%llx expected=0x%llx",
+                     name,(unsigned long long)addend,
+                     (unsigned long long)current,(unsigned long long)expected);
+            pong_a2_line(line);
+            continue;
+        }
+        uintptr_t page=address&~(uintptr_t)(vm_page_size-1);
+        if(vm_protect(mach_task_self(),(vm_address_t)page,vm_page_size,FALSE,
+                      VM_PROT_READ|VM_PROT_WRITE|VM_PROT_COPY)!=KERN_SUCCESS){
+            snprintf(line,sizeof(line),
+                     "Pong A2: slot %s protect failed errno-style kr=%d",
+                     name,(int)KERN_FAILURE);
+            pong_a2_line(line);
+            continue;
+        }
+        *(uintptr_t *)address=(uintptr_t)wrapper+addend;
+        uintptr_t readback=0;
+        got=0;
+        if(vm_read_overwrite(mach_task_self(),(vm_address_t)address,
+                             sizeof readback,(vm_address_t)&readback,&got)!=KERN_SUCCESS||
+           got!=sizeof readback||readback!=(uintptr_t)wrapper+addend){
+            snprintf(line,sizeof(line),"Pong A2: slot %s readback FAILED",name);
+            pong_a2_line(line);
+            continue;
+        }
+        patched++;
+        snprintf(line,sizeof(line),
+                 "Pong A2: slot %s addend=0x%llx verified patched readback-ok",
+                 name,(unsigned long long)addend);
+        pong_a2_line(line);
+    }
+    char summary[96];
+    snprintf(summary,sizeof(summary),
+             "Pong A2: slot patch done %u of %u",patched,
+             (unsigned)(sizeof(pong_a2_slots)/sizeof(pong_a2_slots[0])));
+    pong_a2_line(summary);
+}
 
 static char abi_type_kind(const char *type)
 {
@@ -522,7 +1342,7 @@ static void container_persona_policy(void)
     if(!method_abi(method,"Bc",0,""))return;
     method_setImplementation(method,(IMP)no_container_personas);
     personas_installed=true;
-    fprintf(stderr,"Pong UI18: native single-user container paths selected\n");
+    pong_say("Pong UI18: native single-user container paths selected");
 }
 
 /* A new unencrypted Data has no persona.kb. In 22H374 --init can finish
@@ -535,8 +1355,12 @@ static void initialize_persona_manifest(void)
     const char *path="/private/var/keybags/persona.kb";
     struct stat st;
     if(geteuid()!=0 || lstat(path,&st)==0 || errno!=ENOENT)return;
+    /* THOR development image: the Data volume is authored on the host without
+     * root, so the keybags directory carries the authoring uid instead of 0.
+     * Keep the permission-bit guard (no group/other access); root ownership
+     * is restored when the image toolchain gains that capability. */
     if(lstat("/private/var/keybags",&st)!=0 || !S_ISDIR(st.st_mode) ||
-       st.st_uid!=0 || (st.st_mode&0077))return;
+       (st.st_mode&0077))return;
     Class cls=objc_lookUpClass("UMDPersonaManifest");
     SEL make=sel_registerName("manifest"),encode=sel_registerName("dataValue");
     if(!method_abi(cls?class_getClassMethod(cls,make):NULL,"@",0,""))return;
@@ -570,15 +1394,15 @@ static void initialize_persona_manifest(void)
     }
     (void)unlink(temporary);
     if(saved) {
-        fprintf(stderr,"Pong UI18: native persona registry write failed errno=%d\n",saved);
+        pong_say("Pong UI18: native persona registry write failed errno=%d",saved);
     } else if(published) {
         int directory=open("/private/var/keybags",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
         if(directory>=0) {
             if(fsync(directory)!=0)
-                fprintf(stderr,"Pong UI18: persona registry published; directory sync errno=%d\n",errno);
+                pong_say("Pong UI18: persona registry published; directory sync errno=%d",errno);
             (void)close(directory);
         }
-        fprintf(stderr,"Pong UI18: 22H374 serialized initial persona registry (%ld bytes)\n",(long)length);
+        pong_say("Pong UI18: 22H374 serialized initial persona registry (%ld bytes)",(long)length);
     }
 }
 
@@ -619,17 +1443,17 @@ static bool install_compositor_code(const struct mach_header *header,intptr_t sl
     if(offset>UINTPTR_MAX-(uintptr_t)header || !bytes || bytes>vm_page_size)return false;
     uintptr_t target=(uintptr_t)header+offset;
     if(!executable_image_range((const void *)header,slide,target,bytes)) {
-        fprintf(stderr,"Pong UI18: %s outside executable image range; SKIP\n",label);return false;
+        pong_say("Pong UI18: %s outside executable image range; SKIP",label);return false;
     }
     if(memcmp((const void *)target,expected,bytes)) {
-        fprintf(stderr,"Pong UI18: 22H374 %s entry differs; SKIP\n",label);return false;
+        pong_say("Pong UI18: 22H374 %s entry differs; SKIP",label);return false;
     }
     const vm_address_t page=target&~((vm_address_t)vm_page_size-1);
     if(target-page>vm_page_size-bytes)return false;
     kern_return_t kr=vm_protect(mach_task_self(),page,vm_page_size,FALSE,
                                VM_PROT_READ|VM_PROT_WRITE|VM_PROT_COPY);
     if(kr!=KERN_SUCCESS) {
-        fprintf(stderr,"Pong UI18: %s protection failed %d\n",label,kr);return false;
+        pong_say("Pong UI18: %s protection failed %d",label,kr);return false;
     }
     memcpy((void *)target,replacement,bytes);
     sys_icache_invalidate((void *)target,bytes);
@@ -638,10 +1462,10 @@ static bool install_compositor_code(const struct mach_header *header,intptr_t sl
         memcpy((void *)target,expected,bytes);
         sys_icache_invalidate((void *)target,bytes);
         (void)vm_protect(mach_task_self(),page,vm_page_size,FALSE,VM_PROT_READ|VM_PROT_EXECUTE);
-        fprintf(stderr,"Pong UI18: %s RX restore failed %d; original restored\n",label,kr);
+        pong_say("Pong UI18: %s RX restore failed %d; original restored",label,kr);
         return false;
     }
-    fprintf(stderr,"Pong UI18: 22H374 %s selected\n",label);return true;
+    pong_say("Pong UI18: 22H374 %s selected",label);return true;
 }
 
 /* 22H374 initializes its missing-calibration fallback limits by converting
@@ -1166,6 +1990,52 @@ static bool boot_option(const char *key)
  * This selects a real software backend; no Metal device is fabricated.
  * Match this image's UUID and entry instructions, never a 20G81 address.
  */
+#if defined(PONG_THOR_DESKTOP_GPU)
+static bool thor_policy_file_matches(const char *path, const char *expected)
+{
+    const int fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+    if (fd < 0) return false;
+    const size_t size = strlen(expected);
+    struct stat info;
+    char data[32];
+    const bool matches = size <= sizeof(data) &&
+        fstat(fd, &info) == 0 && S_ISREG(info.st_mode) &&
+        info.st_uid == 0 && !(info.st_mode & 022) && info.st_size == (off_t)size &&
+        read(fd, data, size) == (ssize_t)size && memcmp(data, expected, size) == 0;
+    close(fd);
+    return matches;
+}
+
+#if defined(PONG_THOR_MEMORY_BUDGET)
+static void thor_desktop_gpu_memory_budget(void)
+{
+    uint64_t memory = 0;
+    size_t size = sizeof(memory);
+    if (sysctlbyname("hw.memsize", &memory, &size, NULL, 0) == 0 &&
+        size == sizeof(memory) && memory > UINT64_C(1024) * 1024 * 1024)
+        return;
+
+    /* The signed 22H374 plugin supplies defaults with overwrite=0.
+     * Set the resident budget before Metal/Turnip open. Both layers
+     * apply their limits only to released or fence-retired resources. */
+    const int images = setenv("METAL2VULKAN_SPARE_IMAGE_MIB", "32", 1);
+    const int buffers = setenv("TU_DARWIN_BO_CACHE_MIB", "32", 1);
+    const char *message = !images && !buffers
+        ? "Pong Metal: Thor low-RAM cache defaults applied (spare images 32 MiB, retired BOs 32 MiB)"
+        : "Pong Metal: Thor low-RAM cache defaults partially unavailable";
+    (void)sysctlbyname("kern.pong_diagnostic", NULL, NULL, (void *)message, strlen(message));
+}
+#endif
+
+static bool thor_desktop_gpu_policy_ready(void)
+{
+    /* Require the explicit, signed-build OS policy; a Data marker
+     * must not silently turn the desktop GPU on. */
+    return thor_policy_file_matches("/System/Library/Extensions/PongAdrenoMetal.publish", "1\n") &&
+        thor_policy_file_matches("/System/Library/Extensions/PongAdrenoMetal.clients", "Preferences\nbackboardd\n");
+}
+#endif
+
 static void compositor_image(const struct mach_header *header,intptr_t slide)
 {
     phone_gestalt_image(header,slide);
@@ -1194,6 +2064,25 @@ static void compositor_image(const struct mach_header *header,intptr_t slide)
         lc=(const void *)((const char *)lc+lc->cmdsize);
     }
     if(!matched)return;
+#if defined(PONG_THOR_LINEAR_GPU)
+    static bool linear_gpu_installed;
+    if (backboard_process && !software_composition && !linear_gpu_installed) {
+        /* 22H374 CA::Render::get_compressed_agx_universal_rgb_fourcc.
+         * For BGRA alone, branch to the original identity return instead of
+         * the &BGA return. QuartzCore then allocates a linear IOSurface. */
+        static const uint32_t bgra_to_compressed[] = {0x54000200};
+        static const uint32_t bgra_to_identity[] = {0x540001e0};
+        linear_gpu_installed = install_compositor_code(header, slide,
+            0x1843acbccULL - 0x184339000ULL, bgra_to_compressed,
+            bgra_to_identity, sizeof(bgra_to_identity), "desktop BGRA compression bypass");
+        const char *message = linear_gpu_installed
+            ? "Pong Metal: 22H374 desktop BGRA compression bypass installed"
+            : "Pong Metal: 22H374 desktop BGRA compression bypass unavailable; CPU compositor requested";
+        (void)sysctlbyname("kern.pong_diagnostic", NULL, NULL, (void *)message, strlen(message));
+        if (!linear_gpu_installed)
+            software_composition = true;
+    }
+#endif
     static const uint32_t expected[]={0xa9be4ff4,0xa9017bfd};
     static const uint32_t cpu_renderer[]={0xd2800000,0xd65f03c0}; /* return nullptr */
     if(software_composition && !renderer_installed)renderer_installed=install_compositor_code(header,slide,
@@ -1217,13 +2106,17 @@ static id singleton(const char *name)
 static void wake_home(void *unused)
 {
     (void)unused;
+    /* v73: entry receipt first - v72 had no PongSB file at all, so
+     * "never entered the main queue" / "stuck before the first line" /
+     * "file open failed" were indistinguishable. */
+    pong_sb_note("Pong UI18: wake_home begin");
     id screen=((id(*)(id,SEL))objc_msgSend)((id)objc_lookUpClass("UIScreen"),sel_registerName("mainScreen"));
     if(screen) {
         CGRect native=((CGRect(*)(id,SEL))objc_msgSend)(screen,sel_registerName("nativeBounds"));
         CGRect logical=((CGRect(*)(id,SEL))objc_msgSend)(screen,sel_registerName("bounds"));
         double scale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName("scale"));
         double nativeScale=((double(*)(id,SEL))objc_msgSend)(screen,sel_registerName("nativeScale"));
-        fprintf(stderr,"Pong UI18: screen native=%.0fx%.0f logical=%.2fx%.2f scale=%.2f nativeScale=%.2f\n",
+        pong_sb_note("Pong UI18: screen native=%.0fx%.0f logical=%.2fx%.2f scale=%.2f nativeScale=%.2f",
             native.size.width,native.size.height,logical.size.width,logical.size.height,scale,nativeScale);
     }
     id backlight=singleton("SBBacklightController"),lock=singleton("SBLockScreenManager");
@@ -1238,9 +2131,9 @@ static void wake_home(void *unused)
        ((BOOL(*)(id,SEL))objc_msgSend)(lock,locked) &&
        method_abi(class_getInstanceMethod(object_getClass(lock),unlock),"Bc",2,"i@")) {
         BOOL accepted=((BOOL(*)(id,SEL,int,id))objc_msgSend)(lock,unlock,24,nil);
-        fprintf(stderr,"Pong UI18: native home request accepted=%d\n",accepted);
+        pong_sb_note("Pong UI18: native home request accepted=%d",accepted);
     }
-    fprintf(stderr,"Pong UI18: main queue wake completed backlight=%d lockscreen=%d\n",backlight!=nil,lock!=nil);
+    pong_sb_note("Pong UI18: main queue wake completed backlight=%d lockscreen=%d",backlight!=nil,lock!=nil);
 }
 
 static bool own_directory(const char *path)
@@ -1362,7 +2255,7 @@ static void launchservices_directories(void)
     };
     for(unsigned i=0;i<sizeof(dirs)/sizeof(dirs[0]);i++) {
         if(!own_directory(dirs[i])) {
-            fprintf(stderr,"Pong LS18: writable directory unavailable %s errno=%d\n",dirs[i],errno);
+            pong_say("Pong LS18: writable directory unavailable %s errno=%d",dirs[i],errno);
             return;
         }
     }
@@ -1378,7 +2271,7 @@ static void launchservices_directories(void)
     ls_base=urls[0];ls_system=urls[1];ls_user=urls[2];ls_shared=urls[3];
     for(unsigned i=0;i<4;i++)method_setImplementation(methods[i],(IMP)ls_directory);
     launchservices_installed=true;
-    fprintf(stderr,"Pong LS18: native lsd database uses writable single-user paths\n");
+    pong_say("Pong LS18: native lsd database uses writable single-user paths");
 }
 
 /* Keep the real fatal signal. Retain bounded frames because ReportCrash's
@@ -1392,7 +2285,7 @@ static void lsd_abort(int number,siginfo_t *info,void *saved)
         int n=snprintf(line,sizeof(line),"Pong LS18: fatal signal=%d pc=%llx lr=%llx\n",
             number,(unsigned long long)context->uc_mcontext->__ss.__pc,
             (unsigned long long)context->uc_mcontext->__ss.__lr);
-        if(n>0)(void)write(2,line,(size_t)n<sizeof(line)?(size_t)n:sizeof(line)-1);
+        if(n>0){(void)write(2,line,(size_t)n<sizeof(line)?(size_t)n:sizeof(line)-1);pong_console_line(line);}
         fp=context->uc_mcontext->__ss.__fp;
     }
     for(unsigned i=0;i<12 && fp>=0x100000000ULL && !(fp&15);i++) {
@@ -1400,7 +2293,7 @@ static void lsd_abort(int number,siginfo_t *info,void *saved)
         if(vm_read_overwrite(mach_task_self(),(vm_address_t)fp,sizeof(frame),
             (vm_address_t)frame,&size)!=KERN_SUCCESS || size!=sizeof(frame))break;
         int n=snprintf(line,sizeof(line),"Pong LS18: fatal frame[%u]=%llx\n",i,(unsigned long long)frame[1]);
-        if(n>0)(void)write(2,line,(size_t)n<sizeof(line)?(size_t)n:sizeof(line)-1);
+        if(n>0){(void)write(2,line,(size_t)n<sizeof(line)?(size_t)n:sizeof(line)-1);pong_console_line(line);}
         if(frame[0]<=fp || frame[0]-fp>0x100000)break;
         fp=frame[0];
     }
@@ -1827,14 +2720,14 @@ static void backboard_container(void)
     const char *library="/private/var/mobile/Library/Pong/backboardd/Library";
     if(!own_directory(base) || !own_directory(path) || !own_directory(library) ||
        !own_directory("/private/var/mobile/Library/Pong/backboardd/Library/Caches")) {
-        fprintf(stderr,"Pong UI18: backboardd Data directories unavailable errno=%d\n",errno);return;
+        pong_say("Pong UI18: backboardd Data directories unavailable errno=%d",errno);return;
     }
     container_root=CFURLCreateFromFileSystemRepresentation(NULL,(const UInt8 *)path,strlen(path),true);
     container_library=CFURLCreateFromFileSystemRepresentation(NULL,(const UInt8 *)library,strlen(library),true);
     if(!container_root || !container_library)return;
     class_replaceMethod(cls,root_sel,(IMP)process_root,method_getTypeEncoding(root));
     class_replaceMethod(cls,lib_sel,(IMP)process_library,method_getTypeEncoding(lib));
-    fprintf(stderr,"Pong UI18: backboardd container uses writable %s\n",path);
+    pong_say("Pong UI18: backboardd container uses writable %s",path);
 }
 
 /* Sileo is a no-container system app. Resolve its real mobile directories before
@@ -2008,6 +2901,33 @@ __attribute__((constructor)) static void pong_ui18_start(void)
 {
     const char *name=getprogname();
     if(!name)return;
+#if defined(PONG_THOR_SETTINGS_WATCHDOG)
+    if(!strcmp(name,"Preferences"))pong_settings_watch_stack_start();
+#endif
+#if defined(PONG_THOR_METAL_CLIENT_SMOKE)
+    if(!strcmp(name,"Preferences")) {
+        /* Keep the Settings startup path independent of the compositor.
+         * Turning Metal off should disable the workload, not run the
+         * generic phone, status-bar and compositor hooks in Settings. */
+        bool run_probe = boot_option("pong_metal=1");
+#if defined(PONG_THOR_DESKTOP_GPU)
+        run_probe = run_probe && (!boot_option("pong_gpu_scanout=1") || !thor_desktop_gpu_policy_ready());
+#endif
+        pong_preferences_metal_smoke_start(run_probe);
+        return;
+    }
+#endif
+    /* v67: A2 hooks in FIRST, before any shared UI initialization
+     * (gestalt scans, dup2/setvbuf, banner) - the smallest possible
+     * perturbation for a daemon that exits within seconds. Entry
+     * receipt proves the injection reached the process even if nothing
+     * else ever logs. */
+    if(strcmp(name,"fairplayd.A2")==0) {
+        fairplay_process=true;
+        pong_a2_line("entered");
+        pong_a2_apply_slots();
+        return;
+    }
     if(!strcmp(name,"InputUI")) {
         char product[32]={};size_t length=sizeof(product);
         if(!sysctlbyname("hw.product",product,&length,NULL,0) && !strcmp(product,"iPhone17,1"))
@@ -2016,7 +2936,6 @@ __attribute__((constructor)) static void pong_ui18_start(void)
     }
     if(!strcmp(name,"Sileo")){sileo_directories();return;}
     if(!strcmp(name,"SpringBoard")) {
-        if (boot_option("thor_switcher_trace=1")) thor_switcher_timing_start();
         keyboard_retire_old_images();
         keyboard_defaults();_dyld_register_func_for_add_image(keyboard_native_image);
         pong_audio_volume18_start();
@@ -2037,9 +2956,36 @@ __attribute__((constructor)) static void pong_ui18_start(void)
         !strcmp(name,"WallpaperSettingsIntents");
     wallpaper_process=boot_option("pong_wallpaper_catalog_override=1") && wallpaper_paths_process;
     (void)dup2(2,1);setvbuf(stdout,NULL,_IONBF,0);setvbuf(stderr,NULL,_IONBF,0);
-    fprintf(stderr,"Pong iPadOS18 adapter: %s (22H374)\n",name);
+    pong_say("Pong iPadOS18 adapter: %s pid=%d (22H374)",name,getpid());
     if(!strcmp(name,"wifid")) {
         if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
+        return;
+    }
+    /* v71: observation-only processes get snapshots and NOTHING else - no
+     * compositor callback, no persona/container policy may leak into
+     * them (v70 review: container_persona_policy is not process-gated).
+     * v72 adds the audio-route daemons behind the current SpringBoard
+     * wait (MPAVRoutingController/MRAVLocalEndpoint -> mediaremoted;
+     * sharedSystemAudioContext/AVFCore -> audiomxd). */
+    if(!strcmp(name,"locationd") || !strcmp(name,"filecoordinationd") ||
+       !strcmp(name,"mediaremoted") || !strcmp(name,"audiomxd")) {
+        if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
+        return;
+    }
+    /* v71: datamigrator hook. Firmware data flow (22H374, addresses in
+     * the v70 field review): the plugin-PID-timeout handler runs on the
+     * same serial queue the plugin completion callback must dispatch_sync
+     * onto, and the timeout handler calls DMDiagnostics
+     * captureDiagnosticsForIncident:async: with async=NO - the SYNCHRONOUS
+     * OSAnalytics stackshot then parks that queue for 34+ minutes while
+     * the completion (which carries the real, FALSE result) waits behind
+     * it. The method's real implementation already has an async path
+     * (WriteStackshotReportWithPID_async): this swizzle forces it, keeping
+     * every result value untouched. ABI verified v28@0:8@16B24. */
+    if(!strcmp(name,"com.apple.datamigrator")) {
+        bool snapshots=boot_option("pong_boot_snapshot=1");
+        dm_diagnostics_install(snapshots);
+        if(snapshots)pong_boot_snapshot_start(name);
         return;
     }
     if(!strcmp(name,"PowerUIAgent")) {
@@ -2063,6 +3009,7 @@ __attribute__((constructor)) static void pong_ui18_start(void)
     }
     if(strcmp(name,"runningboardd")==0) {
         _dyld_register_func_for_add_image(poster_jetsam_image);
+        if(boot_option("memlog=1"))pong_boot_console_start();
         if(boot_option("pong_boot_snapshot=1"))pong_boot_snapshot_start(name);
         return;
     }
@@ -2076,17 +3023,49 @@ __attribute__((constructor)) static void pong_ui18_start(void)
         (void)sigaction(SIGABRT,&action,NULL);
     }
     if(strcmp(name,"usermanagerd")==0) {
+        /* v62 field evidence: usermanagerd's native main asserts single
+         * threading very early (_os_log_set_client_type ->
+         * _pthread_is_threaded_np -> brk #1), so NOTHING here may create
+         * a thread before main: the v62 snapshot worker caused a 14x
+         * SIGTRAP loop, launchd throttling, and runningboardd/lsd both
+         * blocking on this service. Diagnose usermanagerd through the
+         * console receipts and native stackshots only. */
         initialize_persona_manifest();return;
     }
     if(strcmp(name,"SpringBoard")==0) {
         springboard_process=true;
+        if(boot_option("pong_boot_snapshot=1"))
+            atomic_store_explicit(&ui_observer_role,OBSERVER_SB,memory_order_relaxed);
+        pong_sb_note("Pong UI18: SpringBoard adapter ctor");
+#if defined(PONG_THOR_SETTINGS_WATCHDOG)
+        pong_settings_watchdog18_start(pong_sb_note);
+#endif
         // Physical volume keys stay on the native HID/system event route.
         skip_setup=boot_option("pong_skip_setup=1");
         CFPreferencesSetAppValue(CFSTR("SBDisableAutoDim"),kCFBooleanTrue,kCFPreferencesCurrentApplication);
+        pong_sb_note("Pong UI18: wake scheduled on main queue +10s");
         dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW,10*NSEC_PER_SEC),dispatch_get_main_queue(),NULL,wake_home);
+        pong_sb_note("Pong UI18: wake enqueue returned");
     }
     if(strcmp(name,"backboardd")==0) {
+        backboard_process=true;
+        if(boot_option("pong_boot_snapshot=1"))
+            atomic_store_explicit(&ui_observer_role,OBSERVER_BBD,memory_order_relaxed);
         software_composition=boot_option("pong_ui_software=1");
+#if defined(PONG_THOR_DESKTOP_GPU)
+        if (boot_option("pong_gpu_scanout=1") && boot_option("pong_metal=1")) {
+            const bool native = thor_desktop_gpu_policy_ready();
+            software_composition = !native;
+#if defined(PONG_THOR_MEMORY_BUDGET)
+            if (native)
+                thor_desktop_gpu_memory_budget();
+#endif
+            const char *message = native
+                ? "Pong Metal: Thor desktop native policy selected"
+                : "Pong Metal: Thor desktop software policy selected";
+            (void)sysctlbyname("kern.pong_diagnostic", NULL, NULL, (void *)message, strlen(message));
+        }
+#endif
         scanout_format=true;
         backboard_container();
         _dyld_register_func_for_add_image(brightness18_image);

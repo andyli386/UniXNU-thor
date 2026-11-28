@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the Thor Apple device tree for the retained development recipe.
+"""Build a minimal Apple device tree for Nothing Phone (2) Pong.
 
 The physical DRAM size is required input. Do not substitute the sum of Linux
 memory ranges or the DarwinBoot allocation window: XNU treats /chosen/dram-size
@@ -119,10 +119,6 @@ def main():
         help='optional DarwinBoot contiguous window, 256 MiB..8 GiB, aligned to 2 MiB')
     parser.add_argument('--unique-chip-id', type=lambda value: int(value, 16), default=None,
                         help='software IOPlatformUUID seed, not an Apple silicon identifier')
-    parser.add_argument('--memory-config', type=Path, required=True,
-                        help='local Thor memory JSON with confirmed allocatable banks')
-    parser.add_argument('--touch-config', type=Path,
-                        help='local Thor FTS hardware metadata JSON')
     parser.add_argument('--udid-version', type=int, choices=(1, 2), default=1)
     parser.add_argument('--chip-id', type=lambda value: int(value, 16), default=None,
                         help='software IOPlatformUUID seed, not an Apple silicon identifier')
@@ -214,7 +210,7 @@ def main():
         ('darwinboot-mem-diag', bytes(4096)),
         ('pong-allocatable-ram', b''.join(
             struct.pack('<QQ', int(bank['base'], 0), int(bank['size'], 0))
-            for bank in json.loads(args.memory_config.read_text())['allocatable'])),
+            for bank in json.loads((ROOT / 'configs/thor-memory-sm8475.json').read_text())['allocatable'])),
         ('display-rotation', struct.pack('<I', 0)),
         # Host UTC sampled for this temporary development boot. The platform
         # expert advances this software clock using the native arch timer.
@@ -283,13 +279,14 @@ def main():
     ])
     # Thor SALIXP touch frontend (Recovery confirms the 12S Ultra touch
     # is STMicro FTS, not Goodix). The node is generated ONLY when
-    # the supplied --touch-config exists with this board's confirmed
+    # configs/pong-touch-thor-fts.json exists with this board's confirmed
     # values; absent file = no node = the driver stays dormant and the Goodix
     # frontend keeps its node. Fill: spi_base, tlmm_base, gcc_base, rsc_base,
     # cmd_db_base, gpio_offset, pins[6] (miso,mosi,clk,cs,irq,rst), max_x, max_y.
     fts = {}
-    if args.touch_config:
-        fts = json.loads(args.touch_config.read_text())
+    fts_path = ROOT / 'configs/pong-touch-thor-fts.json'
+    if fts_path.exists():
+        fts = json.loads(fts_path.read_text())
     # Actual Pong live DT: QUP0 SE4 / Goodix Berlin-D, GPIO20 reset/21 IRQ.
     # Absolute metadata avoids an incomplete arm-io interrupt/reg mapping.
     # THOR v78: when the FTS config is enabled the FTS chip owns this serial

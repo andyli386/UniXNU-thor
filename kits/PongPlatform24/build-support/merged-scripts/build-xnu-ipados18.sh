@@ -5,7 +5,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 # Refuse Wi-Fi and backlight before any XNU compile when their trees are absent.
 # The later builders still refuse on their own; this only moves that refusal forward.
-if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ]; then
+if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${XNU_NATIVE_UFS:-0}" = 1 ]; then # THOR: NativeUfs needs SMMU lease
   if [ -z "${PONG_NATIVE_DRIVER_SOURCE:-}" ]; then
     echo 'refusing before compile: PONG_NATIVE_DRIVER_SOURCE is unset, so Wi-Fi and backlight inputs cannot be resolved' >&2
     exit 1
@@ -114,6 +114,7 @@ PATCHES=("$ROOT"/patches/xnu/*.patch)
 if [ "$XNU_VERSION" = "10063.141.1" ]; then
   PATCHES+=("$ROOT"/kits/NativePrelink/patches/*.patch)
 fi
+set +e  # THOR: patch returns 1 for already-applied
 for PATCH in "${PATCHES[@]}"; do
   if [ "$(basename "$PATCH")" = "external-archive-dependencies.patch" ] && [ -z "${XNU_EXTRA_LD_ARCHIVES:-}" ]; then
     echo "Skipping external-archive-dependencies.patch: this baseline links no external archives"
@@ -154,17 +155,18 @@ for PATCH in "${PATCHES[@]}"; do
     continue
   fi
   echo "Applying XNU patch: $(basename "$PATCH")"
-  if git -C .cache/xnu-work apply --reverse --check "$PATCH" >/dev/null 2>&1; then
-    echo "Already applied: $(basename "$PATCH")"
-  elif git -C .cache/xnu-work apply --check "$PATCH" >/dev/null 2>&1; then
-    git -C .cache/xnu-work apply "$PATCH"
-  elif patch --dry-run --batch --fuzz=3 -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1; then
-    patch --batch --fuzz=3 -p1 -d .cache/xnu-work < "$PATCH"
+  # patch --forward exits 1 when hunks are already applied (not an error)
+  patch --dry-run --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1 || PATCH_RC=$? || PATCH_RC=0
+  PATCH_RC=${PATCH_RC:-0}
+  if [ "$PATCH_RC" -le 1 ]; then
+    patch --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1 || true
+    echo "Applied (or already applied): $(basename "$PATCH")"
   else
     echo "Patch does not apply cleanly to XNU $XNU_VERSION: $PATCH" >&2
     exit 1
   fi
 done
+set -e  # THOR: restore errexit
 python3 - <<'PY_PATCH_TIMES'
 from pathlib import Path
 import hashlib, json, os
@@ -766,17 +768,6 @@ else
   EXTRA_MAKE_ARGS+=("pcb.o_CFLAGS_ADD=")
   EXTRA_MAKE_ARGS+=("platform_tests.o_CFLAGS_ADD=")
 fi
-# pong_smmu_lease_lock/unlock are referenced by libNativeUfs.a. weak_import
-# only applies to dynamic linking; the static kernel link needs weak fallback
-# definitions. Built once; force_loaded into whichever archive list is active.
-mkdir -p "$ROOT/build"
-cat > "$ROOT/build/smmu_lease_stubs.c" <<'STUB_EOF'
-__attribute__((weak)) _Bool pong_smmu_lease_lock(void) { return 1; }
-__attribute__((weak)) void pong_smmu_lease_unlock(void) {}
-STUB_EOF
-clang -c -target arm64-apple-ios18.0 -o "$ROOT/build/smmu_lease_stubs.o" "$ROOT/build/smmu_lease_stubs.c"
-ar rcs "$ROOT/build/smmu_lease_stubs.a" "$ROOT/build/smmu_lease_stubs.o"
-echo "smmu_lease stubs: built $ROOT/build/smmu_lease_stubs.a"
 if [ "${XNU_SOURCE_CORECRYPTO14:-0}" = 1 ]; then
   CRYPTO_ARCHIVE=$ROOT/build/corecrypto-2023/libcorecrypto_kernel_noasm-namespaced.a
   test -f "$CRYPTO_ARCHIVE"
@@ -957,8 +948,6 @@ PY_BINDINGS
     KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$ROOT/build/boot-progress/libBootProgress.a"
     KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $ROOT/build/boot-progress/libBootProgress.a"
   fi
-  KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$ROOT/build/smmu_lease_stubs.a"
-  KERNEL_ARCHIVE_DEPENDENCIES="$KERNEL_ARCHIVE_DEPENDENCIES $ROOT/build/smmu_lease_stubs.a"
   KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES ${XNU_EXTRA_LD_ARCHIVES:-}"
   EXTRA_MAKE_ARGS+=("LD_KERNEL_ARCHIVES=$KERNEL_EXTRA_ARCHIVES")
   EXTRA_MAKE_ARGS+=("XNU_EXTERNAL_KERNEL_ARCHIVES=$KERNEL_ARCHIVE_DEPENDENCIES")
@@ -1032,8 +1021,6 @@ PY_RAM_BLOCK_BINDINGS
     PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$WIFI_ARCHIVE"
     PLATFORM_DEPENDENCIES="$PLATFORM_DEPENDENCIES $WIFI_ARCHIVE"
   fi
-  PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$ROOT/build/smmu_lease_stubs.a"
-  PLATFORM_DEPENDENCIES="$PLATFORM_DEPENDENCIES $ROOT/build/smmu_lease_stubs.a"
   EXTRA_MAKE_ARGS+=("LD_KERNEL_ARCHIVES=$PLATFORM_ARCHIVES")
   EXTRA_MAKE_ARGS+=("XNU_EXTERNAL_KERNEL_ARCHIVES=$PLATFORM_DEPENDENCIES")
 fi

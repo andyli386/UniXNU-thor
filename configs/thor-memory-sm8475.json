@@ -1,0 +1,12 @@
+{
+  "format": "pong-sm8475-dram-v1",
+  "physical_bytes": 12884901888,
+  "source": "Thor stock firmware HYP reservation and Recovery DB24/XNU handoff evidence",
+  "allocatable": [
+    {
+      "base": "0x800000000",
+      "size": "0x30000000"
+    }
+  ],
+  "policy": "Only candidate for Thor additional RAM ownership. Intersect with non-runtime, write-back EFI ConventionalMemory. The low DXE pool and high banks B/C are not available for additional ownership."
+}

@@ -92,7 +92,21 @@ def stage(root, runtime=None):
             # jobs in retained console alone. Preserve demand/IPC and files;
             # avoid continuous unsupported-hardware process creation storms.
             job['ThrottleInterval']=max(int(job.get('ThrottleInterval',0)),60)
-            reason = 'REC services125 confirmed repeated rapid exits; retain on-demand retry with 60s throttle'
+            if label == 'com.apple.fairplayd.A2':
+                # v68 field evidence: with the ports plainly visible, A2's
+                # exit-0 restart loop left locationd's FairPlay request
+                # parked on an unserved port forever (CoreLocationMigrator
+                # never returned). HideUntilCheckIn makes lookups honestly
+                # fail until a real check-in; locationd's own lookup-failure
+                # branch then lets the migration plugin finish. Applied to
+                # both fairplayd services in BOTH config copies (standalone
+                # plist and the launchd.plist cache entry).
+                services = job.setdefault('MachServices', {})
+                for name in ('com.apple.fairplayd',
+                             'com.apple.fairplayd.versioned'):
+                    if services.get(name) is True:
+                        services[name] = {'HideUntilCheckIn': True}
+            reason = 'REC services125 confirmed repeated rapid exits; retain on-demand retry with 60s throttle; fairplayd ports hidden until a real check-in (v68 evidence)'
         elif label == 'com.apple.spaceattributiond':
             # Normal successful exits should stay dormant until next demand.
             # Preserve Mach services and requests from Storage Settings.

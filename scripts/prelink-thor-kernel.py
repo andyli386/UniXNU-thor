@@ -9,8 +9,12 @@ Without this step the bare kernel panics in OSMetaClass::postModLoad (dangling
 pointers into the prelink region). Inputs:
   - native:   thor bare kernel from build-ipados18-pong-macos.py
               (mach.development.pong)
-  - original: locally extracted and decompressed 22H374 kernel cache
-  - bindings: locally generated 22H374 storage ABI bindings
+  - original: UniXNU-pong/apple/ipados18-22H374/components/
+              kernelcache.release.ipad7c.decompressed
+  - bindings: UniXNU-pong/mac-build/native-ufs/bindings.json
+              (fixed_prelink_base anchors the slide)
+
+Run: python3 -I scripts/prelink-thor-kernel.py [--native PATH] [--output PATH]
 """
 
 import argparse
@@ -24,6 +28,14 @@ sys.path.insert(0, str(ROOT / 'kits/NativePrelink'))
 
 from emit_prelink import emit, COALESCED  # noqa: E402
 from native_prelink import arm64_image, macho, plan  # noqa: E402
+
+DEFAULT_NATIVE = ROOT.parent / 'thor-out/kernel/mach.development.pong'
+DEFAULT_ORIGINAL = (ROOT / 'apple/ipados18-22H374/components/'
+                    'kernelcache.release.ipad7c.decompressed/'
+                    'kernelcache.release.ipad7c.decompressed')
+DEFAULT_BINDINGS = ROOT / 'mac-build/native-ufs/bindings.json'
+DEFAULT_OUTPUT = ROOT.parent / 'thor-out/kernel/kernel-ipados18-thor.macho'
+DEFAULT_PLAN = ROOT.parent / 'thor-out/kernel/prelink-thor.json'
 
 ROOTS = [
     'com.apple.kec.corecrypto',
@@ -49,12 +61,12 @@ GPU_LIBRARY = {
 
 
 def main() -> int:
-  ap = argparse.ArgumentParser(description=__doc__)
-  ap.add_argument('--native', type=Path, required=True)
-  ap.add_argument('--original', type=Path, required=True)
-  ap.add_argument('--bindings', type=Path, required=True)
-  ap.add_argument('--output', type=Path, required=True)
-  ap.add_argument('--plan-json', type=Path, required=True)
+  ap = argparse.ArgumentParser()
+  ap.add_argument('--native', type=Path, default=DEFAULT_NATIVE)
+  ap.add_argument('--original', type=Path, default=DEFAULT_ORIGINAL)
+  ap.add_argument('--bindings', type=Path, default=DEFAULT_BINDINGS)
+  ap.add_argument('--output', type=Path, default=DEFAULT_OUTPUT)
+  ap.add_argument('--plan-json', type=Path, default=DEFAULT_PLAN)
   ap.add_argument('--gpu', action='store_true', help='include the matching 22H374 IOGPUFamily bindings')
   args = ap.parse_args()
 

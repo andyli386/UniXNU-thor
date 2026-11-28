@@ -52,13 +52,15 @@ subprocess.run(command,env=env,check=True)
 shutil.copyfile(a.bridge_directory/'PongMetalBridge.dylib',bundle/'PongMetalBridge.dylib')
 shutil.copyfile(a.turnip_library,bundle/'libvulkan_freedreno.dylib')
 if a.prime_list:shutil.copyfile(a.prime_list,bundle/'PongAdrenoMetal.primelist')
-for binary in ['PongAdrenoMetal','PongMetalBridge.dylib','libvulkan_freedreno.dylib']:
+for binary in ['PongMetalBridge.dylib','libvulkan_freedreno.dylib']:
     subprocess.run(['codesign','--force','--sign','-','--pagesize','4096',str(bundle/binary)],check=True)
 with (bundle/'Info.plist').open('wb') as f:
     plistlib.dump(dict(CFBundleIdentifier='dev.unixnu.pong.Metal',CFBundleName='PongAdrenoMetal',
         CFBundleExecutable='PongAdrenoMetal',CFBundlePackageType='BNDL',CFBundleVersion='1',
         NSPrincipalClass='PongAdrenoMetalDevice',MinimumOSVersion=minimum,
         CFBundleSupportedPlatforms=['iPhoneOS']),f)
+# Bind Info.plist and nested libraries after signing all bundle contents.
+subprocess.run(['codesign','--force','--sign','-','--pagesize','4096',str(bundle)],check=True)
 clients=['backboardd', 'SpringBoard', 'CollectionsPoster', 'WidgetRenderer_Default', 'PosterBoard', 'Weather', 'WeatherPoster', 'GradientPosterExtension']
 if a.guest_build=='22H374':
     # Actual 22H374 executable names from the supplied restore Info.plists.

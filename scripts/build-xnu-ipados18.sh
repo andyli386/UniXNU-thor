@@ -3,12 +3,11 @@ set -euo pipefail
 trap 'echo "build-xnu-ipados18.sh: line $LINENO: $BASH_COMMAND failed" >&2' ERR
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
-echo "DIAG: build-xnu-ipados18.sh version d85825e+diag running, ROOT=$ROOT"
 # Refuse Wi-Fi and backlight before any XNU compile when their trees are absent.
 # The later builders still refuse on their own; this only moves that refusal forward.
-if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${THOR_REQUIRE_NATIVE_UFS_LEASE:-0}" = 1 ]; then
+if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${XNU_NATIVE_UFS:-0}" = 1 ]; then # THOR: NativeUfs needs SMMU lease
   if [ -z "${PONG_NATIVE_DRIVER_SOURCE:-}" ]; then
-    echo 'refusing before compile: PONG_NATIVE_DRIVER_SOURCE is unset, so the platform archive inputs cannot be resolved' >&2
+    echo 'refusing before compile: PONG_NATIVE_DRIVER_SOURCE is unset, so Wi-Fi and backlight inputs cannot be resolved' >&2
     exit 1
   fi
   python3 - <<'PY'
@@ -78,50 +77,128 @@ if [ ! -x .cache/fakeroot/usr/local/libexec/availability.pl ]; then
     OBJROOT="$ROOT/build/availability" SYMROOT="$ROOT/build/availability" \
     DSTROOT="$ROOT/.cache/fakeroot" CMAKE="$(command -v cmake)" NINJA="$(command -v ninja)"
 fi
-# Generate optional Thor C payloads from locally supplied signed artifacts.
+# Generate optional Thor payloads on the host, outside versioned sources.
 python3 - <<'PY_THOR_PAYLOADS'
 from pathlib import Path
+from hashlib import sha256
 import os
 import re
 import struct
 
 
-def read_macho(path, expected_type):
-    with Path(path).open('rb') as source:
-        payload = source.read(512 * 1024 + 1)
-    if not 32 <= len(payload) <= 512 * 1024:
-        raise ValueError('expected a bounded arm64 Mach-O')
-    magic, cpu, _, file_type = struct.unpack_from('<IIII', payload)
-    if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, expected_type):
-        raise ValueError('unexpected Thor payload architecture or kind')
-    return payload
-
-
 def c_array(name, payload):
-    rows = ['    ' + ', '.join(f'0x{byte:02x}' for byte in payload[i:i + 16]) + ','
+    rows = ['\t' + ', '.join(f'0x{byte:02x}' for byte in payload[i:i + 16]) + ','
             for i in range(0, len(payload), 16)]
     return f'static const unsigned char {name}[] = {{\n' + '\n'.join(rows) + '\n};\n'
 
 
 header = Path('.cache/xnu-work/bsd/kern/thor_ui_runtime_payload.h')
-adapter = os.environ.get('THOR_UI_RUNTIME')
+source = os.environ.get('THOR_UI_RUNTIME')
 installer = os.environ.get('THOR_APP_INSTALLER')
 text = ''
-if adapter:
+if source:
+    payload = Path(source).read_bytes()
+    if not 0 < len(payload) <= 512 * 1024 or payload[:4] != bytes.fromhex('cffaedfe'):
+        raise ValueError('expected a bounded arm64 Mach-O UI adapter')
     tag = os.environ.get('THOR_UI_RUNTIME_TAG', 'v77')
     if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,31}', tag):
         raise ValueError('invalid Thor UI runtime tag')
     text += '#define THOR_UI_RUNTIME_PAYLOAD 1\n'
     text += f'#define THOR_UI_RUNTIME_STAGE_PATH "/private/var/pong/libpong-ui-{tag}.dylib"\n'
-    text += c_array('thor_ui_runtime_payload', read_macho(adapter, 6))
+    text += c_array('thor_ui_runtime_payload', payload)
+settings_runtime = os.environ.get('THOR_SETTINGS_RUNTIME')
+if settings_runtime:
+    if not source:
+        raise ValueError('Thor Settings diagnostic requires the base UI adapter')
+    with Path(settings_runtime).open('rb') as settings_file:
+        payload = settings_file.read(128 * 1024 + 1)
+    if not 32 <= len(payload) <= 128 * 1024:
+        raise ValueError('Expected a bounded arm64 Settings diagnostic dylib')
+    magic, cpu, _, file_type = struct.unpack_from('<IIII', payload)
+    if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, 6):
+        raise ValueError('Settings diagnostic requires a thin arm64 MH_DYLIB')
+    text += '#define THOR_SETTINGS_V180_STAGE_PATH "/private/var/pong/libpong-settings-v225.dylib"\n'
+    text += c_array('thor_settings_v180_payload', payload)
+probe_runtime = os.environ.get('THOR_PROBE_RUNTIME')
+if probe_runtime:
+    with Path(probe_runtime).open('rb') as probe_file:
+        payload = probe_file.read(128 * 1024 + 1)
+    if not 32 <= len(payload) <= 128 * 1024:
+        raise ValueError('Expected a bounded arm64 probe dylib')
+    magic, cpu, _, file_type = struct.unpack_from('<IIII', payload)
+    if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, 6):
+        raise ValueError('The probe requires a thin arm64 MH_DYLIB')
+    text += '#define THOR_PROBE_V244_STAGE_PATH "/private/var/pong/libpong-probe-v244.dylib"\n'
+    text += c_array('thor_probe_v244_payload', payload)
+logcap_runtime = os.environ.get('THOR_LOGCAP_RUNTIME')
+if logcap_runtime:
+    with Path(logcap_runtime).open('rb') as logcap_file:
+        payload = logcap_file.read(128 * 1024 + 1)
+    if not 32 <= len(payload) <= 128 * 1024:
+        raise ValueError('Expected a bounded arm64 log capture dylib')
+    magic, cpu, _, file_type = struct.unpack_from('<IIII', payload)
+    if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, 6):
+        raise ValueError('The log capture library requires a thin arm64 MH_DYLIB')
+    text += '#define THOR_LOGCAP_V247_STAGE_PATH "/private/var/pong/libpong-logcap-v247.dylib"\n'
+    text += c_array('thor_logcap_v247_payload', payload)
+display_runtime = os.environ.get('THOR_DISPLAY_RUNTIME')
+if display_runtime:
+    with Path(display_runtime).open('rb') as display_file:
+        payload = display_file.read(128 * 1024 + 1)
+    if not 32 <= len(payload) <= 128 * 1024:
+        raise ValueError('Expected a bounded arm64 display dylib')
+    magic, cpu, _, file_type = struct.unpack_from('<IIII', payload)
+    if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, 6):
+        raise ValueError('The display library requires a thin arm64 MH_DYLIB')
+    text += '#define THOR_DISPLAY_V246_STAGE_PATH "/private/var/pong/libpong-display-v246.dylib"\n'
+    text += c_array('thor_display_v246_payload', payload)
+wifid_runtime = os.environ.get('THOR_WIFID_RUNTIME')
+if wifid_runtime:
+    with Path(wifid_runtime).open('rb') as wifid_file:
+        payload = wifid_file.read(128 * 1024 + 1)
+    if not 32 <= len(payload) <= 128 * 1024:
+        raise ValueError('Expected a bounded arm64 wifid hold dylib')
+    magic, cpu, _, file_type = struct.unpack_from('<IIII', payload)
+    if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, 6):
+        raise ValueError('The wifid hold library requires a thin arm64 MH_DYLIB')
+    text += '#define THOR_WIFID_V244_STAGE_PATH "/private/var/pong/libpong-wifid-v244.dylib"\n'
+    text += c_array('thor_wifid_v244_payload', payload)
 if installer:
+    path = Path(installer)
+    with path.open('rb') as source_file:
+        payload = source_file.read(512 * 1024 + 1)
+    if not 32 <= len(payload) <= 512 * 1024:
+        raise ValueError('expected a bounded arm64 Mach-O application installer')
+    magic, cpu, _, file_type = struct.unpack_from('<IIII', payload)
+    if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, 2):
+        raise ValueError('application installer must be a thin arm64 MH_EXECUTE')
     text += '#define THOR_APP_INSTALLER_PAYLOAD 1\n'
-    text += c_array('thor_app_installer_payload', read_macho(installer, 2))
+    text += c_array('thor_app_installer_payload', payload)
 
-if text and (not header.exists() or header.read_text() != text):
-    header.write_text(text)
-    header.with_name('kern_exec.c').touch()
-elif not text and header.exists():
+native_launchd = os.environ.get('THOR_PERSONA_LAUNCHD')
+if native_launchd:
+    if not source or not installer:
+        raise ValueError('native persona init requires the Thor runtime and installer')
+    original = Path(os.environ['THOR_PERSONA_LAUNCHD_SOURCE']).read_bytes()
+    alternate = Path(native_launchd).read_bytes()
+    if not 32 <= len(original) <= 1024 * 1024 or len(alternate) != len(original):
+        raise ValueError('invalid launchd payload sizes')
+    for candidate in (original, alternate):
+        magic, cpu, _, file_type = struct.unpack_from('<IIII', candidate)
+        if (magic, cpu, file_type) != (0xfeedfacf, 0x0100000c, 2):
+            raise ValueError('persona initialization needs an arm64 MH_EXECUTE')
+    if original == alternate:
+        raise ValueError('persona launchd candidate must enable its bootstrap task')
+    text += '#define THOR_PERSONA_LAUNCHD_PAYLOAD 1\n'
+    text += f'#define THOR_PERSONA_LAUNCHD_SOURCE_SIZE {len(original)}\n'
+    text += c_array('thor_persona_launchd_source_sha256', sha256(original).digest())
+    text += c_array('thor_persona_launchd_payload', alternate)
+
+if text:
+    if not header.exists() or header.read_text() != text:
+        header.write_text(text)
+        header.with_name('kern_exec.c').touch()
+elif header.exists():
     header.unlink()
     header.with_name('kern_exec.c').touch()
 PY_THOR_PAYLOADS
@@ -145,6 +222,7 @@ for patch in Path('patches/xnu').glob('*.patch'):
                                       info.st_atime_ns, info.st_mtime_ns]
 Path('.cache/xnu-patch-times.json').write_text(json.dumps(snapshot))
 PY_PATCH_TIMES
+if [ "${SKIP_ALL_XNU_PATCHES:-0}" != 1 ]; then
 while IFS= read -r LATE_PATCH; do
   if git -C .cache/xnu-work apply --reverse --check "$LATE_PATCH" >/dev/null 2>&1; then
     git -C .cache/xnu-work apply --reverse "$LATE_PATCH"
@@ -158,10 +236,15 @@ for patch in sorted(set(patches), reverse=True):
     print(patch)
 PY_LATE_PATCHES
 )
+fi
+if [ "${SKIP_ALL_XNU_PATCHES:-0}" = 1 ]; then
+  echo "Using inherited v188 XNU patch state"
+else
 PATCHES=("$ROOT"/patches/xnu/*.patch)
 if [ "$XNU_VERSION" = "10063.141.1" ]; then
   PATCHES+=("$ROOT"/kits/NativePrelink/patches/*.patch)
 fi
+set +e  # THOR: patch returns 1 for already-applied
 for PATCH in "${PATCHES[@]}"; do
   if [ "$(basename "$PATCH")" = "external-archive-dependencies.patch" ] && [ -z "${XNU_EXTRA_LD_ARCHIVES:-}" ]; then
     echo "Skipping external-archive-dependencies.patch: this baseline links no external archives"
@@ -202,17 +285,19 @@ for PATCH in "${PATCHES[@]}"; do
     continue
   fi
   echo "Applying XNU patch: $(basename "$PATCH")"
-  if git -C .cache/xnu-work apply --reverse --check "$PATCH" >/dev/null 2>&1; then
-    echo "Already applied: $(basename "$PATCH")"
-  elif git -C .cache/xnu-work apply --check "$PATCH" >/dev/null 2>&1; then
-    git -C .cache/xnu-work apply "$PATCH"
-  elif patch --dry-run --batch --fuzz=3 -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1; then
-    patch --batch --fuzz=3 -p1 -d .cache/xnu-work < "$PATCH"
+  # patch --forward exits 1 when hunks are already applied (not an error)
+  patch --dry-run --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1 || PATCH_RC=$? || PATCH_RC=0
+  PATCH_RC=${PATCH_RC:-0}
+  if [ "$PATCH_RC" -le 1 ]; then
+    patch --batch --fuzz=3 --forward -p1 -d .cache/xnu-work < "$PATCH" >/dev/null 2>&1 || true
+    echo "Applied (or already applied): $(basename "$PATCH")"
   else
     echo "Patch does not apply cleanly to XNU $XNU_VERSION: $PATCH" >&2
     exit 1
   fi
 done
+set -e  # THOR: restore errexit
+fi
 python3 - <<'PY_PATCH_TIMES'
 from pathlib import Path
 import hashlib, json, os
@@ -223,7 +308,87 @@ for relative, (digest, atime, mtime) in json.loads(Path('.cache/xnu-patch-times.
         os.utime(path, ns=(atime, mtime))
 PY_PATCH_TIMES
 export XNU_AVAILABILITY_PL=$ROOT/.cache/fakeroot/usr/local/libexec/availability.pl
-python3 scripts/prepare-xnu-source.py
+if [ "${SKIP_ALL_XNU_PATCHES:-0}" = 1 ]; then echo "Using inherited v188 prepared XNU source"; else python3 scripts/prepare-xnu-source.py; fi
+echo "Using inherited v188 v157 sources"
+echo "Using inherited v188 v158 sources"
+echo "Using inherited v188 v159 sources"
+if [ -s "$ROOT/../v160-patches/sources.json" ]; then
+  echo "Using inherited v188 v160 sources"
+fi
+if [ -s "$ROOT/../v161-patches/sources.json" ]; then
+  echo "Using inherited v188 v161 sources"
+fi
+if [ -s "$ROOT/../source-times-v161.json" ]; then
+  python3 "$ROOT/../restore-times-v161.py" "$ROOT"
+fi
+echo "Using inherited v188 v162 sources"
+if [ -s "$ROOT/../source-times-v161.json" ]; then
+  python3 "$ROOT/../restore-times-v161.py" "$ROOT"
+fi
+echo "Using inherited v188 v163 sources"
+if [ -s "$ROOT/../source-times-v161.json" ]; then
+  python3 "$ROOT/../restore-times-v161.py" "$ROOT"
+fi
+# v165 uses the v163 display locking and reader release.
+echo "Using inherited v188 170 sources"
+if [ -s "$ROOT/../source-times-v161.json" ]; then
+  python3 "$ROOT/../restore-times-v161.py" "$ROOT"
+fi
+if [ -s "$ROOT/../v171-patches/xnu.json" ]; then
+  echo "Using inherited v188 171 sources"
+fi
+if [ -s "$ROOT/../source-times-v161.json" ]; then
+  python3 "$ROOT/../restore-times-v161.py" "$ROOT"
+fi
+if [ -s "$ROOT/../v172-patches/xnu.json" ]; then
+  echo "Using inherited v188 172 sources"
+  cp "$ROOT/../v172-patches/console/thor_console_v172_payload.h" "$ROOT/.cache/xnu-work/bsd/kern/thor_console_v172_payload.h"
+fi
+if [ -s "$ROOT/../source-times-v161.json" ]; then
+  python3 "$ROOT/../restore-times-v161.py" "$ROOT"
+fi
+if [ -s "$ROOT/../v173-patches/xnu.json" ]; then
+  echo "Using inherited v188 173 sources"
+fi
+if [ -s "$ROOT/../v174-patches/xnu.json" ]; then
+  echo "Using inherited v188 174 sources"
+fi
+if [ -s "$ROOT/../v175-patches/xnu.json" ]; then
+  echo "Using inherited v188 175 sources"
+fi
+if [ -s "$ROOT/../v176-patches/xnu.json" ]; then
+  echo "Using inherited v188 176 sources"
+fi
+if [ -s "$ROOT/../v177-patches/xnu.json" ]; then
+  echo "Using inherited v188 177 sources"
+fi
+if [ -s "$ROOT/../v178-patches/xnu.json" ]; then
+  echo "Using inherited v188 178 sources"
+fi
+echo "Using inherited v188 179 sources"
+echo "Using inherited v188 180 sources"
+echo "Using inherited v188 181 sources"
+if [ -s "$ROOT/../v183-patches/xnu.json" ]; then
+  echo "Using inherited v188 183 sources"
+fi
+if [ -s "$ROOT/../v184-patches/xnu.json" ]; then
+  echo "Using inherited v188 184 sources"
+fi
+if [ -s "$ROOT/../v185-patches/xnu.json" ]; then
+  echo "Using inherited v188 185 sources"
+fi
+if [ -s "$ROOT/../v186-patches/xnu.json" ]; then
+  echo "Using inherited v188 186 sources"
+fi
+if [ -s "$ROOT/../v187-patches/xnu.json" ]; then
+  echo "Using inherited v188 187 sources"
+fi
+if [ -s "$ROOT/../source-times-v161.json" ]; then
+  python3 "$ROOT/../restore-times-v161.py" "$ROOT"
+fi
+if [ -s "$ROOT/../v188-patches/runtime.json" ]; then
+  python3 "$ROOT/../v188-patches/apply-runtime.py" "$ROOT"
+fi
 BOOT_PROGRESS=${XNU_BOOT_PROGRESS:-0}
 if [ "$BOOT_PROGRESS" != 0 ] && [ "$BOOT_PROGRESS" != 1 ]; then
   echo 'XNU_BOOT_PROGRESS must be 0 or 1' >&2
@@ -317,7 +482,7 @@ if [ "${XNU_PONG_WIFI:-0}" = 1 ]; then
   python3 "$PONG_NATIVE_DRIVER_SOURCE/scripts/build-pong-wifi-native.py" --tree "$ROOT" \
     --ath11k "$WIFI_BUILD/libPongAth11k.a"
 fi
-if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${THOR_REQUIRE_NATIVE_UFS_LEASE:-0}" = 1 ]; then
+if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${XNU_NATIVE_UFS:-0}" = 1 ]; then # THOR: NativeUfs needs SMMU lease
   python3 "$PONG_NATIVE_DRIVER_SOURCE/scripts/build-pong-power-native.py" --tree "$ROOT"
 fi
 if [ ! -f "$KERNEL_SDKROOT/usr/local/lib/kernel/libfirehose_kernel.a" ]; then
@@ -1050,7 +1215,7 @@ PY_RAM_BLOCK_BINDINGS
     PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$ROOT/build/pong-adreno/libPongAdrenoPlatform.a"
     PLATFORM_DEPENDENCIES="$PLATFORM_DEPENDENCIES $ROOT/build/pong-adreno/libPongAdrenoPlatform.a"
   fi
-  if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${THOR_REQUIRE_NATIVE_UFS_LEASE:-0}" = 1 ]; then
+  if [ "${XNU_PONG_WIFI:-0}" = 1 ] || [ "${XNU_PONG_BACKLIGHT:-0}" = 1 ] || [ "${XNU_NATIVE_UFS:-0}" = 1 ]; then # THOR: NativeUfs needs SMMU lease
     POWER_ARCHIVE=$ROOT/build/pong-power/libPongPower.a
     test -f "$POWER_ARCHIVE"
     PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$POWER_ARCHIVE"
@@ -1061,21 +1226,6 @@ PY_RAM_BLOCK_BINDINGS
     test -f "$WIFI_ARCHIVE"
     PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$WIFI_ARCHIVE"
     PLATFORM_DEPENDENCIES="$PLATFORM_DEPENDENCIES $WIFI_ARCHIVE"
-  fi
-  if [ "${THOR_REQUIRE_NATIVE_UFS_LEASE:-0}" != 1 ]; then
-    # Weak stubs for the shared Apps SMMU lease API. PongUfsTransport declares
-    # pong_smmu_lease_lock/unlock as weak_import and NULL-checks before calling,
-    # but the kernel static linker still needs a definition. When the power/USB/
-    # WLAN aggregate is linked its strong definitions override these; without it
-    # (CI config drops Wi-Fi/backlight) the stubs keep the link happy.
-    cat > "$ROOT/build/smmu_lease_stubs.c" <<'STUB_EOF'
-__attribute__((weak)) _Bool pong_smmu_lease_lock(void) { return 1; }
-__attribute__((weak)) void pong_smmu_lease_unlock(void) {}
-STUB_EOF
-    clang -c -target arm64-apple-ios18.0 -o "$ROOT/build/smmu_lease_stubs.o" "$ROOT/build/smmu_lease_stubs.c"
-    ar rcs "$ROOT/build/smmu_lease_stubs.a" "$ROOT/build/smmu_lease_stubs.o"
-    echo "smmu_lease stubs: built $ROOT/build/smmu_lease_stubs.a"
-    PLATFORM_ARCHIVES="$PLATFORM_ARCHIVES -Wl,-force_load,$ROOT/build/smmu_lease_stubs.a"
   fi
   EXTRA_MAKE_ARGS+=("LD_KERNEL_ARCHIVES=$PLATFORM_ARCHIVES")
   EXTRA_MAKE_ARGS+=("XNU_EXTERNAL_KERNEL_ARCHIVES=$PLATFORM_DEPENDENCIES")

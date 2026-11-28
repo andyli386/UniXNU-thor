@@ -18,6 +18,45 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
 import pong_paths
 
+def adapt_dispatcher_timers(source):
+    """Do not retain intrusive-list successors across reentrant callbacks."""
+    old = """  u64 now = lx_now_ms();
+  struct list_head *p, *n;
+  for (p = g_timers.next; p != &g_timers; p = n) {
+    n = p->next; struct delayed_work *d = container_of(p, struct delayed_work, work.entry);
+    if (d->armed && now >= d->due && !is_running(&d->work)) {
+      d->armed = 0; list_del_init(p); ran = 1; where(2, (const void *)d->work.func);
+      g_running[g_nrunning++] = &d->work; d->work.func(&d->work); g_nrunning--; }
+  }
+"""
+    new = """  u64 now = lx_now_ms();
+  /* A callback may wait/pump recursively and remove any later timer. Never
+   * keep next across that callback: list_del_init makes removed nodes self
+   * linked. Restart selection after each callback and bound zero-delay work. */
+  for (unsigned timer_budget = 256; timer_budget; --timer_budget) {
+    struct delayed_work *d = 0; struct list_head *p;
+    for (p = g_timers.next; p != &g_timers; p = p->next) {
+      struct delayed_work *candidate = container_of(p, struct delayed_work, work.entry);
+      if (candidate->armed && now >= candidate->due && !is_running(&candidate->work)) { d = candidate; break; }
+    }
+    if (!d) break;
+    d->armed = 0; list_del_init(&d->work.entry); ran = 1; where(2, (const void *)d->work.func);
+    g_running[g_nrunning++] = &d->work; d->work.func(&d->work); g_nrunning--;
+  }
+"""
+    if source.count(old) != 1:
+        raise RuntimeError('shared dispatcher timer ABI differs')
+    source = source.replace(old, new)
+    # POWER-06: every pump marked every interrupt pending once a millisecond, so the MHI handler read the QCA6490's registers
+    # over PCIe all the time and the device never left M0 (wifi-mhi-1: M0 1, M2 0 over 7 min). pong_wifi_irq_due
+    # (PongWifiPlatform.cpp) raises them when an MSI arrived or zizhan_wifi_raise_ms has passed (default 1 = as before).
+    raise_old = '  { static u64 last_raise; u64 t = lx_now_ms(); if (t != last_raise) { last_raise = t; lx_irq_raise_all(); } }'
+    raise_new = ('  { extern int pong_wifi_irq_due(u64 now); static u64 last_raise; u64 t = lx_now_ms();'
+                 ' if (t != last_raise && pong_wifi_irq_due(t)) { last_raise = t; lx_irq_raise_all(); } }')
+    if source.count(raise_old) != 1:
+        raise RuntimeError('shared dispatcher interrupt ABI differs')
+    return source.replace(raise_old, raise_new)
+
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
@@ -63,13 +102,67 @@ def main():
         const char *prefix = (ab->qmi.target.chip_id & 0x10) ? "bdwlang" : "bdwlan";
         if (id == 0xff) snprintf(pong_bdf, sizeof pong_bdf, "%s.elf", prefix);
         else if (id < 0xff) snprintf(pong_bdf, sizeof pong_bdf, "%s.e%02x", prefix, id);
-        else snprintf(pong_bdf, sizeof pong_bdf, "bdwlan%02x.e%02x", (id >> 8) & 255, id & 255);
+        else snprintf(pong_bdf, sizeof pong_bdf, "%s%02x.e%02x", prefix, (id >> 8) & 255, id & 255);
         name = pong_bdf;
         ath11k_info(ab, "Pong: actual QMI board firmware %s\n", name);
     }
 """ + needle
     if core.count(needle) != 1: raise RuntimeError('ath11k BDF request ABI differs')
     (gen / 'core.c').unlink(); (gen / 'core.c').write_text(core.replace(needle, replacement))
+    # WMI's wait condition sends and transfers ownership of an skb on
+    # success. The shared shim's generic wait evaluates that condition
+    # again on exit, sending the same skb twice and replacing success with
+    # -EAGAIN when the single HTC credit has already been consumed (g274).
+    # Use its side-effect-safe wait for both WMI credit/descriptor paths.
+    wmi = (source / 'wmi.c').read_text()
+    if wmi.count('wait_event_timeout(') != 2:
+        raise RuntimeError('ath11k WMI command wait ABI differs')
+    (gen / 'wmi.c').unlink()
+    wmi = wmi.replace('wait_event_timeout(', 'wait_event_timeout_once(')
+    trace = '\ttrace_ath11k_wmi_cmd(ab, cmd_id, skb->data, skb->len);'
+    if wmi.count(trace) != 1:
+        raise RuntimeError('ath11k WMI submission trace ABI differs')
+    wmi = 'extern void pong_ath11k_wmi_submitted(unsigned int);\n' + wmi.replace(
+        trace, trace + '\n\tpong_ath11k_wmi_submitted(cmd_id);')
+    (gen / 'wmi.c').write_text(wmi)
+    # The cooperative shim cannot safely reenter full Linux firmware reset
+    # work inside the failing MHI callback. Preserve the first fault and let
+    # the board stop this optional worker with DMA storage retained.
+    mhi_driver = (source / 'mhi.c').read_text()
+    status = '\tstruct ath11k_pci *ab_pci = ath11k_pci_priv(ab);\n\n\tath11k_dbg(ab, ATH11K_DBG_BOOT, "notify status reason %s\\n",'
+    if mhi_driver.count(status) != 1:
+        raise RuntimeError('ath11k MHI status callback ABI differs')
+    mhi_driver = 'struct mhi_controller;\nextern void pong_ath11k_mhi_failed(struct mhi_controller *, int);\n' + mhi_driver.replace(
+        status, '\tstruct ath11k_pci *ab_pci = ath11k_pci_priv(ab);\n\n'
+        '\tif (cb == MHI_CB_SYS_ERROR || cb == MHI_CB_FATAL_ERROR || cb == MHI_CB_EE_RDDM) {\n'
+        '\t\tpong_ath11k_mhi_failed(mhi_cntrl, cb);\n\t\treturn;\n\t}\n\n'
+        '\tath11k_dbg(ab, ATH11K_DBG_BOOT, "notify status reason %s\\n",')
+    (gen / 'mhi.c').unlink()
+    (gen / 'mhi.c').write_text(mhi_driver)
+    # The shared station uses mac80211's split link/vif notifications.
+    # ath11k still implements the unified bss_info_changed callback.
+    # Route both notifications to that real implementation; a NULL split
+    # callback caused g277's instruction-fetch panic on the first join.
+    ath_mac = (source / 'mac.c').read_text()
+    ops = 'static const struct ieee80211_ops ath11k_ops = {'
+    bridge = '''static void pong_ath11k_vif_cfg_changed(struct ieee80211_hw *hw,
+        struct ieee80211_vif *vif, u64 changed)
+{
+    ath11k_mac_op_bss_info_changed(hw, vif, &vif->bss_conf, changed);
+}
+
+'''
+    if ath_mac.count(ops) != 1:
+        raise RuntimeError('ath11k mac80211 operations ABI differs')
+    ath_mac = ath_mac.replace(ops, bridge + ops)
+    ath_mac, changes = re.subn(
+        r'(\t\.bss_info_changed\s*= ath11k_mac_op_bss_info_changed,)',
+        r'\1\n\t.link_info_changed = ath11k_mac_op_bss_info_changed,\n'
+        r'\t.vif_cfg_changed = pong_ath11k_vif_cfg_changed,', ath_mac)
+    if changes != 1:
+        raise RuntimeError('ath11k BSS callback ABI differs')
+    (gen / 'mac.c').unlink()
+    (gen / 'mac.c').write_text(ath_mac)
     mac = (shared / 'src/nw_mac80211.c').read_text()
     mac += r"""
 /* Linux ath11k still uses these mac80211 APIs; the shared station has one
@@ -128,10 +221,135 @@ void ieee80211_queue_work(struct ieee80211_hw *hw, struct work_struct *work) { i
     begin = sta.index('static void make_nonce(u8 *out) {')
     end = sta.index('static void derive_ptk(void)', begin)
     sta = sta[:begin] + 'extern void PongWifiRandom(void *, size_t);\nstatic void make_nonce(u8 *out) { PongWifiRandom(out, 32); }\n' + sta[end:]
+    # Darwin must see a real link-down for an explicit leave and for a
+    # replacement join, including when down/up occurs within one daemon tick.
+    join = 'static void start_connect(void) {\n  if (C.state != NW_STA_IDLE && C.state != NW_STA_SCANNING) return;'
+    leave = 'else if (kind == REQ_DISCONNECT && C.state >= NW_STA_AUTH) { teardown(0, 0); C.state = NW_STA_IDLE; }'
+    if sta.count(join) != 1 or sta.count(leave) != 1:
+        raise RuntimeError('shared station transition ABI differs')
+    sta = sta.replace(join, '''static void start_connect(void) {
+  if (C.state == NW_STA_UP && C.ssid_len == g_req.ssid_len &&
+      !memcmp(C.ssid, g_req.ssid, C.ssid_len) &&
+      (!g_req.has_bssid || !memcmp(C.ap.bssid, g_req.bssid, 6))) return;
+  if (C.state >= NW_STA_AUTH) {
+    lx_cancel_delayed(&g_timer);
+    teardown(C.state == NW_STA_UP, -1);
+    C.state = NW_STA_IDLE;
+  }
+  if (C.state != NW_STA_IDLE && C.state != NW_STA_SCANNING) return;''')
+    sta = sta.replace(leave, '''else if (kind == REQ_DISCONNECT && C.state >= NW_STA_AUTH) {
+      lx_cancel_delayed(&g_timer); teardown(C.state == NW_STA_UP, -1); C.state = NW_STA_IDLE;
+    }''')
+    # ath11k caches the management rate after association, then reapplies it
+    # when the next vdev starts (mac.c: ath11k_start_vdev). Rejoining from
+    # 2.4 to 5 GHz must not carry a CCK rate into that start/authentication.
+    # Use the same AP basic-rate selection as the shared station's later
+    # association notification, but publish it before assign_vif_chanctx.
+    rates_begin = '    const u8 *e = find_ie(C.ap.ie, C.ap.ie_len, WLAN_EID_SUPP_RATES);'
+    rates_end = '    g_vif->bss_conf.assoc_capability = C.ap.caps;'
+    assign = '  r = g_ops->assign_vif_chanctx(g_hw, g_vif, &g_vif->bss_conf, C.ctx);'
+    if sta.count(rates_begin) != 1 or sta.count(rates_end) != 1 or sta.count(assign) != 1:
+        raise RuntimeError('shared station basic-rate/channel-start ABI differs')
+    rate_selection = sta[sta.index(rates_begin):sta.index(rates_end)]
+    sta = sta.replace(assign, rate_selection +
+        '  lx_log(6, "zizhan station: pre-start band=%u basic_rates=0x%x", band, g_vif->bss_conf.basic_rates);\n'
+        '  g_ops->link_info_changed(g_hw, g_vif, &g_vif->bss_conf, BSS_CHANGED_BASIC_RATES);\n' + assign)
+    # POWER-06: the shared station never asks for 802.11 power save, so the QCA6490 stays awake (CAM) for as long as it is associated.
+    # ath11k sets it up on BSS_CHANGED_PS (mac.c ath11k_mac_vif_setup_ps: WMI_STA_PS_MODE_ENABLED, inactivity = dynamic_ps_timeout
+    # or one beacon interval); boot-arg zizhan_wifi_ps=1 keeps it on, =2 follows the display (on while it is off); PongWifiPlatform.cpp pong_wifi_ps / nw_wifi_set_ps.
+    up = '  C.state = NW_STA_UP; C.bmiss_at = 0;'
+    if sta.count(up) != 1:
+        raise RuntimeError('shared station link-up ABI differs')
+    at = sta.index('\n', sta.index(up)) + 1   # after the whole link-up line: nw_wifi_set_ps needs NW_STA_UP
+    sta = ('static int g_ps_on = -1;\nint nw_wifi_set_ps(int on);\n' + sta[:at] +
+           '  { extern int pong_wifi_ps(void); g_ps_on = -1; nw_wifi_set_ps(pong_wifi_ps()); }\n' + sta[at:] + '''
+/* zizhan POWER-06: 802.11 station power save, from the Wi-Fi worker thread only (the station is single-threaded there).
+ * Sent when the link is up and the wanted state differs; a new association starts from "unknown" again. */
+int nw_wifi_set_ps(int on)
+{
+  on = on ? 1 : 0;
+  if (C.state != NW_STA_UP || !g_vif || g_ps_on == on) return 0;
+  g_ps_on = on; g_vif->cfg.ps = on; g_ops->vif_cfg_changed(g_hw, g_vif, BSS_CHANGED_PS);
+  lx_log(6, "zizhan station: 802.11 power save %s", on ? "on" : "off");
+  return 1;
+}
+''')
+    # v245 (Thor): the association request carries what every client of a current access point sends, and a
+    # refusal shows both frames and the access point's own elements.  2026-11-27: an open network answered
+    # status 48 to a request without Power Capability, Supported Channels, Extended Capabilities or WMM.
+    caps = '  u16 caps = WLAN_CAPABILITY_ESS | (C.secure ? WLAN_CAPABILITY_PRIVACY : 0) | WLAN_CAPABILITY_SHORT_SLOT_TIME;'
+    tail = '  if (g_vht_ie_len) skb_put_data(skb, g_vht_ie, g_vht_ie_len);\n  tx_frame(skb); }\n'
+    refused = '    if (status) { lx_log(4, "wifi: association refused: %u", status); connect_done(NW_RES_REJECTED); return; }'
+    helper = 'static void send_assoc(void) {\n'
+    if [sta.count(x) for x in (caps, tail, refused, helper)] != [1, 1, 1, 1]:
+        raise RuntimeError('shared station association ABI differs')
+    sta = sta.replace(helper, r'''/* v245 (Thor): the last association request, and bytes as hexadecimal lines of 48 bytes each. */
+static u8 g_assoc_sent[320]; static unsigned g_assoc_sent_len; static u16 g_assoc_caps;
+static int g_legacy, g_retry, g_retry_band;   /* g_retry_band 5: only the 5 GHz BSSes of the network (the retry after a refusal on 2.4 GHz) */
+static void start_connect(void);
+/* v246: does the network also have a BSS on 5 GHz? */
+static int has_5ghz_bss(const u8 *ssid, u8 len) { int found = 0; lock();
+  for (int i = 0; i < g_nbss; i++) if (g_bss[i].freq >= 4900 && g_bss[i].ssid_len == len && !memcmp(g_bss[i].ssid, ssid, len)) { found = 1; break; }
+  unlock(); return found; }
+static void start_connect(void);
+static void log_hex(const char *what, const u8 *p, unsigned n) {
+  char line[200];
+  for (unsigned at = 0; at < n; at += 48) {
+    unsigned take = n - at < 48 ? n - at : 48, k = (unsigned)snprintf(line, sizeof line, "wifi: %s [%u..%u of %u]:", what, at, at + take - 1, n);
+    for (unsigned i = 0; i < take && k + 2 < sizeof line; i++) k += (unsigned)snprintf(line + k, sizeof line - k, "%02x", p[at + i]);
+    lx_log(4, "%s", line); } }
+''' + helper)
+    sta = sta.replace(caps, '''  /* v245 (Thor): short slot time only where the access point runs it (always in 5 GHz), and short preamble likewise. */
+  u16 caps = WLAN_CAPABILITY_ESS | (C.secure ? WLAN_CAPABILITY_PRIVACY : 0) |
+      (C.ap.freq >= 4900 ? WLAN_CAPABILITY_SHORT_SLOT_TIME : (C.ap.caps & (WLAN_CAPABILITY_SHORT_SLOT_TIME | WLAN_CAPABILITY_SHORT_PREAMBLE)));
+  g_assoc_caps = caps;''')
+    sta = sta.replace(tail, r'''  if (g_vht_ie_len) skb_put_data(skb, g_vht_ie, g_vht_ie_len);
+  /* v245 (Thor): Power Capability (0 to 20 dBm), Supported Channels (1 to 11), Extended Capabilities and the WMM
+   * information element: an HT station is a QoS station, and spectrum management elements are valid in any request. */
+  if (!g_legacy) {   /* v246: the plain request of the retry carries none of these */
+    static const u8 power[] = { WLAN_EID_PWR_CAPABILITY, 2, 0, 20 };
+    static const u8 channels[] = { WLAN_EID_SUPPORTED_CHANNELS, 2, 1, 11 };
+    static const u8 extended[] = { WLAN_EID_EXT_CAPABILITY, 8, 0, 0, 0, 0, 0, 0, 0, 0 };
+    static const u8 wmm[] = { WLAN_EID_VENDOR_SPECIFIC, 7, 0x00, 0x50, 0xf2, 0x02, 0x01, 0x01, 0x00, 0x00 };
+    skb_put_data(skb, power, sizeof power); skb_put_data(skb, channels, sizeof channels);
+    skb_put_data(skb, extended, sizeof extended); skb_put_data(skb, wmm, sizeof wmm); }
+  g_assoc_sent_len = skb->len < sizeof g_assoc_sent ? skb->len : sizeof g_assoc_sent;
+  memcpy(g_assoc_sent, skb->data, g_assoc_sent_len);
+  tx_frame(skb); }
+''')
+    sta = sta.replace(refused, r'''    if (status) {
+      lx_log(4, "wifi: association refused: %u (the request was %u bytes with caps %04x, HT %s, VHT %s; the access point's beacon says %04x and %u bytes of elements)",
+             status, g_assoc_sent_len, g_assoc_caps, g_ht_on ? "yes" : "no", g_vht_on ? "yes" : "no", C.ap.caps, C.ap.ie_len);
+      if (g_legacy) { lx_log(4, "wifi: the plain request (no HT) was refused too"); log_hex("plain association response", skb->data, skb->len < 64 ? skb->len : 64); connect_done(NW_RES_REJECTED); return; }
+      log_hex("association response", skb->data, skb->len < 160 ? skb->len : 160);
+      log_hex("association request", g_assoc_sent, g_assoc_sent_len);
+      log_hex("access point elements", C.ap.ie, C.ap.ie_len);
+      if (!g_retry_band && C.ap.freq < 4900 && has_5ghz_bss(C.ssid, C.ssid_len)) {   /* v246: an access point that offers the network on 5 GHz too may turn two-band clients away from 2.4 GHz */
+        lx_log(4, "wifi: joining once more on a 5 GHz BSS of the same network");
+        g_retry = 1; g_retry_band = 5; teardown(0, 0); C.state = NW_STA_IDLE; C.result = 0; start_connect(); return; }
+      if (g_ht_on) {   /* v246: once more as a plain 802.11g station: no HT, no WMM, no extended capabilities */
+        lx_log(4, "wifi: joining once more as a plain 802.11g station");
+        g_legacy = g_retry = 1; teardown(0, 0); C.state = NW_STA_IDLE; C.result = 0; start_connect(); return; }
+      connect_done(NW_RES_REJECTED); return; }''')
+    # v246: the plain request of the retry.  A new request begins with the full capability set again.
+    helper = 'static void start_connect(void) {\n  if (C.state == NW_STA_UP && C.ssid_len == g_req.ssid_len &&'
+    caps_call = '  build_cap_ies(band);\n'
+    ok = '    C.aid = aid; g_vif->cfg.aid = aid; g_vif->cfg.assoc = true; C.sta->aid = aid;'
+    if [sta.count(x) for x in (helper, caps_call, ok)] != [1, 1, 1]:
+        raise RuntimeError('shared station retry ABI differs')
+    sta = sta.replace(helper, 'static void start_connect(void) {\n  if (!g_retry) { g_legacy = 0; g_retry_band = 0; } g_retry = 0;\n  if (C.state == NW_STA_UP && C.ssid_len == g_req.ssid_len &&')
+    sta = sta.replace(caps_call, '  if (g_legacy) { g_ht_ie_len = g_vht_ie_len = 0; g_ht_on = g_vht_on = false; } else build_cap_ies(band);\n')
+    sta = sta.replace(ok, '    if (g_legacy) lx_log(4, "wifi: the access point accepted the plain request (no HT)");\n' + ok)
+    # v246: the retry on 5 GHz takes the strongest BSS of the network on that band.
+    pick = 'if (g_req.has_bssid && memcmp(b->bssid, g_req.bssid, 6)) continue; if (!best || b->signal > best->signal) best = b; }'
+    if sta.count(pick) != 1:
+        raise RuntimeError('shared station BSS choice ABI differs')
+    sta = sta.replace(pick, 'if (g_req.has_bssid && memcmp(b->bssid, g_req.bssid, 6)) continue; if (g_retry_band == 5 && b->freq < 4900) continue; if (!best || b->signal > best->signal) best = b; }')
     (out / 'nw_sta_pong.c').write_text(sta)
+    (out / 'lx_rt_pong.c').write_text(adapt_dispatcher_timers((shared / 'shim/src/lx_rt.c').read_text()))
     common_sources = ['src/nw_crypto.c', 'src/nw_mac80211.c', 'src/nw_net.c', 'src/nw_pci.c',
         'src/nw_qrtr.c', 'src/nw_qrtr_mhi.c', 'src/nw_sta.c', 'shim/src/lx_rt.c', 'shim/src/mhi_hook.c']
-    jobs += [((out / 'nw_sta_pong.c') if n == 'src/nw_sta.c' else (out / 'nw_mac80211_pong.c') if n == 'src/nw_mac80211.c' else shared / n, out / ('shared_' + Path(n).stem + '.o'), []) for n in common_sources]
+    jobs += [((out / 'nw_sta_pong.c') if n == 'src/nw_sta.c' else (out / 'nw_mac80211_pong.c') if n == 'src/nw_mac80211.c' else (out / 'lx_rt_pong.c') if n == 'shim/src/lx_rt.c' else shared / n, out / ('shared_' + Path(n).stem + '.o'), []) for n in common_sources]
     jobs += [(linux / ('drivers/soc/qcom/' + n + '.c'), out / (n + '.o'), []) for n in ('qmi_interface', 'qmi_encdec')]
     jobs += [(ROOT / 'drivers/PongWifi/ath11k/PongAth11k.c', out / 'PongAth11k.o', [])]
     commands = []
@@ -150,7 +368,7 @@ void ieee80211_queue_work(struct ieee80211_hw *hw, struct work_struct *work) { i
     nm = pong_paths.tool('llvm-nm', 'PONG_LLVM_NM', ('/opt/local/bin/llvm-nm-mp-18',))
     undefined = subprocess.check_output([nm, '-u', '-j', str(linked)], text=True).splitlines()
     (out / 'undefined-symbols.txt').write_text('\n'.join(undefined) + '\n')
-    allowed = {'_PongWifiRandom','_bzero','_memcmp','_memcpy','_memmove','_memset','_snprintf','_strchr','_strcmp','_strlen','_strncmp','_strncpy','_strtoul','_vsnprintf'}
+    allowed = {'_PongWifiRandom','_pong_wifi_ps','_pong_wifi_irq_due','_pong_wifi_station_mac','_bzero','_memcmp','_memcpy','_memmove','_memset','_snprintf','_strchr','_strcmp','_strlen','_strncmp','_strncpy','_strtoul','_vsnprintf'}
     if set(undefined) - allowed: raise RuntimeError('unimplemented ath11k imports: ' + repr(set(undefined) - allowed))
     # Export only the documented board/station boundary. Linux shims have the
     # same C names as XNU helpers, so namespace every other defined symbol.

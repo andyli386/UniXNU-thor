@@ -132,11 +132,9 @@ def validate_root(adt, root_uuid, manifest):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('template', 'kernel', 'volume-layout', 'memory-config', 'output'):
+    for name in ('template', 'kernel', 'volume-layout', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--firmware', type=Path)
-    parser.add_argument('--touch-config', type=Path, help='local Thor FTS hardware metadata JSON')
-    parser.add_argument('--retained-adt', type=Path, help='locally prepared v156 ADT to retain in the final image')
     parser.add_argument('--boot-arg', action='append', default=[])
     parser.add_argument('--omit-boot-arg', action='append', default=[], metavar='KEY')
     parser.add_argument('--menu-title')
@@ -177,11 +175,8 @@ def main():
         adt_path = stage / 'kernel.macho.adt'
         generator = Path(__file__).with_name('make-thor-adt-ipados18.py')
         adt_args = [sys.executable, generator, '--cpus', '8', '--dram-size', '0x300000000',
-                    '--ufs', '--volume-layout', args.volume_layout, '--memory-config', args.memory_config,
-                    '--development-debug', '--boot-manifest', manifest_path,
-                    '--skip-image-verification', '--output', adt_path]
-        if args.touch_config:
-            adt_args += ['--touch-config', args.touch_config]
+                    '--ufs', '--volume-layout', args.volume_layout, '--development-debug',
+                    '--boot-manifest', manifest_path, '--skip-image-verification', '--output', adt_path]
         if args.software_platform_identity:
             values = [word.partition('=')[2] for word in command.split()
                       if word.startswith('pong_platform_uuid=')]
@@ -205,24 +200,6 @@ def main():
                     or nodes['/chosen']['chip-id'] != struct.pack('<I', software_chip_id)
                     or nodes['/product']['udid-version'] != struct.pack('<I', 2)):
                 raise ValueError('Thor software identity did not survive FAT packaging')
-        if args.retained_adt:
-            if 'cpus=8' not in command.split():
-                raise ValueError('Retained v156 ADT requires cpus=8')
-            retained = args.retained_adt.read_bytes()
-            nodes = parse_adt(retained)
-            chosen = nodes['/chosen']
-            if chosen.get('root-matching') != parse_adt(packaged_adt)['/chosen'].get('root-matching'):
-                raise ValueError('Retained ADT belongs to a different APFS root')
-            if (chosen.get('thor-native-scanout') != bytes(16)
-                    or len(chosen.get('thor-cellular-profile', b'')) != 112
-                    or any(nodes.get(f'/cpus/cpu{cpu}', {}).get('cluster-type')
-                           != struct.pack('<I', ord('E' if cpu < 4 else 'P'))
-                           for cpu in range(8))):
-                raise ValueError('Retained ADT lacks the v156 scanout, AMP or cellular profile')
-            adt_path.write_bytes(retained)
-            subprocess.run(['mcopy', '-i', fat, '-o', adt_path, ADT], check=True)
-            if read_member(fat, ADT) != retained:
-                raise ValueError('Retained ADT did not survive FAT packaging')
         candidate = stage / 'candidate.img'
         with candidate.open('wb') as file, fat.open('rb') as payload:
             file.write(header)
@@ -231,7 +208,7 @@ def main():
             shutil.copyfileobj(payload, file)
             file.write(tail)
         os.link(candidate, output)
-        print(f'{output} | {len(command)} boot argument bytes')
+        print(f'{output} | APFS root {root_uuid} | {len(command)} boot argument bytes')
 
 
 if __name__ == '__main__':

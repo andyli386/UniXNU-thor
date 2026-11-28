@@ -24,7 +24,13 @@ def main():
     p.add_argument('--config-path',type=Path,help='resolved format2 configuration')
     p.add_argument('--hardware-dtb',type=Path,help='compiled format2 SM8475/Pong hardware description')
     p.add_argument('--skip-image-verification',action='store_true',default=True)
+    p.add_argument('--thor-ui-runtime', type=Path,
+                   help='embed the matching signed Thor UI adapter for opt-in staging on APFS Data')
+    p.add_argument('--thor-ui-runtime-tag',
+                   help='use a tagged adapter path when staging the runtime on APFS Data')
     a=p.parse_args();tree=a.tree.resolve()
+    if a.thor_ui_runtime_tag and not a.thor_ui_runtime:
+        p.error('--thor-ui-runtime-tag requires --thor-ui-runtime')
     tree.mkdir(parents=True,exist_ok=True)
     refs=[r for r in tomllib.loads((DEVICE/'feeds.toml').read_text())['source'] if r['kind']=='refer']
     for ref in refs:
@@ -87,13 +93,16 @@ def main():
     result=tree.parent/'PONG_BUILD_RESULT.json';result.write_text(json.dumps(report,indent=2)+'\n')
     if a.prepare_only:print(tree);return
     stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ');log=tree.parent/f'build-{stamp}.log'
+    env.pop('THOR_UI_RUNTIME', None)
+    env.pop('THOR_UI_RUNTIME_TAG', None)
+    if a.thor_ui_runtime:
+        env['THOR_UI_RUNTIME'] = str(a.thor_ui_runtime.resolve(strict=True))
+        if a.thor_ui_runtime_tag:
+            env['THOR_UI_RUNTIME_TAG'] = a.thor_ui_runtime_tag
     print('Building Darwin 24; log:',log,flush=True)
     with log.open('w') as f:r=subprocess.run(['bash','scripts/build-xnu-ipados18.sh'],cwd=tree,env=env,stdout=f,stderr=subprocess.STDOUT)
     report.update(returncode=r.returncode,log=str(log));result.write_text(json.dumps(report,indent=2)+'\n')
-    if r.returncode:
-        tail=''.join(log.read_text(errors='replace').splitlines(True)[-120:])
-        print(tail,flush=True,file=sys.stderr)
-        raise SystemExit(f'Build failed; log retained: {log}')
+    if r.returncode:raise SystemExit(f'Build failed; log retained: {log}')
     kernel=tree/'build/xnu/ios-obj/DEVELOPMENT_ARM64_PONG/mach.development.pong'
     a.artifact_dir.mkdir(parents=True,exist_ok=True);shutil.copyfile(kernel,a.artifact_dir/kernel.name)
     report.update(build_complete=True,kernel=dict(path=str(a.artifact_dir/kernel.name),bytes=kernel.stat().st_size))

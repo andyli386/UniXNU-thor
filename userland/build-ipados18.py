@@ -27,6 +27,10 @@ import sys
 
 VERIFY_IMAGES = False
 BUILD_PLAN_FORMAT = 'pong-userland-22H374-v1'
+LSD_JETSAM_PLISTS = tuple(f'com.apple.jetsamproperties.{board}.plist' for board in ('J171', 'J172'))
+LSD_JETSAM_LABELS = ('com.apple.lsd', 'com.apple.lsd.system')
+LSD_ACTIVE_LIMIT_KEY = 'ActiveSoftMemoryLimit'
+LSD_ACTIVE_LIMIT_MIB = 32
 
 PROJECT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT / 'tools/apfs'))
@@ -450,6 +454,40 @@ def adapt_job18(job):
     return changes
 
 
+def adapt_lsd_memory_limit(filename, policy):
+    """Raise only the known 22H374 LaunchServices active soft limit."""
+    if filename not in LSD_JETSAM_PLISTS:
+        return None
+    rules = policy['Version4']['Daemon']['Override']
+    prior = {label: rules[label][LSD_ACTIVE_LIMIT_KEY] for label in LSD_JETSAM_LABELS}
+    if any(type(value) is not int or value not in (16, LSD_ACTIVE_LIMIT_MIB)
+           for value in prior.values()):
+        raise RuntimeError(f'unexpected 22H374 lsd active soft limits in {filename}: {prior}')
+    for label in prior:
+        rules[label][LSD_ACTIVE_LIMIT_KEY] = LSD_ACTIVE_LIMIT_MIB
+    return dict(resource=filename, active_soft_limit_mib=LSD_ACTIVE_LIMIT_MIB,
+                prior_active_soft_limits_mib=prior,
+                changed=any(value != LSD_ACTIVE_LIMIT_MIB for value in prior.values()))
+
+
+def refresh_lsd_memory_limits(root):
+    """Apply the same policy to an existing 22H374 OS without replacing jobs."""
+    directory = root / 'System/Library/LaunchDaemons'
+    if directory.is_symlink() or not directory.is_dir():
+        raise RuntimeError('existing LaunchDaemons directory required for lsd limit refresh')
+    staged = []
+    for name in LSD_JETSAM_PLISTS:
+        target = directory / name
+        if target.is_symlink() or not target.is_file():
+            raise RuntimeError(f'existing 22H374 {name} required for lsd limit refresh')
+        value = plistlib.loads(target.read_bytes())
+        staged.append((target, value, adapt_lsd_memory_limit(name, value)))
+    for target, value, receipt in staged:
+        if receipt['changed']:
+            put_plist(target, value)
+    return [receipt for _, _, receipt in staged]
+
+
 def jobs(root, cryptex, overlay, out, app_cryptex=None):
     # Darwin 24 only permits system event publishers/host special ports from
     # its native service cache. File-only import makes even stock notifyd an
@@ -467,6 +505,7 @@ def jobs(root, cryptex, overlay, out, app_cryptex=None):
     dest.mkdir(parents=True, exist_ok=True)
     for old in dest.glob('*.plist'): old.unlink()
     records, resources, selected = [], [], set()
+    lsd_memory_limits = []
     for folder in ('LaunchDaemons', 'LaunchAngels'):
         for f in sorted((root / 'System/Library' / folder).glob('*.plist')):
             job = plistlib.loads(f.read_bytes().lstrip())
@@ -477,7 +516,13 @@ def jobs(root, cryptex, overlay, out, app_cryptex=None):
                     f.name.startswith('com.apple.jetsamproperties.') and
                     isinstance(job.get('Version4'), dict) and
                     not any(k in job for k in ('Label', 'Program', 'ProgramArguments'))):
-                shutil.copyfile(f, dest / f.name)
+                receipt = adapt_lsd_memory_limit(f.name, job)
+                if receipt is not None:
+                    lsd_memory_limits.append(receipt)
+                if receipt is not None and receipt['changed']:
+                    put_plist(dest / f.name, job)
+                else:
+                    shutil.copyfile(f, dest / f.name)
                 resources.append(f.relative_to(root).as_posix())
                 continue
             label = job.get('Label', f.stem)
@@ -545,6 +590,7 @@ def jobs(root, cryptex, overlay, out, app_cryptex=None):
     # signature is paired with this adapted, development-only cache.
     put_plist(overlay / 'System/Library/xpc/launchd.plist', cache)
     dump(out / 'jobs-report.json', {'jobs': records, 'resources': resources,
+         'lsd_memory_limits': lsd_memory_limits,
          'missing_core_labels': sorted(set(CORE) - selected),
          'service_cache': {'version': 7, 'jobs': len(cached_jobs), 'source_build': '22H374',
                            'path': '/System/Library/xpc/launchd.plist'}})
@@ -861,9 +907,9 @@ def compile_ui(out, developer):
     cmd = ['xcrun', '--sdk', 'iphoneos', 'clang', '-target', 'arm64-apple-ios18.0',
            '-isysroot', sdk, '-Os', '-fblocks', '-dynamiclib', '-Wall', '-Wextra', '-Werror',
            '-Wl,-no_fixup_chains', '-install_name', '/pong/libpong-ui18.dylib',
-           '-framework', 'CoreFoundation', '-framework', 'CoreGraphics', '-lobjc',
+           '-framework', 'CoreFoundation', '-framework', 'CoreGraphics',
+           '-framework', 'IOKit', '-lobjc',
            str(PROJECT / 'userland/ui_compat18.c'),
-           str(PROJECT / 'userland/thor_switcher_timing18.c'),
            str(PROJECT / 'userland/settings_compat18.c'),
            str(PROJECT / 'userland/boot_snapshot18.c'),
            str(PROJECT / 'userland/touch.c'),
@@ -1497,7 +1543,10 @@ def refresh_ui(a):
     image = os_copy(out)
     if image.is_symlink() or image.samefile(plan['os_source']): raise RuntimeError('prepared OS copy required')
     device = attach(image, out / 'system-mount')
+    lsd_memory_limits = []
     try:
+        if a.refresh_lsd_limits:
+            lsd_memory_limits = refresh_lsd_memory_limits(out / 'system-mount')
         target = out / 'system-mount/pong/libpong-ui18.dylib'
         if target.is_symlink() or not target.is_file(): raise RuntimeError('existing OS UI library required')
         shutil.copyfile(target, runtime / 'libpong-ui18.previous.dylib')
@@ -1532,6 +1581,7 @@ def refresh_ui(a):
          hal_factory_requires_physical_ready=False,
          hal_device_requires_physical_ready=True,
          init_updated=a.refresh_init, jobs_modified=False, artwork_modified=False,
+         lsd_memory_limits=lsd_memory_limits,
          image_verification='skipped by request'))
 
 
@@ -1749,6 +1799,8 @@ def main():
     s.add_argument('--runtime', type=Path, required=True)
     s.add_argument('--refresh-init', action='store_true',
                    help='Also stage the matching static init and native audio-provider policy')
+    s.add_argument('--refresh-lsd-limits', action='store_true',
+                   help='Also stage the 22H374 J171/J172 LaunchServices active soft memory limit')
     s.add_argument('--enable-audio-hal', action='store_true', help='Install the physical-readiness-gated Pong output HAL')
     s = sub.add_parser('refresh_metal'); s.add_argument('--out', type=Path, required=True)
     s.add_argument('--runtime', type=Path, required=True)
