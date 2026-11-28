@@ -480,6 +480,15 @@
       "checkpoints/thor-v247/tools/apfs_macho_uuids.py",
       "checkpoints/thor-v247/tools/apfs_noverify.py",
       "checkpoints/thor-v247/tools/apple-binaries.README.md",
+      "checkpoints/thor-v247/tools/apple-research/callers.py",
+      "checkpoints/thor-v247/tools/apple-research/fn.py",
+      "checkpoints/thor-v247/tools/apple-research/imports.py",
+      "checkpoints/thor-v247/tools/apple-research/iocalls.py",
+      "checkpoints/thor-v247/tools/apple-research/kexts.py",
+      "checkpoints/thor-v247/tools/apple-research/lit.py",
+      "checkpoints/thor-v247/tools/apple-research/stubcallers.py",
+      "checkpoints/thor-v247/tools/apple-research/wf.py",
+      "checkpoints/thor-v247/tools/apple-research/xrim.py",
       "checkpoints/thor-v247/tools/calls.py",
       "checkpoints/thor-v247/tools/dscmap.py",
       "checkpoints/thor-v247/tools/gpt-mark-ok.py",
@@ -2010,6 +2019,42 @@
     "checkpoints/thor-v247/tools/apple-binaries.README.md": {
       "sha256": "a9c5ccc364d004dbb9405f4ed4a4849d72982baebbaebc02b6e72bed5d91bc36",
       "bytes": 3020
+    },
+    "checkpoints/thor-v247/tools/apple-research/callers.py": {
+      "sha256": "8c8617c0a23aa9d6b8da896016cc307db2c812001b093a6ee49102dbec214683",
+      "bytes": 714
+    },
+    "checkpoints/thor-v247/tools/apple-research/fn.py": {
+      "sha256": "f3b741f0fed52b5ff3062fe42eef65949c9ef0d1cad6b07f50e91df642bc9062",
+      "bytes": 1301
+    },
+    "checkpoints/thor-v247/tools/apple-research/imports.py": {
+      "sha256": "e578b106196a93bd1641d18a4373ea1435a6c1724ccf611e795ae4ca8a97cbc2",
+      "bytes": 1049
+    },
+    "checkpoints/thor-v247/tools/apple-research/iocalls.py": {
+      "sha256": "3929dff767705dd15f494493e444247bda39116faf3287aa82413b2417a0a30d",
+      "bytes": 2823
+    },
+    "checkpoints/thor-v247/tools/apple-research/kexts.py": {
+      "sha256": "cfee9dd8d706c97df87e1a4f0e5854a053e440f725be0bdfe79750576df7f1b3",
+      "bytes": 5715
+    },
+    "checkpoints/thor-v247/tools/apple-research/lit.py": {
+      "sha256": "f68433faebad48cb0e2ac9e5ac69d14c68c6a853725cd67ff5755ec169cb2c60",
+      "bytes": 2448
+    },
+    "checkpoints/thor-v247/tools/apple-research/stubcallers.py": {
+      "sha256": "eed9259429f763e343da34e33e777d0acad76f9c4540390c84c73fe61e0f6991",
+      "bytes": 856
+    },
+    "checkpoints/thor-v247/tools/apple-research/wf.py": {
+      "sha256": "14abe46be4c44d739edda4db013a5a5c66e950cda1b1ab5339a2005131621eea",
+      "bytes": 14111
+    },
+    "checkpoints/thor-v247/tools/apple-research/xrim.py": {
+      "sha256": "8f3f15c53b16c65ab117ca5b4a82fb4bc4579885fe1b67a72f6bc49abb58da10",
+      "bytes": 1508
     },
     "checkpoints/thor-v247/tools/calls.py": {
       "sha256": "be66ab19841aee908da2a2872e37eb89e2be62900f0b2a40efbd7ac8e5b0eeb5",

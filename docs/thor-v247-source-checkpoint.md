@@ -21,7 +21,7 @@ names the device, the machine or the office network stay local.
 | Intake | `checkpoints/thor-v247/recipe/intake-v237` … `v247` | The install, collect and waiter scripts of each version and its source patches (`apply.py`, `apply2.py`, `guards.py`, `mkpackage*.py`) |
 | Records | `checkpoints/thor-v247/records/` | The analyses v237 to v247 with the research on cellular, the Wi-Fi daemon, calls and the camera, and the verification records of the eleven images |
 | Embedded library sources | `checkpoints/thor-v247/sources/` | Sources of embedded libraries that no recipe held: the console capture library every image since v232 embeds (`console-v205.c` of v232 and its staging script, with the earlier versions v171 to v205), the UI adapter of the signed UI runtime library (`ui_compat18-v158.c`, its build script, the bridge sources of v158) and the baseband service of the upstream SM8475 port |
-| Tools | `checkpoints/thor-v247/tools/` | The 19 evidence tools new or changed since v236: readers for Apple's binaries and the dyld cache, the OS volume reader, GPT comparison and marking, stackshot and kernelcache helpers |
+| Tools | `checkpoints/thor-v247/tools/` | The 28 evidence tools new or changed since v236: readers for Apple's binaries and the dyld cache, the OS volume reader, GPT comparison and marking, stackshot and kernelcache helpers |
 
 The console and UI sources were missing from every checkpoint before this one: they lived only in intake and
 experiment folders (`v232-intake/console/`, `v158-metal-staging/`) while the recipe embeds their signed builds.
@@ -132,4 +132,4 @@ The packaging scripts of the chain expect the recipe directories of v152 to v247
 - No added file contains a home directory path, the device serial, the name of the office network or key material.
 
 Nothing in this checkpoint was built into an image or run on the device for the checkpoint itself; it is a record
-of sources. 381 files are indexed in `checkpoints/thor-v247/manifest.json`.
+of sources. 390 files are indexed in `checkpoints/thor-v247/manifest.json`.
